@@ -68,14 +68,12 @@ RBOOL
 
 static
 RPVOID
-    lookForHiddenModules
+    lookForHiddenModulesIn
     (
         rEvent isTimeToStop,
-        RPVOID ctx
+        RU32 processId
     )
 {
-    processLibProcEntry* procs = NULL;
-    processLibProcEntry* proc = NULL;
     rList mods = NULL;
     rList map = NULL;
     rSequence region = NULL;
@@ -96,6 +94,146 @@ RPVOID
     PIMAGE_DOS_HEADER pDos = NULL;
     PIMAGE_NT_HEADERS pNt = NULL;
 #endif
+    if( NULL != ( mods = processLib_getProcessModules( processId ) ) )
+    {
+        if( NULL != ( map = processLib_getProcessMemoryMap( processId ) ) )
+        {
+            // Now we got all the info needed for a single process, compare
+            while( rpal_memory_isValid( isTimeToStop ) &&
+                !rEvent_wait( isTimeToStop, 0 ) &&
+                ( isPrefetched || rList_getSEQUENCE( map, RP_TAGS_MEMORY_REGION, &region ) ) )
+            {
+                if( isPrefetched )
+                {
+                    isPrefetched = FALSE;
+                }
+
+                if( rSequence_getRU8( region, RP_TAGS_MEMORY_TYPE, &memType ) &&
+                    rSequence_getRU8( region, RP_TAGS_MEMORY_ACCESS, &memProtect ) &&
+                    rSequence_getPOINTER64( region, RP_TAGS_BASE_ADDRESS, &memBase ) &&
+                    rSequence_getRU64( region, RP_TAGS_MEMORY_SIZE, &memSize ) )
+                {
+                    if( PROCESSLIB_MEM_TYPE_PRIVATE == memType ||
+                        PROCESSLIB_MEM_TYPE_MAPPED == memType )
+                    {
+                        if( PROCESSLIB_MEM_ACCESS_EXECUTE == memProtect ||
+                            PROCESSLIB_MEM_ACCESS_EXECUTE_READ == memProtect ||
+                            PROCESSLIB_MEM_ACCESS_EXECUTE_READ_WRITE == memProtect ||
+                            PROCESSLIB_MEM_ACCESS_EXECUTE_WRITE_COPY == memProtect )
+                        {
+                            isCurrentExec = TRUE;
+                        }
+                        else
+                        {
+                            isCurrentExec = FALSE;
+                        }
+
+                        if( !isMemInModule( memBase, memSize, mods ) )
+                        {
+                            // Exec memory found outside of a region marked to belong to
+                            // a module, keep looking in for module.
+                            if( ( 1024 * 1024 * 10 ) >= memSize &&
+                                processLib_getProcessMemory( processId, 
+                                                             NUMBER_TO_PTR( memBase ), 
+                                                             memSize, 
+                                                             (RPVOID*)&pMem ) )
+                            {
+                                isHidden = FALSE;
+#ifdef RPAL_PLATFORM_WINDOWS
+                                // Let's just check for MZ and PE for now, we can get fancy later.
+                                pDos = (PIMAGE_DOS_HEADER)pMem;
+                                if( IS_WITHIN_BOUNDS( (RPU8)pMem, sizeof( IMAGE_DOS_HEADER ), pMem, memSize ) &&
+                                    IMAGE_DOS_SIGNATURE == pDos->e_magic )
+                                {
+                                    pNt = (PIMAGE_NT_HEADERS)( (RPU8)pDos + pDos->e_lfanew );
+
+                                    if( IS_WITHIN_BOUNDS( pNt, sizeof( *pNt ), pMem, memSize ) &&
+                                        IMAGE_NT_SIGNATURE == pNt->Signature )
+                                    {
+                                        if( isCurrentExec )
+                                        {
+                                            // If the current region is exec, we've got a hidden module.
+                                            isHidden = TRUE;
+                                        }
+                                        else
+                                        {
+                                            // We need to check if the next section in memory is
+                                            // executable and outside of known modules since the PE
+                                            // headers may have been marked read-only before the .text.
+                                            if( rList_getSEQUENCE( map, RP_TAGS_MEMORY_REGION, &region ) )
+                                            {
+                                                isPrefetched = TRUE;
+
+                                                if( ( PROCESSLIB_MEM_TYPE_PRIVATE == memType ||
+                                                        PROCESSLIB_MEM_TYPE_MAPPED == memType ) &&
+                                                    ( PROCESSLIB_MEM_ACCESS_EXECUTE == memProtect ||
+                                                        PROCESSLIB_MEM_ACCESS_EXECUTE_READ == memProtect ||
+                                                        PROCESSLIB_MEM_ACCESS_EXECUTE_READ_WRITE == memProtect ||
+                                                        PROCESSLIB_MEM_ACCESS_EXECUTE_WRITE_COPY == memProtect ) )
+                                                {
+                                                    isHidden = TRUE;
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+#elif defined( RPAL_PLATFORM_LINUX ) || defined( RPAL_PLATFORM_MACOSX )
+                                if( isCurrentExec &&
+                                    0x7F == ( pMem )[ 0 ] &&
+                                    'E' == ( pMem )[ 1 ] &&
+                                    'L' == ( pMem )[ 2 ] &&
+                                    'F' == ( pMem )[ 3 ] )
+                                {
+                                    isHidden = TRUE;
+                                }
+#endif
+
+                                rpal_memory_free( pMem );
+
+                                if( isHidden &&
+                                    !rEvent_wait( isTimeToStop, 0 ) )
+                                {
+                                    rpal_debug_info( "found a hidden module in %d.", processId );
+
+                                    if( NULL != ( procInfo = processLib_getProcessInfo( processId ) ) )
+                                    {
+                                        if( !rSequence_addSEQUENCE( region, RP_TAGS_PROCESS, procInfo ) )
+                                        {
+                                            rSequence_free( procInfo );
+                                        }
+                                    }
+
+                                    rSequence_addTIMESTAMP( region, RP_TAGS_TIMESTAMP, rpal_time_getGlobal() );
+                                    notifications_publish( RP_TAGS_NOTIFICATION_HIDDEN_MODULE_DETECTED, region );
+                                    break;
+                                }
+
+                                rpal_thread_sleep( 10 );
+                            }
+                        }
+                    }
+                }
+            }
+
+            rList_free( map );
+        }
+
+        rList_free( mods );
+    }
+
+    return NULL;
+}
+
+static
+RPVOID
+    lookForHiddenModules
+    (
+        rEvent isTimeToStop,
+        RPVOID ctx
+    )
+{
+    processLibProcEntry* procs = NULL;
+    processLibProcEntry* proc = NULL;
 
     UNREFERENCED_PARAMETER( ctx );
 
@@ -107,130 +245,7 @@ RPVOID
             rpal_memory_isValid( isTimeToStop ) &&
             !rEvent_wait( isTimeToStop, 0 ) )
         {
-            rpal_thread_sleep( MSEC_FROM_SEC( 2 ) );
-            if( NULL != ( mods = processLib_getProcessModules( proc->pid ) ) )
-            {
-                if( NULL != ( map = processLib_getProcessMemoryMap( proc->pid ) ) )
-                {
-                    // Now we got all the info needed for a single process, compare
-                    while( rpal_memory_isValid( isTimeToStop ) &&
-                        !rEvent_wait( isTimeToStop, 0 ) &&
-                        ( isPrefetched || rList_getSEQUENCE( map, RP_TAGS_MEMORY_REGION, &region ) ) )
-                    {
-                        if( isPrefetched )
-                        {
-                            isPrefetched = FALSE;
-                        }
-
-                        if( rSequence_getRU8( region, RP_TAGS_MEMORY_TYPE, &memType ) &&
-                            rSequence_getRU8( region, RP_TAGS_MEMORY_ACCESS, &memProtect ) &&
-                            rSequence_getPOINTER64( region, RP_TAGS_BASE_ADDRESS, &memBase ) &&
-                            rSequence_getRU64( region, RP_TAGS_MEMORY_SIZE, &memSize ) )
-                        {
-                            if( PROCESSLIB_MEM_TYPE_PRIVATE == memType ||
-                                PROCESSLIB_MEM_TYPE_MAPPED == memType )
-                            {
-                                if( PROCESSLIB_MEM_ACCESS_EXECUTE == memProtect ||
-                                    PROCESSLIB_MEM_ACCESS_EXECUTE_READ == memProtect ||
-                                    PROCESSLIB_MEM_ACCESS_EXECUTE_READ_WRITE == memProtect ||
-                                    PROCESSLIB_MEM_ACCESS_EXECUTE_WRITE_COPY == memProtect )
-                                {
-                                    isCurrentExec = TRUE;
-                                }
-                                else
-                                {
-                                    isCurrentExec = FALSE;
-                                }
-
-                                if( !isMemInModule( memBase, memSize, mods ) )
-                                {
-                                    // Exec memory found outside of a region marked to belong to
-                                    // a module, keep looking in for module.
-                                    if( ( 1024 * 1024 * 10 ) >= memSize &&
-                                        processLib_getProcessMemory( proc->pid, NUMBER_TO_PTR( memBase ), memSize, (RPVOID*)&pMem ) )
-                                    {
-                                        isHidden = FALSE;
-#ifdef RPAL_PLATFORM_WINDOWS
-                                        // Let's just check for MZ and PE for now, we can get fancy later.
-                                        pDos = (PIMAGE_DOS_HEADER)pMem;
-                                        if( IS_WITHIN_BOUNDS( (RPU8)pMem, sizeof( IMAGE_DOS_HEADER ), pMem, memSize ) &&
-                                            IMAGE_DOS_SIGNATURE == pDos->e_magic )
-                                        {
-                                            pNt = (PIMAGE_NT_HEADERS)( (RPU8)pDos + pDos->e_lfanew );
-
-                                            if( IS_WITHIN_BOUNDS( pNt, sizeof( *pNt ), pMem, memSize ) &&
-                                                IMAGE_NT_SIGNATURE == pNt->Signature )
-                                            {
-                                                if( isCurrentExec )
-                                                {
-                                                    // If the current region is exec, we've got a hidden module.
-                                                    isHidden = TRUE;
-                                                }
-                                                else
-                                                {
-                                                    // We need to check if the next section in memory is
-                                                    // executable and outside of known modules since the PE
-                                                    // headers may have been marked read-only before the .text.
-                                                    if( rList_getSEQUENCE( map, RP_TAGS_MEMORY_REGION, &region ) )
-                                                    {
-                                                        isPrefetched = TRUE;
-
-                                                        if( ( PROCESSLIB_MEM_TYPE_PRIVATE == memType ||
-                                                              PROCESSLIB_MEM_TYPE_MAPPED == memType ) &&
-                                                            ( PROCESSLIB_MEM_ACCESS_EXECUTE == memProtect ||
-                                                              PROCESSLIB_MEM_ACCESS_EXECUTE_READ == memProtect ||
-                                                              PROCESSLIB_MEM_ACCESS_EXECUTE_READ_WRITE == memProtect ||
-                                                              PROCESSLIB_MEM_ACCESS_EXECUTE_WRITE_COPY == memProtect ) )
-                                                        {
-                                                            isHidden = TRUE;
-                                                        }
-                                                    }
-                                                }
-                                            }
-                                        }
-#elif defined( RPAL_PLATFORM_LINUX ) || defined( RPAL_PLATFORM_MACOSX )
-                                        if( isCurrentExec &&
-                                            0x7F == ( pMem )[ 0 ] &&
-                                            'E' == ( pMem )[ 1 ] &&
-                                            'L' == ( pMem )[ 2 ] &&
-                                            'F' == ( pMem )[ 3 ] )
-                                        {
-                                            isHidden = TRUE;
-                                        }
-#endif
-
-                                        rpal_memory_free( pMem );
-
-                                        if( isHidden &&
-                                            !rEvent_wait( isTimeToStop, 0 ) )
-                                        {
-                                            rpal_debug_info( "found a hidden module in %d.", proc->pid );
-
-                                            if( NULL != ( procInfo = processLib_getProcessInfo( proc->pid ) ) )
-                                            {
-                                                if( !rSequence_addSEQUENCE( region, RP_TAGS_PROCESS, procInfo ) )
-                                                {
-                                                    rSequence_free( procInfo );
-                                                }
-                                            }
-
-                                            rSequence_addTIMESTAMP( region, RP_TAGS_TIMESTAMP, rpal_time_getGlobal() );
-                                            notifications_publish( RP_TAGS_NOTIFICATION_HIDDEN_MODULE_DETECTED, region );
-                                            break;
-                                        }
-
-                                        rpal_thread_sleep( 10 );
-                                    }
-                                }
-                            }
-                        }
-                    }
-
-                    rList_free( map );
-                }
-
-                rList_free( mods );
-            }
+            lookForHiddenModulesIn( isTimeToStop, proc->pid );
 
             proc++;
         }
@@ -239,6 +254,36 @@ RPVOID
     }
 
     return NULL;
+}
+
+static
+RVOID
+    scan_for_hidden_module
+    (
+        rpcm_tag eventType,
+        rSequence event
+    )
+{
+    RU32 pid = (RU32)(-1);
+    rEvent dummy = NULL;
+
+    UNREFERENCED_PARAMETER( eventType );
+
+    rSequence_getRU32( event, RP_TAGS_PROCESS_ID, &pid );
+    
+    if( NULL != ( dummy = rEvent_create( TRUE ) ) )
+    {
+        if( (RU32)( -1 ) == pid )
+        {
+            lookForHiddenModules( dummy, NULL );
+        }
+        else
+        {
+            lookForHiddenModulesIn( dummy, pid );
+        }
+
+        rEvent_free( dummy );
+    }
 }
 
 RBOOL
@@ -261,9 +306,18 @@ RBOOL
             timeDelta = _DEFAULT_TIME_DELTA;
         }
 
-        if( rThreadPool_scheduleRecurring( hbsState->hThreadPool, timeDelta, lookForHiddenModules, NULL, TRUE ) )
+        if( notifications_subscribe( RP_TAGS_NOTIFICATION_HIDDEN_MODULE_REQ, 
+                                     NULL, 
+                                     0, 
+                                     NULL, 
+                                     scan_for_hidden_module ) &&
+            rThreadPool_scheduleRecurring( hbsState->hThreadPool, timeDelta, lookForHiddenModules, NULL, TRUE ) )
         {
             isSuccess = TRUE;
+        }
+        else
+        {
+            notifications_unsubscribe( RP_TAGS_NOTIFICATION_HIDDEN_MODULE_REQ, NULL, scan_for_hidden_module );
         }
     }
 
@@ -283,6 +337,8 @@ RBOOL
 
     if( NULL != hbsState )
     {
+        notifications_unsubscribe( RP_TAGS_NOTIFICATION_HIDDEN_MODULE_REQ, NULL, scan_for_hidden_module );
+
         isSuccess = TRUE;
     }
 
