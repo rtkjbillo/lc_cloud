@@ -122,6 +122,7 @@
     <ClCompile Include="rpal_handleManager.c" />
     <ClCompile Include="rpal_memory.c" />
     <ClCompile Include="rpal_queue.c" />
+    <ClCompile Include="rpal_sort_search.c" />
     <ClCompile Include="rpal_stack.c" />
     <ClCompile Include="rpal_string.c" />
     <ClCompile Include="rpal_stringbuffer.c" />
@@ -156,6 +157,7 @@
     <ClInclude Include="..\..\include\rpal\master_only\rpal_privateHandleManager.h" />
     <ClInclude Include="..\..\include\rpal\master_only\rpal_privateMemory.h" />
     <ClInclude Include="..\..\include\rpal\rpal_queue.h" />
+    <ClInclude Include="..\..\include\rpal\rpal_sort_search.h" />
     <ClInclude Include="..\..\include\rpal\rpal_stack.h" />
     <ClInclude Include="..\..\include\rpal\rpal_string.h" />
     <ClInclude Include="..\..\include\rpal\rpal_stringbuffer.h" />

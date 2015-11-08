@@ -78,6 +78,9 @@
     <ClCompile Include="rpal_checkpoint.c">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="rpal_sort_search.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\include\rpal\rpal.h">
@@ -177,6 +180,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="..\..\include\rpal\rpal_checkpoint.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\include\rpal\rpal_sort_search.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

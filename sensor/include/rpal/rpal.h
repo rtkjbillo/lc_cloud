@@ -76,6 +76,7 @@ extern rpal_PContext g_rpal_context; // Central reference
 #include <rpal_queue.h>
 #include <rpal_bloom.h>
 #include <rpal_checkpoint.h>
+#include <rpal_sort_search.h>
 
 // Enumerations
 #include <rpal_handles.h>
