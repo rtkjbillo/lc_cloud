@@ -40,7 +40,8 @@ RVOID
     (
         RPWCHAR name,
         RPU8 pFileHash,
-        RU64 codeSize
+        RU64 codeSize,
+        rSequence originalEvent
     )
 {
     CodeIdent ident = { 0 };
@@ -62,6 +63,8 @@ RVOID
     {
         if( NULL != ( notif = rSequence_new() ) )
         {
+            hbs_markAsRelated( originalEvent, notif );
+
             if( rSequence_addSTRINGW( notif, RP_TAGS_FILE_PATH, name ) &&
                 rSequence_addBUFFER( notif, RP_TAGS_HASH, pFileHash, CRYPTOLIB_HASH_SIZE ) &&
                 rSequence_addRU32( notif, RP_TAGS_MEMORY_SIZE, (RU32)codeSize ) &&
@@ -80,7 +83,8 @@ RVOID
     (
         RPCHAR name,
         RPU8 pFileHash,
-        RU64 codeSize
+        RU64 codeSize,
+        rSequence originalEvent
     )
 {
     CodeIdent ident = { 0 };
@@ -102,6 +106,8 @@ RVOID
     {
         if( NULL != ( notif = rSequence_new() ) )
         {
+            hbs_markAsRelated( originalEvent, notif );
+
             if( rSequence_addSTRINGA( notif, RP_TAGS_FILE_NAME, name ) &&
                 rSequence_addBUFFER( notif, RP_TAGS_HASH, pFileHash, CRYPTOLIB_HASH_SIZE ) &&
                 rSequence_addRU32( notif, RP_TAGS_MEMORY_SIZE, (RU32)codeSize ) &&
@@ -150,11 +156,11 @@ RVOID
 
             if( NULL != nameA )
             {
-                processCodeIdentA( nameA, fileHash, size );
+                processCodeIdentA( nameA, fileHash, size, event );
             }
             else if( NULL != nameW )
             {
-                processCodeIdentW( nameW, fileHash, size );
+                processCodeIdentW( nameW, fileHash, size, event );
             }
         }
     }
@@ -197,11 +203,11 @@ RVOID
 
             if( NULL != nameA )
             {
-                processCodeIdentA( nameA, fileHash, size );
+                processCodeIdentA( nameA, fileHash, size, event );
             }
             else if( NULL != nameW )
             {
-                processCodeIdentW( nameW, fileHash, size );
+                processCodeIdentW( nameW, fileHash, size, event );
             }
         }
     }

@@ -120,6 +120,8 @@ RVOID
             if( rpal_memory_isValid( g_history[ i ] ) &&
                 NULL != ( tmp = rSequence_duplicate( g_history[ i ] ) ) )
             {
+                hbs_markAsRelated( notif, tmp );
+
                 if( !rQueue_add( g_state->outQueue, tmp, 0 ) )
                 {
                     rSequence_free( tmp );
