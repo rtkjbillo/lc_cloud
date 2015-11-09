@@ -421,8 +421,8 @@ class AgentId( object ):
         s = '''( ( 255 = %s OR %sorg = %s OR %sorg = 255 ) AND
                  ( 255 = %s OR %ssubnet = %s OR %ssubnet = 255 ) AND
                  ( 4294967295 = %s OR %suniqueid = %s OR %suniqueid = 4294967295 ) AND
-                 ( 176 = ( %s & 192 ) OR ( %splatform & 192 ) = ( %s & 192 ) OR ( 192 = ( %splatform & 192 ) ) ) AND
-                 ( 15 = ( %s & 56 ) OR ( %splatform & 56 ) = ( %s & 56 ) OR ( 56 = ( %splatform & 56 ) ) ) AND
+                 ( 192 = ( %s & 192 ) OR ( %splatform & 192 ) = ( %s & 192 ) OR ( 192 = ( %splatform & 192 ) ) ) AND
+                 ( 56 = ( %s & 56 ) OR ( %splatform & 56 ) = ( %s & 56 ) OR ( 56 = ( %splatform & 56 ) ) ) AND
                  ( 7 = ( %s & 7 ) OR ( %splatform & 7 ) = ( %s & 7 ) OR ( 7 = ( %splatform & 7 ) ) )''' % ( int( self.org ), prefix, int( self.org ), prefix,
                                                                                                             int( self.subnet ), prefix, int( self.subnet ), prefix,
                                                                                                             int( self.unique ), prefix, int( self.unique ), prefix,
