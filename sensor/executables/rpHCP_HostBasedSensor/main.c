@@ -517,6 +517,36 @@ static RVOID
     }
 }
 
+typedef struct
+{
+    RU32 eventId;
+    rSequence event;
+} _cloudNotifStub;
+
+static
+RPVOID
+    _handleCloudNotification
+    (
+        rEvent isTimeToStop,
+        _cloudNotifStub* pEventInfo
+    )
+{
+    UNREFERENCED_PARAMETER( isTimeToStop );
+    
+    if( rpal_memory_isValid( pEventInfo ) )
+    {
+        if( rpal_memory_isValid( pEventInfo->event ) )
+        {
+            notifications_publish( pEventInfo->eventId, pEventInfo->event );
+            rSequence_free( pEventInfo->event );
+        }
+
+        rpal_memory_free( pEventInfo );
+    }
+    
+    return NULL;
+}
+
 static RVOID
     publishCloudNotifications
     (
@@ -531,15 +561,19 @@ static RVOID
     rpHCPId curId = { 0 };
     rSequence cloudEvent = NULL;
     rSequence targetId = { 0 };
-    RU32 eventId = 0;
-    rSequence localEvent = NULL;
     RU64 expiry = 0;
     rpHCPId tmpId = { 0 };
     rSequence receipt = NULL;
+    _cloudNotifStub* cloudEventStub = NULL;
 
     while( rList_getSEQUENCE( notifications, RP_TAGS_HBS_CLOUD_NOTIFICATION, &notif ) )
     {
         cloudEvent = NULL;
+
+        if( NULL == cloudEventStub )
+        {
+            cloudEventStub = rpal_memory_alloc( sizeof( *cloudEventStub ) );
+        }
 
         if( rSequence_getBUFFER( notif, RP_TAGS_BINARY, &buff, &buffSize ) &&
             rSequence_getBUFFER( notif, RP_TAGS_SIGNATURE, &sig, &sigSize ) )
@@ -568,8 +602,8 @@ static RVOID
         if( rpal_memory_isValid( cloudEvent ) )
         {
             if( rSequence_getSEQUENCE( cloudEvent, RP_TAGS_HCP_ID, &targetId ) &&
-                rSequence_getRU32( cloudEvent, RP_TAGS_HBS_NOTIFICATION_ID, &eventId ) &&
-                rSequence_getSEQUENCE( cloudEvent, RP_TAGS_HBS_NOTIFICATION, &localEvent ) )
+                rSequence_getRU32( cloudEvent, RP_TAGS_HBS_NOTIFICATION_ID, &(cloudEventStub->eventId) ) &&
+                rSequence_getSEQUENCE( cloudEvent, RP_TAGS_HBS_NOTIFICATION, &(cloudEventStub->event) ) )
             {
                 rSequence_getTIMESTAMP( cloudEvent, RP_TAGS_EXPIRY, &expiry );
 
@@ -600,9 +634,20 @@ static RVOID
                 if( curId.raw == tmpId.raw &&
                     rpal_time_getGlobal() <= expiry )
                 {
-                    if( !notifications_publish( eventId, localEvent ) )
+                    if( NULL != ( cloudEventStub->event = rSequence_duplicate( cloudEventStub->event ) ) )
                     {
-                        rpal_debug_error( "error publishing event from cloud." );
+                        if( rThreadPool_task( g_hbs_state.hThreadPool, _handleCloudNotification, cloudEventStub ) )
+                        {
+                            // The handler will free this stub
+                            cloudEventStub = NULL;
+                            rpal_debug_info( "new cloud event published." );
+                        }
+                        else
+                        {
+                            rSequence_free( cloudEventStub->event );
+                            cloudEventStub->event = NULL;
+                            rpal_debug_error( "error publishing event from cloud." );
+                        }
                     }
                 }
                 else
@@ -617,6 +662,12 @@ static RVOID
                 cloudEvent = NULL;
             }
         }
+    }
+
+    if( NULL != cloudEventStub )
+    {
+        rpal_memory_free( cloudEventStub );
+        cloudEventStub = NULL;
     }
 }
 
@@ -767,6 +818,7 @@ RPAL_THREAD_FUNC
         {
             newConfigurations = rList_new( RP_TAGS_HCP_MODULES, RPCM_SEQUENCE );
             rpal_debug_info( "setting empty profile" );
+            g_hbs_state.isProfilePresent = TRUE;
         }
 
         if( NULL != newConfigurations )

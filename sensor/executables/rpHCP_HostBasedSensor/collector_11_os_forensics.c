@@ -27,11 +27,11 @@ limitations under the License.
 
 static
 RBOOL
-_thorough_file_hash
-(
-RPWCHAR filePath,
-RU8* pHash
-)
+    _thorough_file_hash
+    (
+        RPWCHAR filePath,
+        RU8* pHash
+    )
 {
     RBOOL isHashed = FALSE;
 
