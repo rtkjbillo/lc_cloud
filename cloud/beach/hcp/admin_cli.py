@@ -961,6 +961,20 @@ class LP ( cmd.Cmd ):
                                      arguments )
 
     @report_errors
+    def do_hidden_module_scan( self, s ):
+        '''Scan one or more processes for hidden modules.'''
+
+        parser = self.getParser( 'hidden_module_scan', True )
+        parser.add_argument( 'pid',
+                             type = int,
+                             help = 'pid of the process to scan, or "-1" for ALL processes' )
+        arguments = self.parse( parser, s )
+        if arguments is not None:
+            self._executeHbsTasking( self.tags.notification.HIDDEN_MODULE_REQ,
+                                     rSequence().addInt32( self.tags.base.PROCESS_ID, arguments.pid ),
+                                     arguments )
+
+    @report_errors
     def do_run_script( self, s ):
         '''Runs a list of commands from a file but with additional context passed in the command line.'''
 

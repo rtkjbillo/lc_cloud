@@ -120,6 +120,8 @@ RVOID
             if( rpal_memory_isValid( g_history[ i ] ) &&
                 NULL != ( tmp = rSequence_duplicate( g_history[ i ] ) ) )
             {
+                hbs_markAsRelated( notif, tmp );
+
                 if( !rQueue_add( g_state->outQueue, tmp, 0 ) )
                 {
                     rSequence_free( tmp );
@@ -149,27 +151,36 @@ RBOOL
     {
         if( NULL != ( g_mutex = rMutex_create() ) )
         {
-            isSuccess = TRUE;
-
-            rpal_memory_zero( g_history, sizeof( g_history ) );
-
-            for( i = 0; i < ARRAY_N_ELEM( g_collected ); i++ )
+            if( notifications_subscribe( RP_TAGS_NOTIFICATION_HISTORY_DUMP_REQ, NULL, 0, NULL, dumpHistory ) )
             {
-                if( !notifications_subscribe( g_collected[ i ], NULL, 0, NULL, recordEvent ) )
+                isSuccess = TRUE;
+
+                rpal_memory_zero( g_history, sizeof( g_history ) );
+
+                for( i = 0; i < ARRAY_N_ELEM( g_collected ); i++ )
                 {
-                    isSuccess = FALSE;
-                    break;
+                    if( !notifications_subscribe( g_collected[ i ], NULL, 0, NULL, recordEvent ) )
+                    {
+                        isSuccess = FALSE;
+                        break;
+                    }
+                }
+
+                if( !isSuccess )
+                {
+                    for( i = i; i > 0; i-- )
+                    {
+                        notifications_unsubscribe( g_collected[ i ], NULL, recordEvent );
+                    }
+                    notifications_unsubscribe( g_collected[ 0 ], NULL, recordEvent );
+                    notifications_unsubscribe( RP_TAGS_NOTIFICATION_HISTORY_DUMP_REQ, NULL, dumpHistory );
+
+                    rMutex_free( g_mutex );
+                    g_mutex = NULL;
                 }
             }
-
-            if( !isSuccess )
+            else
             {
-                for( i = i; i > 0; i-- )
-                {
-                    notifications_unsubscribe( g_collected[ i ], NULL, recordEvent );
-                }
-                notifications_unsubscribe( g_collected[ 0 ], NULL, recordEvent );
-
                 rMutex_free( g_mutex );
                 g_mutex = NULL;
             }
@@ -215,6 +226,8 @@ RBOOL
                 }
             }
         }
+
+        notifications_unsubscribe( RP_TAGS_NOTIFICATION_HISTORY_DUMP_REQ, NULL, dumpHistory );
 
         rMutex_free( g_mutex );
         g_mutex = NULL;

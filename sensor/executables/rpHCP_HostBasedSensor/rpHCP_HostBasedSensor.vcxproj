@@ -102,6 +102,7 @@
     <ClCompile />
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="collectors.c" />
     <ClCompile Include="collector_0_exfil.c" />
     <ClCompile Include="collector_10_memory_forensics.c" />
     <ClCompile Include="collector_11_os_forensics.c" />

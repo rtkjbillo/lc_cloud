@@ -47,7 +47,8 @@ static processEntry g_snapshot_2[ MAX_SNAPSHOT_SIZE ] = { 0 };
 static RBOOL
     getSnapshot
     (
-        processEntry* toSnapshot
+        processEntry* toSnapshot,
+        RU32* nElem
     )
 {
     RBOOL isSuccess = FALSE;
@@ -58,7 +59,8 @@ static RBOOL
         rpal_memory_zero( toSnapshot, sizeof( g_snapshot_1 ) );
     }
 
-    if( NULL != toSnapshot )
+    if( NULL != toSnapshot &&
+        NULL != nElem )
     {
 #ifdef RPAL_PLATFORM_WINDOWS
         HANDLE hSnapshot = NULL;
@@ -147,6 +149,9 @@ static RBOOL
             }
         }
 #endif
+
+        rpal_sort_array( toSnapshot, i, sizeof( processEntry ) );
+        *nElem = i;
     }
 
     return isSuccess;
@@ -220,9 +225,11 @@ static RPVOID
     processEntry* tmpSnapshot = NULL;
     RBOOL isFirstSnapshots = TRUE;
     RU32 i = 0;
-    RU32 j = 0;
     RBOOL isFound = FALSE;
     RU32 nThLoop = 0;
+    RU32 nTmpElem = 0;
+    RU32 nCurElem = 0;
+    RU32 nPrevElem = 0;
     RU32 currentTimeout = 0;
     UNREFERENCED_PARAMETER( ctx );
 
@@ -232,7 +239,11 @@ static RPVOID
         currentSnapshot = previousSnapshot;
         previousSnapshot = tmpSnapshot;
 
-        if( getSnapshot( currentSnapshot ) )
+        nTmpElem = nCurElem;
+        nCurElem = nPrevElem;
+        nPrevElem = nTmpElem;
+
+        if( getSnapshot( currentSnapshot, &nCurElem ) )
         {
             if( isFirstSnapshots )
             {
@@ -241,29 +252,18 @@ static RPVOID
             }
 
             // Diff to find new processes
-            for( i = 0; i < MAX_SNAPSHOT_SIZE; i++ )
+            for( i = 0; i < nCurElem; i++ )
             {
                 isFound = FALSE;
 
-                if( 0 == currentSnapshot[ i ].pid )
+                if( (RU32)( -1 ) != rpal_binsearch_array( previousSnapshot, 
+                                                          nPrevElem, 
+                                                          sizeof( processEntry ), 
+                                                          currentSnapshot[ i ].pid ) )
                 {
-                    break;
+                    isFound = TRUE;
                 }
-
-                for( j = 0; j < MAX_SNAPSHOT_SIZE; j++ )
-                {
-                    if( 0 == previousSnapshot[ j ].pid )
-                    {
-                        break;
-                    }
-
-                    if( previousSnapshot[ j ].pid == currentSnapshot[ i ].pid )
-                    {
-                        isFound = TRUE;
-                        break;
-                    }
-                }
-
+                
                 if( !isFound )
                 {
                     if( !notifyOfProcess( currentSnapshot[ i ].pid, 
@@ -277,27 +277,16 @@ static RPVOID
             }
 
             // Diff to find terminated processes
-            for( i = 0; i < MAX_SNAPSHOT_SIZE; i++ )
+            for( i = 0; i < nPrevElem; i++ )
             {
                 isFound = FALSE;
 
-                if( 0 == previousSnapshot[ i ].pid )
+                if( (RU32)( -1 ) != rpal_binsearch_array( currentSnapshot,
+                                                          nCurElem,
+                                                          sizeof( processEntry ),
+                                                          previousSnapshot[ i ].pid ) )
                 {
-                    break;
-                }
-
-                for( j = 0; j < MAX_SNAPSHOT_SIZE; j++ )
-                {
-                    if( 0 == currentSnapshot[ j ].pid )
-                    {
-                        break;
-                    }
-
-                    if( previousSnapshot[ i ].pid == currentSnapshot[ j ].pid )
-                    {
-                        isFound = TRUE;
-                        break;
-                    }
+                    isFound = TRUE;
                 }
 
                 if( !isFound )
