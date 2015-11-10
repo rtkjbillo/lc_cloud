@@ -94,3 +94,13 @@ for binary in binaries:
                                                                          os.path.join( root, 'binary_releases', binary + '.sig' ),
                                                                          targetAgent,
                                                                          h ) ) )
+
+printStep( 'Setting HCP and HBS schedules.',
+           execInBackend( '''hcp_setPeriod 60
+                             hbs_setPeriod 10''' ) )
+
+printStep( 'Setting HBS profile.',
+           execInBackend( '''hbs_addProfile -m ff.ff.ffffffff.fff.ff -f %s''' % ( os.path.join( root,
+                                                                                                'cloud',
+                                                                                                'beach',
+                                                                                                'sample_hbs.profile' ) ) ) )
