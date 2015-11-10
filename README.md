@@ -578,3 +578,4 @@ creation. So here are some of the capabilities that are coming:
 - Kernel Mode thin module providing low level events and APIs.
 - Code injection detection through stack introspection.
 - Stateful detections.
+- Make Linux and OS X capabilities on par with Windows. 
