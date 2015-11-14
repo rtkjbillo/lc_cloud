@@ -228,7 +228,7 @@ print( beach.addActor( 'analytics/stateless/KnownObjects',
 # have more than a threshold of AV
 # reports, while caching results.
 # Parameters:
-# key: the VT API Key.
+# _key: the VT API Key.
 # qpm: maximum number of queries to
 #    to VT per minute, based on your
 #    subscription level, default of 4
