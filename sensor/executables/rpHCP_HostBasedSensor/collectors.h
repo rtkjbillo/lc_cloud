@@ -79,6 +79,7 @@ DECLARE_COLLECTOR( 9 );
 DECLARE_COLLECTOR( 10 );
 DECLARE_COLLECTOR( 11 );
 DECLARE_COLLECTOR( 12 );
+DECLARE_COLLECTOR( 13 );
 
 //=============================================================================
 //  Helper Functionality

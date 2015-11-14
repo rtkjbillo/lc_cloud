@@ -51,7 +51,7 @@ on the first time that sensor (at that boot) sees that specific piece of code.
 Simple, essentially netflow, an event is generated for every connection change.
 
 ##### Hidden Module Detection
-Looks for hidden modules loaded in memory in a few different ways.
+Looks for hidden modules loaded in memory in a few different ways. Full recurring scan as well as process specific tasking.
 
 ##### Module Tracking
 When a module (dll) is loaded, an event is generated.
@@ -76,6 +76,9 @@ Queries to list various OS-specific characteristics like Services, Drivers and A
 ##### Detailed History on Demand
 All events are generated internally on the sensor, some are sent back, but we keep a rolling buffer of the latest
 full spread of events. This rolling buffer can be flushed and sent to the cloud on demand.
+
+##### Execution Out of Bounds
+Looks for threads executing outside of known modules. Full recurring scan as well as process specific tasking. 
 
 #### In-Cloud
 

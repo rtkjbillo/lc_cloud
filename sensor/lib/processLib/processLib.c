@@ -2596,7 +2596,7 @@ rList
 				stack.AddrFrame.Mode   = AddrModeFlat;
 #endif
 				if ( NULL != ( pSymbol = ( PIMAGEHLP_SYMBOL64 ) rpal_memory_alloc( sizeof( IMAGEHLP_SYMBOL64 ) + RPAL_MAX_PATH * sizeof( TCHAR ) ) ) && 
-					 NULL != ( frames = rList_new( RP_TAGS_CRASH_STACK_TRACE_FRAME, RPCM_SEQUENCE ) ) )
+					 NULL != ( frames = rList_new( RP_TAGS_STACK_TRACE_FRAME, RPCM_SEQUENCE ) ) )
 				{
 					for( fr = 0; ; fr++ )
 					{
@@ -2616,16 +2616,16 @@ rList
 							{
 								if( fpUndecorateSymbolName( pSymbol->Name, ( PSTR )symbolName, sizeof( symbolName ), UNDNAME_COMPLETE ) > 0 )
 								{
-									rSequence_addSTRINGA( frame, RP_TAGS_CRASH_STACK_TRACE_FRAME_SYM_NAME, symbolName );
+									rSequence_addSTRINGA( frame, RP_TAGS_STACK_TRACE_FRAME_SYM_NAME, symbolName );
 								}
 								else
 								{
-									rSequence_addSTRINGA( frame, RP_TAGS_CRASH_STACK_TRACE_FRAME_SYM_NAME, pSymbol->Name );
+									rSequence_addSTRINGA( frame, RP_TAGS_STACK_TRACE_FRAME_SYM_NAME, pSymbol->Name );
 								}
 							}
-							rSequence_addRU64( frame, RP_TAGS_CRASH_STACK_TRACE_FRAME_PC, ( ULONG64 )stack.AddrPC.Offset );
-							rSequence_addRU64( frame, RP_TAGS_CRASH_STACK_TRACE_FRAME_SP, ( ULONG64 )stack.AddrStack.Offset );
-							rSequence_addRU64( frame, RP_TAGS_CRASH_STACK_TRACE_FRAME_FP, ( ULONG64 )stack.AddrFrame.Offset );
+							rSequence_addRU64( frame, RP_TAGS_STACK_TRACE_FRAME_PC, ( ULONG64 )stack.AddrPC.Offset );
+							rSequence_addRU64( frame, RP_TAGS_STACK_TRACE_FRAME_SP, ( ULONG64 )stack.AddrStack.Offset );
+							rSequence_addRU64( frame, RP_TAGS_STACK_TRACE_FRAME_FP, ( ULONG64 )stack.AddrFrame.Offset );
 
 							if( !rList_addSEQUENCE( frames, frame ) )
 							{

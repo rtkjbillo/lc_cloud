@@ -82,7 +82,8 @@ HbsCollectorInfo g_collectors[] = { ENABLED_COLLECTOR( 0 ),
                                     ENABLED_COLLECTOR( 9 ),
                                     ENABLED_COLLECTOR( 10 ),
                                     ENABLED_COLLECTOR( 11 ),
-                                    ENABLED_COLLECTOR( 12 ) };
+                                    ENABLED_COLLECTOR( 12 ),
+                                    ENABLED_WINDOWS_COLLECTOR( 13 ) };
 
 //=============================================================================
 //  Utilities

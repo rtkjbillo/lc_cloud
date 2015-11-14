@@ -123,6 +123,8 @@ class HbsCollectorId ( object ):
     FILE_FORENSIC = 9
     MEMORY_FORENSIC = 10
     OS_FORENSIC = 11
+    HISTORY = 12
+    EXEC_OOB = 13
 
     lookup = {
         0 : 'EXFIL',
@@ -136,7 +138,9 @@ class HbsCollectorId ( object ):
         8 : 'NETWORK_SUMMARY',
         9 : 'FILE_FORENSIC',
         10 : 'MEMORY_FORENSIC',
-        11 : 'OS_FORENSIC'
+        11 : 'OS_FORENSIC',
+        12 : 'HISTORY',
+        13 : 'EXEC_OOB'
     }
 
 class TwoFactorAuth(object):
