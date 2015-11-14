@@ -975,6 +975,20 @@ class LP ( cmd.Cmd ):
                                      arguments )
 
     @report_errors
+    def do_exec_oob_scan( self, s ):
+        '''Scan one or more processes for out of bounds execution (thread out of known modules).'''
+
+        parser = self.getParser( 'exec_oob_scan', True )
+        parser.add_argument( 'pid',
+                             type = int,
+                             help = 'pid of the process to scan, or "-1" for ALL processes' )
+        arguments = self.parse( parser, s )
+        if arguments is not None:
+            self._executeHbsTasking( self.tags.notification.EXEC_OOB_REQ,
+                                     rSequence().addInt32( self.tags.base.PROCESS_ID, arguments.pid ),
+                                     arguments )
+
+    @report_errors
     def do_run_script( self, s ):
         '''Runs a list of commands from a file but with additional context passed in the command line.'''
 
