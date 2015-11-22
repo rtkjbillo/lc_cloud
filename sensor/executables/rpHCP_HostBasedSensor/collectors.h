@@ -27,6 +27,7 @@ typedef struct
     RU32 maxQueueNum;
     RU32 maxQueueSize;
     RBOOL isProfilePresent;
+    RTIME liveUntil;
 } HbsState;
 
 //=============================================================================
@@ -80,6 +81,7 @@ DECLARE_COLLECTOR( 10 );
 DECLARE_COLLECTOR( 11 );
 DECLARE_COLLECTOR( 12 );
 DECLARE_COLLECTOR( 13 );
+DECLARE_COLLECTOR( 14 );
 
 //=============================================================================
 //  Helper Functionality

@@ -83,7 +83,8 @@ HbsCollectorInfo g_collectors[] = { ENABLED_COLLECTOR( 0 ),
                                     ENABLED_COLLECTOR( 10 ),
                                     ENABLED_COLLECTOR( 11 ),
                                     ENABLED_COLLECTOR( 12 ),
-                                    ENABLED_WINDOWS_COLLECTOR( 13 ) };
+                                    ENABLED_WINDOWS_COLLECTOR( 13 ),
+                                    ENABLED_COLLECTOR( 14 ) };
 
 //=============================================================================
 //  Utilities
@@ -856,6 +857,11 @@ RPAL_THREAD_FUNC
             rList_free( newNotifications );
 
             newNotifications = NULL;
+        }
+
+        if( rpal_time_getGlobal() <= g_hbs_state.liveUntil )
+        {
+            nextBeaconTime = MSEC_FROM_SEC( 1 );
         }
     }
 

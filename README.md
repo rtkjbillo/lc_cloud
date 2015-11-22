@@ -5,6 +5,13 @@
 *Need help? Contact other LC users via the Google Group: https://groups.google.com/d/forum/limacharlie*
 *For more direct enquiries, contact us at limacharlie@refractionpoint.com*
 
+## What's New
+- New sensor collector detecting thread execution out of known modules.
+- AutoTasking Actor now allows stateless detection modules to automatically task the sensor back with follow-up 
+investigation steps.
+- New "remain_live" command requesting the sensor to remain in constant contact for the next X seconds. Useful to 
+maintain live connectivity automatically (using AutoTasking) on sensor where suspicious activity is detected.
+
 ## Overview
 LIMA CHARLIE is an endpoint security platform. It is itself a collection of small projects all working together
 to become the LC platform. LC gives you a cross-platform (Windows, OSX, Linux, Android and iOS) low-level 

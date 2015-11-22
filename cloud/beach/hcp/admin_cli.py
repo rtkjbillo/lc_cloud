@@ -1027,6 +1027,21 @@ class HcpCli ( cmd.Cmd ):
                                      arguments )
 
     @report_errors
+    def do_remain_live( self, s ):
+        '''Request the sensor remain in constant contact for the next X seconds.'''
+
+        parser = self.getParser( 'remain_live', True )
+        parser.add_argument( 'seconds',
+                             type = int,
+                             help = 'number of seconds from now to remain live' )
+        arguments = self.parse( parser, s )
+        if arguments is not None:
+            self._executeHbsTasking( self.tags.notification.REMAIN_LIVE_REQ,
+                                     rSequence().addTimestamp( self.tags.base.EXPIRY,
+                                                               int( time.time() + arguments.seconds ) ),
+                                     arguments )
+
+    @report_errors
     def do_run_script( self, s ):
         '''Runs a list of commands from a file but with additional context passed in the command line.'''
 

@@ -108,6 +108,7 @@
     <ClCompile Include="collector_11_os_forensics.c" />
     <ClCompile Include="collector_12_history.c" />
     <ClCompile Include="collector_13_exec_oob.c" />
+    <ClCompile Include="collector_14_operations_man.c" />
     <ClCompile Include="collector_1_process_tracker.c" />
     <ClCompile Include="collector_2_dns_tracker.c" />
     <ClCompile Include="collector_3_code_ident.c" />
