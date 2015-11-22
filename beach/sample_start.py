@@ -3,6 +3,8 @@ import sys
 from beach.beach_api import Beach
 import logging
 
+REPO_ROOT = os.path.join( os.path.dirname( os.path.abspath( __file__ ) ), '..', '..' )
+
 if 1 < len( sys.argv ):
     BEACH_CONFIG_FILE = os.path.abspath( sys.argv[ 1 ] )
 else:
@@ -19,6 +21,12 @@ beach = Beach( BEACH_CONFIG_FILE, realm = 'hcp' )
 #    details for the mysql database
 #    used to store the low-importance
 #    data tracked at runtime.
+# _priv_key: the C2 private key.
+# task_back_timeout: the number of
+#    seconds to wait during each
+#    beacon to give a chance to any
+#    detects to generate tasks for
+#    the sensor to process right away.
 #######################################
 print( beach.addActor( 'c2/BeaconProcessor',
                        'c2/beacon/1.0',
@@ -26,9 +34,10 @@ print( beach.addActor( 'c2/BeaconProcessor',
                                                      'db' : 'hcp',
                                                      'user' : 'root',
                                                      'password' : 'letmein' },
-                                      'priv_key' : os.path.join( os.path.dirname( os.path.abspath( __file__ ) ),
-                                                                 'hcp',
-                                                                 'c2.priv.pem' ) },
+                                      '_priv_key' : open( os.path.join( REPO_ROOT,
+                                                                        'keys',
+                                                                        'c2.priv.pem' ), 'r' ).read(),
+                                      'task_back_timeout' : 5 },
                        secretIdent = 'beacon/09ba97ab-5557-4030-9db0-1dbe7f2b9cfd',
                        trustedIdents = [ 'http/5bc10821-2d3f-413a-81ee-30759b9f863b' ],
                        n_concurrent = 5 ) )
@@ -171,9 +180,59 @@ print( beach.addActor( 'analytics/ModelView',
                        trustedIdents = [ 'lc/0bf01f7e-62bd-4cc4-9fec-4c52e82eb903' ],
                        n_concurrent = 5 ) )
 
+#######################################
+# AutoTasking
+# This actor receives tasking requests
+# from other Actors (detection Actors
+# for now), applies a QoS and tasks.
+# Parameters:
+# _hbs_key: the private HBS key to task.
+# beach_config: the path to the beach
+#    config file.
+# sensor_qph: the maximum number of
+#    taskings per hour per sensor.
+# global_qph: the maximum number of
+#    tasking per hour globally.
+# allowed: the list of CLI commands
+#    that can be tasked.
+#######################################
+print( beach.addActor( 'analytics/AutoTasking',
+                       'analytics/autotasking/1.0',
+                       parameters = { '_hbs_key' : open( os.path.join( REPO_ROOT,
+                                                                       'keys',
+                                                                       'hbs_root.priv.der' ), 'r' ).read(),
+                                      'beach_config' : BEACH_CONFIG_FILE,
+                                      'sensor_qph' : 10,
+                                      'global_qph' : 100,
+                                      'allowed' : [ 'file_info',
+                                                    'file_hash',
+                                                    'mem_map',
+                                                    'os_processes',
+                                                    'hidden_module_scan',
+                                                    'exec_oob_scan',
+                                                    'history_dump' ],
+                                      'log_file' : './admin_cli.log' },
+                       secretIdent = 'autotasking/a6cd8d9a-a90c-42ec-bd60-0519b6fb1f64',
+                       trustedIdents = [ 'analysis/038528f5-5135-4ca8-b79f-d6b8ffc53bf5' ],
+                       n_concurrent = 5 ) )
+
 ###############################################################################
 # Stateless Detection
 ###############################################################################
+
+#######################################
+# stateless/TestDetection
+# This actor simply looks for a
+# file_path containing the string
+# 'hcp_evil_detection_test' and generates
+# a detect and a file_hash tasking for it.
+#######################################
+print( beach.addActor( 'analytics/stateless/TestDetection',
+                       'analytics/stateless/testdetection/1.0',
+                       parameters = {  },
+                       secretIdent = 'analysis/038528f5-5135-4ca8-b79f-d6b8ffc53bf5',
+                       trustedIdents = [ 'analysis/038528f5-5135-4ca8-b79f-d6b8ffc53bf5' ],
+                       n_concurrent = 5 ) )
 
 #######################################
 # stateless/SuspExecLoc

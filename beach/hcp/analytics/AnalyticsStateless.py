@@ -18,7 +18,8 @@ AgentId = Actor.importLib( '../hcp_helpers', 'AgentId' )
 class AnalyticsStateless( Actor ):
     def init( self, parameters ):
         self.handleCache = {}
-        self.modules = { 'notification.NEW_PROCESS' : [ 'analytics/stateless/suspexecloc/',
+        self.modules = { 'notification.NEW_PROCESS' : [ 'analytics/stateless/testdetection/',
+                                                        'analytics/stateless/suspexecloc/',
                                                         'analytics/stateless/batchselfdelete/',
                                                         'analytics/stateless/firewallclimods/',
                                                         'analytics/stateless/known_objects/' ],

@@ -75,15 +75,6 @@ printStep( 'Setting up host file entries for databases locally.',
     os.system( 'echo "127.0.0.1 hcp-state-db" >> /etc/hosts' ),
     os.system( 'echo "127.0.0.1 hcp-scale-db" >> /etc/hosts' ) )
 
-printStep( 'Setting up the C2 keys.',
-    os.system( 'ln -s %s %s' % ( os.path.join( root,
-                                               'keys',
-                                               'c2.priv.pem' ),
-                                 os.path.join( root,
-                                               'cloud',
-                                               'beach',
-                                               'hcp' ) ) ) )
-
 printStep( 'Setting up the cloud tags.',
     os.system( 'python %s' % ( os.path.join( root,
                                              'tools',

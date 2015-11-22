@@ -33,7 +33,7 @@ PooledResource = Actor.importLib( '../hcp_helpers', 'PooledResource' )
 
 class BeaconProcessor( Actor ):
     def init( self, parameters ):
-        self.private_key = M2Crypto.RSA.load_key( parameters[ 'priv_key' ] )
+        self.private_key = M2Crypto.RSA.load_key_string( parameters[ '_priv_key' ] )
         self.handle( 'beacon', self.processBeacon )
         self.symbols = self.importLib( '../Symbols', 'Symbols' )()
         self.enrollment_key = parameters.get( 'enrollment_token', 'DEFAULT_HCP_ENROLLMENT_TOKEN' )
@@ -42,6 +42,7 @@ class BeaconProcessor( Actor ):
                                                      parameters[ 'state_db' ][ 'user' ],
                                                      parameters[ 'state_db' ][ 'password' ],
                                                      isConnectRightAway = True ) )
+        self.taskBackTimeout = parameters.get( 'task_back_timeout', 5 )
         self.analytics_intake = self.getActorHandle( 'analytics/intake' )
 
     def deinit( self ):
@@ -636,9 +637,15 @@ class BeaconProcessor( Actor ):
     def _5_send_for_analysis( self, session ):
         self.analytics_intake.shoot( 'analyze', session[ 'analysis_events' ] )
 
+        # We wait for a specific timeout to give a change for analytics to task
+        # us back before we reply with the cloud taskings.
+        self.sleep( self.taskBackTimeout )
+
     def _6_wrap( self, session ):
         r = rpcm( isDebug = self.logCritical, isHumanReadable = True )
         r.loadSymbols( self.symbols.lookups )
+
+        self.log( "sending %d outbound messages" % len( session[ 'outbound_messages' ] ) )
 
         #===========================================================
         #   Serialize Outbound Messages
