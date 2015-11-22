@@ -20,17 +20,27 @@ import traceback
 import json
 import pprint
 import time
-from admin_lib import BEAdmin
-from hcp_helpers import AgentId
-from rpcm import rpcm
-from rpcm import rSequence
-from rpcm import rList
-from Symbols import Symbols
-from signing import Signing
 import getpass
 import pexpect
 import os.path
+import sys
+import syslog
 
+try:
+    from admin_lib import BEAdmin
+    from hcp_helpers import AgentId
+    from rpcm import rSequence
+    from rpcm import rList
+    from Symbols import Symbols
+    from signing import Signing
+except:
+    from beach.actor import Actor
+    BEAdmin = Actor.importLib( 'admin_lib', 'BEAdmin' )
+    AgentId = Actor.importLib( 'hcp_helpers', 'AgentId' )
+    rSequence = Actor.importLib( 'rpcm', 'rSequence' )
+    rList = Actor.importLib( 'rpcm', 'rList' )
+    Symbols = Actor.importLib( 'Symbols', 'Symbols' )
+    Signing = Actor.importLib( 'signing', 'Signing' )
 
 def report_errors( func ):
     def silenceit( *args, **kwargs ):
@@ -38,21 +48,26 @@ def report_errors( func ):
             return func( *args,**kwargs )
         except:
             print( traceback.format_exc() )
+            syslog.syslog( traceback.format_exc() )
             return None
     return( silenceit )
 
 def hexArg( arg ):
     return int( arg, 16 )
 
-class LP ( cmd.Cmd ):
+class HcpCli ( cmd.Cmd ):
 
     #===========================================================================
     #   HOUSEKEEPING
     #===========================================================================
     prompt = '<NEED_LOGIN> %> '
 
-    def __init__( self ):
-        cmd.Cmd.__init__( self )
+    def __init__( self, beachConfig = None, token = None, hbsKey = None, logFile = None ):
+        self.logFile = logFile
+        if self.logFile is not None:
+            self.logFile = open( self.logFile, 'w', 0 )
+
+        cmd.Cmd.__init__( self, stdout = ( self.logFile if self.logFile is not None else sys.stdout ) )
         self.be = None
         self.user = None
         self.hbsKey = None
@@ -60,6 +75,29 @@ class LP ( cmd.Cmd ):
         self.investigationId = None
         self.tags = Symbols()
         readline.set_completer_delims(":;'\"? \t")
+
+        if beachConfig is not None:
+            self.connectWithConfig( beachConfig, token )
+
+        if hbsKey is not None:
+            self.loadKey( hbsKey )
+
+    def outputString( self, s ):
+        s = str( s )
+        if self.logFile is None:
+            print( s )
+        else:
+            self.logFile.write( s )
+            self.logFile.write( "\n" )
+            self.logFile.flush()
+
+    def connectWithConfig( self, beachConfig, token ):
+        self.be = BEAdmin( beachConfig, token )
+        self.outputString( "Interface to cloud set." )
+
+    def loadKey( self, hbsKey ):
+        self.hbsKey = hbsKey
+        self.outputString( "HBS key set." )
 
     def updatePrompt( self ):
         self.prompt = '%s%s / %s %s%%> ' % ( ( '' if self.hbsKey is None else '* ' ),
@@ -128,7 +166,7 @@ class LP ( cmd.Cmd ):
             arguments = argparse.Namespace()
 
             if not tmp.toAgent.isValid or self.hbsKey is None:
-                print( 'Agent id and hbs key must be set in context.' )
+                self.outputString( 'Agent id and hbs key must be set in context.' )
                 return
 
             if not hasattr( tmp, 'key' ) or tmp.key is None:
@@ -148,7 +186,7 @@ class LP ( cmd.Cmd ):
         for k, a in vars( arguments ).iteritems():
             if type( a ) is AgentId:
                 if not a.isValid:
-                    print( 'Invalid agent id.' )
+                    self.outputString( 'Invalid agent id: %s.' % str(a) )
                     return
                 else:
                     setattr( arguments, k, str( a ) )
@@ -156,15 +194,15 @@ class LP ( cmd.Cmd ):
         results = command( **vars( arguments ) )
 
         if results.isSuccess:
-            print( "<<<SUCCESS>>>" )
+            self.outputString( "<<<SUCCESS>>>" )
         elif results.isTimedOut:
-            print( "<<<TIMEOUT>>>" )
+            self.outputString( "<<<TIMEOUT>>>" )
         else:
             if 0 == len( results.error ):
-                print( "<<<FAILURE>>>" )
+                self.outputString( "<<<FAILURE>>>" )
             else:
-                print( "<<<FAILURE: %s>>>" % results.error )
-        pprint.pprint( results.data, indent = 2, width = 80 )
+                self.outputString( "<<<FAILURE: %s>>>" % results.error )
+        pprint.pprint( results.data, indent = 2, width = 80, stream = self.logFile )
 
         return results.data
 
@@ -203,33 +241,33 @@ class LP ( cmd.Cmd ):
             try:
                 config = json.loads( arguments.configFile.read() )
             except:
-                print( "Invalid config file format (JSON): %s" % traceback.format_exc() )
+                self.outputString( "Invalid config file format (JSON): %s" % traceback.format_exc() )
                 return
 
             if 'beach_config' not in config or 'token' not in config:
-                print( "Missing endpoint or token in config." )
+                self.outputString( "Missing endpoint or token in config." )
                 return
 
             _ = os.getcwd()
             os.chdir( os.path.dirname(  __file__ ) )
-            self.be = BEAdmin( config[ 'beach_config' ], config[ 'token' ] )
+            self.connectWithConfig( config[ 'beach_config' ], config[ 'token' ] )
             os.chdir( _ )
 
             remoteTime = self.be.testConnection()
 
             if remoteTime.isTimedOut:
-                print( "Endpoint did not respond." )
+                self.outputString( "Endpoint did not respond." )
                 return
 
             if 'pong' not in remoteTime.data:
-                print( "Endpoint responded with invalid data." )
+                self.outputString( "Endpoint responded with invalid data." )
                 return
 
             if arguments.key is not None:
                 if os.path.isfile( arguments.key ):
                     try:
                         password = getpass.getpass()
-                        print( "...decrypting key..." )
+                        self.outputString( "...decrypting key..." )
                         # There are weird problems with pexpect and newlines and binary, so
                         # we have to brute force it a bit
                         for i in range( 0, 30 ):
@@ -238,7 +276,7 @@ class LP ( cmd.Cmd ):
                             proc.sendline( password )
                             proc.expect( "\r\n" )
                             proc.expect( ".*" )
-                            self.hbsKey = proc.match.group( 0 ).replace( "\r\n", "\n" )
+                            self.loadKey( proc.match.group( 0 ).replace( "\r\n", "\n" ) )
                             try:
                                 testSign = Signing( self.hbsKey )
                                 testSig = testSign.sign( 'a' )
@@ -248,24 +286,24 @@ class LP ( cmd.Cmd ):
                                 self.hbsKey = None
 
                         if self.hbsKey is not None:
-                            print( "success, authenticated!" )
+                            self.outputString( "success, authenticated!" )
                         else:
-                            print( "error loading key, bad key format or password?" )
+                            self.outputString( "error loading key, bad key format or password?" )
                     except:
                         self.hbsKey = None
-                        print( "error getting cloud key: %s" % traceback.format_exc() )
+                        self.outputString( "error getting cloud key: %s" % traceback.format_exc() )
                     if self.hbsKey is not None and 'bad decrypt' in self.hbsKey:
-                        print( "Invalid password" )
+                        self.outputString( "Invalid password" )
                         self.hbsKey = None
                 else:
-                    print( "Invalid key file: %s." % arguments.key )
+                    self.outputString( "Invalid key file: %s." % arguments.key )
                     self.hbsKey = None
             else:
                 self.hbsKey = None
 
             remoteTime = remoteTime.data.get( 'pong', 0 )
-            print( "Successfully logged in." )
-            print( "Remote endpoint time: %s." % remoteTime )
+            self.outputString( "Successfully logged in." )
+            self.outputString( "Remote endpoint time: %s." % remoteTime )
 
             self.user = config[ 'token' ].split( '/' )[ 0 ]
 
@@ -287,7 +325,7 @@ class LP ( cmd.Cmd ):
                 self.aid = aid
                 self.updatePrompt()
             else:
-                print( 'Agent Id is not valid.' )
+                self.outputString( 'Agent Id is not valid.' )
 
     @report_errors
     def do_setInvestigationId( self, s ):
@@ -693,13 +731,13 @@ class LP ( cmd.Cmd ):
         if agents is not None:
             if 'agents' in agents:
                 for aid in agents[ 'agents' ].keys():
-                    print( "Tasking agent %s" % aid )
+                    self.outputString( "Tasking agent %s: %s" % ( aid, str( arguments ) ) )
                     arguments.toAgent = AgentId( aid )
                     self.execAndPrintResponse( self.be.hbs_taskAgent, arguments, True )
             else:
-                print( "No matching agents found." )
+                self.outputString( "No matching agents found." )
         else:
-            print( "Failed to get agent list from endpoint." )
+            self.outputString( "Failed to get agent list from endpoint." )
 
     @report_errors
     def do_file_get( self, s ):
@@ -1009,7 +1047,7 @@ class LP ( cmd.Cmd ):
         if arguments is not None:
             arguments.script = [ x for x in arguments.script.read().split( '\n' ) if ( x.strip() != '' and not x.startswith( '#' ) ) ]
 
-            print( "Executing script containing %d commands." % ( len( arguments.script ), ) )
+            self.outputString( "Executing script containing %d commands." % ( len( arguments.script ), ) )
 
             if arguments.nocontext:
                 curContext = ''
@@ -1029,27 +1067,28 @@ class LP ( cmd.Cmd ):
                                      rSequence(),
                                      arguments )
 
-g_parser = argparse.ArgumentParser()
+if __name__ == '__main__':
+    g_parser = argparse.ArgumentParser()
 
-g_parser.add_argument( '--script',
-                        type = argparse.FileType('r'),
-                        required = False,
-                        default = None,
-                        help = 'execute the script of commands then exit.',
-                        dest = 'script' )
+    g_parser.add_argument( '--script',
+                            type = argparse.FileType('r'),
+                            required = False,
+                            default = None,
+                            help = 'execute the script of commands then exit.',
+                            dest = 'script' )
 
-g_args = g_parser.parse_args()
+    g_args = g_parser.parse_args()
 
-lp = LP()
+    cli = HcpCli()
 
-if g_args.script is not None:
-    for line in g_args.script:
-        lp.onecmd( line )
-else:
-    lp.cmdloop( '''
-    ====================
-    RPHCP Interactive CLI
-    (c) refractionPOINT 2015
-    ====================
-    ''' )
+    if g_args.script is not None:
+        for line in g_args.script:
+            cli.onecmd( line )
+    else:
+        cli.cmdloop( '''
+        ====================
+        RPHCP Interactive CLI
+        (c) refractionPOINT 2015
+        ====================
+        ''' )
 

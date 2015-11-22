@@ -24,7 +24,7 @@ limitations under the License.
 #include <rpHostCommonPlatformLib/rTags.h>
 
 #ifdef RPAL_PLATFORM_DEBUG
-#define _DEFAULT_TIME_DELTA     (60 * 5)
+#define _DEFAULT_TIME_DELTA     (60 * 30)
 #else
 #define _DEFAULT_TIME_DELTA     (0)
 #endif
@@ -86,6 +86,11 @@ RPVOID
     rList traces = NULL;
     rSequence notif = NULL;
     rSequence taggedTrace = NULL;
+    RU32 curThreadId = 0;
+    RU32 curProcId = 0;
+
+    curProcId = processLib_getCurrentPid();
+    curThreadId = processLib_getCurrentThreadId();
 
     rpal_debug_info( "looking for execution out of bounds in process %d.", processId );
 
@@ -96,8 +101,14 @@ RPVOID
             if( NULL != ( threads = processLib_getThreads( processId ) ) )
             {
                 while( !rEvent_wait( isTimeToStop, 0 ) &&
-                    rList_getRU32( threads, RP_TAGS_THREAD_ID, &threadId ) )
+                       rList_getRU32( threads, RP_TAGS_THREAD_ID, &threadId ) )
                 {
+                    if( curProcId == processId &&
+                        curThreadId == threadId )
+                    {
+                        continue;
+                    }
+
                     if( NULL != ( stackTrace = processLib_getStackTrace( processId, threadId ) ) )
                     {
                         while( !rEvent_wait( isTimeToStop, 0 ) &&

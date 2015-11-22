@@ -42,6 +42,7 @@ class StatelessActor ( Actor ):
         if not hasattr( self, 'process' ):
             raise Exception( 'Stateless Actor has no "process" function' )
         self._reporting = self.getActorHandle( 'analytics/report' )
+        self._tasking = None
         self.handle( 'process', self._process )
 
     def newDetect( self, objects = [], relations = [], desc = None, mtd = {} ):
@@ -57,6 +58,24 @@ class StatelessActor ( Actor ):
             d[ 'mtd' ] = mtd
 
         return d
+
+    def task( self, msg, dest, cmdsAndArgs, expiry = None, inv_id = None ):
+        routing, event, mtd = msg.data
+        if self._tasking is None:
+            self._tasking = self.getActorHandle( 'analytics/autotasking', mode = 'affinity' )
+            self.log( "creating tasking handle for the first time for this detection module" )
+
+        if type( cmdsAndArgs[ 0 ] ) not in ( tuple, list ):
+            cmdsAndArgs = ( cmdsAndArgs, )
+        data = { 'msg' : msg.data, 'dest' : dest, 'tasks' : cmdsAndArgs }
+
+        if expiry is not None:
+            data[ 'expiry' ] = expiry
+        if inv_id is not None:
+            data[ 'inv_id' ] = inv_id
+
+        self._tasking.shoot( 'task', data, key = routing[ 'agentid' ] )
+        self.log( "sent for tasking: %s" % ( str(cmdsAndArgs), ) )
 
     def _process( self, msg ):
         detects = self.process( msg )

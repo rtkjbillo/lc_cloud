@@ -2716,3 +2716,20 @@ rList
 
     return threads;
 }
+
+RU32
+    processLib_getCurrentThreadId
+    (
+
+    )
+{
+    RU32 threadId = 0;
+
+#ifdef RPAL_PLATFORM_WINDOWS
+    threadId = GetCurrentThreadId();
+#else
+    rpal_debug_not_implemented();
+#endif
+
+    return threadId;
+}

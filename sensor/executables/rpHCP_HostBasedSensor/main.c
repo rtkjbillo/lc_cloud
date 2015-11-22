@@ -413,7 +413,7 @@ static RBOOL
 
     rEvent_unset( g_hbs_state.isTimeToStop );
     if( NULL != ( g_hbs_state.hThreadPool = rThreadPool_create( 1, 
-                                                                15,
+                                                                30,
                                                                 MSEC_FROM_SEC( 10 ) ) ) )
     {
         isSuccess = TRUE;
