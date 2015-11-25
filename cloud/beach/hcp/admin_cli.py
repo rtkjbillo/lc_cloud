@@ -55,6 +55,13 @@ def report_errors( func ):
 def hexArg( arg ):
     return int( arg, 16 )
 
+def eventArg( arg ):
+    try:
+        return int( arg )
+    except:
+        tags = Symbols()
+        return tags.lookups[ arg ]
+
 class HcpCli ( cmd.Cmd ):
 
     #===========================================================================
@@ -1039,6 +1046,55 @@ class HcpCli ( cmd.Cmd ):
             self._executeHbsTasking( self.tags.notification.REMAIN_LIVE_REQ,
                                      rSequence().addTimestamp( self.tags.base.EXPIRY,
                                                                int( time.time() + arguments.seconds ) ),
+                                     arguments )
+
+    @report_errors
+    def do_exfil_add( self, s ):
+        '''Tell the sensor to start exfiling specific event.'''
+
+        parser = self.getParser( 'exfil_add', True )
+        parser.add_argument( 'event',
+                             type = eventArg,
+                             help = 'name of event to start exfiling' )
+        parser.add_argument( '-e', '--expire',
+                             type = int,
+                             required = False,
+                             dest = 'expire',
+                             help = 'number of seconds before stopping exfil of event' )
+        arguments = self.parse( parser, s )
+        if arguments is not None:
+            data = ( rSequence().addInt32( self.tags.hbs.NOTIFICATION_ID,
+                                           arguments.event )
+                                .addTimestamp( self.tags.base.EXPIRY,
+                                               int( time.time() + arguments.expire ) ) )
+            self._executeHbsTasking( self.tags.notification.ADD_EXFIL_EVENT_REQ,
+                                     data,
+                                     arguments )
+
+    @report_errors
+    def do_exfil_del( self, s ):
+        '''Tell the sensor to stop exfiling specific event.'''
+
+        parser = self.getParser( 'exfil_del', True )
+        parser.add_argument( 'event',
+                             type = eventArg,
+                             help = 'name of event to stop exfiling' )
+        arguments = self.parse( parser, s )
+        if arguments is not None:
+            self._executeHbsTasking( self.tags.notification.DEL_EXFIL_EVENT_REQ,
+                                     rSequence().addInt32( self.tags.hbs.NOTIFICATION_ID,
+                                                               arguments.event ),
+                                     arguments )
+
+    @report_errors
+    def do_exfil_get( self, s ):
+        '''Show which custom events are exfiled by sensor (other than through the global profile).'''
+
+        parser = self.getParser( 'exfil_get', True )
+        arguments = self.parse( parser, s )
+        if arguments is not None:
+            self._executeHbsTasking( self.tags.notification.GET_EXFIL_EVENT_REQ,
+                                     rSequence(),
                                      arguments )
 
     @report_errors

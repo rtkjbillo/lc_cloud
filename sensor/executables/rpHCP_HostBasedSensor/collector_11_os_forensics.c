@@ -839,6 +839,16 @@ RVOID
     }
 }
 
+//=============================================================================
+// COLLECTOR INTERFACE
+//=============================================================================
+
+rpcm_tag collector_11_events[] = { RP_TAGS_NOTIFICATION_OS_SERVICES_REP,
+                                   RP_TAGS_NOTIFICATION_OS_DRIVERS_REP,
+                                   RP_TAGS_NOTIFICATION_OS_PROCESSES_REP,
+                                   RP_TAGS_NOTIFICATION_OS_AUTORUNS_REP,
+                                   RP_TAGS_NOTIFICATION_OS_KILL_PROCESS_REP,
+                                   0 };
 
 RBOOL
     collector_11_init

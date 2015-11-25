@@ -666,6 +666,18 @@ RVOID
     }
 }
 
+//=============================================================================
+// COLLECTOR INTERFACE
+//=============================================================================
+
+rpcm_tag collector_10_events[] = { RP_TAGS_NOTIFICATION_MEM_MAP_REP,
+                                   RP_TAGS_NOTIFICATION_MEM_READ_REP,
+                                   RP_TAGS_NOTIFICATION_MEM_HANDLES_REP,
+                                   RP_TAGS_NOTIFICATION_MEM_FIND_HANDLE_REP,
+                                   RP_TAGS_NOTIFICATION_MEM_STRINGS_REP,
+                                   RP_TAGS_NOTIFICATION_MEM_FIND_STRING_REP,
+                                   0 };
+
 RBOOL
     collector_10_init
     (

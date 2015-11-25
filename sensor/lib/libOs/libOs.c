@@ -1072,19 +1072,23 @@ RBOOL
     )
 {
     RBOOL isSucceed = FALSE;
-    if( NULL == *signature &&
+
+    if( NULL != signature &&
         NULL != pIsSigned  &&
         NULL != pIsVerified_local  &&
         NULL != pIsVerified_global &&
         NULL != ( *signature = rSequence_new() ) )
     {
-        rSequence_addSTRINGW( *signature, RP_TAGS_FILE_PATH, pwfilePath );
-        isSucceed = libOs_getFileSignature( pwfilePath, *signature, operation, pIsSigned, pIsVerified_local, pIsVerified_global );
-
-        if( !isSucceed && NULL != *signature )
+        if( NULL != ( *signature = rSequence_new() ) )
         {
-            rSequence_free( *signature );
-            *signature = NULL;
+            rSequence_addSTRINGW( *signature, RP_TAGS_FILE_PATH, pwfilePath );
+            isSucceed = libOs_getFileSignature( pwfilePath, *signature, operation, pIsSigned, pIsVerified_local, pIsVerified_global );
+
+            if( !isSucceed && NULL != *signature )
+            {
+                rSequence_free( *signature );
+                *signature = NULL;
+            }
         }
     }
     return isSucceed;

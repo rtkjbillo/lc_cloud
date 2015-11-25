@@ -18,7 +18,7 @@ limitations under the License.
 #include <librpcm/librpcm.h>
 #include <cryptoLib/cryptoLib.h>
 
-typedef struct
+typedef struct _HbsState
 {
     rEvent isTimeToStop;
     rThreadPool hThreadPool;
@@ -28,18 +28,27 @@ typedef struct
     RU32 maxQueueSize;
     RBOOL isProfilePresent;
     RTIME liveUntil;
+    struct
+    {
+        RBOOL isEnabled;
+        RBOOL( *init )( struct _HbsState* hbsState, rSequence config );
+        RBOOL( *cleanup )( struct _HbsState* hbsState, rSequence config );
+        rSequence conf;
+        rpcm_tag* externalEvents;
+    } collectors[ 15 ];
 } HbsState;
 
 //=============================================================================
 // Collector Naming Convention
 //=============================================================================
-#define DECLARE_COLLECTOR(num) RBOOL collector_ ##num## _init( HbsState* hbsState, \
+#define DECLARE_COLLECTOR(num) extern rpcm_tag collector_ ##num## _events[]; \
+                               RBOOL collector_ ##num## _init( HbsState* hbsState, \
                                                                rSequence config ); \
                                RBOOL collector_ ##num## _cleanup( HbsState* hbsState, \
                                                                   rSequence config );
 
-#define ENABLED_COLLECTOR(num) { TRUE, collector_ ##num## _init, collector_ ##num## _cleanup, NULL }
-#define DISABLED_COLLECTOR(num) { FALSE, collector_ ##num## _init, collector_ ##num## _cleanup, NULL }
+#define ENABLED_COLLECTOR(num) { TRUE, collector_ ##num## _init, collector_ ##num## _cleanup, NULL, collector_ ##num## _events }
+#define DISABLED_COLLECTOR(num) { FALSE, collector_ ##num## _init, collector_ ##num## _cleanup, NULL, collector_ ##num## _events }
 
 #ifdef RPAL_PLATFORM_WINDOWS
     #define ENABLED_WINDOWS_COLLECTOR(num) ENABLED_COLLECTOR(num)
@@ -82,6 +91,8 @@ DECLARE_COLLECTOR( 11 );
 DECLARE_COLLECTOR( 12 );
 DECLARE_COLLECTOR( 13 );
 DECLARE_COLLECTOR( 14 );
+
+
 
 //=============================================================================
 //  Helper Functionality

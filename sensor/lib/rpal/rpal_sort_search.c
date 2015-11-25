@@ -78,13 +78,20 @@ RBOOL
 
     if( NULL != pArray )
     {
-        if( NULL != ( tmpElem = rpal_memory_alloc( elemSize ) ) )
+        if( 0 != nElements )
         {
-            _quicksort( tmpElem, pArray, elemSize, 0, nElements - 1 );
+            if( NULL != ( tmpElem = rpal_memory_alloc( elemSize ) ) )
+            {
+                _quicksort( tmpElem, pArray, elemSize, 0, nElements - 1 );
 
+                isSuccess = TRUE;
+
+                rpal_memory_free( tmpElem );
+            }
+        }
+        else
+        {
             isSuccess = TRUE;
-
-            rpal_memory_free( tmpElem );
         }
     }
 
@@ -122,9 +129,13 @@ RU32
             {
                 iMin = iMid + 1;
             }
-            else
+            else if( iMid != 0 )
             {
                 iMax = iMid - 1;
+            }
+            else
+            {
+                break;
             }
         }
     }

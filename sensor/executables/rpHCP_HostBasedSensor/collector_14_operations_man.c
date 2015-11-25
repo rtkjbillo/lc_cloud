@@ -15,6 +15,8 @@ limitations under the License.
 */
 
 
+#define RPAL_FILE_ID                  97
+
 #include <rpal/rpal.h>
 #include <librpcm/librpcm.h>
 #include "collectors.h"
@@ -45,6 +47,12 @@ RVOID
         }
     }
 }
+
+//=============================================================================
+// COLLECTOR INTERFACE
+//=============================================================================
+
+rpcm_tag collector_14_events[] = { 0 };
 
 RBOOL
     collector_14_init
@@ -83,15 +91,14 @@ RBOOL
 {
     RBOOL isSuccess = FALSE;
 
+    UNREFERENCED_PARAMETER( hbsState );
     UNREFERENCED_PARAMETER( config );
 
-    if( NULL != hbsState )
-    {
-        notifications_unsubscribe( RP_TAGS_NOTIFICATION_REMAIN_LIVE_REQ, NULL, remain_live );
+    notifications_unsubscribe( RP_TAGS_NOTIFICATION_REMAIN_LIVE_REQ, NULL, remain_live );
 
-        g_hbsStateRef = NULL;
-        isSuccess = TRUE;
-    }
+    g_hbsStateRef = NULL;
+
+    isSuccess = TRUE;
 
     return isSuccess;
 }

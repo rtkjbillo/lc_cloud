@@ -290,6 +290,13 @@ RVOID
     }
 }
 
+//=============================================================================
+// COLLECTOR INTERFACE
+//=============================================================================
+
+rpcm_tag collector_5_events[] = { RP_TAGS_NOTIFICATION_HIDDEN_MODULE_DETECTED,
+                                  0 };
+
 RBOOL
     collector_5_init
     (

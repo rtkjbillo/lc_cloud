@@ -28,9 +28,13 @@ class TestDetection ( StatelessActor ):
                 detects.append( self.newDetect( objects = ( o, ObjectTypes.FILE_PATH ) ) )
                 self.task( msg,
                            routing[ 'agentid' ],
-                           ( 'file_hash',
-                             event.get( 'notification.NEW_PROCESS', {} )
-                                  .get( 'base.FILE_PATH' ) ) )
+                           ( ( 'file_hash',
+                               event.get( 'notification.NEW_PROCESS', {} )
+                                    .get( 'base.FILE_PATH' ) ),
+                             ( 'remain_live', 60 ),
+                             ( 'history_dump', ),
+                             ( 'exfil_add', 'notification.FILE_CREATE', '--expire', 60 ),
+                             ( 'exfil_add', 'notification.FILE_DELETE', '--expire', 60 ) ) )
                 self.log( "test detection triggered" )
 
         return detects
