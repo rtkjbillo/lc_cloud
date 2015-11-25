@@ -123,7 +123,7 @@ class HbsCollectorId ( object ):
     FILE_FORENSIC = 9
     MEMORY_FORENSIC = 10
     OS_FORENSIC = 11
-    HISTORY = 12
+    _AVAILABLE = 12
     EXEC_OOB = 13
     OPERATIONS_MAN = 14
 
@@ -140,7 +140,7 @@ class HbsCollectorId ( object ):
         9 : 'FILE_FORENSIC',
         10 : 'MEMORY_FORENSIC',
         11 : 'OS_FORENSIC',
-        12 : 'HISTORY',
+        12 : '_AVAILABLE',
         13 : 'EXEC_OOB',
         14 : 'OPERATIONS_MAN'
     }

@@ -23,7 +23,8 @@ rList().addSequence( _.hbs.CONFIGURATION,
                                                                            .addInt32( _.hbs.NOTIFICATION_ID, _.notification.OS_KILL_PROCESS_REP )
                                                                            .addInt32( _.hbs.NOTIFICATION_ID, _.notification.OS_PROCESSES_REP )
                                                                            .addInt32( _.hbs.NOTIFICATION_ID, _.notification.OS_AUTORUNS_REP )
-                                                                           .addInt32( _.hbs.NOTIFICATION_ID, _.notification.EXEC_OOB ) ) )
+                                                                           .addInt32( _.hbs.NOTIFICATION_ID, _.notification.EXEC_OOB )
+                                                                           .addInt32( _.hbs.NOTIFICATION_ID, _.notification.GET_EXFIL_EVENT_REP ) ) )
        .addSequence( _.hbs.CONFIGURATION,
                      rSequence().addInt32( _.hbs.CONFIGURATION_ID, HbsCollectorId.HIDDEN_MODULE )
                                 .addTimedelta( _.base.TIMEDELTA, ( 60 * 60 * 1 ) ) )
