@@ -39,27 +39,33 @@ static RVOID
     RU32 i = iBegin;
     RU32 j = 0;
 
-    if( iBegin < iEnd )
+    _MOVE_ELEM( scratch, pArray, iEnd, elemSize );
+
+    for( j = iBegin; j <= iEnd - 1; j++ )
     {
-        _MOVE_ELEM( scratch, pArray, iEnd, elemSize );
-
-        for( j = iBegin; j <= iEnd - 1; j++ )
+        if( _KEY_32( _ARRAY_ELEM( pArray, j, elemSize ) ) <= _KEY_32( _ARRAY_ELEM( pArray, iEnd, elemSize ) ) )
         {
-            if( _KEY_32( _ARRAY_ELEM( pArray, j, elemSize ) ) <= _KEY_32( _ARRAY_ELEM( pArray, iEnd, elemSize ) ) )
-            {
-                _SWAP( _ARRAY_ELEM( pArray, i, elemSize ),
-                       _ARRAY_ELEM( pArray, j, elemSize ),
-                       elemSize,
-                       scratch );
-                i++;
-            }
+            _SWAP( _ARRAY_ELEM( pArray, i, elemSize ),
+                   _ARRAY_ELEM( pArray, j, elemSize ),
+                   elemSize,
+                   scratch );
+            i++;
         }
-        _SWAP( _ARRAY_ELEM( pArray, i, elemSize ),
-               _ARRAY_ELEM( pArray, iEnd, elemSize ),
-               elemSize,
-               scratch );
+    }
 
+    _SWAP( _ARRAY_ELEM( pArray, i, elemSize ),
+           _ARRAY_ELEM( pArray, iEnd, elemSize ),
+           elemSize,
+           scratch );
+
+    if( 0 != i && 
+        iBegin < ( i - 1 ) )
+    {
         _quicksort( scratch, pArray, elemSize, iBegin, i - 1 );
+    }
+
+    if( ( i + 1 ) < iEnd )
+    {
         _quicksort( scratch, pArray, elemSize, i + 1, iEnd );
     }
 }
@@ -78,7 +84,7 @@ RBOOL
 
     if( NULL != pArray )
     {
-        if( 0 != nElements )
+        if( 1 < nElements )
         {
             if( NULL != ( tmpElem = rpal_memory_alloc( elemSize ) ) )
             {
