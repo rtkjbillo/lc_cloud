@@ -42,8 +42,13 @@ RVOID
     {
         if( rSequence_getTIMESTAMP( event, RP_TAGS_EXPIRY, &expiry ) )
         {
-            rInterlocked_set64( &( g_hbsStateRef->liveUntil ), expiry );
-            rpal_debug_info( "going live until %ld", expiry );
+            if( rMutex_lock( g_hbsStateRef->mutex ) )
+            {
+                g_hbsStateRef->liveUntil = expiry;
+                rpal_debug_info( "going live until %ld", expiry );
+
+                rMutex_unlock( g_hbsStateRef->mutex );
+            }
         }
     }
 }

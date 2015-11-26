@@ -1098,6 +1098,56 @@ class HcpCli ( cmd.Cmd ):
                                      arguments )
 
     @report_errors
+    def do_critical_add( self, s ):
+        '''Tell the sensor to add an event to the list of critical events to beacon home.'''
+
+        parser = self.getParser( 'critical_add', True )
+        parser.add_argument( 'event',
+                             type = eventArg,
+                             help = 'name of event to start treating as critical' )
+        parser.add_argument( '-e', '--expire',
+                             type = int,
+                             required = False,
+                             dest = 'expire',
+                             help = 'number of seconds before removing event from critical' )
+        arguments = self.parse( parser, s )
+        if arguments is not None:
+            data = ( rSequence().addInt32( self.tags.hbs.NOTIFICATION_ID,
+                                           arguments.event )
+                                .addTimestamp( self.tags.base.EXPIRY,
+                                               int( time.time() + arguments.expire ) ) )
+            self._executeHbsTasking( self.tags.notification.ADD_CRITICAL_EVENT_REQ,
+                                     data,
+                                     arguments )
+
+    @report_errors
+    def do_critical_del( self, s ):
+        '''Tell the sensor to remove an event from the list of critical events.'''
+
+        parser = self.getParser( 'critical_del', True )
+        parser.add_argument( 'event',
+                             type = eventArg,
+                             help = 'name of event to stop treating as critical' )
+        arguments = self.parse( parser, s )
+        if arguments is not None:
+            self._executeHbsTasking( self.tags.notification.DEL_CRITICAL_EVENT_REQ,
+                                     rSequence().addInt32( self.tags.hbs.NOTIFICATION_ID,
+                                                               arguments.event ),
+                                     arguments )
+
+    @report_errors
+    def do_critical_get( self, s ):
+        '''Show which custom events are critical (other than through the global profile).'''
+
+        parser = self.getParser( 'critical_get', True )
+        arguments = self.parse( parser, s )
+        if arguments is not None:
+            self._executeHbsTasking( self.tags.notification.GET_CRITICAL_EVENT_REQ,
+                                     rSequence(),
+                                     arguments )
+
+
+    @report_errors
     def do_run_script( self, s ):
         '''Runs a list of commands from a file but with additional context passed in the command line.'''
 

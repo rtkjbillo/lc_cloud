@@ -57,6 +57,7 @@ HbsState g_hbs_state = { NULL,
                          0,
                          FALSE,
                          0,
+                         NULL,
                          { ENABLED_COLLECTOR( 0 ),
                            ENABLED_COLLECTOR( 1 ),
                            ENABLED_WINDOWS_COLLECTOR( 2 ),
@@ -673,7 +674,8 @@ RPAL_THREAD_FUNC
 {
     RU32 ret = 0;
 
-    RU64 nextBeaconTime = 0;
+    RTIME nextBeaconTime = 0;
+    RU64 timeDelta = 0;
 
     rList cloudMessages = NULL;
     rSequence msg = NULL;
@@ -696,6 +698,12 @@ RPAL_THREAD_FUNC
     // signaling hbs as a whole.
     if( NULL == ( g_hbs_state.isTimeToStop = rEvent_create( TRUE ) ) )
     {
+        return (RU32)-1;
+    }
+
+    if( NULL == ( g_hbs_state.mutex = rMutex_create() ) )
+    {
+        rEvent_free( g_hbs_state.isTimeToStop );
         return (RU32)-1;
     }
 
@@ -752,19 +760,36 @@ RPAL_THREAD_FUNC
     // We simply enqueue a message to let the cloud know we're starting
     sendStartupEvent();
 
-    while( !rEvent_wait( isTimeToStop, (RU32)nextBeaconTime ) )
+    while( !rEvent_wait( isTimeToStop, MSEC_FROM_SEC( 1 ) ) )
     {
-        nextBeaconTime = MSEC_FROM_SEC( HBS_DEFAULT_BEACON_TIMEOUT + 
-                         ( rpal_rand() % HBS_DEFAULT_BEACON_TIMEOUT_FUZZ ) );
+        if( rMutex_lock( g_hbs_state.mutex ) )
+        {
+            if( rpal_time_getGlobal() <= g_hbs_state.liveUntil )
+            {
+                nextBeaconTime = 0;
+                rpal_debug_info( "currently live with cloud" );
+            }
+
+            rMutex_unlock( g_hbs_state.mutex );
+        }
+
+        if( rpal_time_getGlobal() < nextBeaconTime )
+        {
+            continue;
+        }
+
+        nextBeaconTime = rpal_time_getGlobal() + 
+                         HBS_DEFAULT_BEACON_TIMEOUT +
+                         ( rpal_rand() % HBS_DEFAULT_BEACON_TIMEOUT_FUZZ );
 
         if( NULL != ( cloudMessages = beaconHome() ) )
         {
             while( rList_getSEQUENCE( cloudMessages, RP_TAGS_MESSAGE, &msg ) )
             {
                 // Cloud message indicating next requested beacon time, as a Seconds delta
-                if( rSequence_getTIMEDELTA( msg, RP_TAGS_TIMEDELTA, &nextBeaconTime ) )
+                if( rSequence_getTIMEDELTA( msg, RP_TAGS_TIMEDELTA, &timeDelta ) )
                 {
-                    nextBeaconTime = MSEC_FROM_SEC( nextBeaconTime );
+                    nextBeaconTime = rpal_time_getGlobal() + timeDelta;
                     rpal_debug_info( "received set_next_beacon" );
                 }
 
@@ -845,11 +870,6 @@ RPAL_THREAD_FUNC
             rList_free( newNotifications );
 
             newNotifications = NULL;
-        }
-
-        if( rpal_time_getGlobal() <= g_hbs_state.liveUntil )
-        {
-            nextBeaconTime = MSEC_FROM_SEC( 1 );
         }
     }
 

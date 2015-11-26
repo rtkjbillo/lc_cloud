@@ -28,6 +28,7 @@ typedef struct _HbsState
     RU32 maxQueueSize;
     RBOOL isProfilePresent;
     RTIME liveUntil;
+    rMutex mutex;
     struct
     {
         RBOOL isEnabled;
