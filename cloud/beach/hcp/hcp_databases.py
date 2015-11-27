@@ -238,7 +238,6 @@ class CassDb( object ):
                     q = SimpleStatement( query, consistency_level = self.CL_Ingest )
                 else:
                     q = query
-                #syslog.syslog( syslog.LOG_USER, 'CONSISTENCY FAILED, BACKOFF' )
                 res = queryWith( q )
             else:
                 raise
@@ -248,10 +247,10 @@ class CassDb( object ):
     def getOne( self, query, params = {} ):
         res = self.execute( query, params )
         if res is not None:
-            if 0 == len( res ):
-                res = None
-            else:
+            try:
                 res = res[ 0 ]
+            except:
+                res = None
         return res
 
     def prepare( self, query ):
