@@ -289,6 +289,14 @@ RPVOID
     return NULL;
 }
 
+//=============================================================================
+// COLLECTOR INTERFACE
+//=============================================================================
+
+rpcm_tag collector_4_events[] = { RP_TAGS_NOTIFICATION_NEW_TCP4_CONNECTION,
+                                  RP_TAGS_NOTIFICATION_NEW_UDP4_CONNECTION,
+                                  0 };
+
 RBOOL
     collector_4_init
     (

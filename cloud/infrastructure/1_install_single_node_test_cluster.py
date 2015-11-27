@@ -43,13 +43,13 @@ printStep( 'Installing Beach.',
     os.system( 'pip install beach' ) )
 
 printStep( 'Installing JRE for Cassandra (the hcp-scale-db)',
-    os.system( 'apt-get install default-jre -y' ) )
+    os.system( 'apt-get install default-jre-headless -y' ) )
 
 printStep( 'Installing Cassandra.',
     os.system( 'echo "deb http://debian.datastax.com/community stable main" | sudo tee -a /etc/apt/sources.list.d/cassandra.sources.list' ),
     os.system( 'curl -L http://debian.datastax.com/debian/repo_key | sudo apt-key add -' ),
     os.system( 'apt-get update -y' ),
-    os.system( 'apt-get install cassandra -y' ) )
+    os.system( 'apt-get install cassandra=2.2.3 -y' ) )
 
 printStep( 'Installing MySql server (hcp-state-db).',
     os.system( 'echo mysql-server mysql-server/root_password password letmein | sudo debconf-set-selections' ),
@@ -74,15 +74,6 @@ printStep( 'Installing pip packages for various analytics components.',
 printStep( 'Setting up host file entries for databases locally.',
     os.system( 'echo "127.0.0.1 hcp-state-db" >> /etc/hosts' ),
     os.system( 'echo "127.0.0.1 hcp-scale-db" >> /etc/hosts' ) )
-
-printStep( 'Setting up the C2 keys.',
-    os.system( 'ln -s %s %s' % ( os.path.join( root,
-                                               'keys',
-                                               'c2.priv.pem' ),
-                                 os.path.join( root,
-                                               'cloud',
-                                               'beach',
-                                               'hcp' ) ) ) )
 
 printStep( 'Setting up the cloud tags.',
     os.system( 'python %s' % ( os.path.join( root,

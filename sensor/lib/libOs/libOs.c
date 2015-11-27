@@ -1072,7 +1072,8 @@ RBOOL
     )
 {
     RBOOL isSucceed = FALSE;
-    if( NULL == *signature &&
+
+    if( NULL != signature &&
         NULL != pIsSigned  &&
         NULL != pIsVerified_local  &&
         NULL != pIsVerified_global &&

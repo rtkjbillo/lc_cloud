@@ -49,40 +49,31 @@ static RU8 g_patchedConfig[ _HCP_DEFAULT_STATIC_STORE_SIZE ] = _HCP_DEFAULT_STAT
 //=============================================================================
 //  Global Context
 //=============================================================================
-HbsState g_hbs_state = { 0 };
+HbsState g_hbs_state = { NULL,
+                         NULL,
+                         NULL,
+                         { 0 },
+                         0,
+                         0,
+                         FALSE,
+                         0,
+                         NULL,
+                         { ENABLED_COLLECTOR( 0 ),
+                           ENABLED_COLLECTOR( 1 ),
+                           ENABLED_WINDOWS_COLLECTOR( 2 ),
+                           ENABLED_COLLECTOR( 3 ),
+                           ENABLED_WINDOWS_COLLECTOR( 4 ),
+                           ENABLED_COLLECTOR( 5 ),
+                           ENABLED_WINDOWS_COLLECTOR( 6 ),
+                           ENABLED_WINDOWS_COLLECTOR( 7 ),
+                           ENABLED_COLLECTOR( 8 ),
+                           ENABLED_COLLECTOR( 9 ),
+                           ENABLED_COLLECTOR( 10 ),
+                           ENABLED_COLLECTOR( 11 ),
+                           DISABLED_COLLECTOR( 12 ), // This collector is available
+                           ENABLED_WINDOWS_COLLECTOR( 13 ),
+                           ENABLED_COLLECTOR( 14 ) } };
 RU8* hbs_cloud_pub_key = hbs_cloud_default_pub_key;
-
-//=============================================================================
-//  Collector Definition
-//=============================================================================
-typedef RBOOL ( *hbs_collector_init_func )( HbsState* hbsState,
-                                            rSequence config );
-typedef RBOOL( *hbs_collector_cleanup_func )( HbsState* hbsState,
-                                              rSequence config );
-typedef struct
-{
-    RBOOL isEnabled;
-    hbs_collector_init_func init;
-    hbs_collector_cleanup_func cleanup;
-    rSequence conf;
-} HbsCollectorInfo;
-
-//=============================================================================
-//  Collectors
-//=============================================================================
-HbsCollectorInfo g_collectors[] = { ENABLED_COLLECTOR( 0 ),
-                                    ENABLED_COLLECTOR( 1 ),
-                                    ENABLED_WINDOWS_COLLECTOR( 2 ),
-                                    ENABLED_COLLECTOR( 3 ),
-                                    ENABLED_WINDOWS_COLLECTOR( 4 ),
-                                    ENABLED_COLLECTOR( 5 ),
-                                    ENABLED_WINDOWS_COLLECTOR( 6 ),
-                                    ENABLED_WINDOWS_COLLECTOR( 7 ),
-                                    ENABLED_COLLECTOR( 8 ),
-                                    ENABLED_COLLECTOR( 9 ),
-                                    ENABLED_COLLECTOR( 10 ),
-                                    ENABLED_COLLECTOR( 11 ),
-                                    ENABLED_COLLECTOR( 12 ) };
 
 //=============================================================================
 //  Utilities
@@ -334,29 +325,29 @@ static RBOOL
     {
         rpal_debug_info( "updating collector configurations." );
         
-        for( i = 0; i < ARRAY_N_ELEM( g_collectors ); i++ )
+        for( i = 0; i < ARRAY_N_ELEM( g_hbs_state.collectors ); i++ )
         {
-            if( NULL != g_collectors[ i ].conf )
+            if( NULL != g_hbs_state.collectors[ i ].conf )
             {
                 rpal_debug_info( "freeing collector %d config.", i );
-                rSequence_free( g_collectors[ i ].conf );
-                g_collectors[ i ].conf = NULL;
+                rSequence_free( g_hbs_state.collectors[ i ].conf );
+                g_hbs_state.collectors[ i ].conf = NULL;
             }
         }
 
         while( rList_getSEQUENCE( newConfigs, RP_TAGS_HBS_CONFIGURATION, &tmpConf ) )
         {
             if( rSequence_getRU32( tmpConf, RP_TAGS_HBS_CONFIGURATION_ID, &confId ) &&
-                confId < ARRAY_N_ELEM( g_collectors ) )
+                confId < ARRAY_N_ELEM( g_hbs_state.collectors ) )
             {
                 if( rSequence_getRU8( tmpConf, RP_TAGS_IS_DISABLED, &unused ) )
                 {
-                    g_collectors[ confId ].isEnabled = FALSE;
+                    g_hbs_state.collectors[ confId ].isEnabled = FALSE;
                 }
                 else
                 {
-                    g_collectors[ confId ].isEnabled = TRUE;
-                    g_collectors[ confId ].conf = rSequence_duplicate( tmpConf );
+                    g_hbs_state.collectors[ confId ].isEnabled = TRUE;
+                    g_hbs_state.collectors[ confId ].conf = rSequence_duplicate( tmpConf );
                     rpal_debug_info( "set new collector %d config.", confId );
                 }
             }
@@ -387,14 +378,14 @@ static RVOID
             rThreadPool_destroy( g_hbs_state.hThreadPool, TRUE );
             g_hbs_state.hThreadPool = NULL;
 
-            for( i = 0; i < ARRAY_N_ELEM( g_collectors ); i++ )
+            for( i = 0; i < ARRAY_N_ELEM( g_hbs_state.collectors ); i++ )
             {
-                if( g_collectors[ i ].isEnabled )
+                if( g_hbs_state.collectors[ i ].isEnabled )
                 {
                     rpal_debug_info( "cleaning up collector %d.", i );
-                    g_collectors[ i ].cleanup( &g_hbs_state, g_collectors[ i ].conf );
-                    rSequence_free( g_collectors[ i ].conf );
-                    g_collectors[ i ].conf = NULL;
+                    g_hbs_state.collectors[ i ].cleanup( &g_hbs_state, g_hbs_state.collectors[ i ].conf );
+                    rSequence_free( g_hbs_state.collectors[ i ].conf );
+                    g_hbs_state.collectors[ i ].conf = NULL;
                 }
             }
         }
@@ -412,16 +403,16 @@ static RBOOL
 
     rEvent_unset( g_hbs_state.isTimeToStop );
     if( NULL != ( g_hbs_state.hThreadPool = rThreadPool_create( 1, 
-                                                                15,
+                                                                30,
                                                                 MSEC_FROM_SEC( 10 ) ) ) )
     {
         isSuccess = TRUE;
 
-        for( i = 0; i < ARRAY_N_ELEM( g_collectors ); i++ )
+        for( i = 0; i < ARRAY_N_ELEM( g_hbs_state.collectors ); i++ )
         {
-            if( g_collectors[ i ].isEnabled )
+            if( g_hbs_state.collectors[ i ].isEnabled )
             {
-                if( !g_collectors[ i ].init( &g_hbs_state, g_collectors[ i ].conf ) )
+                if( !g_hbs_state.collectors[ i ].init( &g_hbs_state, g_hbs_state.collectors[ i ].conf ) )
                 {
                     isSuccess = FALSE;
                     rpal_debug_warning( "collector %d failed to init.", i );
@@ -636,7 +627,9 @@ static RVOID
                 {
                     if( NULL != ( cloudEventStub->event = rSequence_duplicate( cloudEventStub->event ) ) )
                     {
-                        if( rThreadPool_task( g_hbs_state.hThreadPool, _handleCloudNotification, cloudEventStub ) )
+                        if( rThreadPool_task( g_hbs_state.hThreadPool, 
+                                              (rpal_thread_pool_func)_handleCloudNotification,
+                                              cloudEventStub ) )
                         {
                             // The handler will free this stub
                             cloudEventStub = NULL;
@@ -683,7 +676,8 @@ RPAL_THREAD_FUNC
 {
     RU32 ret = 0;
 
-    RU64 nextBeaconTime = 0;
+    RTIME nextBeaconTime = 0;
+    RU64 timeDelta = 0;
 
     rList cloudMessages = NULL;
     rSequence msg = NULL;
@@ -706,6 +700,12 @@ RPAL_THREAD_FUNC
     // signaling hbs as a whole.
     if( NULL == ( g_hbs_state.isTimeToStop = rEvent_create( TRUE ) ) )
     {
+        return (RU32)-1;
+    }
+
+    if( NULL == ( g_hbs_state.mutex = rMutex_create() ) )
+    {
+        rEvent_free( g_hbs_state.isTimeToStop );
         return (RU32)-1;
     }
 
@@ -762,19 +762,36 @@ RPAL_THREAD_FUNC
     // We simply enqueue a message to let the cloud know we're starting
     sendStartupEvent();
 
-    while( !rEvent_wait( isTimeToStop, (RU32)nextBeaconTime ) )
+    while( !rEvent_wait( isTimeToStop, MSEC_FROM_SEC( 1 ) ) )
     {
-        nextBeaconTime = MSEC_FROM_SEC( HBS_DEFAULT_BEACON_TIMEOUT + 
-                         ( rpal_rand() % HBS_DEFAULT_BEACON_TIMEOUT_FUZZ ) );
+        if( rMutex_lock( g_hbs_state.mutex ) )
+        {
+            if( rpal_time_getGlobal() <= g_hbs_state.liveUntil )
+            {
+                nextBeaconTime = 0;
+                rpal_debug_info( "currently live with cloud" );
+            }
+
+            rMutex_unlock( g_hbs_state.mutex );
+        }
+
+        if( rpal_time_getGlobal() < nextBeaconTime )
+        {
+            continue;
+        }
+
+        nextBeaconTime = rpal_time_getGlobal() + 
+                         HBS_DEFAULT_BEACON_TIMEOUT +
+                         ( rpal_rand() % HBS_DEFAULT_BEACON_TIMEOUT_FUZZ );
 
         if( NULL != ( cloudMessages = beaconHome() ) )
         {
             while( rList_getSEQUENCE( cloudMessages, RP_TAGS_MESSAGE, &msg ) )
             {
                 // Cloud message indicating next requested beacon time, as a Seconds delta
-                if( rSequence_getTIMEDELTA( msg, RP_TAGS_TIMEDELTA, &nextBeaconTime ) )
+                if( rSequence_getTIMEDELTA( msg, RP_TAGS_TIMEDELTA, &timeDelta ) )
                 {
-                    nextBeaconTime = MSEC_FROM_SEC( nextBeaconTime );
+                    nextBeaconTime = rpal_time_getGlobal() + timeDelta;
                     rpal_debug_info( "received set_next_beacon" );
                 }
 
@@ -867,6 +884,8 @@ RPAL_THREAD_FUNC
     // Cleanup the last few resources
     rEvent_free( g_hbs_state.isTimeToStop );
     rQueue_free( g_hbs_state.outQueue );
+
+    rMutex_free( g_hbs_state.mutex );
 
     CryptoLib_deinit();
 

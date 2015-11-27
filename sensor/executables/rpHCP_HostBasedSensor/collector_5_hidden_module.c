@@ -22,9 +22,9 @@ limitations under the License.
 #include <rpHostCommonPlatformLib/rTags.h>
 
 #ifdef RPAL_PLATFORM_DEBUG
-#define _DEFAULT_TIME_DELTA     (60 * 60 * 1)
-#else
 #define _DEFAULT_TIME_DELTA     (60 * 5)
+#else
+#define _DEFAULT_TIME_DELTA     (60 * 60 * 1)
 #endif
 
 static
@@ -71,7 +71,8 @@ RPVOID
     lookForHiddenModulesIn
     (
         rEvent isTimeToStop,
-        RU32 processId
+        RU32 processId,
+        rSequence originalRequest
     )
 {
     rList mods = NULL;
@@ -94,6 +95,9 @@ RPVOID
     PIMAGE_DOS_HEADER pDos = NULL;
     PIMAGE_NT_HEADERS pNt = NULL;
 #endif
+
+    rpal_debug_info( "looking for hidden modules in process %d.", processId );
+
     if( NULL != ( mods = processLib_getProcessModules( processId ) ) )
     {
         if( NULL != ( map = processLib_getProcessMemoryMap( processId ) ) )
@@ -204,6 +208,7 @@ RPVOID
                                     }
 
                                     rSequence_addTIMESTAMP( region, RP_TAGS_TIMESTAMP, rpal_time_getGlobal() );
+                                    hbs_markAsRelated( originalRequest, region );
                                     notifications_publish( RP_TAGS_NOTIFICATION_HIDDEN_MODULE_DETECTED, region );
                                     break;
                                 }
@@ -232,10 +237,9 @@ RPVOID
         RPVOID ctx
     )
 {
+    rSequence originalRequest = (rSequence)ctx;
     processLibProcEntry* procs = NULL;
     processLibProcEntry* proc = NULL;
-
-    UNREFERENCED_PARAMETER( ctx );
 
     if( NULL != ( procs = processLib_getProcessEntries( TRUE ) ) )
     {
@@ -245,7 +249,7 @@ RPVOID
             rpal_memory_isValid( isTimeToStop ) &&
             !rEvent_wait( isTimeToStop, 0 ) )
         {
-            lookForHiddenModulesIn( isTimeToStop, proc->pid );
+            lookForHiddenModulesIn( isTimeToStop, proc->pid, originalRequest );
 
             proc++;
         }
@@ -275,16 +279,23 @@ RVOID
     {
         if( (RU32)( -1 ) == pid )
         {
-            lookForHiddenModules( dummy, NULL );
+            lookForHiddenModules( dummy, event );
         }
         else
         {
-            lookForHiddenModulesIn( dummy, pid );
+            lookForHiddenModulesIn( dummy, pid, event );
         }
 
         rEvent_free( dummy );
     }
 }
+
+//=============================================================================
+// COLLECTOR INTERFACE
+//=============================================================================
+
+rpcm_tag collector_5_events[] = { RP_TAGS_NOTIFICATION_HIDDEN_MODULE_DETECTED,
+                                  0 };
 
 RBOOL
     collector_5_init
@@ -311,7 +322,8 @@ RBOOL
                                      0, 
                                      NULL, 
                                      scan_for_hidden_module ) &&
-            rThreadPool_scheduleRecurring( hbsState->hThreadPool, timeDelta, lookForHiddenModules, NULL, TRUE ) )
+            ( 0 == timeDelta ||
+              rThreadPool_scheduleRecurring( hbsState->hThreadPool, timeDelta, lookForHiddenModules, NULL, TRUE ) ) )
         {
             isSuccess = TRUE;
         }

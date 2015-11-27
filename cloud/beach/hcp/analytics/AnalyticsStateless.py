@@ -18,28 +18,9 @@ AgentId = Actor.importLib( '../hcp_helpers', 'AgentId' )
 class AnalyticsStateless( Actor ):
     def init( self, parameters ):
         self.handleCache = {}
-        self.modules = { 'notification.NEW_PROCESS' : [ 'analytics/stateless/suspexecloc/',
-                                                        'analytics/stateless/batchselfdelete/',
-                                                        'analytics/stateless/firewallclimods/',
-                                                        'analytics/stateless/known_objects/' ],
-                         'notification.TERMINATE_PROCESS' : [ 'analytics/stateless/suspexecloc/',
-                                                              'analytics/stateless/batchselfdelete/' ],
-                         'notification.CODE_IDENTITY' : [ 'analytics/stateless/virustotal/',
-                                                          'analytics/stateless/known_objects/' ],
-                         'notification.OS_SERVICES_REP' : [ 'analytics/stateless/virustotal/',
-                                                            'analytics/stateless/known_objects/' ],
-                         'notification.OS_DRIVERS_REP' : [ 'analytics/stateless/virustotal/',
-                                                           'analytics/stateless/known_objects/' ],
-                         'notification.OS_AUTORUNS_REP' : [ 'analytics/stateless/virustotal/',
-                                                            'analytics/stateless/known_objects/' ],
-                         'notification.DNS_REQUEST' : [ 'analytics/stateless/known_objects/' ] }
+        self.modules = {}
 
         self.handle( 'analyze', self.analyze )
-
-    def _sendForProcessing( self, cat, msg ):
-        if cat not in self.handleCache:
-            self.handleCache[ cat ] = self.getActorHandle( cat, timeout = 30, nRetries = 3 )
-        self.handleCache[ cat ].shoot( 'process', msg )
 
     def deinit( self ):
         pass
@@ -47,8 +28,13 @@ class AnalyticsStateless( Actor ):
     def analyze( self, msg ):
         routing, event, mtd = msg.data
 
-        toRun = self.modules.get( routing[ 'event_type' ], [] )
-        for m in toRun:
-            self._sendForProcessing( m, msg.data )
+        etype = routing[ 'event_type' ]
+
+        if etype not in self.modules:
+            self.log( "New stateless event: %s" % ('analytics/stateless/%s/' % etype,))
+            self.modules[ etype ] = self.getActorHandleGroup( 'analytics/stateless/%s/' % etype, timeout = 30, nRetries = 3 )
+
+        self.log( "Trying to send to %s: %d" % ( etype, self.modules[ etype ].getNumAvailable() ) )
+        self.modules[ etype ].shoot( 'process', msg.data )
 
         return ( True, )

@@ -20,6 +20,7 @@ limitations under the License.
 #include <notificationsLib/notificationsLib.h>
 #include <rpHostCommonPlatformLib/rTags.h>
 #include <cryptoLib/cryptoLib.h>
+#include <libOs/libOs.h>
 
 #define RPAL_FILE_ID 72
 
@@ -46,6 +47,10 @@ RVOID
 {
     CodeIdent ident = { 0 };
     rSequence notif = NULL;
+    rSequence sig = NULL;
+    RBOOL isSigned = FALSE;
+    RBOOL isVerifiedLocal = FALSE;
+    RBOOL isVerifiedGlobal = FALSE;
     
     ident.codeSize = codeSize;
 
@@ -70,6 +75,19 @@ RVOID
                 rSequence_addRU32( notif, RP_TAGS_MEMORY_SIZE, (RU32)codeSize ) &&
                 rSequence_addTIMESTAMP( notif, RP_TAGS_TIMESTAMP, rpal_time_getGlobal() ) )
             {
+                if( libOs_getSignature( name, 
+                                        &sig, 
+                                        ( OSLIB_SIGNCHECK_NO_NETWORK | OSLIB_SIGNCHECK_CHAIN_VERIFICATION ), 
+                                        &isSigned, 
+                                        &isVerifiedLocal, 
+                                        &isVerifiedGlobal ) )
+                {
+                    if( !rSequence_addSEQUENCE( notif, RP_TAGS_SIGNATURE, sig ) )
+                    {
+                        rSequence_free( sig );
+                    }
+                }
+
                 notifications_publish( RP_TAGS_NOTIFICATION_CODE_IDENTITY, notif );
             }
             rSequence_free( notif );
@@ -89,6 +107,8 @@ RVOID
 {
     CodeIdent ident = { 0 };
     rSequence notif = NULL;
+    rSequence sig = NULL;
+    RPWCHAR wPath = NULL;
 
     ident.codeSize = codeSize;
 
@@ -113,6 +133,19 @@ RVOID
                 rSequence_addRU32( notif, RP_TAGS_MEMORY_SIZE, (RU32)codeSize ) &&
                 rSequence_addTIMESTAMP( notif, RP_TAGS_TIMESTAMP, rpal_time_getGlobal() ) )
             {
+                if( NULL != ( wPath = rpal_string_atow( name ) ) )
+                {
+                    if( libOs_getSignature( wPath, &sig, OSLIB_SIGNCHECK_NO_NETWORK, NULL, NULL, NULL ) )
+                    {
+                        if( !rSequence_addSEQUENCE( notif, RP_TAGS_SIGNATURE, sig ) )
+                        {
+                            rSequence_free( sig );
+                        }
+                    }
+
+                    rpal_memory_free( wPath );
+                }
+
                 notifications_publish( RP_TAGS_NOTIFICATION_CODE_IDENTITY, notif );
             }
             rSequence_free( notif );
@@ -213,6 +246,12 @@ RVOID
     }
 }
 
+//=============================================================================
+// COLLECTOR INTERFACE
+//=============================================================================
+
+rpcm_tag collector_3_events[] = { RP_TAGS_NOTIFICATION_CODE_IDENTITY,
+                                  0 };
 
 RBOOL
     collector_3_init

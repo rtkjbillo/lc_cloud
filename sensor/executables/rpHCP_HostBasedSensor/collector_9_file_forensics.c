@@ -212,8 +212,13 @@ RVOID
             {
                 rSequence_addRU32( event, RP_TAGS_ERROR, rpal_error_getLast() );
             }
+            else
+            {
+                rSequence_addBUFFER( event, RP_TAGS_HASH, hash, sizeof( hash ) );
+            }
         }
 
+        rSequence_unTaintRead( event );
         rSequence_addTIMESTAMP( event, RP_TAGS_TIMESTAMP, rpal_time_getGlobal() );
         notifications_publish( RP_TAGS_NOTIFICATION_FILE_HASH_REP, event );
     }
@@ -307,6 +312,18 @@ RVOID
         notifications_publish( RP_TAGS_NOTIFICATION_DIR_LIST_REP, event );
     }
 }
+
+//=============================================================================
+// COLLECTOR INTERFACE
+//=============================================================================
+
+rpcm_tag collector_9_events[] = { RP_TAGS_NOTIFICATION_FILE_GET_REP,
+                                  RP_TAGS_NOTIFICATION_FILE_DEL_REP,
+                                  RP_TAGS_NOTIFICATION_FILE_MOV_REP,
+                                  RP_TAGS_NOTIFICATION_FILE_HASH_REP,
+                                  RP_TAGS_NOTIFICATION_FILE_INFO_REP,
+                                  RP_TAGS_NOTIFICATION_DIR_LIST_REP,
+                                  0 };
 
 RBOOL
     collector_9_init

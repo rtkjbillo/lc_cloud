@@ -5,6 +5,16 @@
 *Need help? Contact other LC users via the Google Group: https://groups.google.com/d/forum/limacharlie*
 *For more direct enquiries, contact us at limacharlie@refractionpoint.com*
 
+## What's New
+- New sensor collector detecting thread execution out of known modules.
+- AutoTasking Actor now allows stateless detection modules to automatically task the sensor back with follow-up 
+investigation steps.
+- New "remain_live" command requesting the sensor to remain in constant contact for the next X seconds. Useful to 
+maintain live connectivity automatically (using AutoTasking) on sensor where suspicious activity is detected.
+- New set of commands to change events to be exfiled in sensor at runtime (outside of Profiles).
+- New set of commands to set "critical" events, which when they occur in the sensor always trigger an immediate
+beacon to the cloud.
+
 ## Overview
 LIMA CHARLIE is an endpoint security platform. It is itself a collection of small projects all working together
 to become the LC platform. LC gives you a cross-platform (Windows, OSX, Linux, Android and iOS) low-level 
@@ -51,7 +61,7 @@ on the first time that sensor (at that boot) sees that specific piece of code.
 Simple, essentially netflow, an event is generated for every connection change.
 
 ##### Hidden Module Detection
-Looks for hidden modules loaded in memory in a few different ways.
+Looks for hidden modules loaded in memory in a few different ways. Full recurring scan as well as process specific tasking.
 
 ##### Module Tracking
 When a module (dll) is loaded, an event is generated.
@@ -76,6 +86,9 @@ Queries to list various OS-specific characteristics like Services, Drivers and A
 ##### Detailed History on Demand
 All events are generated internally on the sensor, some are sent back, but we keep a rolling buffer of the latest
 full spread of events. This rolling buffer can be flushed and sent to the cloud on demand.
+
+##### Execution Out of Bounds
+Looks for threads executing outside of known modules. Full recurring scan as well as process specific tasking. 
 
 #### In-Cloud
 

@@ -184,6 +184,13 @@ RPVOID
     return NULL;
 }
 
+//=============================================================================
+// COLLECTOR INTERFACE
+//=============================================================================
+
+rpcm_tag collector_2_events[] = { RP_TAGS_NOTIFICATION_DNS_REQUEST,
+                                  0 };
+
 RBOOL
     collector_2_init
     (

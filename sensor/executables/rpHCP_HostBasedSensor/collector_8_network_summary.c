@@ -278,6 +278,13 @@ RPVOID
     return NULL;
 }
 
+//=============================================================================
+// COLLECTOR INTERFACE
+//=============================================================================
+
+rpcm_tag collector_8_events[] = { RP_TAGS_NOTIFICATION_NETWORK_SUMMARY,
+                                  0 };
+
 RBOOL
     collector_8_init
     (

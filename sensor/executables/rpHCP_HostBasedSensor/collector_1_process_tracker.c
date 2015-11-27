@@ -318,6 +318,13 @@ static RPVOID
     return NULL;
 }
 
+//=============================================================================
+// COLLECTOR INTERFACE
+//=============================================================================
+
+rpcm_tag collector_1_events[] = { RP_TAGS_NOTIFICATION_NEW_PROCESS,
+                                  RP_TAGS_NOTIFICATION_TERMINATE_PROCESS,
+                                  0 };
 
 RBOOL
     collector_1_init

@@ -22,7 +22,7 @@ class VirusTotal ( StatelessActor ):
     def init( self, parameters ):
         super( VirusTotal, self ).init( parameters )
 
-        self.key = parameters.get( 'key', None )
+        self.key = parameters.get( '_key', None )
         if self.key is None: raise Exception( 'missing API key' )
 
         # Maximum number of queries per minute
@@ -64,6 +64,6 @@ class VirusTotal ( StatelessActor ):
                 self.cache.add( h, report )
 
             if report is not None:
-                detects.append( self.newDetec( objects = ( h, ), mtd = report ) )
+                detects.append( self.newDetect( objects = ( h, ), mtd = report ) )
 
         return detects

@@ -137,4 +137,10 @@ rList
         RU32 pid
     );
 
+RU32
+    processLib_getCurrentThreadId
+    (
+
+    );
+
 #endif

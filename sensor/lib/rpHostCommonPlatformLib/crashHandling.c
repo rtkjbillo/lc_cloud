@@ -268,7 +268,7 @@ LONG WINAPI
     {
         if ( NULL != ( blob = rpal_blob_create( 0, 0 ) ) )
         {
-            rSequence_addSTRINGA( crashInfo, RP_TAGS_CRASH_EXCEPTION_CODE, seDescription( pER->ExceptionCode ) );
+            rSequence_addSTRINGA( crashInfo, RP_TAGS_EXCEPTION_CODE, seDescription( pER->ExceptionCode ) );
             rpal_debug_critical( "Exception: %s at address 0x%08llX", seDescription( pER->ExceptionCode ), ( RU64 ) pER->ExceptionAddress );
             
             if ( NULL != ( mod = GetModuleInfoByAddress( ( RU64 ) pER->ExceptionAddress ) ) )
@@ -291,7 +291,7 @@ LONG WINAPI
             sprintf( fn, "Rax = 0x%016llX, Rbx  = 0x%016llX, Rcx = 0x%016llX, Rdx = 0x%016llx, Rdi = 0x%016llx, Rsi = 0x%016llx, Rbp = 0x%016llx, Rsp = 0x%016llx, Rip = 0x%016llx, R8 = 0x%016llx, R9 = 0x%016llx, R10 = 0x%016llx, R11 = 0x%016llx, R12 = 0x%016llx, R13 = 0x%016llx, R14 = 0x%016llx, R15 = 0x%016llx",
                 pContext->Rax, pContext->Rbx, pContext->Rcx, pContext->Rdx, pContext->Rdi, pContext->Rsi, pContext->Rbp, pContext->Rsp, pContext->Rip, pContext->R8, pContext->R9, pContext->R10, pContext->R11, pContext->R12, pContext->R13, pContext->R14, pContext->R15 );
 #endif
-            rSequence_addSTRINGA( crashInfo, RP_TAGS_CRASH_REGISTERS, fn );
+            rSequence_addSTRINGA( crashInfo, RP_TAGS_REGISTERS, fn );
             rpal_debug_critical( "%s", fn );
             // now attempt to do the stack trace  
             // before we go on, we need to get the relevant addresses from dbgHelp.dll dynamically to ensure we work on all versions of Windows...
@@ -322,7 +322,7 @@ LONG WINAPI
 #endif
                 // allocate memory for the stack trace frames
                 if ( NULL != ( pSymbol = ( PIMAGEHLP_SYMBOL64 ) malloc( sizeof( IMAGEHLP_SYMBOL64 ) + RPAL_MAX_PATH * sizeof( TCHAR ) ) ) && 
-                     NULL != ( frames = rList_new( RP_TAGS_CRASH_STACK_TRACE_FRAME, RPCM_SEQUENCE ) ) )
+                     NULL != ( frames = rList_new( RP_TAGS_STACK_TRACE_FRAME, RPCM_SEQUENCE ) ) )
                 {
                     for( fr = 0; ; fr++ )
                     {
@@ -343,10 +343,10 @@ LONG WINAPI
                             memset( fn, 0, sizeof( fn ) );
                             rpal_debug_critical( "Frame %lu: \tSymbol name:    %s\n\tPC address:     0x%016llX\n\tStack address:  0x%016llX\n\tFrame address:  0x%016llX\n",
                                 fr, symbolName, ( ULONG64 )stack.AddrPC.Offset, ( ULONG64 )stack.AddrStack.Offset, ( ULONG64 )stack.AddrFrame.Offset );
-                            rSequence_addSTRINGA( frame, RP_TAGS_CRASH_STACK_TRACE_FRAME_SYM_NAME, pSymbol->Name );
-                            rSequence_addRU64( frame, RP_TAGS_CRASH_STACK_TRACE_FRAME_PC, ( ULONG64 )stack.AddrPC.Offset );
-                            rSequence_addRU64( frame, RP_TAGS_CRASH_STACK_TRACE_FRAME_SP, ( ULONG64 )stack.AddrStack.Offset );
-                            rSequence_addRU64( frame, RP_TAGS_CRASH_STACK_TRACE_FRAME_FP, ( ULONG64 )stack.AddrFrame.Offset );
+                            rSequence_addSTRINGA( frame, RP_TAGS_STACK_TRACE_FRAME_SYM_NAME, pSymbol->Name );
+                            rSequence_addRU64( frame, RP_TAGS_STACK_TRACE_FRAME_PC, ( ULONG64 )stack.AddrPC.Offset );
+                            rSequence_addRU64( frame, RP_TAGS_STACK_TRACE_FRAME_SP, ( ULONG64 )stack.AddrStack.Offset );
+                            rSequence_addRU64( frame, RP_TAGS_STACK_TRACE_FRAME_FP, ( ULONG64 )stack.AddrFrame.Offset );
 
                             if( !rList_addSEQUENCE( frames, frame ) )
                             {
@@ -363,7 +363,7 @@ LONG WINAPI
 
                     if ( NULL != frames )
                     {
-                        rSequence_addLIST( crashInfo, RP_TAGS_CRASH_STACK_TRACE_FRAMES, frames );
+                        rSequence_addLIST( crashInfo, RP_TAGS_STACK_TRACE_FRAMES, frames );
                     }
                 }    
             }
