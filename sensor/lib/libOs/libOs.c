@@ -1079,16 +1079,13 @@ RBOOL
         NULL != pIsVerified_global &&
         NULL != ( *signature = rSequence_new() ) )
     {
-        if( NULL != ( *signature = rSequence_new() ) )
-        {
-            rSequence_addSTRINGW( *signature, RP_TAGS_FILE_PATH, pwfilePath );
-            isSucceed = libOs_getFileSignature( pwfilePath, *signature, operation, pIsSigned, pIsVerified_local, pIsVerified_global );
+        rSequence_addSTRINGW( *signature, RP_TAGS_FILE_PATH, pwfilePath );
+        isSucceed = libOs_getFileSignature( pwfilePath, *signature, operation, pIsSigned, pIsVerified_local, pIsVerified_global );
 
-            if( !isSucceed && NULL != *signature )
-            {
-                rSequence_free( *signature );
-                *signature = NULL;
-            }
+        if( !isSucceed && NULL != *signature )
+        {
+            rSequence_free( *signature );
+            *signature = NULL;
         }
     }
     return isSucceed;

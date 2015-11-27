@@ -627,7 +627,9 @@ static RVOID
                 {
                     if( NULL != ( cloudEventStub->event = rSequence_duplicate( cloudEventStub->event ) ) )
                     {
-                        if( rThreadPool_task( g_hbs_state.hThreadPool, _handleCloudNotification, cloudEventStub ) )
+                        if( rThreadPool_task( g_hbs_state.hThreadPool, 
+                                              (rpal_thread_pool_func)_handleCloudNotification,
+                                              cloudEventStub ) )
                         {
                             // The handler will free this stub
                             cloudEventStub = NULL;
@@ -882,6 +884,8 @@ RPAL_THREAD_FUNC
     // Cleanup the last few resources
     rEvent_free( g_hbs_state.isTimeToStop );
     rQueue_free( g_hbs_state.outQueue );
+
+    rMutex_free( g_hbs_state.mutex );
 
     CryptoLib_deinit();
 
