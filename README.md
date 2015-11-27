@@ -11,6 +11,9 @@
 investigation steps.
 - New "remain_live" command requesting the sensor to remain in constant contact for the next X seconds. Useful to 
 maintain live connectivity automatically (using AutoTasking) on sensor where suspicious activity is detected.
+- New set of commands to change events to be exfiled in sensor at runtime (outside of Profiles).
+- New set of commands to set "critical" events, which when they occur in the sensor always trigger an immediate
+beacon to the cloud.
 
 ## Overview
 LIMA CHARLIE is an endpoint security platform. It is itself a collection of small projects all working together
