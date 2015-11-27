@@ -35,6 +35,13 @@ class SuspExecLoc ( StatelessActor ):
         for o in mtd[ 'obj' ].get( ObjectTypes.FILE_PATH, [] ):
             for k, v in self.slocs.iteritems():
                 if v.search( o ):
-                    detects.append( self.newDetec( objects = ( o, ObjectTypes.FILE_PATH ) ) )
+                    detects.append( self.newDetect( objects = ( o, ObjectTypes.FILE_PATH ) ) )
+
+        if 0 != len( detects ):
+            self.task( msg,
+                       routing[ 'agentid' ],
+                       ( ( 'remain_live', 60 ),
+                         ( 'history_dump', ),
+                         ( 'exfil_add', 'notification.FILE_CREATE', '--expire', 60 ) ) )
 
         return detects

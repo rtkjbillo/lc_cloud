@@ -58,6 +58,6 @@ class KnownObjects ( StatelessActor ):
         for k in mtd[ 'k' ]:
             if k in self.known:
                 info = self._getObjectInfo( k )
-                detects.append( self.newDetec( objects = ( k, ), mtd = info ) )
+                detects.append( self.newDetect( objects = ( k, ), mtd = info ) )
 
         return detects
