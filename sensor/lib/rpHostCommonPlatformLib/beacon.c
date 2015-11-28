@@ -341,6 +341,18 @@ rList
                             // has stopped executing...
                             rEvent_free( g_hcpContext.modules[ moduleIndex ].isTimeToStop );
                             rpal_thread_free( g_hcpContext.modules[ moduleIndex ].hThread );
+                            if( g_hcpContext.modules[ moduleIndex ].isOsLoaded )
+                            {
+#ifdef RPAL_PLATFORM_WINDOWS
+                                FreeLibrary( (HMODULE)( g_hcpContext.modules[ moduleIndex ].hModule ) );
+#elif defined( RPAL_PLATFORM_LINUX ) || defined( RPAL_PLATFORM_MACOSX )
+                                dlclose( g_hcpContext.modules[ moduleIndex ].hModule );
+#endif
+                            }
+                            else
+                            {
+                                MemoryFreeLibrary( g_hcpContext.modules[ moduleIndex ].hModule );
+                            }
                             rpal_memory_zero( &(g_hcpContext.modules[ moduleIndex ]),
                                               sizeof( g_hcpContext.modules[ moduleIndex ] ) );
 
