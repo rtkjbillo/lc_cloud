@@ -41,6 +41,9 @@ from functools import wraps
 def tsToTime( ts ):
     return datetime.datetime.fromtimestamp( int( ts ) ).strftime( '%Y-%m-%d %H:%M:%S' )
 
+def timeToTs( timeStr ):
+    return time.mktime( datetime.datetime.strptime( timeStr, '%Y-%m-%d %H:%M:%S' ).timetuple() )
+
 ###############################################################################
 # PAGE DECORATORS
 ###############################################################################
@@ -130,7 +133,7 @@ class Timeline:
         start_time = int( params.after )
 
         if 0 == start_time:
-            start_time = int( time.time() )
+            start_time = int( time.time() ) - 5
 
         req = { 'id' : params.sensor_id,
                 'is_include_content' : True,
@@ -228,6 +231,64 @@ class HostObjects:
 
         return render.objlist( objects.data[ 'objects' ], params.sensor_id )
 
+class JsonDetects:
+    @jsonApi
+    def GET( self ):
+        params = web.input( before = None, after = None )
+
+        if params.after is None or '' == params.after:
+            raise web.HTTPError( '400 Bad Request: start time required' )
+
+        start_time = None
+        if params.after is not None:
+            start_time = int( params.after )
+
+        if start_time is None or 0 == start_time:
+            start_time = int( time.time() ) - 5
+
+        search = {}
+
+        if start_time is not None:
+            search [ 'after' ] = start_time
+
+        if params.before is not None:
+            search[ 'before' ] = int( params.before )
+
+        detects = model.request( 'get_detects', search )
+
+        if not detects.isSuccess:
+            return render.error( str( detects ) )
+        else:
+            return detects.data
+
+class ViewDetects:
+    def GET( self ):
+        params = web.input( before = None, after = None )
+
+        before = None
+        after = None
+
+        if params.before is not None and '' != params.before:
+            before = params.before
+        if params.after is not None and '' != params.after:
+            after = params.after
+
+        return render.detects( before, after )
+
+class ViewDetect:
+    def GET( self ):
+        params = web.input( id = None )
+
+        if params.id is None:
+            return render.error( 'need to supply a detect id' )
+
+        info = model.request( 'get_detect', { 'id' : params.id } )
+
+        if not info.isSuccess:
+            return render.error( str( info ) )
+
+        return render.detect( info.data.get( 'detect', {} ) )
+
 ###############################################################################
 # BOILER PLATE
 ###############################################################################
@@ -243,7 +304,10 @@ urls = ( r'/', 'Index',
          r'/obj', 'ObjViewer',
          r'/lastevents', 'LastEvents',
          r'/event', 'EventView',
-         r'/hostobjects', 'HostObjects' )
+         r'/hostobjects', 'HostObjects',
+         r'/detects_data', 'JsonDetects',
+         r'/detects', 'ViewDetects',
+         r'/detect', 'ViewDetect' )
 
 web.config.debug = False
 app = web.application( urls, globals() )

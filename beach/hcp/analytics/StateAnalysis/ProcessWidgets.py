@@ -12,238 +12,134 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from ...hcp_helpers import _x_
-from ...hcp_helpers import _xm_
-from sets import Set
+from beach.actor import Actor
+_x_ = Actor.importLib( '../../hcp_helpers', '_x_' )
+_xm_ = Actor.importLib( '../../hcp_helpers', '_xm_' )
+SAMState = Actor.importLib( '.', 'SAMState' )
+SAMInvalidStructureException = Actor.importLib( '.', 'SAMInvalidStructureException' )
+SAMGcStrategy = Actor.importLib( '.', 'SAMGcStrategy' )
+SAMSelector = Actor.importLib( 'GenericWidgets', 'SAMSelector' )
 
-from . import SAMInputWidget
-from . import SAMStateWidget
+class SAMShortTimeProcessGc( SAMGcStrategy ):
+    def __init__( self, *a, **k ):
+        SAMGcStrategy.__init__( self, *a, **k )
+        self.latest = 0
 
+    def collect_pre_all( self, feed, states, newEvent ):
+        tmpTime = _x_( newEvent, self.widget.TIMESTAMP_PATH )
+        self.latest = tmpTime if tmpTime > self.latest else self.latest
 
-class ProcessNamedWidget( SAMInputWidget ):
-    cache = None
-    isPositive = True
+        eventType = newEvent[ 'routing' ][ 'event_type' ]
 
-    def execute( self, event ):
-        detect = None
+        if ( eventType == 'notification.STARTING_UP' or
+             eventType == 'notification.SHUTTING_DOWN' ):
+            del states[:]
+            self.widget.log( 'sensor restarted, resetting states' )
 
-        # Initialize a quick local cache, list -> Set
-        if None == self.cache:
-            exes = self.parameters[ 'exe' ]
-            if type( exes ) is not list:
-                exes = [ self.parameters[ 'exe' ] ]
-            exes = [ x.lower() for x in exes ]
-            self.cache = Set( exes )
-            if 'not' in self.parameters and True == self.parameters[ 'not' ]:
-                self.isPositive = False
+    def collect_pre( self, feed, states ):
+        for state in states:
+            for event in state:
+                if _x_( event, self.widget.TIMESTAMP_PATH ) < self.latest - 60:
+                    state.remove( event )
+                if 0 == len( state ):
+                    states.remove( state )
+                    self.widget.log( 'garbage collecting a state' )
 
-        processPath = _x_( event, 'notification.NEW_PROCESS/base.FILE_PATH' )
+    def collect_post( self, feed, states ):
+        pass
 
-        # If we got a file path in a new process, we try to find the last component after \ or /
-        if None != processPath:
-            i = processPath.rfind( '\\' )
-            if -1 == i:
-                i = processPath.rfind( '/' )
-            exeName = processPath[ i + 1 : ]
+    def collect_post_all( self, feed, states, newEvent ):
+        pass
 
-            # If the exe name is in our cache
-            if exeName.lower() in self.cache and self.isPositive:
-                detect = event
-            elif not self.isPositive:
-                detect = event
+class SAMTimelessProcessGc( SAMGcStrategy ):
+    def __init__( self, *a, **k ):
+        SAMGcStrategy.__init__( self, *a, **k )
+        self.latest = 0
 
-        return detect
+    def collect_pre_all( self, feed, states, newEvent ):
+        tmpTime = _x_( newEvent, self.widget.TIMESTAMP_PATH )
+        self.latest = tmpTime if tmpTime > self.latest else self.latest
 
-class ProcessFullFeedWidget( SAMInputWidget ):
+        eventType = newEvent[ 'routing' ][ 'event_type' ]
 
-    def execute( self, event ):
-        detect = None
+        if ( eventType == 'notification.STARTING_UP' or
+             eventType == 'notification.SHUTTING_DOWN' ):
+            del states[:]
+            self.widget.log( 'sensor restarted, resetting states' )
 
-        processRec = _x_( event, 'notification.NEW_PROCESS' )
+    def collect_pre( self, feed, states ):
+        pass
 
-        if None != processRec:
-            detect = event
+    def collect_post( self, feed, states ):
+        pass
 
-        return detect
+    def collect_post_all( self, feed, states, newEvent ):
+        pass
 
-class ProcessKillFullFeedWidget( SAMInputWidget ):
+class SAMProcessChildren( SAMState ):
+    def __init__( self, *a, **k ):
+        SAMState.__init__( self, *a, **k )
+        self.TIMESTAMP_PATH = 'event/?/base.TIMESTAMP'
+        self.PID_PATH = 'event/?/base.PROCESS_ID'
+        self.PPID_PATH = 'event/?/base.PARENT_PROCESS_ID'
+        self.feedsFrom( '_new',
+                        SAMSelector( parameters = { 'event/?/notification.NEW_PROCESS' : None,
+                                                    'debug' : self.printDebug } ),
+                        SAMShortTimeProcessGc )
+        self.feedsFrom( '_end',
+                        SAMSelector( parameters = { 'event/?/notification.TERMINATE_PROCESS' : None,
+                                                    'debug' : self.printDebug } ),
+                        SAMShortTimeProcessGc )
 
-    def execute( self, event ):
-        detect = None
+    def feed_parents( self, widget ):
+        self.feedsFrom( 'parents', widget, SAMTimelessProcessGc )
+        return self
 
-        processRec = _x_( event, 'notification.TERMINATE_PROCESS' )
+    def feed_children( self, widget ):
+        self.feedsFrom( 'children', widget, SAMShortTimeProcessGc )
+        return self
 
-        if None != processRec:
-            detect = event
+    def execute( self, feedStates ):
+        out = []
+        if 'parents' not in feedStates or 'children' not in feedStates:
+            raise SAMInvalidStructureException( 'requires a "parents" and "children" feed' )
 
-        return detect
+        revocations = {}
 
-class ProcessChildrenWidget( SAMStateWidget ):
+        # Build a revocation list of PID -> TimeRevoked
+        # This is for race conditions with asynchronous events and is
+        # by no means perfect, but it's better.
 
-    def onShutdown( self, states ):
-        self.setStates( [ [], [], [] ] )
+        # For New processes
+        for state in feedStates[ '_new' ]:
+            for nEvent in state:
+                nPid = _x_( nEvent, self.PID_PATH )
+                for pState in feedStates[ 'parents' ]:
+                    for pEvent in pState:
+                        if nPid == _x_( pEvent, self.PID_PATH ):
+                            revocations[ nPid ] = _x_( nEvent, self.TIMESTAMP_PATH )
+        # For Dead processes
+        for state in feedStates[ '_end' ]:
+            for nEvent in state:
+                nPid = _x_( nEvent, self.PID_PATH )
+                for pState in feedStates[ 'parents' ]:
+                    for pEvent in pState:
+                        if nPid == _x_( pEvent, self.PID_PATH ):
+                            revocations[ nPid ] = _x_( nEvent, self.TIMESTAMP_PATH )
 
-    def execute( self, states ):
-        detect = []
+        # Again horribly ineficient N^2 algorithm but considering the numbers should be quite low
+        # we're going with the easy approach for now.
+        for cState in feedStates[ 'children' ]:
+            for cEvent in cState:
+                cPPid = _x_( cEvent, self.PPID_PATH )
+                for pState in feedStates[ 'parents' ]:
+                    for pEvent in pState:
+                        pPid = _x_( pEvent, self.PID_PATH )
+                        if pPid == cPPid:
+                            # Check if it is revoked at that point in time
+                            revocationTime = revocations.get( pPid, None )
+                            if ( revocationTime is None or
+                                 _x_( cEvent, self.TIMESTAMP_PATH ) <= revocationTime ):
+                                out.append( [ cEvent ] )
 
-        if 3 == len( states ):
-            parents = states[ 0 ]
-            fullFeed = states[ 1 ]
-            killFeed = states[ 2 ]
-
-            # Process kills, and flush the killFeed
-            if 0 != len( killFeed ):
-                tmpFull = []
-                tmpParent = []
-                killPids = _xm_( killFeed, 'notification.TERMINATE_PROCESS/base.PROCESS_ID' )
-                for process in fullFeed:
-                    fullPids = _xm_( process, 'notification.NEW_PROCESS/base.PROCESS_ID' )
-                    isToKill = False
-                    for pid in fullPids:
-                        if pid in killPids:
-                            isToKill = True
-                            break
-                    if not isToKill:
-                        tmpFull.append( process )
-                for process in parents:
-                    parentPids = _xm_( process, 'notification.NEW_PROCESS/base.PROCESS_ID' )
-                    isToKill = False
-                    for pid in parentPids:
-                        if pid in killPids:
-                            isToKill = True
-                            break
-                    if not isToKill:
-                        tmpParent.append( process )
-
-                parents = tmpParent
-                fullFeed = tmpFull
-                killFeed = []
-                self.setStates( [ parents, fullFeed, killFeed ] )
-
-            # Look for relations
-            for process in fullFeed:
-                isChild = False
-                ppid = _xm_( process, 'notification.NEW_PROCESS/base.PARENT_PROCESS_ID' )
-
-                if None == ppid or 0 == len( ppid ):
-                    continue
-
-                for e in parents:
-                    pid = _xm_( e, 'notification.NEW_PROCESS/base.PROCESS_ID' )
-
-                    if None == pid or 0 == len( pid ):
-                        continue
-
-                    isHit = False
-                    for p1 in pid:
-                        for p2 in ppid:
-                            if p1 == p2:
-                                isHit = True
-                                break
-                        if isHit:
-                            break
-
-                    if isHit:
-                        detect.append( process )
-
-        else:
-            raise Exception( 'needs 3 states, [ parents, fullFeed, killFeed ]' )
-
-        return detect
-
-class ProcessDescendantsWidget( SAMStateWidget ):
-
-    def onShutdown( self, states ):
-        self.setStates( [ [], [], [] ] )
-
-    def execute( self, states ):
-        detect = []
-
-        if 3 == len( states ):
-            parents = states[ 0 ]
-            fullFeed = states[ 1 ]
-            killFeed = states[ 2 ]
-
-            # Process kills, and flush the killFeed
-            if 0 != len( killFeed ):
-                tmpFull = []
-                tmpParent = []
-
-                killPids = _xm_( killFeed, 'notification.TERMINATE_PROCESS/base.PROCESS_ID' )
-                for process in fullFeed:
-                    fullPids = _xm_( process, 'notification.NEW_PROCESS/base.PROCESS_ID' )
-                    isToKill = False
-                    for pid in fullPids:
-                        if pid in killPids:
-                            isToKill = True
-                            break
-                    if not isToKill:
-                        tmpFull.append( process )
-                for process in parents:
-                    parentPids = _xm_( process, 'notification.NEW_PROCESS/base.PROCESS_ID' )
-                    isToKill = False
-                    for pid in parentPids:
-                        if pid in killPids:
-                            isToKill = True
-                            break
-                    if not isToKill:
-                        tmpParent.append( process )
-
-                parents = tmpParent
-                fullFeed = tmpFull
-                killFeed = []
-                self.setStates( [ parents, fullFeed, killFeed ] )
-
-            isProcessedDescendants = True
-
-            while isProcessedDescendants:
-                isProcessedDescendants = False
-
-                for processes in fullFeed:
-                    for process in processes:
-                        isChild = False
-                        ppid = _xm_( process, 'notification.NEW_PROCESS/base.PARENT_PROCESS_ID' )
-                        tmp_pid = _xm_( process, 'notification.NEW_PROCESS/base.PROCESS_ID' )
-
-                        if None == ppid or None == tmp_pid:
-                            continue
-
-                        isHit = False
-                        isAlreadyIn = False
-
-                        for e in parents:
-                            pid = _xm_( e, 'notification.NEW_PROCESS/base.PROCESS_ID' )
-
-                            if None == pid:
-                                continue
-
-                            for p1 in pid:
-                                for p2 in ppid:
-                                    if p1 == p2:
-                                        isHit = True
-                                        break
-                                if isHit:
-                                    break
-
-                                #process[ 'parent' ] = e
-
-                            for p1 in pid:
-                                for p2 in tmp_pid:
-                                    if p1 == p2:
-                                        isAlreadyIn = True
-                                        break
-                                if isAlreadyIn:
-                                    break
-
-                            if isAlreadyIn:
-                                break
-
-                        if isHit:
-                            if not isAlreadyIn:
-                                # Now we do something naughty / feature and add back the hit to the parent states
-                                # so that we hit on those in the future as well...
-                                parents.append( process )
-                                isProcessedDescendants = True
-                            detect.append( processes )
-
-        return detect
+        return out

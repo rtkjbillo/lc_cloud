@@ -20,6 +20,7 @@ FluxEvent = Actor.importLib( '../ObjectsDb', 'FluxEvent' )
 ObjectTypes = Actor.importLib( '../ObjectsDb', 'ObjectTypes' )
 ObjectKey = Actor.importLib( '../ObjectsDb', 'ObjectKey' )
 RelationNameFromId = Actor.importLib( '../ObjectsDb', 'RelationNameFromId' )
+Reporting = Actor.importLib( '../ObjectsDb', 'Reporting' )
 AgentId = Actor.importLib( '../hcp_helpers', 'AgentId' )
 
 class ModelView( Actor ):
@@ -27,6 +28,7 @@ class ModelView( Actor ):
         self.admin = BEAdmin( parameters[ 'beach_config' ], None )
         Host.setDatabase( self.admin, parameters[ 'scale_db' ] )
         HostObjects.setDatabase( parameters[ 'scale_db' ] )
+        Reporting.setDatabase( parameters[ 'scale_db' ] )
         self.handle( 'get_timeline', self.get_timeline )
         self.handle( 'get_sensor_info', self.get_sensor_info )
         self.handle( 'get_obj_list', self.get_obj_list )
@@ -34,10 +36,13 @@ class ModelView( Actor ):
         self.handle( 'get_lastevents', self.get_lastevents )
         self.handle( 'get_event', self.get_event )
         self.handle( 'list_sensors', self.list_sensors )
+        self.handle( 'get_detects', self.get_detects )
+        self.handle( 'get_detect', self.get_detect )
 
     def deinit( self ):
         Host.closeDatabase()
         HostObjects.closeDatabase()
+        Reporting.closeDatabase()
 
     def get_sensor_info( self, msg ):
         info = {}
@@ -189,3 +194,24 @@ class ModelView( Actor ):
             return ( True, sensors.data[ 'agents' ] )
         else:
             return ( False, sensors.error )
+
+    def get_detects( self, msg ):
+        reports = Reporting.getDetects( before = msg.data.get( 'before', None ),
+                                        after = msg.data.get( 'after', None ),
+                                        limit = msg.data.get( 'limit', None ) )
+
+        reports = [ ( x[ 0 ], x[ 1 ], x[ 2 ], x[ 3 ], x[ 4 ], FluxEvent.decode( x[ 5 ] ) ) for x in reports ]
+
+        return ( True, { 'reports' : reports } )
+
+    def get_detect( self, msg ):
+        detect = Reporting.getDetects( id = msg.data[ 'id' ] )
+
+        detect = ( detect[ 0 ],
+                   detect[ 1 ],
+                   detect[ 2 ],
+                   detect[ 3 ],
+                   detect[ 4 ],
+                   FluxEvent.decode( detect[ 5 ] ) )
+
+        return ( True, { 'detect' : detect } )

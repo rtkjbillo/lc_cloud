@@ -1,0 +1,13 @@
+$def with ( detect )
+$var title = 'Detect'
+
+<div style="text-align:left;">
+    <h4>Detect Id: $detect[ 1 ]</h4>
+    <h5>Time: $tsToTime( detect[ 0 ] / 1000 )</h5>
+    <h5>Type: $detect[ 3 ]</h5>
+    <pre><code>$json.dumps( detect[ 5 ], indent = 2 )</code></pre>
+</div>
+
+<script>
+    hljs.initHighlighting();
+</script>
