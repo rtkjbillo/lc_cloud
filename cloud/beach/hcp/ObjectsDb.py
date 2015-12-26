@@ -21,6 +21,7 @@ import msgpack
 import sys
 import time
 import re
+import time_uuid
 AgentId = Actor.importLib( 'hcp_helpers', 'AgentId' )
 chunks = Actor.importLib( 'hcp_helpers', 'chunks' )
 tsToTime = Actor.importLib( 'hcp_helpers', 'tsToTime' )
@@ -545,7 +546,9 @@ class FluxEvent( object ):
     @classmethod
     def decode( cls, event ):
         try:
-            event = msgpack.unpackb( base64.b64decode( event ), use_list = True )[ 'event' ]
+            event = msgpack.unpackb( base64.b64decode( event ), use_list = True )
+            if 'event' in event:
+                event = event[ 'event' ]
             cls._dataToUtf8( event )
         except:
             event = None
@@ -576,3 +579,49 @@ class FluxEvent( object ):
                 except:
                     newVal = None
         return newVal
+
+class Reporting( object ):
+    _db = None
+
+    @classmethod
+    def setDatabase( cls, cassUrl ):
+        cls._db = CassDb( cassUrl, 'hcp_analytics', consistencyOne = True )
+
+    @classmethod
+    def closeDatabase( cls ):
+        cls._db.shutdown()
+
+    @classmethod
+    def getDetects( cls, before = None, after = None, limit = None, id = None ):
+        if id is None:
+            filters = []
+            filterValues = []
+
+            if before is not None and before != '':
+                filters.append( 'ts <= %s' )
+                filterValues.append( time_uuid.TimeUUID.with_timestamp( before ) )
+
+            if after is not None and after != '':
+                filters.append( 'ts >= %s' )
+                filterValues.append( time_uuid.TimeUUID.with_timestamp( after ) )
+
+            if limit is not None:
+                limit = 'LIMIT %d' % int( limit )
+            else:
+                limit = ''
+
+            def thisGen():
+                for d in xrange( 0, 255 ):
+                    for row in cls._db.execute( 'SELECT d, ts, repid FROM report_timeline WHERE d = %s AND %s%s' % ( d, ' AND '.join( filters ), limit ), filterValues ):
+                        for reprow in cls._db.execute( 'SELECT gen, repid, source, dtype, events, detect FROM reports WHERE repid = \'%s\'' % ( row[ 2 ],  ) ):
+                            yield ( timeToTs( reprow[ 0 ] ) * 1000, reprow[ 1 ], reprow[ 2 ], reprow[ 3 ], reprow[ 4 ], reprow[ 5 ] )
+
+
+            return thisGen()
+        else:
+            r = None
+            for row in cls._db.execute( 'SELECT gen, repid, source, dtype, events, detect FROM reports WHERE repid = \'%s\'' % ( id, ) ):
+                r = ( timeToTs( row[ 0 ] ) * 1000, row[ 1 ], row[ 2 ], row[ 3 ], row[ 4 ], row[ 5 ] )
+            return r
+
+

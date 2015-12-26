@@ -13,29 +13,18 @@
 # limitations under the License.
 
 from beach.actor import Actor
-#from analytics.StateAnalysis import StateAnalysisMachine
+import hashlib
+from sets import Set
+import time
+SAMLoadWidgets = Actor.importLib( 'analytics/StateAnalysis', 'SAMLoadWidgets' )
 
-def GenerateDetect( objects = [], relations = [], desc = None, mtd = {} ):
-    d = {}
-
-    if 0 != len( objects ):
-        d[ 'obj' ] = objects
-    if 0 != len( relations ):
-        d[ 'rel' ] = relations
-    if desc is not None:
-        d[ 'desc' ] = desc
-    if 0 != len( mtd ):
-        d[ 'mtd' ] = mtd
-
-    return d
-
-def GenerateDetectReport( msg, cat, reportId, detects = [] ):
-    if 0 == len( detects ):
-        return None
-    else:
-        return { 'msg' : msg, 'cat' : cat, 'detects' : detects, 'report_id' : reportId }
-
-
+def GenerateDetectReport( agentid, msgIds, cat, detect ):
+    if type( msgIds ) is not tuple and type( msgIds ) is not list:
+        msgIds = ( msgIds, )
+    if type( agentid ) is tuple or type( agentid ) is list:
+        agentid = ' / '.join( agentid )
+    reportId = hashlib.sha256( str( msgIds ) ).hexdigest()
+    return { 'source' : agentid, 'msg_ids' : msgIds, 'cat' : cat, 'detect' : detect, 'report_id' : reportId }
 
 class StatelessActor ( Actor ):
     def init( self, parameters ):
@@ -81,40 +70,71 @@ class StatelessActor ( Actor ):
         detects = self.process( msg )
 
         if 0 != len( detects ):
+            self.log( "reporting detects generated" )
             routing, event, mtd = msg.data
-            self._reporting.shoot( 'report', GenerateDetectReport( ( msg, ),
-                                                                   str( type( self ) ),
-                                                                   routing[ 'event_id' ],
-                                                                   detects ) )
-
+            cat = type( self ).__name__
+            cat = cat[ cat.rfind( '.' ) + 1 : ]
+            for detect in detects:
+                self._reporting.shoot( 'report', GenerateDetectReport( routing[ 'agentid' ],
+                                                                       ( routing[ 'event_id' ], ),
+                                                                       cat,
+                                                                       detect ) )
         return ( True, )
 
+class StatefulActor ( Actor ):
+    def init( self, parameters ):
+        self._compiled_machines = {}
+        self._machine_activity = {}
+        self._machine_ttl = parameters.get( 'machine_ttl', ( 60 * 60 * 24 * 7 ) )
+        if not hasattr( self, 'initMachines' ):
+            raise Exception( 'Stateful Actor has no "initMachines" function' )
+        if not hasattr( self, 'processDetects' ):
+            raise Exception( 'Stateful Actor has no "processDetects" function' )
 
-# class StatefulActor ( Actor ):
-#     def init( self, parameters ):
-#         if not hasattr( self, 'processDetects' ):
-#             raise Exception( 'Stateful Actor has no "processDetects" function' )
-#         if not hasattr( self, 'machines' ):
-#             raise Exception( 'Stateful Actor has no associated detection machines' )
-#         self._machine = StateAnalysisMachine( self.machines )
-#         self._reporting = self.getActorHandle( 'analytics/report' )
-#         self.handle( 'process', self._process )
-#
-#     def newDetect( self, objects = [], relations = [], desc = None, mtd = {} ):
-#         return GenerateDetect( objects = objects, relations = relations, desc = desc, mtd = mtd )
-#
-#     def _process( self, msg ):
-#         routing, event, mtd = msg.data
-#
-#         detects = self._machine.execute( routing, event )
-#
-#         if detects is not None and 0 != len( detects ):
-#             for detect in detects:
-#                 detect = self.processDetects( detect )
-#                 if detect is not None:
-#                     self._reporting.shoot( 'report', GenerateDetectReport( ( msg, ),
-#                                                                            str( type( self ) ),
-#                                                                            routing[ 'event_id' ],
-#                                                                            detects ) )
-#
-#         return ( True, )
+        self.initMachines( parameters )
+
+        if not hasattr( self, 'machines' ):
+            raise Exception( 'Stateful Actor has no associated detection machines' )
+        if not hasattr( self, 'shardingKey' ):
+            raise Exception( 'Stateful Actor has no associated shardingKey (or None)' )
+
+        self._reporting = self.getActorHandle( 'analytics/report' )
+        self.handle( 'process', self._process )
+
+        self.schedule( 60 * 60, self._garbageCollectOldMachines )
+
+    def _garbageCollectOldMachines( self ):
+        for shard in self._machine_activity.keys():
+            if self._machine_activity[ shard ] < time.time() - self._machine_ttl:
+                del( self._machine_activity[ shard ] )
+                del( self._compiled_machines[ shard ] )
+
+    def _process( self, msg ):
+        routing, event, mtd = msg.data
+
+        shard = None
+        if self.shardingKey is not None:
+            shard = routing.get( self.shardingKey, None )
+
+        if shard not in self._compiled_machines:
+            self.log( 'creating new state machine' )
+            self._compiled_machines[ shard ] = {}
+            for mName, m in self.machines.iteritems():
+                self._compiled_machines[ shard ][ mName ] = eval( '(%s)' % m, SAMLoadWidgets(), { 'self' : self } )
+
+        actual_machines = self._compiled_machines[ shard ]
+        self._machine_activity[ shard ] = time.time()
+
+        machineEvent = { 'event' : event, 'routing' : routing }
+
+        for mName, m in actual_machines.iteritems():
+            detects = m._execute( machineEvent )
+            if detects is not None and 0 != len( detects ):
+                detects = self.processDetects( detects )
+                for detect in detects:
+                    self._reporting.shoot( 'report',
+                                           GenerateDetectReport( tuple( Set( [ e[ 'routing' ][ 'agentid' ] for e in detect ] ) ),
+                                                                 tuple( Set( [ e[ 'routing' ][ 'event_id' ] for e in detect ] ) ),
+                                                                 self.__class__.__name__,
+                                                                 detect ) )
+        return ( True, )

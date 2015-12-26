@@ -30,15 +30,28 @@ rSequence = Actor.importLib( 'rpcm', 'rSequence' )
 
 import hmac, base64, struct, hashlib, time, string, random
 
+def _isDynamicType( e ):
+    eType = type( e )
+    return issubclass( eType, dict ) or issubclass( eType, list ) or issubclass( eType, tuple )
+
+def _isListType( e ):
+    eType = type( e )
+    return issubclass( eType, list ) or issubclass( eType, tuple )
+
+def _isSeqType( e ):
+    eType = type( e )
+    return issubclass( eType, dict )
+
 def _xm_( o, path, isWildcardDepth = False ):
     result = []
+    oType = type( o )
 
     if type( path ) is str or type( path ) is unicode:
         tokens = [ x for x in path.split( '/' ) if x != '' ]
     else:
         tokens = path
 
-    if type( o ) is dict:
+    if issubclass( oType, dict ):
         isEndPoint = False
         if 0 != len( tokens ):
             if 1 == len( tokens ):
@@ -53,24 +66,24 @@ def _xm_( o, path, isWildcardDepth = False ):
                 if 1 < len( tokens ):
                     result = []
                     for elem in o.itervalues():
-                        if type( elem ) is dict or type( elem ) is list:
+                        if _isDynamicType( elem ):
                             result += _xm_( elem, tokens[ 1 : ], False )
 
             elif o.has_key( curToken ):
                 if isEndPoint:
-                    result = [ o[ curToken ] ] if not issubclass( type( o[ curToken ] ), list ) else o[ curToken ]
-                elif issubclass( type( o[ curToken ] ), dict ) or issubclass( type( o[ curToken ] ), list ):
+                    result = [ o[ curToken ] ] if not _isListType( o[ curToken ] ) else o[ curToken ]
+                elif _isDynamicType( o[ curToken ] ):
                     result = _xm_( o[ curToken ], tokens[ 1 : ] )
 
             if isWildcardDepth:
                 tmpTokens = tokens[ : ]
                 for elem in o.itervalues():
-                    if issubclass( type( elem ), dict ) or issubclass( type( elem ), list ):
+                    if _isListType( elem ):
                         result += _xm_( elem, tmpTokens, True )
-    elif type( o ) is list:
+    elif issubclass( oType, list ) or oType is tuple:
         result = []
         for elem in o:
-            if issubclass( type( elem ), dict ) or issubclass( type( elem ), list ):
+            if _isDynamicType( elem ):
                 result += _xm_( elem, tokens )
 
     return result
@@ -222,7 +235,7 @@ def tsToTime( ts ):
     return datetime.datetime.fromtimestamp( int( ts ) ).strftime( '%Y-%m-%d %H:%M:%S' )
 
 def timeToTs( timeStr ):
-    return time.mktime( datetime.datetime.strptime( timeStr, '%Y-%m-%d %H:%M:%S' ).timetuple() )
+    return time.mktime( datetime.datetime.strptime( str( timeStr ).split( '.' )[ 0 ], '%Y-%m-%d %H:%M:%S' ).timetuple() )
 
 def anyOf( coll, f = None ):
     ''' Like the builtin 'any' function but this will short-circuit eval.'''

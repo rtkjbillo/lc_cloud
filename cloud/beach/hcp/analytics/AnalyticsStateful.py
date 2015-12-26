@@ -14,10 +14,14 @@
 
 from beach.actor import Actor
 AgentId = Actor.importLib( '../hcp_helpers', 'AgentId' )
-PooledResource = Actor.importLib( '../hcp_helpers', 'PooledResource' )
 
 class AnalyticsStateful( Actor ):
     def init( self, parameters ):
+        self.handleCache = {}
+        self.statefulHandle = self.getActorHandleGroup( 'analytics/stateful/modules/',
+                                                        mode = 'affinity',
+                                                        timeout = 30,
+                                                        nRetries = 3 )
         self.handle( 'analyze', self.analyze )
 
     def deinit( self ):
@@ -26,4 +30,6 @@ class AnalyticsStateful( Actor ):
     def analyze( self, msg ):
         routing, event, mtd = msg.data
 
-        return ( False, )
+        self.statefulHandle.shoot( 'process', msg.data, key = routing[ 'agentid' ] )
+
+        return ( True, )

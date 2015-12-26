@@ -1490,7 +1490,7 @@ RBOOL
         kret = task_for_pid( mach_task_self(), processId, &task );
         if ( KERN_SUCCESS == kret )
         {
-            kret = vm_read(task, (RU64)baseAddr, size, (vm_offset_t*)&rBuffer, &data_cnt);
+            kret = mach_vm_read(task, (RU64)baseAddr, size, (vm_offset_t*)&rBuffer, &data_cnt);
             if( KERN_SUCCESS == kret )
             {
                 if( NULL != ( *pBuffer = rpal_memory_alloc( (RU32)size ) ) )

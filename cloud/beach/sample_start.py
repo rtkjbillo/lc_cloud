@@ -102,8 +102,8 @@ print( beach.addActor( 'analytics/AnalyticsIntake',
 print( beach.addActor( 'analytics/AnalyticsModeling',
                        'analytics/modeling/intake/1.0',
                        parameters = { 'db' : [ 'hcp-scale-db' ],
-                                      'rate_limit_per_sec' : 500,
-                                      'max_concurrent' : 10,
+                                      'rate_limit_per_sec' : 200,
+                                      'max_concurrent' : 5,
                                       'block_on_queue_size' : 200000 },
                        secretIdent = 'analysis/038528f5-5135-4ca8-b79f-d6b8ffc53bf5',
                        trustedIdents = [ 'intake/6058e556-a102-4e51-918e-d36d6d1823db' ],
@@ -145,10 +145,14 @@ print( beach.addActor( 'analytics/AnalyticsStateful',
 #######################################
 print( beach.addActor( 'analytics/AnalyticsReporting',
                        'analytics/reporting/1.0',
-                       parameters = {  },
+                       parameters = { 'db' : [ 'hcp-scale-db' ],
+                                      'rate_limit_per_sec' : 10,
+                                      'max_concurrent' : 5,
+                                      'block_on_queue_size' : 200000 },
                        secretIdent = 'reporting/9ddcc95e-274b-4a49-a003-c952d12049b8',
                        trustedIdents = [ 'analysis/038528f5-5135-4ca8-b79f-d6b8ffc53bf5' ],
-                       n_concurrent = 5 ) )
+                       n_concurrent = 5,
+                       isIsolated = True ) )
 
 #######################################
 # ModelView
@@ -178,7 +182,8 @@ print( beach.addActor( 'analytics/ModelView',
                                       'max_concurrent' : 10,
                                       'beach_config' : BEACH_CONFIG_FILE },
                        trustedIdents = [ 'lc/0bf01f7e-62bd-4cc4-9fec-4c52e82eb903' ],
-                       n_concurrent = 5 ) )
+                       n_concurrent = 5,
+                       isIsolated = True ) )
 
 #######################################
 # AutoTasking
@@ -368,6 +373,28 @@ print( beach.addActor( 'analytics/stateless/VirusTotal',
 #######################################
 print( beach.addActor( 'analytics/stateless/FirewallCliMods',
                        'analytics/stateless/notification.NEW_PROCESS/firewallclimods/1.0',
+                       parameters = {  },
+                       secretIdent = 'analysis/038528f5-5135-4ca8-b79f-d6b8ffc53bf5',
+                       trustedIdents = [ 'analysis/038528f5-5135-4ca8-b79f-d6b8ffc53bf5' ],
+                       n_concurrent = 5 ) )
+
+###############################################################################
+# Stateful Detection
+###############################################################################
+#######################################
+# stateful/DocumentExploit
+# This actor looks for various stateful
+# patterns indicating documents being
+# exploited.
+#######################################
+print( beach.addActor( 'analytics/stateful/DocumentExploit',
+                       'analytics/stateful/modules/documentexploit/1.0',
+                       parameters = {  },
+                       secretIdent = 'analysis/038528f5-5135-4ca8-b79f-d6b8ffc53bf5',
+                       trustedIdents = [ 'analysis/038528f5-5135-4ca8-b79f-d6b8ffc53bf5' ],
+                       n_concurrent = 5 ) )
+print( beach.addActor( 'analytics/stateful/DocumentExploit',
+                       'analytics/stateful/modules/documentexploit/1.0',
                        parameters = {  },
                        secretIdent = 'analysis/038528f5-5135-4ca8-b79f-d6b8ffc53bf5',
                        trustedIdents = [ 'analysis/038528f5-5135-4ca8-b79f-d6b8ffc53bf5' ],
