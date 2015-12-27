@@ -135,6 +135,6 @@ class StatefulActor ( Actor ):
                     self._reporting.shoot( 'report',
                                            GenerateDetectReport( tuple( Set( [ e[ 'routing' ][ 'agentid' ] for e in detect ] ) ),
                                                                  tuple( Set( [ e[ 'routing' ][ 'event_id' ] for e in detect ] ) ),
-                                                                 self.__class__.__name__,
+                                                                 '%s/%s' % ( self.__class__.__name__, mName ),
                                                                  detect ) )
         return ( True, )

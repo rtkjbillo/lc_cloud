@@ -16,17 +16,21 @@ from beach.actor import Actor
 ObjectTypes = Actor.importLib( '../../ObjectsDb', 'ObjectTypes' )
 StatefulActor = Actor.importLib( '../../Detects', 'StatefulActor' )
 
-class DocumentExploit ( StatefulActor ):
+class SensorIssues ( StatefulActor ):
     def initMachines( self, parameters ):
         self.shardingKey = 'agentid'
         self.machines = {
-            'test_stateful_proc' : '''
-SAMProcessDescendants( parameters = { 'debug' : self.log,
-                                      'is_direct_only' : True } )
+            'sensor_spawning_processes' : '''
+SAMProcessDescendants( parameters = { 'is_direct_only' : True } )
     .feed_parents( SAMSelector( parameters = {
-        'event/notification.NEW_PROCESS/base.FILE_PATH' : r'.*(/|\\\)((iexplore)|(chrome)|(firefox)|(winword)|(outlook))\.exe' } ) )
+        'event/notification.NEW_PROCESS/base.FILE_PATH' : r'.*(/|\\\)hcp(\.exe)?' } ) )
     .feed_descendants( SAMSelector( parameters = {
-        'event/notification.NEW_PROCESS' : r'.*(/|\\\)cmd\.exe' } ) )
+        'event/notification.NEW_PROCESS' : None } ) )
+            ''',
+            'sensor_restarting' : '''
+SAMTimeBurst( parameters = { 'within' : 60, 'min_burst' : 3, 'debug' : self.log } )
+    .feed_from( SAMSelector( parameters = {
+        'event/notification.STARTING_UP' : None } ) )
             '''
         }
 
