@@ -399,3 +399,21 @@ print( beach.addActor( 'analytics/stateful/DocumentExploit',
                        secretIdent = 'analysis/038528f5-5135-4ca8-b79f-d6b8ffc53bf5',
                        trustedIdents = [ 'analysis/038528f5-5135-4ca8-b79f-d6b8ffc53bf5' ],
                        n_concurrent = 5 ) )
+
+#######################################
+# stateful/SensorIssues
+# This actor looks for issues with the
+# sensor.
+#######################################
+print( beach.addActor( 'analytics/stateful/SensorIssues',
+                       'analytics/stateful/modules/sensorissues/1.0',
+                       parameters = {  },
+                       secretIdent = 'analysis/038528f5-5135-4ca8-b79f-d6b8ffc53bf5',
+                       trustedIdents = [ 'analysis/038528f5-5135-4ca8-b79f-d6b8ffc53bf5' ],
+                       n_concurrent = 5 ) )
+print( beach.addActor( 'analytics/stateful/SensorIssues',
+                       'analytics/stateful/modules/sensorissues/1.0',
+                       parameters = {  },
+                       secretIdent = 'analysis/038528f5-5135-4ca8-b79f-d6b8ffc53bf5',
+                       trustedIdents = [ 'analysis/038528f5-5135-4ca8-b79f-d6b8ffc53bf5' ],
+                       n_concurrent = 5 ) )

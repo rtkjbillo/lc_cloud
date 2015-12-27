@@ -76,12 +76,13 @@ class SAMTimelessProcessGc( SAMGcStrategy ):
     def collect_post_all( self, feed, states, newEvent ):
         pass
 
-class SAMProcessChildren( SAMState ):
+class SAMProcessDescendants( SAMState ):
     def __init__( self, *a, **k ):
         SAMState.__init__( self, *a, **k )
         self.TIMESTAMP_PATH = 'event/?/base.TIMESTAMP'
         self.PID_PATH = 'event/?/base.PROCESS_ID'
         self.PPID_PATH = 'event/?/base.PARENT_PROCESS_ID'
+        self.isDirectDescendantsOnly = self.parameters.get( 'is_direct_only', False )
         self.feedsFrom( '_new',
                         SAMSelector( parameters = { 'event/?/notification.NEW_PROCESS' : None,
                                                     'debug' : self.printDebug } ),
@@ -95,14 +96,14 @@ class SAMProcessChildren( SAMState ):
         self.feedsFrom( 'parents', widget, SAMTimelessProcessGc )
         return self
 
-    def feed_children( self, widget ):
-        self.feedsFrom( 'children', widget, SAMShortTimeProcessGc )
+    def feed_descendants( self, widget ):
+        self.feedsFrom( 'descendants', widget, SAMShortTimeProcessGc )
         return self
 
     def execute( self, feedStates ):
         out = []
-        if 'parents' not in feedStates or 'children' not in feedStates:
-            raise SAMInvalidStructureException( 'requires a "parents" and "children" feed' )
+        if 'parents' not in feedStates or 'descendants' not in feedStates:
+            raise SAMInvalidStructureException( 'requires a "parents" and "descendants" feed' )
 
         revocations = {}
 
@@ -129,7 +130,7 @@ class SAMProcessChildren( SAMState ):
 
         # Again horribly ineficient N^2 algorithm but considering the numbers should be quite low
         # we're going with the easy approach for now.
-        for cState in feedStates[ 'children' ]:
+        for cState in feedStates[ 'descendants' ]:
             for cEvent in cState:
                 cPPid = _x_( cEvent, self.PPID_PATH )
                 for pState in feedStates[ 'parents' ]:
@@ -141,5 +142,7 @@ class SAMProcessChildren( SAMState ):
                             if ( revocationTime is None or
                                  _x_( cEvent, self.TIMESTAMP_PATH ) <= revocationTime ):
                                 out.append( [ cEvent ] )
+                                if not self.isDirectDescendantsOnly:
+                                    feedStates[ 'parents' ].append( [ cEvent ] )
 
         return out

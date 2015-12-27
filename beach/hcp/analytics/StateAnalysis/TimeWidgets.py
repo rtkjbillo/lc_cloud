@@ -47,6 +47,9 @@ class SAMTimeCorrelation( SAMState ):
     def __init__( self, *a, **k ):
         SAMState.__init__( self, *a, **k )
         self.TIMESTAMP_PATH = 'event/?/base.TIMESTAMP'
+        self.within = self.parameters.get( 'within', None )
+        if self.within is None:
+            raise SAMInvalidStructureException( 'burst requires "within"' )
 
     def feed_from( self, widget ):
         self.feedsFrom( str( widget ), widget, SAMTimeGc )
@@ -56,18 +59,13 @@ class SAMTimeCorrelation( SAMState ):
         if 2 > len( feedStates ):
             raise SAMInvalidStructureException( 'correlation requires at least 2 feeds' )
 
-        within = self.parameters.get( 'within', None )
-
-        if within is None:
-            raise SAMInvalidStructureException( 'requires the "within" parameter' )
-
         def findMatches( curMatches, remainingFeedStates ):
             out = []
             for state in remainingFeedStates[ 0 ]:
                 for event in state:
                     ts = _x_( event, self.TIMESTAMP_PATH )
                     # If any of the times don't align within the parameter
-                    if any( ( ( x < ( ts - within ) ) or ( x > ( ts + within ) ) )
+                    if any( ( ( x < ( ts - self.within ) ) or ( x > ( ts + self.within ) ) )
                             for x in _xm_( curMatches, self.TIMESTAMP_PATH ) ):
                         continue
                     else:
@@ -83,5 +81,42 @@ class SAMTimeCorrelation( SAMState ):
         # Recursive linear search algorithm, yes not great, but expected number
         # of states in each feed is so small optimization shouldn't be required.
         out = findMatches( [], feedStates.values() )
+
+        return out
+
+class SAMTimeBurst( SAMState ):
+    def __init__( self, *a, **k ):
+        SAMState.__init__( self, *a, **k )
+        self.TIMESTAMP_PATH = 'event/?/base.TIMESTAMP'
+        self.within = self.parameters.get( 'within', None )
+        self.min_burst = self.parameters.get( 'min_burst', None )
+        if self.within is None or self.min_burst is None:
+            raise SAMInvalidStructureException( 'burst requires "within" and "min_burst"' )
+
+    def feed_from( self, widget ):
+        self.feedsFrom( str( widget ), widget, SAMTimeGc )
+        return self
+
+    def execute( self, feedStates ):
+        if 1 > len( feedStates ):
+            raise SAMInvalidStructureException( 'burst requires at least 1 feed' )
+
+        out = []
+
+        times = sorted( _xm_( feedStates.values(), self.TIMESTAMP_PATH ) )
+
+        isBurst = False
+        if self.min_burst <= len( times ):
+            for i in range( 0, len( times ) - self.min_burst + 1 ):
+                if ( times[ i ] + self.within ) >= times[ i + self.min_burst - 1 ]:
+                    isBurst = True
+                    break
+
+        if isBurst:
+            for states in feedStates.values():
+                for state in states:
+                    for event in state:
+                        out.append( event )
+            out = [ out ]
 
         return out
