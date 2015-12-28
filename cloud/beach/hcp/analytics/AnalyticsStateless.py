@@ -18,7 +18,10 @@ AgentId = Actor.importLib( '../hcp_helpers', 'AgentId' )
 class AnalyticsStateless( Actor ):
     def init( self, parameters ):
         self.handleCache = {}
-        self.modules = {}
+        self.modulesCommon = {}
+        self.modulesWindows = {}
+        self.modulesOsx = {}
+        self.modulesLinux = {}
 
         self.handle( 'analyze', self.analyze )
 
@@ -29,12 +32,32 @@ class AnalyticsStateless( Actor ):
         routing, event, mtd = msg.data
 
         etype = routing[ 'event_type' ]
+        agent = AgentId( routing[ 'agentid' ] )
 
-        if etype not in self.modules:
-            self.log( "New stateless event: %s" % ('analytics/stateless/%s/' % etype,))
-            self.modules[ etype ] = self.getActorHandleGroup( 'analytics/stateless/%s/' % etype, timeout = 30, nRetries = 3 )
+        if etype not in self.modulesCommon:
+            self.modulesCommon[ etype ] = self.getActorHandleGroup( 'analytics/stateless/common/%s/' % etype,
+                                                                    timeout = 30,
+                                                                    nRetries = 3 )
+        self.modulesCommon[ etype ].shoot( 'process', msg.data )
 
-        self.log( "Trying to send to %s: %d" % ( etype, self.modules[ etype ].getNumAvailable() ) )
-        self.modules[ etype ].shoot( 'process', msg.data )
+        if agent.isWindows():
+            if etype not in self.modulesWindows:
+                self.modulesWindows[ etype ] = self.getActorHandleGroup( 'analytics/stateless/windows/%s/' % etype,
+                                                                         timeout = 30,
+                                                                         nRetries = 3 )
+            self.modulesWindows[ etype ].shoot( 'process', msg.data )
+        elif agent.isMacOSX():
+            if etype not in self.modulesOsx:
+                self.modulesOsx[ etype ] = self.getActorHandleGroup( 'analytics/stateless/osx/%s/' % etype,
+                                                                     timeout = 30,
+                                                                     nRetries = 3 )
+            self.modulesOsx[ etype ].shoot( 'process', msg.data )
+        elif agent.isLinux():
+            if etype not in self.modulesLinux:
+                self.modulesLinux[ etype ] = self.getActorHandleGroup( 'analytics/stateless/linux/%s/' % etype,
+                                                                       timeout = 30,
+                                                                       nRetries = 3 )
+            self.modulesLinux[ etype ].shoot( 'process', msg.data )
+
 
         return ( True, )
