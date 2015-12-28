@@ -17,9 +17,9 @@ import re
 ObjectTypes = Actor.importLib( '../../ObjectsDb', 'ObjectTypes' )
 StatelessActor = Actor.importLib( '../../Detects', 'StatelessActor' )
 
-class SuspExecLoc ( StatelessActor ):
+class WinSuspExecLoc ( StatelessActor ):
     def init( self, parameters ):
-        super( SuspExecLoc, self ).init( parameters )
+        super( WinSuspExecLoc, self ).init( parameters )
         self.slocs = { 'tasks' : re.compile( r'.*windows\\(?:(?:system32)||(?:syswow64))\\tasks\\.*', re.IGNORECASE ),
                        'recycler' : re.compile( r'.*recycle.*', re.IGNORECASE ),
                        'fonts' : re.compile( r'.*\\windows\\fonts\\.*', re.IGNORECASE ),

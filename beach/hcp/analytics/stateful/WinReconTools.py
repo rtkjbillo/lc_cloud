@@ -16,18 +16,16 @@ from beach.actor import Actor
 ObjectTypes = Actor.importLib( '../../ObjectsDb', 'ObjectTypes' )
 StatefulActor = Actor.importLib( '../../Detects', 'StatefulActor' )
 
-class DocumentExploit ( StatefulActor ):
+class WinReconTools ( StatefulActor ):
     def initMachines( self, parameters ):
         self.shardingKey = 'agentid'
         self.machines = {
-            'test_stateful_proc' : '''
-SAMProcessDescendants( parameters = { 'debug' : self.log,
-                                      'is_direct_only' : True } )
-    .feed_parents( SAMSelector( parameters = {
-        'event/notification.NEW_PROCESS/base.FILE_PATH' : r'.*(/|\\\)((iexplore)|(chrome)|(firefox)|(winword)|(outlook))\.exe' } ) )
-    .feed_descendants( SAMSelector( parameters = {
-        'event/notification.NEW_PROCESS' : r'.*(/|\\\)cmd\.exe' } ) )
-            '''
+            'sensor_restarting' :
+'''
+SAMTimeBurst( parameters = { 'within' : 10, 'min_burst' : 3 } )
+    .feed_from( SAMSelector( parameters = {
+        'event/notification.NEW_PROCESS' : r'.*(/|\\\)((ipconfig)|(arp)|(route)|(ping)|(traceroute)|(nslookup)|(netstat)|(wmic)|(net\d?)|(whoami)|(systeminfo))\.exe' } ) )
+'''
         }
 
     def processDetects( self, detects ):

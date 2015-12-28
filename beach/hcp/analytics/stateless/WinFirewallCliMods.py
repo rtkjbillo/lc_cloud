@@ -17,9 +17,9 @@ import re
 ObjectTypes = Actor.importLib( '../../ObjectsDb', 'ObjectTypes' )
 StatelessActor = Actor.importLib( '../../Detects', 'StatelessActor' )
 
-class FirewallCliMods ( StatelessActor ):
+class WinFirewallCliMods ( StatelessActor ):
     def init( self, parameters ):
-        super( FirewallCliMods, self ).init( parameters )
+        super( WinFirewallCliMods, self ).init( parameters )
 
         self.re_rule_modif = [ re.compile( r'.*firewall.*add.*rule.*', re.IGNORECASE ),
                       re.compile( r'.*firewall.*set.disable.*', re.IGNORECASE ),

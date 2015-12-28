@@ -16,24 +16,15 @@ from beach.actor import Actor
 ObjectTypes = Actor.importLib( '../../ObjectsDb', 'ObjectTypes' )
 StatefulActor = Actor.importLib( '../../Detects', 'StatefulActor' )
 
-class SensorIssues ( StatefulActor ):
+class MacReconTools ( StatefulActor ):
     def initMachines( self, parameters ):
         self.shardingKey = 'agentid'
         self.machines = {
-            'sensor_spawning_processes' :
-'''
-SAMProcessDescendants( parameters = { 'is_direct_only' : True } )
-    .feed_parents( SAMSelector( parameters = {
-        'event/notification.NEW_PROCESS/base.FILE_PATH' : r'.*(/|\\\)hcp(\.exe)?' } ) )
-    .feed_descendants( SAMSelector( parameters = {
-        'event/notification.NEW_PROCESS' : None } ) )
-''',
-
             'sensor_restarting' :
 '''
-SAMTimeBurst( parameters = { 'within' : 60, 'min_burst' : 3 } )
+SAMTimeBurst( parameters = { 'within' : 10, 'min_burst' : 4 } )
     .feed_from( SAMSelector( parameters = {
-        'event/notification.STARTING_UP' : None } ) )
+        'event/notification.NEW_PROCESS' : r'.*(/|\\\)((ifconfig)|(arp)|(route)|(ping)|(traceroute)|(nslookup)|(netstat)|(wget)|(curl))\.exe' } ) )
 '''
         }
 
