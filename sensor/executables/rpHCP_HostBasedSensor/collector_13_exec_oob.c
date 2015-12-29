@@ -110,8 +110,7 @@ RPVOID
                 while( !rEvent_wait( isTimeToStop, 0 ) &&
                        rList_getRU32( threads, RP_TAGS_THREAD_ID, &threadId ) )
                 {
-                    if( curProcId == processId &&
-                        curThreadId == threadId )
+                    if( curProcId == processId )
                     {
                         continue;
                     }
