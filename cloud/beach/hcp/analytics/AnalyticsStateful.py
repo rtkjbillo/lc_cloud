@@ -14,10 +14,26 @@
 
 from beach.actor import Actor
 AgentId = Actor.importLib( '../hcp_helpers', 'AgentId' )
-PooledResource = Actor.importLib( '../hcp_helpers', 'PooledResource' )
 
 class AnalyticsStateful( Actor ):
     def init( self, parameters ):
+        self.handleCache = {}
+        self.statefulCommon = self.getActorHandleGroup( 'analytics/stateful/modules/common/',
+                                                        mode = 'affinity',
+                                                        timeout = 30,
+                                                        nRetries = 3 )
+        self.statefulWindows = self.getActorHandleGroup( 'analytics/stateful/modules/windows/',
+                                                         mode = 'affinity',
+                                                         timeout = 30,
+                                                         nRetries = 3 )
+        self.statefulOsx = self.getActorHandleGroup( 'analytics/stateful/modules/osx/',
+                                                     mode = 'affinity',
+                                                     timeout = 30,
+                                                     nRetries = 3 )
+        self.statefulLinux = self.getActorHandleGroup( 'analytics/stateful/modules/linux/',
+                                                       mode = 'affinity',
+                                                       timeout = 30,
+                                                       nRetries = 3 )
         self.handle( 'analyze', self.analyze )
 
     def deinit( self ):
@@ -26,4 +42,14 @@ class AnalyticsStateful( Actor ):
     def analyze( self, msg ):
         routing, event, mtd = msg.data
 
-        return ( False, )
+        self.statefulCommon.shoot( 'process', msg.data, key = routing[ 'agentid' ] )
+
+        agent = AgentId( routing[ 'agentid' ] )
+        if agent.isWindows():
+            self.statefulWindows.shoot( 'process', msg.data, key = routing[ 'agentid' ] )
+        elif agent.isMacOSX():
+            self.statefulOsx.shoot( 'process', msg.data, key = routing[ 'agentid' ] )
+        elif agent.isLinux():
+            self.statefulLinux.shoot( 'process', msg.data, key = routing[ 'agentid' ] )
+
+        return ( True, )

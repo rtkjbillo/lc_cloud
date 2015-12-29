@@ -29,6 +29,8 @@ limitations under the License.
 #define _DEFAULT_TIME_DELTA     (0)
 #endif
 
+static rMutex g_oob_exec_mutex = NULL;
+
 static
 RBOOL
     isMemInModule
@@ -92,6 +94,11 @@ RPVOID
     curProcId = processLib_getCurrentPid();
     curThreadId = processLib_getCurrentThreadId();
 
+    if( !rMutex_lock( g_oob_exec_mutex ) )
+    {
+        return NULL;
+    }
+
     rpal_debug_info( "looking for execution out of bounds in process %d.", processId );
 
     if( NULL != ( traces = rList_new( RP_TAGS_STACK_TRACE, RPCM_SEQUENCE ) ) )
@@ -103,8 +110,7 @@ RPVOID
                 while( !rEvent_wait( isTimeToStop, 0 ) &&
                        rList_getRU32( threads, RP_TAGS_THREAD_ID, &threadId ) )
                 {
-                    if( curProcId == processId &&
-                        curThreadId == threadId )
+                    if( curProcId == processId )
                     {
                         continue;
                     }
@@ -167,6 +173,8 @@ RPVOID
             rList_free( traces );
         }
     }
+
+    rMutex_unlock( g_oob_exec_mutex );
 
     return NULL;
 }
@@ -258,19 +266,23 @@ RBOOL
             timeDelta = _DEFAULT_TIME_DELTA;
         }
 
-        if( notifications_subscribe( RP_TAGS_NOTIFICATION_EXEC_OOB_REQ,
-                                     NULL,
-                                     0,
-                                     NULL,
-                                     scan_for_exec_oob ) &&
-            ( 0 == timeDelta ||
-              rThreadPool_scheduleRecurring( hbsState->hThreadPool, timeDelta, lookForExecOob, NULL, TRUE ) ) )
+        if( NULL != ( g_oob_exec_mutex = rMutex_create() ) )
         {
-            isSuccess = TRUE;
-        }
-        else
-        {
-            notifications_unsubscribe( RP_TAGS_NOTIFICATION_EXEC_OOB_REQ, NULL, scan_for_exec_oob );
+            if( notifications_subscribe( RP_TAGS_NOTIFICATION_EXEC_OOB_REQ,
+                                         NULL,
+                                         0,
+                                         NULL,
+                                         scan_for_exec_oob ) &&
+                ( 0 == timeDelta ||
+                  rThreadPool_scheduleRecurring( hbsState->hThreadPool, timeDelta, lookForExecOob, NULL, TRUE ) ) )
+            {
+                isSuccess = TRUE;
+            }
+            else
+            {
+                notifications_unsubscribe( RP_TAGS_NOTIFICATION_EXEC_OOB_REQ, NULL, scan_for_exec_oob );
+                rMutex_free( g_oob_exec_mutex );
+            }
         }
     }
 
@@ -291,6 +303,7 @@ collector_13_cleanup
     if( NULL != hbsState )
     {
         notifications_unsubscribe( RP_TAGS_NOTIFICATION_EXEC_OOB_REQ, NULL, scan_for_exec_oob );
+        rMutex_free( g_oob_exec_mutex );
 
         isSuccess = TRUE;
     }

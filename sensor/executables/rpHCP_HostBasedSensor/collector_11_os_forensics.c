@@ -172,16 +172,6 @@ RBOOL
 }
 
 
-#ifdef RPAL_PLATFORM_WINDOWS
-
-typedef struct
-{
-    HKEY root;
-    RPWCHAR path;
-    RPWCHAR keyName;
-} _KeyInfo;
-
-
 static
 RVOID
     _enhanceAutorunsWithHashes
@@ -206,6 +196,15 @@ RVOID
         }
     }
 }
+
+#ifdef RPAL_PLATFORM_WINDOWS
+typedef struct
+{
+    HKEY root;
+    RPWCHAR path;
+    RPWCHAR keyName;
+} _KeyInfo;
+
 
 static
 RBOOL
@@ -567,6 +566,55 @@ RBOOL
 
     return isSuccess;
 }
+#elif defined(RPAL_PLATFORM_MACOSX)
+static
+RBOOL
+    _getMacOSXAutoruns
+    (
+        rList autoruns
+    )
+{
+    RBOOL isSuccess = FALSE;
+
+    RU32 i = 0;
+    rSequence entry = NULL;
+    rDirCrawl dirCrawl = NULL;
+    RPWCHAR crawlFiles[] = { _WCH( "*" ), NULL };
+    RPWCHAR paths[] = { _WCH( "/System/Library/StartupItems" ),
+        _WCH( "/Library/StartupItems" ),
+        _WCH( "%systemdrive%\\users\\*\\Start Menu\\Programs\\Startup" ),
+        _WCH( "%systemdrive%\\users\\*\\AppData\\Roaming\\Microsoft\\Windows\\Start" ),
+        _WCH( "%systemdrive%\\documents and settings\\*\\Start Menu\\Programs\\Startup" ),
+        _WCH( "%systemdrive%\\documents and settings\\*\\AppData\\Roaming\\Microsoft\\Windows\\Start" ) };
+    rFileInfo finfo = { 0 };
+
+    // Look for dir-based autoruns
+    for( i = 0; i < ARRAY_N_ELEM( paths ); i++ )
+    {
+        if( NULL != ( dirCrawl = rpal_file_crawlStart( paths[ i ], crawlFiles, 1 ) ) )
+        {
+            while( rpal_file_crawlNextFile( dirCrawl, &finfo ) )
+            {
+                if( !IS_FLAG_ENABLED( finfo.attributes, RPAL_FILE_ATTRIBUTE_DIRECTORY ) &&
+                    NULL != ( entry = rSequence_new() ) )
+                {
+                    rSequence_addSTRINGW( entry, RP_TAGS_FILE_PATH, finfo.filePath );
+
+                    if( !rList_addSEQUENCE( autoruns, entry ) )
+                    {
+                        rSequence_free( entry );
+                    }
+                }
+            }
+
+            rpal_file_crawlStop( dirCrawl );
+        }
+    }
+
+    isSuccess = TRUE;
+
+    return isSuccess;
+}
 #endif
 
 
@@ -759,6 +807,12 @@ RVOID
             if( !_getWindowsAutoruns( autoruns ) )
             {
                 rpal_debug_warning( "error getting windows autoruns" );
+            }
+            _enhanceAutorunsWithHashes( autoruns );
+#elif defined(RPAL_PLATFORM_MACOSX)
+            if( !_getMacOSXAutoruns( autoruns ) )
+            {
+                rpal_debug_warning( "error getting mac autoruns" );
             }
             _enhanceAutorunsWithHashes( autoruns );
 #endif

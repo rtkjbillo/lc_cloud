@@ -12,117 +12,111 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from ...hcp_helpers import _x_
-from ...hcp_helpers import _xm_
-from sets import Set
+from beach.actor import Actor
+_x_ = Actor.importLib( '../../hcp_helpers', '_x_' )
+_xm_ = Actor.importLib( '../../hcp_helpers', '_xm_' )
+SAMState = Actor.importLib( '.', 'SAMState' )
+SAMInvalidStructureException = Actor.importLib( '.', 'SAMInvalidStructureException' )
+SAMGcStrategy = Actor.importLib( '.', 'SAMGcStrategy' )
 
-from . import SAMStateWidget
-from ...hcp_helpers import allOf, anyOf, anyOfIn
+class SAMTimeGc( SAMGcStrategy ):
+    def __init__( self, *a, **k ):
+        SAMGcStrategy.__init__( self, *a, **k )
+        self.latest = 0
 
+    def collect_pre_all( self, feed, states, newEvent ):
+        tmpTime = _x_( newEvent, self.widget.TIMESTAMP_PATH )
+        self.latest = tmpTime if tmpTime > self.latest else self.latest
 
-def _isEventCombinationAlreadyReported( newEvent, oldEvents ):
-    if anyOf( oldEvents, lambda x: Set( _xm_( newEvent, 'event_id' ) ) == Set( _xm_( x, 'event_id' ) ) ):
-        return True
-    return False
+    def collect_pre( self, feed, states ):
+        pass
 
-
-class TimeCorrelatorWidget( SAMStateWidget ):
-
-    def _findMatches( self, states, matches = [], isPartial = False ):
-        results = []
-
-        isNewMatchFound = False
-        nextState = states[ 0 ]
-
-        for e in nextState:
-            v1 = _x_( e, '?/base.TIMESTAMP' )
-            isMatch = True
-
-            if 'within' in self.parameters:
-                minTime = v1
-                maxTime = v1
-                for m in matches:
-                    v2 = _x_( m, '?/base.TIMESTAMP' )
-                    if v2 < minTime:
-                        minTime = int( v2 )
-                    if v2 > maxTime:
-                        maxTime = int( v2 )
-                    if ( maxTime - minTime ) > int( self.parameters[ 'within' ] ):
-                        isMatch = False
-                        break
-
-            if isMatch:
-                tmpMatches = matches[ : ]
-                tmpMatches.append( e )
-                if 1 < len( states ):
-                    results += self._findMatches( states[ 1 : ], tmpMatches, isPartial )
-                else:
-                    results.append( tmpMatches )
-                isNewMatchFound = True
-
-        if not isNewMatchFound and isPartial:
-            # We don't need correlation between ALL sources, so we will keep trying even if a source has no hits
-            if 1 < len( states ):
-                results = self._findMatches( states[ 1 : ], matches[ : ], isPartial )
-            else:
-                results.append( matches )
-
-        return results
-
-    def execute( self, states ):
-        detect = None
-
-        minimum = None
-        if 'min' in self.parameters:
-            minimum = int( self.parameters[ 'min' ] )
-
-        detect = self._findMatches( states, isPartial = True if None != minimum else False )
-
-        if None != minimum:
-            actualDetects = []
-            for d in detect:
-                if len( d ) >= minimum:
-                    if not _isEventCombinationAlreadyReported( d, actualDetects ):
-                        actualDetects.append( d )
-
-            detect = actualDetects
-
-        return detect
-
-
-class TimeBurstWidget( SAMStateWidget ):
-
-    #TODO: we could optimize the hell out of this
-
-    def _getEventsWithin( self, events, seconds, timestamp ):
-        matches = []
-        for event in events:
-            ts = _x_( event, 'event/?/base.TIMESTAMP' )
-            if ts is not None:
-                if ( ts >= timestamp - seconds ) and ( ts <= timestamp + seconds ):
-                   matches.append( event )
-        return matches
-
-    def _findMatches( self, states ):
-        results = []
-
+    def collect_post( self, feed, states ):
         for state in states:
             for event in state:
-                ts = _x_( event, 'event/?/base.TIMESTAMP' )
-                matches = self._getEventsWithin( state, self.parameters[ 'within' ], ts )
-                if len( matches ) >= self.parameters[ 'min' ]:
-                    if not _isEventCombinationAlreadyReported( matches, results ):
-                        results.append( matches )
+                ts = _x_( event, self.widget.TIMESTAMP_PATH )
+                if ts < self.latest - ( 2 * self.widget.parameters.get( 'within' ) ):
+                    state.remove( event )
+            if 0 == len( state ):
+                states.remove( state )
 
-        return results
+    def collect_post_all( self, feed, states, newEvent ):
+        pass
 
-    def execute( self, states ):
-        detect = None
+class SAMTimeCorrelation( SAMState ):
+    def __init__( self, *a, **k ):
+        SAMState.__init__( self, *a, **k )
+        self.TIMESTAMP_PATH = 'event/?/base.TIMESTAMP'
+        self.within = self.parameters.get( 'within', None )
+        if self.within is None:
+            raise SAMInvalidStructureException( 'burst requires "within"' )
 
-        minimum = None
-        if 'min' in self.parameters:
-            minimum = int( self.parameters[ 'min' ] )
+    def feed_from( self, widget ):
+        self.feedsFrom( str( widget ), widget, SAMTimeGc )
+        return self
 
-        detect = self._findMatches( states )
+    def execute( self, feedStates ):
+        if 2 > len( feedStates ):
+            raise SAMInvalidStructureException( 'correlation requires at least 2 feeds' )
 
-        return detect
+        def findMatches( curMatches, remainingFeedStates ):
+            out = []
+            for state in remainingFeedStates[ 0 ]:
+                for event in state:
+                    ts = _x_( event, self.TIMESTAMP_PATH )
+                    # If any of the times don't align within the parameter
+                    if any( ( ( x < ( ts - self.within ) ) or ( x > ( ts + self.within ) ) )
+                            for x in _xm_( curMatches, self.TIMESTAMP_PATH ) ):
+                        continue
+                    else:
+                        nextMatches = curMatches + [ event ]
+                        if 1 < len( remainingFeedStates ):
+                            subMatches = findMatches( nextMatches, remainingFeedStates[ 1 : ] )
+                            if 0 != len( subMatches ):
+                                out.extend( subMatches )
+                        else:
+                            out.append( nextMatches )
+            return out
+
+        # Recursive linear search algorithm, yes not great, but expected number
+        # of states in each feed is so small optimization shouldn't be required.
+        out = findMatches( [], feedStates.values() )
+
+        return out
+
+class SAMTimeBurst( SAMState ):
+    def __init__( self, *a, **k ):
+        SAMState.__init__( self, *a, **k )
+        self.TIMESTAMP_PATH = 'event/?/base.TIMESTAMP'
+        self.within = self.parameters.get( 'within', None )
+        self.min_burst = self.parameters.get( 'min_burst', None )
+        if self.within is None or self.min_burst is None:
+            raise SAMInvalidStructureException( 'burst requires "within" and "min_burst"' )
+
+    def feed_from( self, widget ):
+        self.feedsFrom( str( widget ), widget, SAMTimeGc )
+        return self
+
+    def execute( self, feedStates ):
+        if 1 > len( feedStates ):
+            raise SAMInvalidStructureException( 'burst requires at least 1 feed' )
+
+        out = []
+
+        times = sorted( _xm_( feedStates.values(), self.TIMESTAMP_PATH ) )
+
+        isBurst = False
+        if self.min_burst <= len( times ):
+            for i in range( 0, len( times ) - self.min_burst + 1 ):
+                if ( times[ i ] + self.within ) >= times[ i + self.min_burst - 1 ]:
+                    isBurst = True
+                    break
+
+        if isBurst:
+            for states in feedStates.values():
+                for state in states:
+                    for event in state:
+                        out.append( event )
+            out = [ out ]
+
+        return out

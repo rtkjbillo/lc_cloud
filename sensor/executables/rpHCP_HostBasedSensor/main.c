@@ -63,14 +63,14 @@ HbsState g_hbs_state = { NULL,
                            ENABLED_WINDOWS_COLLECTOR( 2 ),
                            ENABLED_COLLECTOR( 3 ),
                            ENABLED_WINDOWS_COLLECTOR( 4 ),
-                           ENABLED_COLLECTOR( 5 ),
+                           ENABLED_WINDOWS_COLLECTOR( 5 ),
                            ENABLED_WINDOWS_COLLECTOR( 6 ),
                            ENABLED_WINDOWS_COLLECTOR( 7 ),
                            ENABLED_COLLECTOR( 8 ),
                            ENABLED_COLLECTOR( 9 ),
                            ENABLED_COLLECTOR( 10 ),
                            ENABLED_COLLECTOR( 11 ),
-                           DISABLED_COLLECTOR( 12 ), // This collector is available
+                           DISABLED_COLLECTOR( 12 ),
                            ENABLED_WINDOWS_COLLECTOR( 13 ),
                            ENABLED_COLLECTOR( 14 ) } };
 RU8* hbs_cloud_pub_key = hbs_cloud_default_pub_key;

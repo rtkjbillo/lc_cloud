@@ -112,3 +112,24 @@ CREATE TABLE ref_loc
 
   PRIMARY KEY( id, plat )
 ) WITH compaction = { 'class' : 'LeveledCompactionStrategy' } AND gc_grace_seconds = 86400;
+
+CREATE TABLE reports
+(
+  repid varchar,
+  gen timestamp,
+  source varchar,
+  dtype varchar,
+  events varchar,
+  detect varchar,
+
+  PRIMARY KEY( repid )
+) WITH compaction = { 'class' : 'DateTieredCompactionStrategy', 'timestamp_resolution' : 'SECONDS' } AND gc_grace_seconds = 86400;
+
+CREATE TABLE report_timeline
+(
+  d int,
+  ts timeuuid,
+  repid varchar,
+
+  PRIMARY KEY( d, ts )
+) WITH compaction = { 'class' : 'DateTieredCompactionStrategy', 'timestamp_resolution' : 'SECONDS' } AND gc_grace_seconds = 86400;

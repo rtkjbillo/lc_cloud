@@ -551,6 +551,7 @@ static btnode node_ListToTree(btnode* orderedList, unsigned int start, unsigned 
     return root;
 }
 
+/* ---------------------------------------------------------------------- */
 static int btree_Balance(BTREE tree)
 {
     int ret = -1;
@@ -582,6 +583,26 @@ static int btree_Balance(BTREE tree)
     }
 
     return ret;
+}
+
+/* ---------------------------------------------------------------------- */
+static int btree_Update( BTREE tree, void *key, void *data )
+{
+    btnode node;
+
+    node = root( tree );
+
+    node = node_Search( tree, node, key );
+
+    if( node )
+    {
+        if( data ) data_copy( tree, data( tree, node ), data );
+        return 0;
+    }
+    else
+    {
+        return 1;
+    }
 }
 
 
@@ -1080,3 +1101,37 @@ RBOOL
     return isSuccess;
 }
 
+RBOOL
+    rpal_btree_update
+    (
+        rBTree tree,
+        RPVOID key,
+        RPVOID elem,
+        RBOOL isBypassLocks
+    )
+{
+    RBOOL isSuccess = FALSE;
+
+    _rBTree* pTree = (_rBTree*)tree;
+    
+    if( rpal_memory_isValid( tree ) &&
+        NULL != elem &&
+        NULL != key )
+    {
+        if( isBypassLocks ||
+            rRwLock_read_lock( pTree->lock ) )
+        {
+            if( 0 == btree_Update( pTree->tree, key, elem ) )
+            {
+                isSuccess = TRUE;
+            }
+
+            if( !isBypassLocks )
+            {
+                rRwLock_read_unlock( pTree->lock );
+            }
+        }
+    }
+
+    return isSuccess;
+}

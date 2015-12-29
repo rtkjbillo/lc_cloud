@@ -127,4 +127,13 @@ RBOOL
         RBOOL isBypassLocks
     );
 
+RBOOL
+    rpal_btree_update
+    (
+        rBTree tree,
+        RPVOID key,
+        RPVOID elem,
+        RBOOL isBypassLocks
+    );
+
 #endif

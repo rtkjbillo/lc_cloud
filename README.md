@@ -116,7 +116,15 @@ Looks for execution in a list of directories where things should never execute f
 Queries all hashes seen in incoming events to VirusTotal and reports when a hash has more than X AVs saying it's bad.
 
 ##### Stateful
-... Upcoming ... Widget-based stateful detection across all events types in time and content.
+
+###### ReconTools
+Looks for bursts of common recon tools used during early attacks.
+
+###### SensorIssues
+Looks for various conditions indicating possible problems with the sensor.
+
+###### DocumentExploit
+Looks for common process hosts in stage-0 attacks as children of document and browser applications.
 
 ##### Object Modelization
 We extract Objects from all events coming back from the sensors. Objects are characteristics of telemtry for example:
@@ -448,7 +456,9 @@ directory. A stateless actor requires an `init`, `deinit` (optional) and `proces
 actors are so simple, it's better to simply have a look at a few and replicate in your own.
 
 #### Stateful Detection
-Stateful detection is more complex and remains to be completely brought in, more doc to come.
+Stateful detection is done live at runtime by assembling various "widgets" into finite-state-machine-like
+constructs that allow for easy development of stateful detection in single sensors and across all kinds of
+events while having decent performance. More detailed documentation to come in the future.
 
 ### Reporting & Auditing
 Reporting of detects is currently left to the user to implement, everyone has a different SIEM or detection
@@ -590,7 +600,6 @@ of prototyping, but it lacks many of the low level event-driven APIs to do thing
 creation. So here are some of the capabilities that are coming:
 - Kernel Mode thin module providing low level events and APIs.
 - Code injection detection through stack introspection.
-- Stateful detections.
 - Make Linux and OS X capabilities on par with Windows. 
 
 ## Screen Shots

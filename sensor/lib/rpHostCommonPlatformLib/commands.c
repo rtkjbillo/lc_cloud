@@ -33,6 +33,33 @@ limitations under the License.
 #define RPAL_FILE_ID    51
 
 static
+RVOID
+    _cleanupModuleEntry
+    (
+        rpHCPModuleInfo* mod
+    )
+{
+    rEvent_free( mod->context.isTimeToStop );
+    rpal_thread_free( mod->hThread );
+
+    if( mod->isOsLoaded )
+    {
+#ifdef RPAL_PLATFORM_WINDOWS
+        FreeLibrary( (HMODULE)(mod->hModule) );
+#elif defined( RPAL_PLATFORM_LINUX ) || defined( RPAL_PLATFORM_MACOSX )
+        dlclose( mod->hModule );
+#endif
+    }
+    else
+    {
+        MemoryFreeLibrary( mod->hModule );
+    }
+
+    rpal_debug_info( "module %d cleaned up", mod->id );
+    rpal_memory_zero( mod, sizeof( *mod ) );
+}
+
+static
 RU32
     RPAL_THREAD_FUNC thread_quitAndCleanup
     (
@@ -260,24 +287,7 @@ RBOOL
         {
             isSuccess = TRUE;
 
-            rEvent_free( g_hcpContext.modules[ moduleIndex ].context.isTimeToStop );
-            rpal_thread_free( g_hcpContext.modules[ moduleIndex ].hThread );
-
-            if( g_hcpContext.modules[ moduleIndex ].isOsLoaded )
-            {
-#ifdef RPAL_PLATFORM_WINDOWS
-                FreeLibrary( (HMODULE)g_hcpContext.modules[ moduleIndex ].hModule );
-#elif defined( RPAL_PLATFORM_LINUX ) || defined( RPAL_PLATFORM_MACOSX )
-                dlclose( g_hcpContext.modules[ moduleIndex ].hModule );
-#endif
-            }
-            else
-            {
-                MemoryFreeLibrary( g_hcpContext.modules[ moduleIndex ].hModule );
-            }
-
-            rpal_memory_zero( &(g_hcpContext.modules[ moduleIndex ]),
-                              sizeof( g_hcpContext.modules[ moduleIndex ] ) );
+            _cleanupModuleEntry( &( g_hcpContext.modules[ moduleIndex ] ) );
         }
     }
 
@@ -447,29 +457,16 @@ RBOOL
 
     for( moduleIndex = 0; moduleIndex < RP_HCP_CONTEXT_MAX_MODULES; moduleIndex++ )
     {
+        rpal_debug_info( "stopping module at %d", moduleIndex );
+
         if( 0 != g_hcpContext.modules[ moduleIndex ].hThread )
         {
             if( rEvent_set( g_hcpContext.modules[ moduleIndex ].isTimeToStop ) &&
                 rpal_thread_wait( g_hcpContext.modules[ moduleIndex ].hThread, RP_HCP_CONTEXT_MODULE_TIMEOUT ) )
             {
-                rEvent_free( g_hcpContext.modules[ moduleIndex ].context.isTimeToStop );
-                rpal_thread_free( g_hcpContext.modules[ moduleIndex ].hThread );
+                _cleanupModuleEntry( &( g_hcpContext.modules[ moduleIndex ] ) );
 
-                if( g_hcpContext.modules[ moduleIndex ].isOsLoaded )
-                {
-#ifdef RPAL_PLATFORM_WINDOWS
-                    FreeLibrary( (HMODULE)g_hcpContext.modules[ moduleIndex ].hModule );
-#elif defined( RPAL_PLATFORM_LINUX ) || defined( RPAL_PLATFORM_MACOSX )
-                    dlclose( g_hcpContext.modules[ moduleIndex ].hModule );
-#endif
-                }
-                else
-                {
-                    MemoryFreeLibrary( g_hcpContext.modules[ moduleIndex ].hModule );
-                }
-
-                rpal_memory_zero( &(g_hcpContext.modules[ moduleIndex ]),
-                                  sizeof( g_hcpContext.modules[ moduleIndex ] ) );
+                rpal_debug_info( "finished stopping module." );
             }
             else
             {

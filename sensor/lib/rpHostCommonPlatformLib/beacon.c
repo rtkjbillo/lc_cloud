@@ -31,6 +31,7 @@ limitations under the License.
 
 #if defined( RPAL_PLATFORM_LINUX ) || defined( RPAL_PLATFORM_MACOSX )
 #include <curl/curl.h>
+#include <dlfcn.h>
 #endif
 
 #define RPAL_FILE_ID     50
@@ -341,6 +342,18 @@ rList
                             // has stopped executing...
                             rEvent_free( g_hcpContext.modules[ moduleIndex ].isTimeToStop );
                             rpal_thread_free( g_hcpContext.modules[ moduleIndex ].hThread );
+                            if( g_hcpContext.modules[ moduleIndex ].isOsLoaded )
+                            {
+#ifdef RPAL_PLATFORM_WINDOWS
+                                FreeLibrary( (HMODULE)( g_hcpContext.modules[ moduleIndex ].hModule ) );
+#elif defined( RPAL_PLATFORM_LINUX ) || defined( RPAL_PLATFORM_MACOSX )
+                                dlclose( g_hcpContext.modules[ moduleIndex ].hModule );
+#endif
+                            }
+                            else
+                            {
+                                MemoryFreeLibrary( g_hcpContext.modules[ moduleIndex ].hModule );
+                            }
                             rpal_memory_zero( &(g_hcpContext.modules[ moduleIndex ]),
                                               sizeof( g_hcpContext.modules[ moduleIndex ] ) );
 
@@ -649,7 +662,11 @@ RBOOL
                                 if( verifyC2Signature( payloadBuff, payloadSize, signature ) )
                                 {
                                     // Remove the symetric crypto using the session key
-                                    if( CryptoLib_symDecrypt( payloadBuff, payloadSize, sessionKey, sessionIv, &decryptedSize ) )
+                                    if( CryptoLib_symDecrypt( payloadBuff, 
+                                                              payloadSize, 
+                                                              sessionKey, 
+                                                              sessionIv, 
+                                                              &decryptedSize ) )
                                     {
                                         // Remove the compression                        
                                         tmpSize = rpal_ntoh32( *(RU32*)payloadBuff );
@@ -667,7 +684,10 @@ RBOOL
                                                                 payloadSize - sizeof( RU32 ) ) ) )
                                                 {
                                                     // Payload is valid, turn it into a sequence to return
-                                                    if( rList_deserialise( pReceived, tmpBuff, (RU32)tmpSize, NULL ) )
+                                                    if( rList_deserialise( pReceived, 
+                                                                           tmpBuff, 
+                                                                           (RU32)tmpSize, 
+                                                                           NULL ) )
                                                     {
                                                         rpal_debug_info( "success." );
                                                         isSuccess = TRUE;
@@ -679,14 +699,17 @@ RBOOL
                                                 }
                                                 else
                                                 {
-                                                    rpal_debug_error( "could not decompress received data: %d (%d bytes).", zError, payloadSize );
+                                                    rpal_debug_error( "could not decompress received data: %d (%d bytes).", 
+                                                                      zError, 
+                                                                      payloadSize );
                                                 }
 
                                                 rpal_memory_free( tmpBuff );
                                             }
                                             else
                                             {
-                                                rpal_debug_error( "could not allocate memory for data received, asking for: %d.", tmpSize );
+                                                rpal_debug_error( "could not allocate memory for data received, asking for: %d.", 
+                                                                  tmpSize );
                                             }
                                         }
                                         else
@@ -772,6 +795,9 @@ RBOOL
     DWORD bytesRead = 0;
     RPU8 pReceivedBuffer = NULL;
 
+    RPCHAR pPortDelim = 0;
+    RU32 tmpPort = 0;
+
     URL_COMPONENTSA components = {0};
 
     RBOOL isSecure = FALSE;
@@ -851,14 +877,26 @@ RBOOL
                 components.dwPasswordLength = sizeof( pPass );
                 components.dwStructSize = sizeof( components );
 
-                if( !pInternetCrackUrl( location, 0, 0, &components ) )
+                if( !pInternetCrackUrl( location, 0, 0, &components ) ||
+                    0 == components.nPort ||
+                    0 == rpal_string_strlen( pUrl ) )
                 {
-                    if( rpal_string_strlen( location ) < ARRAY_N_ELEM( pUrl ) )
+                    if( 0 == rpal_string_strlen( pUrl ) &&
+                        rpal_string_strlen( location ) < ARRAY_N_ELEM( pUrl ) )
                     {
                         rpal_string_strcpya( pUrl, location );
                     }
                     components.nPort = 80;
                     components.nScheme = INTERNET_SCHEME_HTTP;
+
+                    if( NULL != ( pPortDelim = rpal_string_strstr( pUrl, ":" ) ) )
+                    {
+                        *pPortDelim = 0;
+                        if( rpal_string_atoi( pPortDelim + 1, &tmpPort ) )
+                        {
+                            components.nPort = (RU16)tmpPort;
+                        }
+                    }
                 }
 
                 port = components.nPort;
@@ -886,30 +924,30 @@ RBOOL
                     pInternetSetOption( hInternet, INTERNET_OPTION_CONNECT_TIMEOUT, &timeout, sizeof( timeout ) );
 
                     hConnect = pInternetConnect( hInternet, 
-                                                    pUrl, 
-                                                    port,
-                                                    pUser, pPass,
-                                                    INTERNET_SERVICE_HTTP,
-                                                    flags, (DWORD_PTR)NULL );
+                                                 pUrl, 
+                                                 port,
+                                                 pUser, pPass,
+                                                 INTERNET_SERVICE_HTTP,
+                                                 flags, (DWORD_PTR)NULL );
 
                     if( NULL != hConnect )
                     {
                         hHttp = pHttpOpenRequest( hConnect, 
-                                                    (RPCHAR)&method, 
-                                                    pPage ? pPage : "", 
-                                                    NULL,
-                                                    NULL,
-                                                    NULL,
-                                                    flags,
-                                                    (DWORD_PTR)NULL );
+                                                  (RPCHAR)&method, 
+                                                  pPage ? pPage : "", 
+                                                  NULL,
+                                                  NULL,
+                                                  NULL,
+                                                  flags,
+                                                  (DWORD_PTR)NULL );
 
                         if( hHttp )
                         {
                             if( pHttpSendRequest( hHttp, 
-                                                    (RPCHAR)&contentType,
-                                                    (DWORD)(-1),
-                                                    params,
-                                                    (DWORD)rpal_string_strlen( params ) ) )
+                                                  (RPCHAR)&contentType,
+                                                  (DWORD)(-1),
+                                                  params,
+                                                  (DWORD)rpal_string_strlen( params ) ) )
                             {
                                 isSuccess = TRUE;
 
@@ -917,13 +955,17 @@ RBOOL
                                     NULL != receivedSize )
                                 {
                                     while( pInternetQueryDataAvailable( hHttp, &bytesToRead, 0, 0 ) &&
-                                            0 != bytesToRead )
+                                           0 != bytesToRead )
                                     {
-                                        pReceivedBuffer = rpal_memory_realloc( pReceivedBuffer, bytesReceived + bytesToRead );
+                                        pReceivedBuffer = rpal_memory_realloc( pReceivedBuffer, 
+                                                                               bytesReceived + bytesToRead );
 
                                         if( rpal_memory_isValid( pReceivedBuffer ) )
                                         {
-                                            if( pInternetReadFile( hHttp, pReceivedBuffer + bytesReceived, bytesToRead, &bytesRead ) )
+                                            if( pInternetReadFile( hHttp, 
+                                                                   pReceivedBuffer + bytesReceived, 
+                                                                   bytesToRead, 
+                                                                   &bytesRead ) )
                                             {
                                                 bytesReceived += bytesRead;
                                                 bytesToRead = 0;
