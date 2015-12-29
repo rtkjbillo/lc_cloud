@@ -878,7 +878,7 @@ RBOOL
                 components.dwStructSize = sizeof( components );
 
                 if( !pInternetCrackUrl( location, 0, 0, &components ) ||
-                    0 == port ||
+                    0 == components.nPort ||
                     0 == rpal_string_strlen( pUrl ) )
                 {
                     if( 0 == rpal_string_strlen( pUrl ) &&
