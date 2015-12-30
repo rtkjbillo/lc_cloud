@@ -24,7 +24,7 @@ class WinReconTools ( StatefulActor ):
 '''
 SAMTimeBurst( parameters = { 'within' : 10, 'min_burst' : 3 } )
     .feed_from( SAMSelector( parameters = {
-        'event/notification.NEW_PROCESS' : r'.*(/|\\\)((ipconfig)|(arp)|(route)|(ping)|(traceroute)|(nslookup)|(netstat)|(wmic)|(net\d?)|(whoami)|(systeminfo))\.exe' } ) )
+        'event/notification.NEW_PROCESS/base.FILE_PATH' : r'.*(/|\\\)((ipconfig)|(arp)|(route)|(ping)|(traceroute)|(nslookup)|(netstat)|(wmic)|(net\d?)|(whoami)|(systeminfo))\.exe' } ) )
 '''
         }
 

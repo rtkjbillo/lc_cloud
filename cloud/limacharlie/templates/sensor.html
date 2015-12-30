@@ -162,8 +162,10 @@ $var title = sensor_id
 
                 if( e[ 3 ] )
                 {
-                    eventContent = '<pre><code>' + JSON.stringify( e[ 3 ], null, 2 ) + '</code></pre>';
+                    eventContent = JSON.stringify( e[ 3 ], null, 2 );
                 }
+
+                eventContent = jQuery('<td>').append(jQuery('<pre>').append(jQuery('<code>').text(eventContent))).css('text-align','left')
 
                 jQuery('#timeline').prepend(
                     jQuery('<tr>').append(
@@ -171,8 +173,7 @@ $var title = sensor_id
                     ).append(
                         jQuery('<td>').html( e[ 1 ] )
                     ).append(
-                        jQuery('<td>').html( eventContent )
-                                      .css('text-align','left')
+                        eventContent
                     ).append(
                         jQuery('<td>').append( jQuery('<a>').attr('href','/event?id=' + e[ 2 ] )
                                                             .attr('title','View Event')
@@ -182,9 +183,12 @@ $var title = sensor_id
                      .addClass( 't_event' )
                      .show('slow')
                 );
+
+                eventContent.each(function(i, e) {hljs.highlightBlock(e)});
+
                 from_time = Math.floor( e[ 0 ] / 1000 );
                 all_events[ e[ 2 ] ] = 0;
-                if( 50 < Object.keys( all_events ).length )
+                if( 20 < Object.keys( all_events ).length )
                 {
                     event = jQuery( '.t_event' ).last();
                     t_id = event.attr( 'id' );
@@ -193,9 +197,6 @@ $var title = sensor_id
                 }
             }
         });
-
-        hljs.initHighlighting.called = false;
-        hljs.initHighlighting();
     }
 
     function do_refresh_timeline()
@@ -243,6 +244,7 @@ $var title = sensor_id
     }
 
     jQuery( function(){
+        hljs.initHighlighting();
         do_refresh_online();
         do_refresh_timeline();
         do_refresh_lastevents();
