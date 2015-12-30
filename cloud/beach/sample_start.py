@@ -255,6 +255,18 @@ print( beach.addActor( 'analytics/stateless/WinSuspExecLoc',
                        n_concurrent = 5 ) )
 
 #######################################
+# stateless/MacSuspExecLoc
+# This actor looks for execution from
+# various known suspicious locations.
+#######################################
+print( beach.addActor( 'analytics/stateless/MacSuspExecLoc',
+                       'analytics/stateless/osx/notification.NEW_PROCESS/suspexecloc/1.0',
+                       parameters = {  },
+                       secretIdent = 'analysis/038528f5-5135-4ca8-b79f-d6b8ffc53bf5',
+                       trustedIdents = [ 'analysis/038528f5-5135-4ca8-b79f-d6b8ffc53bf5' ],
+                       n_concurrent = 5 ) )
+
+#######################################
 # stateless/BatchSelfDelete
 # This actor looks for patterns of an
 # executable deleteing itself using
@@ -432,6 +444,25 @@ print( beach.addActor( 'analytics/stateful/WinReconTools',
                        n_concurrent = 5 ) )
 print( beach.addActor( 'analytics/stateful/WinReconTools',
                        'analytics/stateful/modules/windows/recontools/1.0',
+                       parameters = {  },
+                       secretIdent = 'analysis/038528f5-5135-4ca8-b79f-d6b8ffc53bf5',
+                       trustedIdents = [ 'analysis/038528f5-5135-4ca8-b79f-d6b8ffc53bf5' ],
+                       n_concurrent = 5 ) )
+
+#######################################
+# stateful/MacReconTools
+# This actor looks for burst in usage
+# of common recon tools used early
+# during exploitation.
+#######################################
+print( beach.addActor( 'analytics/stateful/MacReconTools',
+                       'analytics/stateful/modules/osx/recontools/1.0',
+                       parameters = {  },
+                       secretIdent = 'analysis/038528f5-5135-4ca8-b79f-d6b8ffc53bf5',
+                       trustedIdents = [ 'analysis/038528f5-5135-4ca8-b79f-d6b8ffc53bf5' ],
+                       n_concurrent = 5 ) )
+print( beach.addActor( 'analytics/stateful/MacReconTools',
+                       'analytics/stateful/modules/osx/recontools/1.0',
                        parameters = {  },
                        secretIdent = 'analysis/038528f5-5135-4ca8-b79f-d6b8ffc53bf5',
                        trustedIdents = [ 'analysis/038528f5-5135-4ca8-b79f-d6b8ffc53bf5' ],

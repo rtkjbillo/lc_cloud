@@ -24,7 +24,7 @@ class MacReconTools ( StatefulActor ):
 '''
 SAMTimeBurst( parameters = { 'within' : 10, 'min_burst' : 4 } )
     .feed_from( SAMSelector( parameters = {
-        'event/notification.NEW_PROCESS' : r'.*(/|\\\)((ifconfig)|(arp)|(route)|(ping)|(traceroute)|(nslookup)|(netstat)|(wget)|(curl))\.exe' } ) )
+        'event/notification.NEW_PROCESS/base.FILE_PATH' : r'.*/((ifconfig)|(arp)|(route)|(ping)|(traceroute)|(nslookup)|(netstat)|(wget)|(curl))' } ) )
 '''
         }
 

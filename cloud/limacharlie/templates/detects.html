@@ -87,8 +87,10 @@ $var title = 'Detects'
 
                 if( e[ 5 ] )
                 {
-                    eventContent = '<pre><code>' + JSON.stringify( e[ 5 ], null, 2 ) + '</code></pre>';
+                    eventContent = JSON.stringify( e[ 5 ], null, 2 );
                 }
+
+                eventContent = jQuery('<td>').append(jQuery('<pre>').append(jQuery('<code>').text(eventContent))).css('text-align','left')
 
                 jQuery('#timeline').prepend(
                     jQuery('<tr>').append(
@@ -100,7 +102,7 @@ $var title = 'Detects'
                     ).append(
                         jQuery('<td>').html( e[ 4 ] )
                     ).append(
-                        jQuery('<td>').html( eventContent )
+                        eventContent
                     ).append(
                         jQuery('<td>').append( jQuery('<a>').attr('href','/detect?id=' + e[ 1 ] )
                                                             .attr('title','View Event')
@@ -111,9 +113,12 @@ $var title = 'Detects'
                      .show('slow')
                      .css('text-align','left')
                 );
+
+                eventContent.each(function(i, e) {hljs.highlightBlock(e)});
+
                 from_time = Math.floor( e[ 0 ] / 1000 );
                 all_events[ e[ 1 ] ] = 0;
-                if( 50 < Object.keys( all_events ).length )
+                if( 20 < Object.keys( all_events ).length )
                 {
                     event = jQuery( '.t_event' ).last();
                     t_id = event.attr( 'id' );
@@ -122,9 +127,6 @@ $var title = 'Detects'
                 }
             }
         });
-
-        hljs.initHighlighting.called = false;
-        hljs.initHighlighting();
     }
 
     function do_refresh_timeline()
@@ -145,6 +147,7 @@ $var title = 'Detects'
     }
 
     jQuery( function(){
+        hljs.initHighlighting();
         do_refresh_timeline();
     });
 </script>

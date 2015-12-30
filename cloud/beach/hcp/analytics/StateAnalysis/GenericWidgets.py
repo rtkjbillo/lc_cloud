@@ -23,7 +23,7 @@ class SAMSelector( SAMFilter ):
         SAMFilter.__init__( self, *a, **k )
         for k, v in self.parameters.items():
             if type( v ) is str or type( v ) is unicode:
-                self.parameters[ k ] = re.compile( v )
+                self.parameters[ k ] = re.compile( v, re.IGNORECASE )
 
     def execute( self, newEvent ):
         out = None
@@ -34,6 +34,7 @@ class SAMSelector( SAMFilter ):
         isMatch = True
 
         for k, v in self.parameters.iteritems():
+            if 'debug' == k: continue
             isValFound = False
             for value in _xm_( newEvent, k ):
                 if type( v ) is re._pattern_type:

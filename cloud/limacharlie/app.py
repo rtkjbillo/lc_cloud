@@ -138,7 +138,7 @@ class Timeline:
         req = { 'id' : params.sensor_id,
                 'is_include_content' : True,
                 'after' : start_time,
-                'mas_size' : 512 }
+                'max_size' : 512 }
 
         if params.before is not None and '' != params.before:
             req[ 'before' ] = int( params.before )
