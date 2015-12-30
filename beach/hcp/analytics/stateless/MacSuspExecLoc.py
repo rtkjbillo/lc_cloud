@@ -21,7 +21,7 @@ class MacSuspExecLoc ( StatelessActor ):
     def init( self, parameters ):
         super( MacSuspExecLoc, self ).init( parameters )
         self.slocs = { 'shared' : re.compile( r'/Users/Shared/.*' ),
-                       'hidden_dir' : re.compile( r'.*/\\..+/.*' ) }
+                       'hidden_dir' : re.compile( r'.*/\..+/.*' ) }
 
     def process( self, msg ):
         routing, event, mtd = msg.data

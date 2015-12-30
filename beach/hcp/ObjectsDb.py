@@ -481,12 +481,12 @@ class Host( object ):
         filterValues.append( self.aid.invariableToString() )
 
         if before is not None and before != '':
-            filters.append( 'ts <= maxTimeuuid(%s)' )
-            filterValues.append( tsToTime( before ) )
+            filters.append( 'ts <= %s' )
+            filterValues.append( time_uuid.TimeUUID.with_timestamp( before, randomize = False, lowest_val = False ) )
 
         if after is not None and after != '':
-            filters.append( 'ts >= minTimeuuid(%s)' )
-            filterValues.append( tsToTime( after ) )
+            filters.append( 'ts >= %s' )
+            filterValues.append( time_uuid.TimeUUID.with_timestamp( after, randomize = False, lowest_val = True ) )
 
         if ofTypes is not None:
             if type( ofTypes ) is not tuple and type( ofTypes ) is not list:
@@ -599,11 +599,11 @@ class Reporting( object ):
 
             if before is not None and before != '':
                 filters.append( 'ts <= %s' )
-                filterValues.append( time_uuid.TimeUUID.with_timestamp( before ) )
+                filterValues.append( time_uuid.TimeUUID.with_timestamp( before, randomize = False, lowest_val = False ) )
 
             if after is not None and after != '':
                 filters.append( 'ts >= %s' )
-                filterValues.append( time_uuid.TimeUUID.with_timestamp( after ) )
+                filterValues.append( time_uuid.TimeUUID.with_timestamp( after, randomize = False, lowest_val = True ) )
 
             if limit is not None:
                 limit = 'LIMIT %d' % int( limit )
