@@ -1056,7 +1056,7 @@ RBOOL
 {
     RBOOL isSuccess = FALSE;
     CURL* curlCtx = NULL;
-    RU32 timeout = ( 1000 * 10 );
+    RU32 timeout = ( 1000 * 60 );
     RCHAR userAgent[] = "rpHCP";
     rBlob dataReceived = NULL;
     RBOOL isDataReturned = FALSE;
@@ -1071,6 +1071,7 @@ RBOOL
                 rpal_debug_info( "posting to %s", location );
                 
                 if( CURLE_OK == ( curlError = curl_easy_setopt( curlCtx, CURLOPT_URL, location ) ) &&
+                    CURLE_OK == ( curlError = curl_easy_setopt( curlCtx, CURLOPT_TIMEOUT_MS, timeout ) ) &&
                     CURLE_OK == ( curlError = curl_easy_setopt( curlCtx, CURLOPT_USERAGENT, userAgent ) ) &&
                     CURLE_OK == ( curlError = curl_easy_setopt( curlCtx, CURLOPT_POSTFIELDS, params ) ) &&
                     CURLE_OK == ( curlError = curl_easy_setopt( curlCtx, CURLOPT_WRITEFUNCTION, (RPVOID)_curlToBuffer ) ) &&
