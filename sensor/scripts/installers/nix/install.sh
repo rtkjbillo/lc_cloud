@@ -48,6 +48,7 @@ else
   echo "Installing $SVC_NAME."
 
   echo "...svc bin"
+  mkdir -p -m 700 /usr/local/bin/
   cp ./bin /usr/local/bin/$SVC_NAME
 
   echo "...svc script"
