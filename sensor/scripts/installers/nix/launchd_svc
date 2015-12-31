@@ -6,7 +6,7 @@
         <string>com.refractionpoint.rphcp</string>
         <key>ProgramArguments</key>
         <array>
-            <string>rphcp</string>
+            <string>/usr/local/bin/rphcp</string>
         </array>
         <key>KeepAlive</key>
         <true/>

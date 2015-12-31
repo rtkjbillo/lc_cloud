@@ -41,24 +41,14 @@ then
     echo "Unknown, unregister manually"
   fi
 
-  rm /bin/$SVC_NAME
+  rm /usr/local/bin/$SVC_NAME
 
 else
 
   echo "Installing $SVC_NAME."
 
-  if [ -z "$1" ]; then
-    echo "No license key given on command line. Abort."
-    exit 1
-  fi
-  EXPECTED_KEY=`cat ./license-key`
-  if [ "$EXPECTED_KEY" != "$1" ]; then
-    echo "Given license key '$1' is different from the one you were supplied. Abort."
-    exit 1
-  fi
-
   echo "...svc bin"
-  cp ./bin /bin/$SVC_NAME
+  cp ./bin /usr/local/bin/$SVC_NAME
 
   echo "...svc script"
   if [ "`which launchd`" ]

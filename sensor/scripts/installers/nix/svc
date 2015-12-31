@@ -22,7 +22,7 @@ start()
     else
         echo "$SERVICE is being started"
         ulimit -c %CORE_SIZE%
-        /bin/$SERVICE 2>/dev/null >/dev/null &
+        /usr/local/bin/$SERVICE 2>/dev/null >/dev/null &
     fi
 }
 
