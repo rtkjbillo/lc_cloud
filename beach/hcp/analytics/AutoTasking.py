@@ -77,22 +77,22 @@ class AutoTasking( Actor ):
         self.log( command )
 
     def handleTasking( self, msg ):
-        event = msg.data[ 'msg' ]
         dest = msg.data[ 'dest' ]
         tasks = msg.data.get( 'tasks', tuple() )
-        routing, event, mtd = event
-        eventid = routing[ 'event_id' ]
-        agentid = routing[ 'agentid' ]
         expiry = msg.data.get( 'expiry', None )
         invId = msg.data.get( 'inv_id', None )
-        if invId is None:
-            invId = event.values()[ 0 ].get( 'hbs.INVESTIGATION_ID', None )
+
+        sent = Set()
 
         for task in tasks:
+            task = tuple( task )
+            if task in sent: continue
+            sent.add( task )
+
             if task[ 0 ] not in self.allowed_commands:
                 self.log( "ignoring command not allowed: %s" % str( task ) )
                 continue
-            if self.isQuotaAllowed( agentid, task ):
-                self.execTask( task, agentid, expiry = expiry, invId = invId )
+            if self.isQuotaAllowed( dest, task ):
+                self.execTask( task, dest, expiry = expiry, invId = invId )
 
         return ( True, )

@@ -25,6 +25,6 @@ class HiddenModules ( StatelessActor ):
         detects = []
 
         # No validation for now, straight detect
-        detects.append( self.newDetect() )
+        detects.append( ( event, None ) )
 
         return detects

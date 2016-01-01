@@ -253,6 +253,12 @@ print( beach.addActor( 'analytics/stateless/WinSuspExecLoc',
                        secretIdent = 'analysis/038528f5-5135-4ca8-b79f-d6b8ffc53bf5',
                        trustedIdents = [ 'analysis/038528f5-5135-4ca8-b79f-d6b8ffc53bf5' ],
                        n_concurrent = 5 ) )
+print( beach.addActor( 'analytics/stateless/WinSuspExecLoc',
+                       'analytics/stateless/windows/notification.CODE_IDENTITY/suspexecloc/1.0',
+                       parameters = {  },
+                       secretIdent = 'analysis/038528f5-5135-4ca8-b79f-d6b8ffc53bf5',
+                       trustedIdents = [ 'analysis/038528f5-5135-4ca8-b79f-d6b8ffc53bf5' ],
+                       n_concurrent = 5 ) )
 
 #######################################
 # stateless/MacSuspExecLoc
@@ -261,6 +267,12 @@ print( beach.addActor( 'analytics/stateless/WinSuspExecLoc',
 #######################################
 print( beach.addActor( 'analytics/stateless/MacSuspExecLoc',
                        'analytics/stateless/osx/notification.NEW_PROCESS/suspexecloc/1.0',
+                       parameters = {  },
+                       secretIdent = 'analysis/038528f5-5135-4ca8-b79f-d6b8ffc53bf5',
+                       trustedIdents = [ 'analysis/038528f5-5135-4ca8-b79f-d6b8ffc53bf5' ],
+                       n_concurrent = 5 ) )
+print( beach.addActor( 'analytics/stateless/MacSuspExecLoc',
+                       'analytics/stateless/osx/notification.CODE_IDENTITY/suspexecloc/1.0',
                        parameters = {  },
                        secretIdent = 'analysis/038528f5-5135-4ca8-b79f-d6b8ffc53bf5',
                        trustedIdents = [ 'analysis/038528f5-5135-4ca8-b79f-d6b8ffc53bf5' ],

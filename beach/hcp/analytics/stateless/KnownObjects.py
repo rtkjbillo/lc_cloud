@@ -14,6 +14,7 @@
 
 from beach.actor import Actor
 ObjectTypes = Actor.importLib( '../../ObjectsDb', 'ObjectTypes' )
+ObjectKey = Actor.importLib( '../../ObjectsDb', 'ObjectKey' )
 StatelessActor = Actor.importLib( '../../Detects', 'StatelessActor' )
 RingCache = Actor.importLib( '../../hcp_helpers', 'RingCache' )
 
@@ -55,9 +56,10 @@ class KnownObjects ( StatelessActor ):
     def process( self, msg ):
         routing, event, mtd = msg.data
         detects = []
-        for k in mtd[ 'k' ]:
-            if k in self.known:
-                info = self._getObjectInfo( k )
-                detects.append( self.newDetect( objects = ( k, ), mtd = info ) )
+        for oType, objects in mtd[ 'obj' ].iteritems():
+            for o in objects:
+                k = ObjectKey( o, oType )
+                if k in self.known:
+                    detects.append( ( { 'otype' : oType, 'o' : o, 'info' : self._getObjectInfo( k ) }, None ) )
 
         return detects

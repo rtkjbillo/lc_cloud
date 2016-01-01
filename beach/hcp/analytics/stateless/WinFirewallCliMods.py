@@ -16,6 +16,7 @@ from beach.actor import Actor
 import re
 ObjectTypes = Actor.importLib( '../../ObjectsDb', 'ObjectTypes' )
 StatelessActor = Actor.importLib( '../../Detects', 'StatelessActor' )
+_xm_ = Actor.importLib( '../../hcp_helpers', '_xm_' )
 
 class WinFirewallCliMods ( StatelessActor ):
     def init( self, parameters ):
@@ -29,9 +30,9 @@ class WinFirewallCliMods ( StatelessActor ):
     def process( self, msg ):
         routing, event, mtd = msg.data
         detects = []
-        for o in mtd[ 'obj' ].get( ObjectTypes.CMD_LINE, [] ):
+        for cmdline in _xm_( event, '?/base.COMMAND_LINE' ):
             for modif in self.re_rule_modif:
-                if modif.search( o ) and not self.re_known_good_rule.search( o ):
-                    detects.append( self.newDetect( objects = ( o, ObjectTypes.CMD_LINE ) ) )
+                if modif.search( cmdline ) and not self.re_known_good_rule.search( cmdline ):
+                    detects.append( ( event, None ) )
 
         return detects

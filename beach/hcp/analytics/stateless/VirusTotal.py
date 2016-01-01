@@ -64,6 +64,6 @@ class VirusTotal ( StatelessActor ):
                 self.cache.add( h, report )
 
             if report is not None:
-                detects.append( self.newDetect( objects = ( h, ), mtd = report ) )
+                detects.append( ( { 'report' : report, 'hash' : h }, None ) )
 
         return detects
