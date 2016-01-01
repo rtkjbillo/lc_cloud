@@ -16,6 +16,7 @@ from beach.actor import Actor
 import re
 ObjectTypes = Actor.importLib( '../../ObjectsDb', 'ObjectTypes' )
 StatelessActor = Actor.importLib( '../../Detects', 'StatelessActor' )
+_xm_ = Actor.importLib( '../../hcp_helpers', '_xm_' )
 
 class MacSuspExecLoc ( StatelessActor ):
     def init( self, parameters ):
@@ -26,16 +27,11 @@ class MacSuspExecLoc ( StatelessActor ):
     def process( self, msg ):
         routing, event, mtd = msg.data
         detects = []
-        for o in mtd[ 'obj' ].get( ObjectTypes.FILE_PATH, [] ):
+        for filePath in _xm_( event, '?/base.FILE_PATH' ):
             for k, v in self.slocs.iteritems():
-                if v.search( o ):
-                    detects.append( self.newDetect( objects = ( o, ObjectTypes.FILE_PATH ) ) )
-
-        if 0 != len( detects ):
-            self.task( msg,
-                       routing[ 'agentid' ],
-                       ( ( 'remain_live', 60 ),
-                         ( 'history_dump', ),
-                         ( 'exfil_add', 'notification.FILE_CREATE', '--expire', 60 ) ) )
+                if v.match( filePath ):
+                    detects.append( ( event, ( ( 'remain_live', 60 ),
+                                               ( 'history_dump', ),
+                                               ( 'exfil_add', 'notification.FILE_CREATE', '--expire', 60 ) ) ) )
 
         return detects

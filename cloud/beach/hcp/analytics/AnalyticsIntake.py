@@ -127,7 +127,7 @@ class AnalyticsIntake( Actor ):
 
     def _extractObjects( self, message ):
         routing, event = message
-        mtd = { 'obj' : {}, 'rel' : {}, 'k' : [] }
+        mtd = { 'obj' : {}, 'rel' : {} }
         agent = AgentId( routing[ 'agentid' ] )
         eventType = routing.get( 'event_type', None )
         eventRoot = event.values()[ 0 ]

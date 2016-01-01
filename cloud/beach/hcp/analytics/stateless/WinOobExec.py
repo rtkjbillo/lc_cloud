@@ -29,6 +29,6 @@ class WinOobExec ( StatelessActor ):
 
         # We can get false positives on executables running .net because of JIT
         if not self.dotNet.match( _x_( event, 'notification.EXEC_OOB/base.FILE_PATH' ) ):
-            detects.append( self.newDetect() )
+            detects.append( ( event, None ) )
 
         return detects

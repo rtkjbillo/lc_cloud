@@ -34,20 +34,6 @@ class StatelessActor ( Actor ):
         self._tasking = None
         self.handle( 'process', self._process )
 
-    def newDetect( self, objects = [], relations = [], desc = None, mtd = {} ):
-        d = {}
-
-        if 0 != len( objects ):
-            d[ 'obj' ] = objects
-        if 0 != len( relations ):
-            d[ 'rel' ] = relations
-        if desc is not None:
-            d[ 'desc' ] = desc
-        if 0 != len( mtd ):
-            d[ 'mtd' ] = mtd
-
-        return d
-
     def task( self, msg, dest, cmdsAndArgs, expiry = None, inv_id = None ):
         routing, event, mtd = msg.data
         if self._tasking is None:
