@@ -163,6 +163,7 @@ RPVOID
             }
 
             hbs_markAsRelated( originalRequest, notif );
+            rSequence_addTIMESTAMP( notif, RP_TAGS_TIMESTAMP, rpal_time_getGlobal() );
 
             notifications_publish( RP_TAGS_NOTIFICATION_EXEC_OOB, notif );
 
