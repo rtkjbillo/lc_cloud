@@ -390,6 +390,30 @@ print( beach.addActor( 'analytics/stateless/WinFirewallCliMods',
                        trustedIdents = [ 'analysis/038528f5-5135-4ca8-b79f-d6b8ffc53bf5' ],
                        n_concurrent = 5 ) )
 
+#######################################
+# stateless/HiddenModules
+# This actor looks hidden module
+# notifications.
+#######################################
+print( beach.addActor( 'analytics/stateless/HiddenModules',
+                       'analytics/stateless/common/notification.HIDDEN_MODULE_DETECTED/hiddenmodules/1.0',
+                       parameters = {  },
+                       secretIdent = 'analysis/038528f5-5135-4ca8-b79f-d6b8ffc53bf5',
+                       trustedIdents = [ 'analysis/038528f5-5135-4ca8-b79f-d6b8ffc53bf5' ],
+                       n_concurrent = 5 ) )
+
+#######################################
+# stateless/WinOobExec
+# This actor looks OOB execution
+# notifications.
+#######################################
+print( beach.addActor( 'analytics/stateless/WinOobExec',
+                       'analytics/stateless/windows/notification.EXEC_OOB/oobexec/1.0',
+                       parameters = {  },
+                       secretIdent = 'analysis/038528f5-5135-4ca8-b79f-d6b8ffc53bf5',
+                       trustedIdents = [ 'analysis/038528f5-5135-4ca8-b79f-d6b8ffc53bf5' ],
+                       n_concurrent = 5 ) )
+
 ###############################################################################
 # Stateful Detection
 ###############################################################################
