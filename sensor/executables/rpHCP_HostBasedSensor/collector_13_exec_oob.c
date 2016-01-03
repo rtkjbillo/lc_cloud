@@ -94,6 +94,11 @@ RPVOID
     curProcId = processLib_getCurrentPid();
     curThreadId = processLib_getCurrentThreadId();
 
+    if( curProcId == processId )
+    {
+        return NULL;
+    }
+
     if( !rMutex_lock( g_oob_exec_mutex ) )
     {
         return NULL;
@@ -110,11 +115,6 @@ RPVOID
                 while( !rEvent_wait( isTimeToStop, 0 ) &&
                        rList_getRU32( threads, RP_TAGS_THREAD_ID, &threadId ) )
                 {
-                    if( curProcId == processId )
-                    {
-                        continue;
-                    }
-
                     if( NULL != ( stackTrace = processLib_getStackTrace( processId, threadId ) ) )
                     {
                         while( !rEvent_wait( isTimeToStop, 0 ) &&
