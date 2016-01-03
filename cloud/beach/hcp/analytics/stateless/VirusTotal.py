@@ -54,9 +54,12 @@ class VirusTotal ( StatelessActor ):
                     if info is not None: break
                     retries += 1
                 report = {}
-                for av, r in info:
-                    if r is not None:
-                        report[ av[ 0 ] ] = r
+                if info is not None:
+                    for av, r in info:
+                        if r is not None:
+                            report[ av[ 0 ] ] = r
+                else:
+                    self.log( 'failed to get vt report for: %s' % h )
 
                 if self.threshold > len( report ):
                     report = None
