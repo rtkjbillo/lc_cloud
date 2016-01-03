@@ -256,7 +256,8 @@ class HcpCli ( cmd.Cmd ):
                 return
 
             _ = os.getcwd()
-            os.chdir( os.path.dirname(  __file__ ) )
+            if '' != os.path.dirname( __file__ ):
+                os.chdir( os.path.dirname( __file__ ) )
             self.connectWithConfig( config[ 'beach_config' ], config[ 'token' ] )
             os.chdir( _ )
 

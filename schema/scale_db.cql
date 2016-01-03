@@ -17,6 +17,14 @@ CREATE TABLE timeline(
   PRIMARY KEY( agentid, ts )
 ) WITH compaction = { 'class' : 'DateTieredCompactionStrategy', 'timestamp_resolution' : 'SECONDS' } AND gc_grace_seconds = 86400;
 
+CREATE TABLE timeline_by_type(
+  agentid varchar,
+  ts timeuuid,
+  eventtype varchar,
+  eventid varchar,
+  PRIMARY KEY( agentid, eventtype, ts )
+) WITH compaction = { 'class' : 'DateTieredCompactionStrategy', 'timestamp_resolution' : 'SECONDS' } AND gc_grace_seconds = 86400;
+
 CREATE TABLE obj_man
 (
   id varchar,
@@ -99,7 +107,7 @@ CREATE TABLE investigation_data
 (
   invid varchar,
   ts timeuuid,
-  eid uuid,
+  eid varchar,
   etype varchar,
   PRIMARY KEY( invid, ts )
 ) WITH compaction = { 'class' : 'SizeTieredCompactionStrategy' } AND gc_grace_seconds = 86400;

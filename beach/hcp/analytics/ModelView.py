@@ -13,6 +13,8 @@
 # limitations under the License.
 
 from beach.actor import Actor
+import time
+from sets import Set
 BEAdmin = Actor.importLib( '../admin_lib', 'BEAdmin' )
 Host = Actor.importLib( '../ObjectsDb', 'Host' )
 HostObjects = Actor.importLib( '../ObjectsDb', 'HostObjects' )
@@ -22,6 +24,8 @@ ObjectKey = Actor.importLib( '../ObjectsDb', 'ObjectKey' )
 RelationNameFromId = Actor.importLib( '../ObjectsDb', 'RelationNameFromId' )
 Reporting = Actor.importLib( '../ObjectsDb', 'Reporting' )
 AgentId = Actor.importLib( '../hcp_helpers', 'AgentId' )
+_xm_ = Actor.importLib( '../hcp_helpers', '_xm_' )
+_x_ = Actor.importLib( '../hcp_helpers', '_x_' )
 
 class ModelView( Actor ):
     def init( self, parameters ):
@@ -38,6 +42,7 @@ class ModelView( Actor ):
         self.handle( 'list_sensors', self.list_sensors )
         self.handle( 'get_detects', self.get_detects )
         self.handle( 'get_detect', self.get_detect )
+        self.handle( 'get_host_changes', self.get_host_changes )
 
     def deinit( self ):
         Host.closeDatabase()
@@ -206,6 +211,7 @@ class ModelView( Actor ):
 
     def get_detect( self, msg ):
         detect = Reporting.getDetects( id = msg.data[ 'id' ] )
+        isWithEvents = msg.data.get( 'with_events', False )
 
         detect = ( detect[ 0 ],
                    detect[ 1 ],
@@ -214,4 +220,43 @@ class ModelView( Actor ):
                    detect[ 4 ],
                    FluxEvent.decode( detect[ 5 ] ) )
 
+        if isWithEvents:
+            events = Reporting.getRelatedEvents( detect[ 1 ].upper(), isIncludeContent = True )
+            detect = ( detect[ 0 ],
+                       detect[ 1 ],
+                       detect[ 2 ],
+                       detect[ 3 ],
+                       detect[ 4 ],
+                       detect[ 5 ],
+                       [ ( x[ 0 ], x[ 1 ], FluxEvent.decode( x[ 2 ] ), x[ 3 ] ) for x in events ] )
+
         return ( True, { 'detect' : detect } )
+
+    def get_host_changes( self, msg ):
+        changes = {}
+        eTypes = ( ( 'notification.OS_SERVICES_REP', '?/base.SVCS/base.SVC_NAME' ),
+                   ( 'notification.OS_DRIVERS_REP', '?/base.SVCS/base.SVC_NAME' ),
+                   ( 'notification.OS_AUTORUNS_REP', '?/base.AUTORUNS/base.FILE_PATH' ) )
+
+        host = Host( msg.data[ 'id' ] )
+        for eType in eTypes:
+            events = host.getEvents( after = ( int( time.time() ) - ( 60 * 60 * 24 * 7 ) ),
+                                     ofTypes = ( eType[ 0 ], ),
+                                     isIncludeContent = True )
+            previous = None
+            for event in events:
+                if previous is None:
+                    previous = Set( _xm_( FluxEvent.decode( event[ 3 ] ), eType[ 1 ] ) )
+                eContent = FluxEvent.decode( event[ 3 ] )
+                current = Set( _xm_( eContent, eType[ 1 ] ) )
+                eTime = _x_( eContent, '?/base.TIMESTAMP' )
+                eId = event[ 2 ]
+                for e in current:
+                    if e not in previous:
+                        changes.setdefault( eType[ 0 ], { '+' : {}, '-' : {} } )[ '+' ][ e ] = ( eId, eTime )
+                for e in previous:
+                    if e not in current:
+                        changes.setdefault( eType[ 0 ], { '+' : {}, '-' : {} } )[ '-' ][ e ] = ( eId, eTime )
+                previous = current
+
+        return ( True, { 'changes' : changes } )

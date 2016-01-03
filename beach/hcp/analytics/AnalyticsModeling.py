@@ -53,6 +53,7 @@ class AnalyticsModeling( Actor ):
         self.statements = {}
         self.statements[ 'events' ] = self.db.prepare( 'INSERT INTO events ( eventid, event, agentid ) VALUES ( ?, ?, ? ) USING TTL %d' % ( 60 * 60 * 24 * 7 * 2 ) )
         self.statements[ 'timeline' ] = self.db.prepare( 'INSERT INTO timeline ( agentid, ts, eventid, eventtype ) VALUES ( ?, ?, ?, ? ) USING TTL %d' % ( 60 * 60 * 24 * 7 * 2 ) )
+        self.statements[ 'timeline_by_type' ] = self.db.prepare( 'INSERT INTO timeline_by_type ( agentid, ts, eventid, eventtype ) VALUES ( ?, ?, ?, ? ) USING TTL %d' % ( 60 * 60 * 24 * 7 * 2 ) )
         self.statements[ 'recent' ] = self.db.prepare( 'UPDATE recentlyActive USING TTL %d SET last = dateOf( now() ) WHERE agentid = ?' % ( 60 * 60 * 24 * 14 ) )
         self.statements[ 'last' ] = self.db.prepare( 'UPDATE last_events USING TTL %d SET id = ? WHERE agentid = ? AND type = ?' % ( 60 * 60 * 24 * 30 * 1 ) )
         self.statements[ 'investigation' ] = self.db.prepare( 'INSERT INTO investigation_data ( invid, ts, eid, etype ) VALUES ( ?, ?, ?, ? ) USING TTL %d' % ( 60 * 60 * 24 * 30 * 1 ) )
@@ -161,6 +162,11 @@ class AnalyticsModeling( Actor ):
                                                                      eid,
                                                                      routing[ 'event_type' ] ) ) )
 
+        self.db.execute_async( self.statements[ 'timeline_by_type' ].bind( ( aid,
+                                                                             time_uuid.TimeUUID.with_timestamp( ts ),
+                                                                             eid,
+                                                                             routing[ 'event_type' ] ) ) )
+
         self.db.execute_async( self.statements[ 'recent' ].bind( ( aid, ) ) )
 
         self.db.execute_async( self.statements[ 'last' ].bind( ( eid,
@@ -169,7 +175,7 @@ class AnalyticsModeling( Actor ):
 
         inv_id = _x_( event, '?/hbs.INVESTIGATION_ID' )
         if inv_id is not None and inv_id != '':
-            self.db.execute_async( self.statements[ 'investigation' ].bind( ( inv_id.split( '/' )[ 0 ],
+            self.db.execute_async( self.statements[ 'investigation' ].bind( ( inv_id.upper(),
                                                                               time_uuid.TimeUUID.with_timestamp( ts ),
                                                                               eid,
                                                                               routing[ 'event_type' ] ) ) )

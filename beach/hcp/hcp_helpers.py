@@ -390,7 +390,7 @@ class AgentId( object ):
                 if self.config is not None:
                     s += '.%s' % hex( self.config )[ 2 : ]
         else:
-            s = None
+            s = ''
 
         return s
 

@@ -34,22 +34,21 @@ class StatelessActor ( Actor ):
         self._tasking = None
         self.handle( 'process', self._process )
 
-    def task( self, msg, dest, cmdsAndArgs, expiry = None, inv_id = None ):
-        routing, event, mtd = msg.data
+    def task( self, dest, cmdsAndArgs, expiry = None, inv_id = None ):
         if self._tasking is None:
             self._tasking = self.getActorHandle( 'analytics/autotasking', mode = 'affinity' )
             self.log( "creating tasking handle for the first time for this detection module" )
 
         if type( cmdsAndArgs[ 0 ] ) not in ( tuple, list ):
             cmdsAndArgs = ( cmdsAndArgs, )
-        data = { 'msg' : msg.data, 'dest' : dest, 'tasks' : cmdsAndArgs }
+        data = { 'dest' : dest, 'tasks' : cmdsAndArgs }
 
         if expiry is not None:
             data[ 'expiry' ] = expiry
         if inv_id is not None:
             data[ 'inv_id' ] = inv_id
 
-        self._tasking.shoot( 'task', data, key = routing[ 'agentid' ] )
+        self._tasking.shoot( 'task', data, key = dest )
         self.log( "sent for tasking: %s" % ( str(cmdsAndArgs), ) )
 
     def _process( self, msg ):
@@ -60,11 +59,14 @@ class StatelessActor ( Actor ):
             routing, event, mtd = msg.data
             cat = type( self ).__name__
             cat = cat[ cat.rfind( '.' ) + 1 : ]
-            for detect in detects:
-                self._reporting.shoot( 'report', GenerateDetectReport( routing[ 'agentid' ],
-                                                                       ( routing[ 'event_id' ], ),
-                                                                       cat,
-                                                                       detect ) )
+            for detect, taskings in detects:
+                report = GenerateDetectReport( routing[ 'agentid' ],
+                                               ( routing[ 'event_id' ], ),
+                                               cat,
+                                               detect )
+                self._reporting.shoot( 'report', report )
+                if taskings is not None and 0 != len( taskings ):
+                    self.task( routing[ 'agentid' ], taskings, expiry = ( 60 * 60 ), inv_id = report[ 'report_id' ] )
         return ( True, )
 
 class StatefulActor ( Actor ):
@@ -94,6 +96,23 @@ class StatefulActor ( Actor ):
             if self._machine_activity[ shard ] < time.time() - self._machine_ttl:
                 del( self._machine_activity[ shard ] )
                 del( self._compiled_machines[ shard ] )
+
+    def task( self, dest, cmdsAndArgs, expiry = None, inv_id = None ):
+        if self._tasking is None:
+            self._tasking = self.getActorHandle( 'analytics/autotasking', mode = 'affinity' )
+            self.log( "creating tasking handle for the first time for this detection module" )
+
+        if type( cmdsAndArgs[ 0 ] ) not in ( tuple, list ):
+            cmdsAndArgs = ( cmdsAndArgs, )
+        data = { 'dest' : dest, 'tasks' : cmdsAndArgs }
+
+        if expiry is not None:
+            data[ 'expiry' ] = expiry
+        if inv_id is not None:
+            data[ 'inv_id' ] = inv_id
+
+        self._tasking.shoot( 'task', data, key = dest )
+        self.log( "sent for tasking: %s" % ( str(cmdsAndArgs), ) )
 
     def _process( self, msg ):
         routing, event, mtd = msg.data
