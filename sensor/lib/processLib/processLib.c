@@ -2170,7 +2170,8 @@ rList
 
     if( NULL != ( svcs = rList_new( RP_TAGS_SVC, RPCM_SEQUENCE ) ) )
     {
-        if( NULL != ( hCrawl = rpal_file_crawlStart( rootDir, (RPWCHAR*)&fileExp, 0 ) ) )
+        if( PROCESSLIB_SVCS == type &&
+            NULL != ( hCrawl = rpal_file_crawlStart( rootDir, (RPWCHAR*)&fileExp, 0 ) ) )
         {
             while( rpal_file_crawlNextFile( hCrawl, &fileInfo ) )
             {
@@ -2201,7 +2202,10 @@ rList
         {
             if( NULL != ( svcs = rList_new( RP_TAGS_SVC, RPCM_SEQUENCE ) ) )
             {
-                launch_data_dict_iterate(resp, iterateJobs, svcs);
+                if( PROCESSLIB_SVCS == type )
+                {
+                    launch_data_dict_iterate(resp, iterateJobs, svcs);
+                }
             }
         }
         launch_data_free( resp );
