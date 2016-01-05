@@ -5,6 +5,20 @@ $var title = sensor_id
         <h2>$sensor_id</h2>
         <h4>Online: <i id="status_indicator" class="glyphicon glyphicon-remove"></i></h4>
         <i id="last_seen"></i>
+        <h5>Events per page:</h5>
+        <select id="eventsperpage">
+            <option value="10">10</option>
+            <option value="59">50</option>
+            <option value="100">100</option>
+            <option value="599">500</option>
+        </select>
+        <h5>Max event size:</h5>
+        <select id="maxeventsize">
+            <option value="512">512</option>
+            <option value="2048">2048</option>
+            <option value="4096">4096</option>
+            <option value="40960">40960</option>
+        </select>
     </div>
     <div class="col-lg-2">
         <h4>Last Events</h4>
@@ -204,7 +218,7 @@ $var title = sensor_id
 
                 from_time = Math.floor( e[ 0 ] / 1000 );
                 all_events[ e[ 2 ] ] = 0;
-                if( 50 < Object.keys( all_events ).length )
+                if( parseInt( jQuery('#eventsperpage').find(":selected").text(), 10 ) < Object.keys( all_events ).length )
                 {
                     event = jQuery( '.t_event' ).last();
                     t_id = event.attr( 'id' );
@@ -219,6 +233,7 @@ $var title = sensor_id
     {
         future = jQuery.getJSON( '/timeline',
                     { sensor_id : "$sensor_id",
+                      max_size : jQuery('#maxeventsize').find(":selected").text(),
                       $if before is not None:
                           before : Date.parse("$before" + " GMT") / 1000,
                       $if after is not None:

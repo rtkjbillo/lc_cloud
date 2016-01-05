@@ -122,7 +122,7 @@ class SensorState:
 class Timeline:
     @jsonApi
     def GET( self ):
-        params = web.input( sensor_id = None, after = None, before = None )
+        params = web.input( sensor_id = None, after = None, before = None, max_size = '4096' )
 
         if params.sensor_id is None:
             raise web.HTTPError( '400 Bad Request: sensor id required' )
@@ -138,7 +138,7 @@ class Timeline:
         req = { 'id' : params.sensor_id,
                 'is_include_content' : True,
                 'after' : start_time,
-                'max_size' : 4096 }
+                'max_size' : int( params.max_size ) }
 
         if params.before is not None and '' != params.before:
             req[ 'before' ] = int( params.before )
