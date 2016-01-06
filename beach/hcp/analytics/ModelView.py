@@ -121,7 +121,7 @@ class ModelView( Actor ):
         info[ 'id' ] = _[ 0 ]
         info[ 'oname' ] = _[ 1 ]
         info[ 'otype' ] = ObjectTypes.rev[ _[ 2 ] ]
-        info[ 'olocs' ] = [ x[ 1 ] for x in HostObjects( _[ 0 ] ).locs() ]
+        info[ 'olocs' ] = [ ( x[ 1 ], x[ 2 ] ) for x in HostObjects( _[ 0 ] ).locs() ]
 
         info[ 'parents' ] = [ ( x[ 0 ], x[ 1 ], ObjectTypes.rev[ x[ 2 ] ], ObjectKey( RelationNameFromId( x[ 0 ], _[ 0 ] ), ObjectTypes.RELATION ) ) for x in HostObjects( info[ 'id' ] ).parents().info() ]
         info[ 'children' ] = [ ( x[ 0 ], x[ 1 ], ObjectTypes.rev[ x[ 2 ] ], ObjectKey( RelationNameFromId( _[ 0 ], x[ 0 ] ), ObjectTypes.RELATION ) ) for x in HostObjects( info[ 'id' ] ).children().info() ]
