@@ -71,10 +71,14 @@ RVOID
             hbs_markAsRelated( originalEvent, notif );
 
             if( rSequence_addSTRINGW( notif, RP_TAGS_FILE_PATH, name ) &&
-                rSequence_addBUFFER( notif, RP_TAGS_HASH, pFileHash, CRYPTOLIB_HASH_SIZE ) &&
                 rSequence_addRU32( notif, RP_TAGS_MEMORY_SIZE, (RU32)codeSize ) &&
                 rSequence_addTIMESTAMP( notif, RP_TAGS_TIMESTAMP, rpal_time_getGlobal() ) )
             {
+                if( NULL != pFileHash )
+                {
+                    rSequence_addBUFFER( notif, RP_TAGS_HASH, pFileHash, CRYPTOLIB_HASH_SIZE );
+                }
+
                 if( libOs_getSignature( name, 
                                         &sig, 
                                         ( OSLIB_SIGNCHECK_NO_NETWORK | OSLIB_SIGNCHECK_CHAIN_VERIFICATION ), 
@@ -129,10 +133,14 @@ RVOID
             hbs_markAsRelated( originalEvent, notif );
 
             if( rSequence_addSTRINGA( notif, RP_TAGS_FILE_NAME, name ) &&
-                rSequence_addBUFFER( notif, RP_TAGS_HASH, pFileHash, CRYPTOLIB_HASH_SIZE ) &&
                 rSequence_addRU32( notif, RP_TAGS_MEMORY_SIZE, (RU32)codeSize ) &&
                 rSequence_addTIMESTAMP( notif, RP_TAGS_TIMESTAMP, rpal_time_getGlobal() ) )
             {
+                if( NULL != pFileHash )
+                {
+                    rSequence_addBUFFER( notif, RP_TAGS_HASH, pFileHash, CRYPTOLIB_HASH_SIZE );
+                }
+
                 if( NULL != ( wPath = rpal_string_atow( name ) ) )
                 {
                     if( libOs_getSignature( wPath, &sig, OSLIB_SIGNCHECK_NO_NETWORK, NULL, NULL, NULL ) )
