@@ -24,17 +24,17 @@ cp ./sensor/bin/x64/Release/rpHCP_HostBasedSensor.dll "./binary_releases/hbs_win
 
 
 cp "./binary_releases/hcp_osx_x64_debug_$1" ./sensor/scripts/installers/nix/bin
-makeself ./sensor/scripts/installers/nix/ ./binary_releases/osx_debug_x64_installer.run "LIMA CHARLIE $1 OSX x64 Debug Installer" ./install.sh
+makeself ./sensor/scripts/installers/nix/ ./binary_releases/osx_debug_x64_$1_installer.run "LIMA CHARLIE $1 OSX x64 Debug Installer" ./install.sh
 rm ./sensor/scripts/installers/nix/bin
 
 cp "./binary_releases/hcp_osx_x64_release_$1" ./sensor/scripts/installers/nix/bin
-makeself ./sensor/scripts/installers/nix/ ./binary_releases/osx_release_x64_installer.run "LIMA CHARLIE $1 OSX x64 Release Installer" ./install.sh
+makeself ./sensor/scripts/installers/nix/ ./binary_releases/osx_release_x64_$1_installer.run "LIMA CHARLIE $1 OSX x64 Release Installer" ./install.sh
 rm ./sensor/scripts/installers/nix/bin
 
 cp "./binary_releases/hcp_ubuntu_x64_debug_$1" ./sensor/scripts/installers/nix/bin
-makeself ./sensor/scripts/installers/nix/ ./binary_releases/ubuntu_debug_x64_installer.run "LIMA CHARLIE $1 Ubuntu x64 Debug Installer" ./install.sh
+makeself ./sensor/scripts/installers/nix/ ./binary_releases/ubuntu_debug_x64_$1_installer.run "LIMA CHARLIE $1 Ubuntu x64 Debug Installer" ./install.sh
 rm ./sensor/scripts/installers/nix/bin
 
 cp "./binary_releases/hcp_ubuntu_x64_release_$1" ./sensor/scripts/installers/nix/bin
-makeself ./sensor/scripts/installers/nix/ ./binary_releases/ubuntu_release_x64_installer.run "LIMA CHARLIE $1 Ubuntu x64 Release Installer" ./install.sh
+makeself ./sensor/scripts/installers/nix/ ./binary_releases/ubuntu_release_x64_$1_installer.run "LIMA CHARLIE $1 Ubuntu x64 Release Installer" ./install.sh
 rm ./sensor/scripts/installers/nix/bin
