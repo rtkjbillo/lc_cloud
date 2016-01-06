@@ -78,7 +78,7 @@ class Dashboard:
 
 class Sensor:
     def GET( self ):
-        params = web.input( sensor_id = None, before = None, after = None )
+        params = web.input( sensor_id = None, before = None, after = None, max_size = '4096', per_page = '10' )
 
         if params.sensor_id is None:
             return render.error( 'sensor_id required' )
@@ -99,7 +99,7 @@ class Sensor:
         if '' != params.after:
             after = params.after
 
-        return render.sensor( info.data[ 'id' ], before, after )
+        return render.sensor( info.data[ 'id' ], before, after, params.max_size, params.per_page )
 
 class SensorState:
     @jsonApi

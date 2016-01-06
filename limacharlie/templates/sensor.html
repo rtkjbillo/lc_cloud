@@ -1,4 +1,4 @@
-$def with ( sensor_id, before, after )
+$def with ( sensor_id, before, after, max_size, per_page )
 $var title = sensor_id
 <div class="row">
     <div class="col-lg-2">
@@ -7,17 +7,13 @@ $var title = sensor_id
         <i id="last_seen"></i>
         <h5>Events per page:</h5>
         <select id="eventsperpage">
-            <option value="10">10</option>
-            <option value="59">50</option>
-            <option value="100">100</option>
-            <option value="599">500</option>
+            $for t in ('10','50','100','500'):
+                <option value="$t" $('selected' if t == per_page else '')>$t</option>
         </select>
         <h5>Max event size:</h5>
         <select id="maxeventsize">
-            <option value="512">512</option>
-            <option value="2048">2048</option>
-            <option value="4096">4096</option>
-            <option value="40960">40960</option>
+            $for t in ('512','2048','4096','40960'):
+                <option value="$t" $('selected' if t == max_size else '')>$t</option>
         </select>
     </div>
     <div class="col-lg-2">
@@ -39,6 +35,8 @@ $var title = sensor_id
     <div class="col-lg-2">
         <h4>Filter Events</h4>
         <form method="GET" action="/sensor">
+            <input type="hidden" name="per_page" class="eventsperpage_form" value=""/>
+            <input type="hidden" name="max_size" class="maxeventsize_form" value=""/>
             <input type="hidden" name="sensor_id" value="$sensor_id"/>
             <div class="form-group">
                 <div class='input-group date datetimepicker'>
@@ -64,6 +62,8 @@ $var title = sensor_id
         </form>
         <br/>
         <form method="GET" action="/sensor">
+            <input type="hidden" name="per_page" class="eventsperpage_form" value=""/>
+            <input type="hidden" name="max_size" class="maxeventsize_form" value=""/>
             <input type="hidden" name="sensor_id" value="$sensor_id"/>
             <button type="submit" class="btn btn-default" id="flux_live">
                 <span class="glyphicon glyphicon-play"></span> Live
@@ -335,5 +335,11 @@ $var title = sensor_id
         do_refresh_timeline();
         do_refresh_lastevents();
         do_refresh_changes();
+        jQuery('#eventsperpage').change(function(){
+            jQuery('.eventsperpage_form').val(this.value);
+        });
+        jQuery('#maxeventsize').change(function(){
+            jQuery('.maxeventsize_form').val(this.value);
+        });
     });
 </script>

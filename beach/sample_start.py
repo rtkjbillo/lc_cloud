@@ -426,6 +426,19 @@ print( beach.addActor( 'analytics/stateless/WinOobExec',
                        trustedIdents = [ 'analysis/038528f5-5135-4ca8-b79f-d6b8ffc53bf5' ],
                        n_concurrent = 5 ) )
 
+#######################################
+# stateless/ExecNotOnDisk
+# This actor for code loading from disk
+# but not visible on disk. In other
+# words it has a code ident but no hash.
+#######################################
+print( beach.addActor( 'analytics/stateless/ExecNotOnDisk',
+                       'analytics/stateless/common/notification.CODE_IDENTITY/execnotondisk/1.0',
+                       parameters = {  },
+                       secretIdent = 'analysis/038528f5-5135-4ca8-b79f-d6b8ffc53bf5',
+                       trustedIdents = [ 'analysis/038528f5-5135-4ca8-b79f-d6b8ffc53bf5' ],
+                       n_concurrent = 5 ) )
+
 ###############################################################################
 # Stateful Detection
 ###############################################################################
