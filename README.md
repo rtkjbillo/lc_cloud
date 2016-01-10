@@ -90,6 +90,9 @@ full spread of events. This rolling buffer can be flushed and sent to the cloud 
 ##### Execution Out of Bounds
 Looks for threads executing outside of known modules. Full recurring scan as well as process specific tasking. 
 
+##### Hollowed Process
+Looks for mismatch between disk and memory from modules indicating possible hollowed process execution.
+
 #### In-Cloud
 
 ##### Stateless
