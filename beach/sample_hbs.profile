@@ -26,7 +26,7 @@ rList().addSequence( _.hbs.CONFIGURATION,
                                                                            .addInt32( _.hbs.NOTIFICATION_ID, _.notification.EXEC_OOB )
                                                                            .addInt32( _.hbs.NOTIFICATION_ID, _.notification.GET_EXFIL_EVENT_REP )
                                                                            .addInt32( _.hbs.NOTIFICATION_ID, _.notification.GET_CRITICAL_EVENT_REP )
-                                                                           .addInt32( _.hbs.NOTIFICATION_ID, _.notification.MODULE_MEM_DISK_MISMATCH ) )
+                                                                           .addInt32( _.hbs.NOTIFICATION_ID, _.notification.MODULE_MEM_DISK_MISMATCH ) ) )
        .addSequence( _.hbs.CONFIGURATION,
                      rSequence().addInt32( _.hbs.CONFIGURATION_ID, HbsCollectorId.OS_FORENSIC )
                                 .addTimedelta( _.base.TIMEDELTA, ( 60 * 60 * 24 * 1 ) ) )
