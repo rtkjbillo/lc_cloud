@@ -85,7 +85,8 @@ RBOOL
         RU32 processId,
         RPVOID baseAddr,
         RU64 size,
-        RPVOID* pBuffer
+        RPVOID* pBuffer,
+        RBOOL isBridgeGaps
     );
 
 rList

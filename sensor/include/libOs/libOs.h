@@ -31,6 +31,8 @@ limitations under the License.
 #define OSLIB_VERSION_WINDOWS_VISTA_2K8     4
 #define OSLIB_VERSION_WINDOWS_7_2K8R2       5
 #define OSLIB_VERSION_WINDOWS_8             6
+#define OSLIB_VERSION_WINDOWS_8_1           7
+#define OSLIB_VERSION_WINDOWS_10            8
 
 //=============================================================================
 //  SignCheck operations
@@ -118,6 +120,12 @@ RBOOL
     (
         rThreadID threadID,
         RU64* pTime
+    );
+
+RU32
+    libOs_getPageSize
+    (
+
     );
 
 #endif

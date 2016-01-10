@@ -17,7 +17,8 @@ profiles.DynamicLibrary(
             'cryptoLib',
             'networkLib',
             'Os',
-            'obfuscationLib'
+            'obfuscationLib',
+            'obsLib',
             )
 
 

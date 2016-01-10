@@ -674,8 +674,7 @@ RBOOL
     RU32 i = 0;
     RU32 j = 0;
 
-    if( NULL != hbsState &&
-        rpal_memory_isValid( config ) )
+    if( NULL != hbsState )
     {
         if( NULL != ( g_history_mutex = rMutex_create() ) &&
             _initEventList( &g_exfil_profile ) &&
@@ -747,7 +746,8 @@ RBOOL
                 }
 
                 // Next we assemble the list of events for profile exfil.
-                if( rSequence_getLIST( config, RP_TAGS_HBS_LIST_NOTIFICATIONS, &subscribed ) )
+                if( rpal_memory_isValid( config ) &&
+                    rSequence_getLIST( config, RP_TAGS_HBS_LIST_NOTIFICATIONS, &subscribed ) )
                 {
                     while( rList_getRU32( subscribed, RP_TAGS_HBS_NOTIFICATION_ID, &notifId ) )
                     {
@@ -759,7 +759,8 @@ RBOOL
                 }
 
                 // Finally we get the list of critical events.
-                if( rSequence_getLIST( config, RP_TAGS_HBS_CRITICAL_EVENTS, &subscribed ) )
+                if( rpal_memory_isValid( config ) &&
+                    rSequence_getLIST( config, RP_TAGS_HBS_CRITICAL_EVENTS, &subscribed ) )
                 {
                     while( rList_getRU32( subscribed, RP_TAGS_HBS_NOTIFICATION_ID, &notifId ) )
                     {
@@ -819,8 +820,9 @@ RBOOL
     RU32 i = 0;
     RU32 j = 0;
 
-    if( NULL != hbsState &&
-        rpal_memory_isValid( config ) )
+    UNREFERENCED_PARAMETER( config );
+
+    if( NULL != hbsState )
     {
         if( rMutex_lock( g_history_mutex ) )
         {

@@ -17,6 +17,7 @@ for subdir in [
         'notificationsLib',
         'processLib',
         'networkLib',
+        'obsLib',
         ]:
     SConscript(
             dirs = [ subdir ],

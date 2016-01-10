@@ -25,6 +25,8 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "libOs_test", "..\tests\libO
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "notificationsLib", "..\lib\notificationsLib\notificationsLib.vcxproj", "{9422EAAF-5989-3ED4-4DF1-64FA6C3D6A71}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "obsLis_test", "..\tests\obsLib_test\obsLib_test.vcxproj", "{91AD5B3D-F873-404B-906E-80F6A1E88308}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Win32 = Debug|Win32
@@ -121,6 +123,14 @@ Global
 		{9422EAAF-5989-3ED4-4DF1-64FA6C3D6A71}.Release|Win32.Build.0 = Release|Win32
 		{9422EAAF-5989-3ED4-4DF1-64FA6C3D6A71}.Release|x64.ActiveCfg = Release|x64
 		{9422EAAF-5989-3ED4-4DF1-64FA6C3D6A71}.Release|x64.Build.0 = Release|x64
+		{91AD5B3D-F873-404B-906E-80F6A1E88308}.Debug|Win32.ActiveCfg = Debug|Win32
+		{91AD5B3D-F873-404B-906E-80F6A1E88308}.Debug|Win32.Build.0 = Debug|Win32
+		{91AD5B3D-F873-404B-906E-80F6A1E88308}.Debug|x64.ActiveCfg = Debug|x64
+		{91AD5B3D-F873-404B-906E-80F6A1E88308}.Debug|x64.Build.0 = Debug|x64
+		{91AD5B3D-F873-404B-906E-80F6A1E88308}.Release|Win32.ActiveCfg = Release|Win32
+		{91AD5B3D-F873-404B-906E-80F6A1E88308}.Release|Win32.Build.0 = Release|Win32
+		{91AD5B3D-F873-404B-906E-80F6A1E88308}.Release|x64.ActiveCfg = Release|x64
+		{91AD5B3D-F873-404B-906E-80F6A1E88308}.Release|x64.Build.0 = Release|x64
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

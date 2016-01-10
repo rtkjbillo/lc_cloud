@@ -5,7 +5,7 @@ import profiles
 profiles.StaticLibrary( 'processLib' ).Target(
         env,
         'processLib.c',
-        compmap, 'rpal', 'rpcm'
+        compmap, 'rpal', 'rpcm', 'Os'
         )
 
 # EOF

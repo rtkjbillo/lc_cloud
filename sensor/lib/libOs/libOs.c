@@ -536,8 +536,16 @@ RU32
         {
             version = OSLIB_VERSION_WINDOWS_8;
         }
-        else if( 6 < versionEx.dwMajorVersion ||
-                 ( 6 == versionEx.dwMajorVersion && 2 < versionEx.dwMinorVersion ) )
+        else if( 6 == versionEx.dwMajorVersion && 3 == versionEx.dwMinorVersion )
+        {
+            version = OSLIB_VERSION_WINDOWS_8_1;
+        }
+        else if( 10 == versionEx.dwMajorVersion && 0 == versionEx.dwMinorVersion )
+        {
+            version = OSLIB_VERSION_WINDOWS_10;
+        }
+        else if( 10 < versionEx.dwMajorVersion ||
+                 ( 10 == versionEx.dwMajorVersion && 0 < versionEx.dwMinorVersion ) )
         {
             version = OSLIB_VERSION_WINDOWS_FUTURE;
         }
@@ -1468,5 +1476,24 @@ RBOOL
     return isSuccess;
 }
 
+RU32
+    libOs_getPageSize
+    (
+
+    )
+{
+    RU32 pSize = 0;
+#ifdef RPAL_PLATFORM_WINDOWS
+    SYSTEM_INFO sysInfo;
+    GetSystemInfo (&sysInfo);
+    pSize = sysInfo.dwPageSize;
+#elif defined( RPAL_PLATFORM_LINUX )
+    pSize = sysconf( _SC_PAGESIZE );
+#elif defined( RPAL_PLATFORM_MACOSX )
+    pSize = getpagesize();
+#endif
+
+    return pSize;
+}
 
 /* EOF */

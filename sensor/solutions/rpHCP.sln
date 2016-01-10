@@ -52,6 +52,8 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "rpHCP_HostBasedSensor", "..
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "mbedTLS", "..\lib\mbedtls\mbedtls-2.1.2\visualc\VS2010\mbedTLS.vcxproj", "{46CF2D25-6A36-4189-B59C-E4815388E554}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "obsLib", "..\lib\obsLib\obsLib.vcxproj", "{AF170D17-839B-414A-8693-D5B025839178}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Win32 = Debug|Win32
@@ -228,6 +230,14 @@ Global
 		{46CF2D25-6A36-4189-B59C-E4815388E554}.Release|Win32.Build.0 = Release|Win32
 		{46CF2D25-6A36-4189-B59C-E4815388E554}.Release|x64.ActiveCfg = Release|x64
 		{46CF2D25-6A36-4189-B59C-E4815388E554}.Release|x64.Build.0 = Release|x64
+		{AF170D17-839B-414A-8693-D5B025839178}.Debug|Win32.ActiveCfg = Debug|Win32
+		{AF170D17-839B-414A-8693-D5B025839178}.Debug|Win32.Build.0 = Debug|Win32
+		{AF170D17-839B-414A-8693-D5B025839178}.Debug|x64.ActiveCfg = Debug|x64
+		{AF170D17-839B-414A-8693-D5B025839178}.Debug|x64.Build.0 = Debug|x64
+		{AF170D17-839B-414A-8693-D5B025839178}.Release|Win32.ActiveCfg = Release|Win32
+		{AF170D17-839B-414A-8693-D5B025839178}.Release|Win32.Build.0 = Release|Win32
+		{AF170D17-839B-414A-8693-D5B025839178}.Release|x64.ActiveCfg = Release|x64
+		{AF170D17-839B-414A-8693-D5B025839178}.Release|x64.Build.0 = Release|x64
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

@@ -1413,22 +1413,33 @@ RBOOL
         RU32 processId,
         RPVOID baseAddr,
         RU64 size,
-        RPVOID* pBuffer
+        RPVOID* pBuffer,
+        RBOOL isBridgeGaps
     )
 {
     RBOOL isSuccess = FALSE;
+    RU32 pageSize = 0;
+    RPU8 pPageOffset = NULL;
+    RPU8 pBufferOffset = NULL;
 
     if( NULL != pBuffer )
     {
-#ifdef RPAL_PLATFORM_WINDOWS
-        HANDLE hProcess = NULL;
-        RSIZET sizeRead = 0;
-
-        if( NULL != ( hProcess = OpenProcess( PROCESS_QUERY_INFORMATION | PROCESS_VM_READ, FALSE, processId ) ) )
+        if( isBridgeGaps )
         {
-            if( NULL != ( *pBuffer = rpal_memory_alloc( (RU32)size ) ) )
+            pageSize = libOs_getPageSize();
+        }
+
+        if( NULL != ( *pBuffer = rpal_memory_alloc( (RU32)size ) ) )
+        {
+#ifdef RPAL_PLATFORM_WINDOWS
+            HANDLE hProcess = NULL;
+            RSIZET sizeRead = 0;
+
+            if( NULL != ( hProcess = OpenProcess( PROCESS_QUERY_INFORMATION | PROCESS_VM_READ,
+                                                  FALSE,
+                                                  processId ) ) )
             {
-                if( ReadProcessMemory( hProcess, baseAddr, *pBuffer, (RU32)size, (RPVOID)&sizeRead ) &&
+                if( ReadProcessMemory( hProcess, baseAddr, *pBuffer, (RU32)size, (SIZE_T*)&sizeRead ) &&
                     sizeRead == size )
                 {
                     isSuccess = TRUE;
@@ -1436,27 +1447,43 @@ RBOOL
 
                 if( !isSuccess )
                 {
-                    rpal_memory_free( *pBuffer );
-                    *pBuffer = NULL;
+                    if( isBridgeGaps )
+                    {
+                        isSuccess = TRUE;
+
+                        pPageOffset = baseAddr;
+                        pBufferOffset = *pBuffer;
+                        while( pPageOffset < ( (RPU8)baseAddr + size ) )
+                        {
+                            ReadProcessMemory( hProcess,
+                                               pPageOffset,
+                                               pBufferOffset,
+                                               pageSize,
+                                               (SIZE_T*)&sizeRead );
+
+                            pPageOffset += pageSize;
+                            pBufferOffset += pageSize;
+                        }
+                    }
                 }
+
+                CloseHandle( hProcess );
             }
-
-            CloseHandle( hProcess );
-        }
 #elif defined( RPAL_PLATFORM_LINUX )
-        RCHAR procMemFile[] = "/proc/%d/mem";
-        RCHAR tmpFile[ RPAL_MAX_PATH ] = {0};
-        RPWCHAR tmpFileW = NULL;
-        rFile memFile = NULL;
-        RU32 snpf_size = 0;
+            RCHAR procMemFile[] = "/proc/%d/mem";
+            RCHAR tmpFile[ RPAL_MAX_PATH ] = {0};
+            RPWCHAR tmpFileW = NULL;
+            rFile memFile = NULL;
+            RU32 snpf_size = 0;
 
-        snpf_size = rpal_string_snprintf( (RPCHAR)&tmpFile, sizeof( tmpFile ), (RPCHAR)&procMemFile, processId );
-        if( snpf_size > 0
+            snpf_size = rpal_string_snprintf( (RPCHAR)&tmpFile, 
+                                              sizeof( tmpFile ), 
+                                              (RPCHAR)&procMemFile, 
+                                              processId );
+            if( snpf_size > 0
                 && snpf_size < sizeof( tmpFile ) )
-        {
-            if( NULL != ( tmpFileW = rpal_string_atow( (RPCHAR)&tmpFile ) ) )
             {
-                if( NULL != ( *pBuffer = rpal_memory_alloc( (RU32)size ) ))
+                if( NULL != ( tmpFileW = rpal_string_atow( (RPCHAR)&tmpFile ) ) )
                 {
                     if( rFile_open( tmpFileW, &memFile, RPAL_FILE_OPEN_READ|RPAL_FILE_OPEN_EXISTING ) )
                     {
@@ -1468,49 +1495,80 @@ RBOOL
                             }
                         }
 
+                        if( !isSuccess )
+                        {
+                            if( isBridgeGaps )
+                            {
+                                isSuccess = TRUE;
+
+                                pPageOffset = baseAddr;
+                                pBufferOffset = *pBuffer;
+                                while( pPageOffset < ( (RPU8)baseAddr + size ) )
+                                {
+                                    if( rFile_seek( memFile, (RU64)pPageOffset, rFileSeek_SET ) )
+                                    {
+                                        rFile_read( memFile, pageSize, pBufferOffset );
+                                    }
+
+                                    pPageOffset += pageSize;
+                                    pBufferOffset += pageSize;
+                                }
+                            }
+                        }
+
                         rFile_close( memFile );
                     }
-                   
-                    if( !isSuccess )
-                    {
-                        rpal_memory_free( *pBuffer );
-                        *pBuffer = NULL;
-                    }
+
+                    rpal_memory_free( tmpFileW );
                 }
-
-                rpal_memory_free( tmpFileW );
             }
-        }
 #elif defined( RPAL_PLATFORM_MACOSX )
-        kern_return_t kret;
-        mach_port_t task;
-        unsigned char *rBuffer;
-        mach_msg_type_number_t data_cnt;
+            kern_return_t kret;
+            mach_port_t task;
+            unsigned char *rBuffer;
+            mach_msg_type_number_t data_cnt;
 
-        kret = task_for_pid( mach_task_self(), processId, &task );
-        if ( KERN_SUCCESS == kret )
-        {
-            kret = mach_vm_read(task, (RU64)baseAddr, size, (vm_offset_t*)&rBuffer, &data_cnt);
-            if( KERN_SUCCESS == kret )
+            kret = task_for_pid( mach_task_self(), processId, &task );
+            if ( KERN_SUCCESS == kret )
             {
-                if( NULL != ( *pBuffer = rpal_memory_alloc( (RU32)size ) ) )
+                kret = mach_vm_read(task, (RU64)baseAddr, size, (vm_offset_t*)&rBuffer, &data_cnt);
+                if( KERN_SUCCESS == kret )
                 {
                     rpal_memory_memcpy( *pBuffer, rBuffer, size );
+
                     isSuccess = TRUE;
+
+                    mach_vm_deallocate( task, (mach_vm_address_t)rBuffer, size );
                 }
 
                 if( !isSuccess )
                 {
-                    rpal_memory_free( *pBuffer );
-                    *pBuffer = NULL;
-                }
+                    if( isBridgeGaps )
+                    {
+                        isSuccess = TRUE;
 
-                mach_vm_deallocate( task, (mach_vm_address_t)rBuffer, size );
+                        pPageOffset = baseAddr;
+                        pBufferOffset = *pBuffer;
+                        while( pPageOffset < ( (RPU8)baseAddr + size ) )
+                        {
+                            kret = mach_vm_read(task, (RU64)pPageOffset, pageSize, (vm_offset_t*)&rBuffer, &data_cnt);
+
+                            pPageOffset += pageSize;
+                            pBufferOffset += pageSize;
+                        }
+                    }
+                }
             }
-        }
 #else
-        rpal_debug_not_implemented();
+            rpal_debug_not_implemented();
 #endif
+        }
+
+        if( !isSuccess )
+        {
+            rpal_memory_free( *pBuffer );
+            *pBuffer = NULL;
+        }
     }
 
     return isSuccess;

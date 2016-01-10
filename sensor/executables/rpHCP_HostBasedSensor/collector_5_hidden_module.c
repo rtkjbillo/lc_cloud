@@ -140,7 +140,8 @@ RPVOID
                                 processLib_getProcessMemory( processId, 
                                                              NUMBER_TO_PTR( memBase ), 
                                                              memSize, 
-                                                             (RPVOID*)&pMem ) )
+                                                             (RPVOID*)&pMem,
+                                                             TRUE ) )
                             {
                                 isHidden = FALSE;
 #ifdef RPAL_PLATFORM_WINDOWS
