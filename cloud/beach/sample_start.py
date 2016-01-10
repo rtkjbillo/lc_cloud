@@ -439,6 +439,25 @@ print( beach.addActor( 'analytics/stateless/ExecNotOnDisk',
                        trustedIdents = [ 'analysis/038528f5-5135-4ca8-b79f-d6b8ffc53bf5' ],
                        n_concurrent = 5 ) )
 
+#######################################
+# stateless/HollowedProcess
+# This actor for mismatch between a
+# module on disk and in memory for
+# signs of process hollowing.
+#######################################
+print( beach.addActor( 'analytics/stateless/HollowedProcess',
+                       'analytics/stateless/windows/notification.MODULE_MEM_DISK_MISMATCH/hollowedprocess/1.0',
+                       parameters = {  },
+                       secretIdent = 'analysis/038528f5-5135-4ca8-b79f-d6b8ffc53bf5',
+                       trustedIdents = [ 'analysis/038528f5-5135-4ca8-b79f-d6b8ffc53bf5' ],
+                       n_concurrent = 5 ) )
+print( beach.addActor( 'analytics/stateless/HollowedProcess',
+                       'analytics/stateless/linux/notification.MODULE_MEM_DISK_MISMATCH/hollowedprocess/1.0',
+                       parameters = {  },
+                       secretIdent = 'analysis/038528f5-5135-4ca8-b79f-d6b8ffc53bf5',
+                       trustedIdents = [ 'analysis/038528f5-5135-4ca8-b79f-d6b8ffc53bf5' ],
+                       n_concurrent = 5 ) )
+
 ###############################################################################
 # Stateful Detection
 ###############################################################################
