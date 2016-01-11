@@ -835,7 +835,7 @@ RBOOL
         NULL != pIsVerified_local &&
         NULL != pIsVerified_global )
     {
-        if( NULL != winTrust_data ||
+        if( NULL != winTrust_data &&
             NULL != winTrust_data->hWVTStateData )
         {
 
