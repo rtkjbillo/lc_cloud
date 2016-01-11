@@ -841,9 +841,9 @@ RBOOL
 
             cryptProviderData = WTHelperProvDataFromStateData( winTrust_data->hWVTStateData );
             cryptProviderSigner = WTHelperGetProvSignerFromChain( cryptProviderData, 0, FALSE, 0 );
-            if( NULL != cryptProviderSigner ||
-                NULL != cryptProviderSigner->pasCertChain ||
-                NULL != cryptProviderSigner->pasCertChain->pCert ||
+            if( NULL != cryptProviderSigner &&
+                NULL != cryptProviderSigner->pasCertChain &&
+                NULL != cryptProviderSigner->pasCertChain->pCert &&
                 NULL != cryptProviderSigner->pasCertChain->pCert->pCertInfo )
             {
                 //FileTimeToLocalFileTime(&cryptProviderSigner->pasCertChain->pCert->pCertInfo->NotBefore, &fileTime);
