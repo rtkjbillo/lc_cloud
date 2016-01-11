@@ -99,13 +99,20 @@ def _x_( o, path, isWildcardDepth = False ):
 def exeFromPath( path, agent = None ):
     if path is None:
         return None
-    if agent is None or ( not agent.isWindows() and path.startswith( '/' ) ):
+    if agent is None or agent.isWindows():
         i = path.rfind( '\\' )
-        if -1 == i:
-            i = path.rfind( '/' )
-        exeName = path[ i + 1 : ]
+        j = path.rfind( '/' )
+        i = max( i, j )
+        if -1 != i:
+            exeName = path[ i + 1 : ]
+        else:
+            exeName = path
     else:
-        exeName = path
+        i = path.rfind( '/' )
+        if -1 != i:
+            exeName = path[ i + 1 : ]
+        else:
+            exeName = path
     return exeName
 
 def hexDump( src, length = 8 ):
