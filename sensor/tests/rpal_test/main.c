@@ -585,7 +585,7 @@ void test_sortsearch( void )
     CU_ASSERT_TRUE( rpal_sort_array( toSort, 
                                      ARRAY_N_ELEM( toSort ), 
                                      sizeof( RU32 ), 
-                                     rpal_order_RU32 ) );
+                                     (rpal_ordering_func)rpal_order_RU32 ) );
 
     for( i = 0; i < ARRAY_N_ELEM( toSort ); i++ )
     {
@@ -596,95 +596,95 @@ void test_sortsearch( void )
                                               ARRAY_N_ELEM( toSort ), 
                                               sizeof( RU32 ), 
                                               &toFind, 
-                                              rpal_order_RU32 ) );
+                                              (rpal_ordering_func)rpal_order_RU32 ) );
 
     CU_ASSERT_EQUAL( -1, rpal_binsearch_array( toSort,
                                                ARRAY_N_ELEM( toSort ),
                                                sizeof( RU32 ),
                                                &toFindRel,
-                                               rpal_order_RU32 ) );
+                                               (rpal_ordering_func)rpal_order_RU32 ) );
 
     CU_ASSERT_EQUAL( 2, rpal_binsearch_array_closest( toSort,
                                                       ARRAY_N_ELEM( toSort ),
                                                       sizeof( RU32 ),
                                                       &toFind,
-                                                      rpal_order_RU32,
+                                                      (rpal_ordering_func)rpal_order_RU32,
                                                       TRUE ) );
 
     CU_ASSERT_EQUAL( 2, rpal_binsearch_array_closest( toSort,
                                                       ARRAY_N_ELEM( toSort ),
                                                       sizeof( RU32 ),
                                                       &toFind,
-                                                      rpal_order_RU32,
+                                                      (rpal_ordering_func)rpal_order_RU32,
                                                       FALSE ) );
 
     CU_ASSERT_EQUAL( 3, rpal_binsearch_array_closest( toSort,
                                                       ARRAY_N_ELEM( toSort ),
                                                       sizeof( RU32 ),
                                                       &toFindRel,
-                                                      rpal_order_RU32,
+                                                      (rpal_ordering_func)rpal_order_RU32,
                                                       TRUE ) );
 
     CU_ASSERT_EQUAL( 4, rpal_binsearch_array_closest( toSort,
                                                       ARRAY_N_ELEM( toSort ),
                                                       sizeof( RU32 ),
                                                       &toFindRel,
-                                                      rpal_order_RU32,
+                                                      (rpal_ordering_func)rpal_order_RU32,
                                                       FALSE ) );
     CU_ASSERT_EQUAL( 0, rpal_binsearch_array_closest( toSort,
                                                       ARRAY_N_ELEM( toSort ),
                                                       sizeof( RU32 ),
                                                       &toFindRel2,
-                                                      rpal_order_RU32,
+                                                      (rpal_ordering_func)rpal_order_RU32,
                                                       TRUE ) );
 
     CU_ASSERT_EQUAL( 1, rpal_binsearch_array_closest( toSort,
                                                       ARRAY_N_ELEM( toSort ),
                                                       sizeof( RU32 ),
                                                       &toFindRel2,
-                                                      rpal_order_RU32,
+                                                      (rpal_ordering_func)rpal_order_RU32,
                                                       FALSE ) );
 
     CU_ASSERT_EQUAL( 7, rpal_binsearch_array_closest( toSort,
                                                       ARRAY_N_ELEM( toSort ),
                                                       sizeof( RU32 ),
                                                       &toFindRel3,
-                                                      rpal_order_RU32,
+                                                      (rpal_ordering_func)rpal_order_RU32,
                                                       TRUE ) );
 
     CU_ASSERT_EQUAL( 8, rpal_binsearch_array_closest( toSort,
                                                       ARRAY_N_ELEM( toSort ),
                                                       sizeof( RU32 ),
                                                       &toFindRel3,
-                                                      rpal_order_RU32,
+                                                      (rpal_ordering_func)rpal_order_RU32,
                                                       FALSE ) );
 
     CU_ASSERT_EQUAL( 9, rpal_binsearch_array_closest( toSort,
                                                       ARRAY_N_ELEM( toSort ),
                                                       sizeof( RU32 ),
                                                       &toFindRel4,
-                                                      rpal_order_RU32,
+                                                      (rpal_ordering_func)rpal_order_RU32,
                                                       TRUE ) );
 
     CU_ASSERT_EQUAL( -1, rpal_binsearch_array_closest( toSort,
                                                        ARRAY_N_ELEM( toSort ),
                                                        sizeof( RU32 ),
                                                        &toFindRel4,
-                                                       rpal_order_RU32,
+                                                       (rpal_ordering_func)rpal_order_RU32,
                                                        FALSE ) );
 
     CU_ASSERT_EQUAL( -1, rpal_binsearch_array_closest( toSort,
                                                        ARRAY_N_ELEM( toSort ),
                                                        sizeof( RU32 ),
                                                        &toFindRel5,
-                                                       rpal_order_RU32,
+                                                       (rpal_ordering_func)rpal_order_RU32,
                                                        TRUE ) );
 
     CU_ASSERT_EQUAL( 0, rpal_binsearch_array_closest( toSort,
                                                       ARRAY_N_ELEM( toSort ),
                                                       sizeof( RU32 ),
                                                       &toFindRel5,
-                                                      rpal_order_RU32,
+                                                      (rpal_ordering_func)rpal_order_RU32,
                                                       FALSE ) );
 }
 

@@ -1540,7 +1540,7 @@ RU8
                 0 != deltaThread )
             {
                 pr = ( (RFLOAT)deltaThread / deltaSystem ) * 100;
-                percent = (BYTE)( pr );
+                percent = (RU8)pr;
             }
         }
 
@@ -1703,7 +1703,7 @@ RU8
                 0 != deltaProcess )
             {
                 pr = ( (RFLOAT)deltaProcess / deltaSystem ) * 100;
-                percent = (BYTE)( pr );
+                percent = (RU8)pr;
             }
         }
 

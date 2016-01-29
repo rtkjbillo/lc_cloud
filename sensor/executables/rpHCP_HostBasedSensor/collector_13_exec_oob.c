@@ -54,7 +54,7 @@ RBOOL
                                           nRanges,
                                           sizeof( _MemRange ),
                                           &memBase,
-                                          rpal_order_RU64,
+                                          (rpal_ordering_func)rpal_order_RU64,
                                           TRUE );
         if( (RU32)( -1 ) != i )
         {
@@ -107,7 +107,10 @@ RBOOL
                 }
             }
 
-            if( rpal_sort_array( memRanges, i, sizeof( _MemRange ), rpal_order_RU64 ) )
+            if( rpal_sort_array( memRanges, 
+                                 i, 
+                                 sizeof( _MemRange ), 
+                                 (rpal_ordering_func)rpal_order_RU64 ) )
             {
                 isSuccess = TRUE;
                 *pRanges = memRanges;

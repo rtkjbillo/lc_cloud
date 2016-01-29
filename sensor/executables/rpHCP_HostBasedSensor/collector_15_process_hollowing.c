@@ -430,9 +430,8 @@ rList
                         rpal_debug_info( "could not get file information, not checking" );
                     }
 
-                    rpal_debug_info( "process hollowing check found a match %d - %ls of %d / %d : %d", 
-                                     pid, 
-                                     modulePathW, 
+                    rpal_debug_info( "process hollowing check found a match %d of %d / %d : %d", 
+                                     pid,  
                                      nSamplesFound, 
                                      nSamplesTotal,
                                      lastScratchIndex );
@@ -442,9 +441,7 @@ rList
                         _MIN_DISK_SAMPLE_SIZE <= nSamplesTotal &&
                         ( ( (RFLOAT)nSamplesFound / nSamplesTotal ) * 100 ) < _MIN_SAMPLE_MATCH_PERCENT )
                     {
-                        rpal_debug_info( "sign of process hollowing found in process %d module %ls",
-                            pid,
-                            modulePathW );
+                        rpal_debug_info( "sign of process hollowing found in process %d", pid );
 
                         if( NULL != ( hollowedModule = rSequence_duplicate( module ) ) )
                         {

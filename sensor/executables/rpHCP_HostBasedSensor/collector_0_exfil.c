@@ -128,7 +128,7 @@ RBOOL
             rpal_sort_array( pList->pElems, 
                              pList->nElem, 
                              sizeof( *( pList->pElems ) ), 
-                             rpal_order_RU32 );
+                             (rpal_ordering_func)rpal_order_RU32 );
 
             rMutex_unlock( pList->mutex );
         }
@@ -157,7 +157,7 @@ RBOOL
                                                             pList->nElem, 
                                                             sizeof( *( pList->pElems ) ), 
                                                             &eventId,
-                                                            rpal_order_RU32 ) ) )
+                                                            (rpal_ordering_func)rpal_order_RU32 ) ) )
             {
                 rpal_memory_memmove( &( pList->pElems[ i ] ), 
                                      &( pList->pElems[ i + 1 ] ), 
@@ -171,7 +171,7 @@ RBOOL
                     rpal_sort_array( pList->pElems, 
                                      pList->nElem, 
                                      sizeof( *( pList->pElems ) ), 
-                                     rpal_order_RU32 );
+                                     (rpal_ordering_func)rpal_order_RU32 );
                     isSuccess = TRUE;
                 }
                 else
@@ -206,7 +206,7 @@ RBOOL
                                                       pList->nElem,
                                                       sizeof( *( pList->pElems ) ),
                                                       &eventId,
-                                                      rpal_order_RU32 ) )
+                                                      (rpal_ordering_func)rpal_order_RU32 ) )
             {
                 isSuccess = TRUE;
             }

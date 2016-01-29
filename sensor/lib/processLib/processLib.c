@@ -2829,6 +2829,7 @@ RVOID
         rList stackTrace
     )
 {
+#ifdef RPAL_PLATFORM_WINDOWS
     RU64 displacement = 0;
     rSequence frame = NULL;
     RCHAR symbolName[ 0x100 ] = { 0 };
@@ -2915,6 +2916,7 @@ RVOID
             }
         }
     }
+#endif
 }
 
 rList
