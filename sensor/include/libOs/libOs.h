@@ -50,6 +50,12 @@ typedef struct
     RWCHAR version[ 64 ];
 } LibOsPackageInfo;
 
+typedef struct
+{
+    RU64 lastSystemTime;
+    RU64 lastThreadTime;
+} LibOsThreadTimeContext;
+
 //=============================================================================
 //  API
 //=============================================================================
@@ -124,6 +130,25 @@ RBOOL
 
 RU32
     libOs_getPageSize
+    (
+
+    );
+
+RU8
+    libOs_getCurrentThreadCpuUsage
+    (
+        LibOsThreadTimeContext* ctx
+    );
+
+RBOOL
+    libOs_getProcessTime
+    (
+        RU32 processId,
+        RU64* pTime
+    );
+
+RU8
+    libOs_getCurrentProcessCpuUsage
     (
 
     );
