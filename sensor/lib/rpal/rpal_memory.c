@@ -22,6 +22,11 @@ limitations under the License.
 #include <signal.h>
 #endif
 
+#ifdef RPAL_PLATFORM_WINDOWS
+    // On Windows we use our own Heap
+    HANDLE g_heap = NULL;
+#endif
+
 //=============================================================================
 //  Global Accounting
 //=============================================================================
@@ -54,6 +59,59 @@ RU32 g_rpal_memory_subTagBytes[ 1 << 20 ] = {0};
 #endif
 
 #endif
+
+//=============================================================================
+//  Helpers
+//=============================================================================
+static
+RPVOID
+    _rpal_do_alloc
+    (
+        RSIZET size
+    )
+{
+    RPVOID ptr = NULL;
+
+#ifdef RPAL_PLATFORM_WINDOWS
+    ptr = HeapAlloc( g_heap, 0, size );
+#else
+    ptr = malloc( size );
+#endif
+    return ptr;
+}
+
+static
+RPVOID
+    _rpal_do_realloc
+    (
+        RPVOID originalPtr,
+        RSIZET size
+    )
+{
+    RPVOID ptr = NULL;
+
+#ifdef RPAL_PLATFORM_WINDOWS
+    ptr = HeapReAlloc( g_heap, 0, originalPtr, size );
+#else
+    ptr = realloc( originalPtr, size );
+#endif
+
+    return ptr;
+}
+
+static
+RVOID
+    _rpal_do_free
+    (
+        RPVOID ptr
+    )
+{
+#ifdef RPAL_PLATFORM_WINDOWS
+    HeapFree( g_heap, 0, ptr );
+#else
+    free( ptr );
+#endif
+}
 
 //=============================================================================
 //  API
@@ -142,15 +200,16 @@ RPVOID,
 #ifndef RPAL_FEATURE_MEMORY_SECURITY
 	UNREFERENCED_PARAMETER( tag );
 	UNREFERENCED_PARAMETER( subTag );
-
-	ptr = malloc( size );
+    
+    ptr = _rpal_do_alloc( size );
 
 	if( NULL == ptr )
 	{
 		_rpal_memory_warning( ptr );
 	}
 #else
-	ptr = malloc( size + ( 2* sizeof( rpal_memStub ) ) );
+
+    ptr = _rpal_do_alloc( size + ( 2 * sizeof( rpal_memStub ) ) );
 
 	if( NULL != ptr )
 	{
@@ -202,7 +261,7 @@ RVOID,
         rpal_memory_zero( (RPU8)ptr + RPAL_MEMORY_GET_STUB( ptr )->size, sizeof( rpal_memStub ) );
         rpal_memory_zero( RPAL_MEMORY_GET_STUB( ptr ), sizeof( rpal_memStub ) );
 
-		free( RPAL_MEMORY_GET_STUB( ptr ) );
+		_rpal_do_free( RPAL_MEMORY_GET_STUB( ptr ) );
 	}
 }
 
@@ -241,7 +300,7 @@ RPVOID,
 
 #ifndef RPAL_FEATURE_MEMORY_SECURITY
 	UNREFERENCED_PARAMETER( originalSize );
-	newPtr = realloc( originalPtr, newSize );
+	newPtr = _rpal_do_realloc( originalPtr, newSize );
 #else
     if( NULL == originalPtr )
     {
@@ -249,8 +308,8 @@ RPVOID,
     }
     else if( rpal_memory_isValid( originalPtr ) )
     {
-        newPtr = realloc( RPAL_MEMORY_GET_STUB( originalPtr ), 
-                          newSize + ( 2 * sizeof( rpal_memStub ) ) );
+        newPtr = _rpal_do_realloc( RPAL_MEMORY_GET_STUB( originalPtr ),
+                                   newSize + ( 2 * sizeof( rpal_memStub ) ) );
 
 	    if( NULL != newPtr )
 	    {
@@ -279,6 +338,10 @@ RPVOID,
                 rpal_debug_break();
             }
 	    }
+        else
+        {
+            rpal_debug_critical( "realloc failed for 0x%016X ---> %d bytes", originalPtr, newSize );
+        }
     }
 #endif
 

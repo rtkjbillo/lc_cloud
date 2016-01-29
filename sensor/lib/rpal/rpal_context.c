@@ -17,6 +17,7 @@ limitations under the License.
 #include <rpal.h>
 #include "rpal_context.h"
 #include <rpal/master_only/rpal_privateHandleManager.h>
+#include <rpal/master_only/rpal_privateMemory.h>
 
 // Context instance
 rpal_PContext   g_rpal_context = NULL;
@@ -83,6 +84,11 @@ RVOID
             }
 
             rRwLock_free( g_handleMajorLock );
+
+            #ifdef RPAL_PLATFORM_WINDOWS
+                HeapDestroy( g_heap );
+                g_heap = NULL;
+            #endif
         }
     }
 }

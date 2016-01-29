@@ -90,6 +90,10 @@ RBOOL
                 g_rpal_is_root_context = TRUE;
                 g_rpal_context->version = RPAL_VERSION_CURRENT;
 
+                #ifdef RPAL_PLATFORM_WINDOWS
+                    g_heap = HeapCreate( 0, ( 1024 * 1024 * 10 ), 0 );
+                #endif
+
 		        // This is the core library.
 
 		        // Setup the Memory Management

@@ -19,6 +19,10 @@ limitations under the License.
 
 #include <rpal.h>
 
+#ifdef RPAL_PLATFORM_WINDOWS
+extern HANDLE g_heap;
+#endif
+
 RPAL_DECLARE_API
 ( 
 RPVOID, 
