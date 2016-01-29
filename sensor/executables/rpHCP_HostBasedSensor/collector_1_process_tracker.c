@@ -150,7 +150,7 @@ static RBOOL
         }
 #endif
 
-        rpal_sort_array( toSnapshot, i, sizeof( processEntry ) );
+        rpal_sort_array( toSnapshot, i, sizeof( processEntry ), rpal_order_RU32 );
         *nElem = i;
     }
 
@@ -259,7 +259,8 @@ static RPVOID
                 if( (RU32)( -1 ) != rpal_binsearch_array( previousSnapshot, 
                                                           nPrevElem, 
                                                           sizeof( processEntry ), 
-                                                          currentSnapshot[ i ].pid ) )
+                                                          &(currentSnapshot[ i ].pid),
+                                                          rpal_order_RU32 ) )
                 {
                     isFound = TRUE;
                 }
@@ -284,7 +285,8 @@ static RPVOID
                 if( (RU32)( -1 ) != rpal_binsearch_array( currentSnapshot,
                                                           nCurElem,
                                                           sizeof( processEntry ),
-                                                          previousSnapshot[ i ].pid ) )
+                                                          &(previousSnapshot[ i ].pid),
+                                                          rpal_order_RU32 ) )
                 {
                     isFound = TRUE;
                 }

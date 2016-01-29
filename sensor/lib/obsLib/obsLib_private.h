@@ -30,7 +30,8 @@ typedef struct
 {
     PObsSig* pSigsHit;
     RU8 startOffset;
-    RU32 nElements;
+    RU8 nElements;
+    RU8 nAllocated;
     RPVOID elements[];
 
 } ObsNode, *PObsNode;

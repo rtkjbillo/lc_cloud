@@ -125,7 +125,10 @@ RBOOL
                 pList->nElem--;
             }
 
-            rpal_sort_array( pList->pElems, pList->nElem, sizeof( *( pList->pElems ) ) );
+            rpal_sort_array( pList->pElems, 
+                             pList->nElem, 
+                             sizeof( *( pList->pElems ) ), 
+                             rpal_order_RU32 );
 
             rMutex_unlock( pList->mutex );
         }
@@ -153,7 +156,8 @@ RBOOL
             if( (RU32)( -1 ) != ( i = rpal_binsearch_array( pList->pElems, 
                                                             pList->nElem, 
                                                             sizeof( *( pList->pElems ) ), 
-                                                            eventId ) ) )
+                                                            &eventId,
+                                                            rpal_order_RU32 ) ) )
             {
                 rpal_memory_memmove( &( pList->pElems[ i ] ), 
                                      &( pList->pElems[ i + 1 ] ), 
@@ -164,7 +168,10 @@ RBOOL
                                                      pList->nElem * sizeof( *( pList->pElems ) ) );
                 if( rpal_memory_isValid( pList->pElems ) )
                 {
-                    rpal_sort_array( pList->pElems, pList->nElem, sizeof( *( pList->pElems ) ) );
+                    rpal_sort_array( pList->pElems, 
+                                     pList->nElem, 
+                                     sizeof( *( pList->pElems ) ), 
+                                     rpal_order_RU32 );
                     isSuccess = TRUE;
                 }
                 else
@@ -198,7 +205,8 @@ RBOOL
             if( (RU32)( -1 ) != rpal_binsearch_array( pList->pElems,
                                                       pList->nElem,
                                                       sizeof( *( pList->pElems ) ),
-                                                      eventId ) )
+                                                      &eventId,
+                                                      rpal_order_RU32 ) )
             {
                 isSuccess = TRUE;
             }

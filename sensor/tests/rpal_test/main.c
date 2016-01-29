@@ -551,11 +551,14 @@ void test_threadpool(void)
     CU_ASSERT_TRUE( rThreadPool_task( pool, (rpal_thread_pool_func)tp_test, &n4 ) );
     CU_ASSERT_TRUE( rThreadPool_task( pool, (rpal_thread_pool_func)tp_test, &n5 ) );
 
-    rpal_thread_sleep( MSEC_FROM_SEC( 3 ) );
+    rpal_thread_sleep( MSEC_FROM_SEC( 10 ) );
 
     CU_ASSERT_TRUE( rThreadPool_isIdle( pool ) );
 
-    rThreadPool_scheduleOneTime( pool, rpal_time_getGlobal() + 2 ,(rpal_thread_pool_func)tp_testScheduleOnce, &n6 );
+    rThreadPool_scheduleOneTime( pool, 
+                                 rpal_time_getGlobal() + 2 ,
+                                 (rpal_thread_pool_func)tp_testScheduleOnce, 
+                                 &n6 );
     rThreadPool_scheduleRecurring( pool, 2,(rpal_thread_pool_func)tp_testSchedule, &n7, TRUE );
 
     rpal_thread_sleep( MSEC_FROM_SEC( 5 ) );
@@ -565,6 +568,126 @@ void test_threadpool(void)
     CU_ASSERT_EQUAL( g_tp_total_test_res, 21 );
     CU_ASSERT_TRUE( g_tp_total_scheduled_test_res >= 3 || g_tp_total_scheduled_test_res  <= 4 );
 }
+
+
+void test_sortsearch( void )
+{
+    RU32 toSort[] = { 2, 6, 7, 8, 32, 10, 14, 64, 99, 100 };
+    RU32 sorted[] = { 2, 6, 7, 8, 10, 14, 32, 64, 99, 100 };
+    RU32 toFind = 7;
+    RU32 toFindRel = 9;
+    RU32 toFindRel2 = 3;
+    RU32 toFindRel3 = 98;
+    RU32 toFindRel4 = 150;
+    RU32 toFindRel5 = 0;
+    RU32 i = 0;
+
+    CU_ASSERT_TRUE( rpal_sort_array( toSort, 
+                                     ARRAY_N_ELEM( toSort ), 
+                                     sizeof( RU32 ), 
+                                     rpal_order_RU32 ) );
+
+    for( i = 0; i < ARRAY_N_ELEM( toSort ); i++ )
+    {
+        CU_ASSERT_EQUAL( toSort[ i ], sorted[ i ] );
+    }
+
+    CU_ASSERT_EQUAL( 2, rpal_binsearch_array( toSort, 
+                                              ARRAY_N_ELEM( toSort ), 
+                                              sizeof( RU32 ), 
+                                              &toFind, 
+                                              rpal_order_RU32 ) );
+
+    CU_ASSERT_EQUAL( -1, rpal_binsearch_array( toSort,
+                                               ARRAY_N_ELEM( toSort ),
+                                               sizeof( RU32 ),
+                                               &toFindRel,
+                                               rpal_order_RU32 ) );
+
+    CU_ASSERT_EQUAL( 2, rpal_binsearch_array_closest( toSort,
+                                                      ARRAY_N_ELEM( toSort ),
+                                                      sizeof( RU32 ),
+                                                      &toFind,
+                                                      rpal_order_RU32,
+                                                      TRUE ) );
+
+    CU_ASSERT_EQUAL( 2, rpal_binsearch_array_closest( toSort,
+                                                      ARRAY_N_ELEM( toSort ),
+                                                      sizeof( RU32 ),
+                                                      &toFind,
+                                                      rpal_order_RU32,
+                                                      FALSE ) );
+
+    CU_ASSERT_EQUAL( 3, rpal_binsearch_array_closest( toSort,
+                                                      ARRAY_N_ELEM( toSort ),
+                                                      sizeof( RU32 ),
+                                                      &toFindRel,
+                                                      rpal_order_RU32,
+                                                      TRUE ) );
+
+    CU_ASSERT_EQUAL( 4, rpal_binsearch_array_closest( toSort,
+                                                      ARRAY_N_ELEM( toSort ),
+                                                      sizeof( RU32 ),
+                                                      &toFindRel,
+                                                      rpal_order_RU32,
+                                                      FALSE ) );
+    CU_ASSERT_EQUAL( 0, rpal_binsearch_array_closest( toSort,
+                                                      ARRAY_N_ELEM( toSort ),
+                                                      sizeof( RU32 ),
+                                                      &toFindRel2,
+                                                      rpal_order_RU32,
+                                                      TRUE ) );
+
+    CU_ASSERT_EQUAL( 1, rpal_binsearch_array_closest( toSort,
+                                                      ARRAY_N_ELEM( toSort ),
+                                                      sizeof( RU32 ),
+                                                      &toFindRel2,
+                                                      rpal_order_RU32,
+                                                      FALSE ) );
+
+    CU_ASSERT_EQUAL( 7, rpal_binsearch_array_closest( toSort,
+                                                      ARRAY_N_ELEM( toSort ),
+                                                      sizeof( RU32 ),
+                                                      &toFindRel3,
+                                                      rpal_order_RU32,
+                                                      TRUE ) );
+
+    CU_ASSERT_EQUAL( 8, rpal_binsearch_array_closest( toSort,
+                                                      ARRAY_N_ELEM( toSort ),
+                                                      sizeof( RU32 ),
+                                                      &toFindRel3,
+                                                      rpal_order_RU32,
+                                                      FALSE ) );
+
+    CU_ASSERT_EQUAL( 9, rpal_binsearch_array_closest( toSort,
+                                                      ARRAY_N_ELEM( toSort ),
+                                                      sizeof( RU32 ),
+                                                      &toFindRel4,
+                                                      rpal_order_RU32,
+                                                      TRUE ) );
+
+    CU_ASSERT_EQUAL( -1, rpal_binsearch_array_closest( toSort,
+                                                       ARRAY_N_ELEM( toSort ),
+                                                       sizeof( RU32 ),
+                                                       &toFindRel4,
+                                                       rpal_order_RU32,
+                                                       FALSE ) );
+
+    CU_ASSERT_EQUAL( -1, rpal_binsearch_array_closest( toSort,
+                                                       ARRAY_N_ELEM( toSort ),
+                                                       sizeof( RU32 ),
+                                                       &toFindRel5,
+                                                       rpal_order_RU32,
+                                                       TRUE ) );
+
+    CU_ASSERT_EQUAL( 0, rpal_binsearch_array_closest( toSort,
+                                                      ARRAY_N_ELEM( toSort ),
+                                                      sizeof( RU32 ),
+                                                      &toFindRel5,
+                                                      rpal_order_RU32,
+                                                      FALSE ) );
+}
+
 
 int
     main
@@ -601,6 +724,7 @@ int
                     NULL == CU_add_test( suite, "file", test_file ) ||
                     NULL == CU_add_test( suite, "bloom", test_bloom ) ||
                     NULL == CU_add_test( suite, "threadpool", test_threadpool ) ||
+                    NULL == CU_add_test( suite, "sortsearch", test_sortsearch ) ||
                     NULL == CU_add_test( suite, "memoryLeaks", test_memoryLeaks ) )
                 {
                     rpal_debug_error( "%s", CU_get_error_msg() );

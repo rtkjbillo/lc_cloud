@@ -1645,6 +1645,10 @@ typedef DWORD64 (WINAPI *SymGetModuleBase64_f)(
     DWORD64 qwAddr
 );
 
+typedef DWORD( WINAPI *SymSetOptions_f )(
+    DWORD SymOptions
+);
+
 typedef BOOL (WINAPI *SymCleanup_f)(
   HANDLE hProcess
 );

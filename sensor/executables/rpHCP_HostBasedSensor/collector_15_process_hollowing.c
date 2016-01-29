@@ -15,7 +15,7 @@ limitations under the License.
 */
 
 
-#define RPAL_FILE_ID                  97
+#define RPAL_FILE_ID                  98
 
 #include <rpal/rpal.h>
 #include <librpcm/librpcm.h>
@@ -27,17 +27,23 @@ limitations under the License.
 
 #define _SCRATCH_SIZE                   (1024*1024)
 #define _MIN_DISK_SAMPLE_SIZE           30
-#define _MAX_DISK_SAMPLE_SIZE           2000
+#define _MAX_DISK_SAMPLE_SIZE           100
+#define _MIN_DISK_BIN_COVERAGE_PERCENT  50
 #define _MIN_SAMPLE_STR_LEN             6
 #define _MAX_SAMPLE_STR_LEN             40
 #define _MAX_SAMPLE_SPECIAL_CHAR        0
-#define _MIN_SAMPLE_MATCH_PERCENT       80
+#define _MIN_SAMPLE_MATCH_PERCENT       50
 
 #define _CHECK_SEC_AFTER_PROCESS_CREATION   5
-#define _CHECK_RANDOM_PROCESS_EVERY         (60*60)
+
+#define _TIMEOUT_BETWEEN_MODULES                (5*1000)
+#define _LARGE_PATTERNS                         (500)
+#define _TIMEOUT_BETWEEN_MATCHES_LARGE_PATTERNS (5)
+#define _TIMEOUT_BETWEEN_CONSTANT_PROCESSS      (30*1000)
+#define _MAX_CPU_WAIT                           (60)
+#define _CPU_WATERMARK                          (50)
 
 static rQueue g_newProcessNotifications = NULL;
-
 
 
 static
@@ -143,7 +149,8 @@ static
 HObs
     _getModuleDiskStringSample
     (
-        RPWCHAR modulePath
+        RPWCHAR modulePath,
+        RU32* pLastScratch
     )
 {
     HObs sample = NULL;
@@ -157,20 +164,27 @@ HObs
     RBOOL isUnicode = FALSE;
     RPU8 sampleNumber = 0;
     rBloom stringsSeen = NULL;
+    RU64 readOffset = 0;
 
-    if( NULL != modulePath )
+    if( NULL != modulePath &&
+        NULL != pLastScratch )
     {
+        readOffset = *pLastScratch * _SCRATCH_SIZE;
         if( NULL != ( stringsSeen = rpal_bloom_create( _MAX_DISK_SAMPLE_SIZE, 0.0001 ) ) )
         {
-            if( NULL != ( sample = obsLib_new( _MAX_DISK_SAMPLE_SIZE, 0 ) ) )
+            if( NULL != ( scratch = rpal_memory_alloc( _SCRATCH_SIZE ) ) )
             {
-                if( NULL != ( scratch = rpal_memory_alloc( _SCRATCH_SIZE ) ) )
+                if( rFile_open( modulePath, &hFile, RPAL_FILE_OPEN_EXISTING |
+                                                    RPAL_FILE_OPEN_READ ) )
                 {
-                    if( rFile_open( modulePath, &hFile, RPAL_FILE_OPEN_EXISTING |
-                        RPAL_FILE_OPEN_READ ) )
+                    if( readOffset == rFile_seek( hFile, 
+                                                    readOffset, 
+                                                    rFileSeek_SET ) &&
+                        0 != ( read = rFile_readUpTo( hFile, _SCRATCH_SIZE, scratch ) ) )
                     {
-                        while( 0 != ( read = rFile_readUpTo( hFile, _SCRATCH_SIZE, scratch ) ) )
+                        if( NULL != ( sample = obsLib_new( _MAX_DISK_SAMPLE_SIZE, 0 ) ) )
                         {
+                            ( *pLastScratch )++;
                             start = scratch;
                             end = scratch + read;
 
@@ -191,20 +205,25 @@ HObs
                                     _MIN_SAMPLE_STR_LEN <= longestLength &&
                                     _MAX_SAMPLE_STR_LEN >= longestLength )
                                 {
-                                    if( rpal_bloom_addIfNew( stringsSeen, start, longestLength ) )
+                                    if( rpal_bloom_addIfNew( stringsSeen,
+                                        start,
+                                        longestLength ) )
                                     {
                                         /*
                                         if( isUnicode )
                                         {
-                                            rpal_debug_info( "adding U: %ls", start );
+                                        rpal_debug_info( "adding U: %ls", start );
                                         }
                                         else
                                         {
-                                            rpal_debug_info( "adding: %s", start );
+                                        rpal_debug_info( "adding: %s", start );
                                         }
                                         */
 
-                                        if( obsLib_addPattern( sample, start, longestLength, sampleNumber ) )
+                                        if( obsLib_addPattern( sample,
+                                            start,
+                                            longestLength,
+                                            sampleNumber ) )
                                         {
                                             sampleNumber++;
                                         }
@@ -214,11 +233,11 @@ HObs
                                         /*
                                         if( isUnicode )
                                         {
-                                            rpal_debug_info( "duplicate U: %ls", start );
+                                        rpal_debug_info( "duplicate U: %ls", start );
                                         }
                                         else
                                         {
-                                            rpal_debug_info( "duplicate: %s", start );
+                                        rpal_debug_info( "duplicate: %s", start );
                                         }
                                         */
                                     }
@@ -227,12 +246,12 @@ HObs
                                 start += toSkip;
                             }
                         }
-
-                        rFile_close( hFile );
                     }
 
-                    rpal_memory_free( scratch );
+                    rFile_close( hFile );
                 }
+
+                rpal_memory_free( scratch );
             }
 
             rpal_bloom_destroy( stringsSeen );
@@ -243,22 +262,21 @@ HObs
 }
 
 static
-RBOOL
+RU32
     _checkMemoryForStringSample
     (
         HObs sample,
         RU32 pid,
         RPVOID moduleBase,
-        RU64 moduleSize
+        RU64 moduleSize,
+        rEvent isTimeToStop
     )
 {
-    RBOOL isHollowed = FALSE;
-
     RPU8 pMem = NULL;
     RU8* sampleList = NULL;
     RPU8 sampleNumber = 0;
     RU32 nSamples = 0;
-    RU32 nSamplesFound = 0;
+    RU32 nSamplesFound = (RU32)(-1);
 
     if( NULL != sample &&
         0 != pid &&
@@ -274,7 +292,8 @@ RBOOL
             {
                 if( obsLib_setTargetBuffer( sample, pMem, (RU32)moduleSize ) )
                 {
-                    while( obsLib_nextHit( sample, (RPVOID*)&sampleNumber, NULL ) )
+                    while( !rEvent_wait( isTimeToStop, 0 ) &&
+                           obsLib_nextHit( sample, (RPVOID*)&sampleNumber, NULL ) )
                     {
                         if( sampleNumber < (RPU8)NUMBER_TO_PTR( nSamples ) &&
                             0 == sampleList[ (RU32)PTR_TO_NUMBER( sampleNumber ) ] )
@@ -282,12 +301,11 @@ RBOOL
                             sampleList[ (RU32)PTR_TO_NUMBER( sampleNumber ) ] = 1;
                             nSamplesFound++;
                         }
-                    }
 
-                    rpal_debug_info( "process hollowing check found a match of %d / %d", nSamplesFound, nSamples );
-                    if( ( ( (RFLOAT)nSamplesFound / nSamples ) * 100 ) < _MIN_SAMPLE_MATCH_PERCENT )
-                    {
-                        isHollowed = TRUE;
+                        if( _LARGE_PATTERNS < nSamples )
+                        {
+                            rpal_thread_sleep( _TIMEOUT_BETWEEN_MATCHES_LARGE_PATTERNS );
+                        }
                     }
                 }
 
@@ -306,7 +324,7 @@ RBOOL
         }
     }
 
-    return isHollowed;
+    return nSamplesFound;
 }
 
 static
@@ -323,21 +341,28 @@ rList
     rSequence module = NULL;
     RPWCHAR modulePathW = NULL;
     RPCHAR modulePathA = NULL;
+    RU32 fileSize = 0;
     RU64 moduleBase = 0;
     RU64 moduleSize = 0;
     HObs diskSample = NULL;
     rSequence hollowedModule = NULL;
+    RU32 lastScratchIndex = 0;
+    RU32 nSamplesFound = 0;
+    RU32 nSamplesTotal = 0;
+    RU32 tmpSamplesFound = 0;
+    RU32 tmpSamplesSize = 0;
 
     rpal_debug_info( "spot checking process %d", pid );
 
     if( NULL != ( modules = processLib_getProcessModules( pid ) ) )
     {
-        while( !rEvent_wait( isTimeToStop, 0 ) &&
+        while( !rEvent_wait( isTimeToStop, _TIMEOUT_BETWEEN_MODULES ) &&
                rList_getSEQUENCE( modules, RP_TAGS_DLL, &module ) )
         {
             modulePathW = NULL;
             modulePathA = NULL;
-            
+            lastScratchIndex = 0;
+
             if( ( rSequence_getSTRINGW( module, 
                                         RP_TAGS_FILE_PATH, 
                                         &modulePathW ) ||
@@ -355,27 +380,79 @@ rList
 
                 if( NULL != modulePathW )
                 {
-                    //rpal_debug_info( "checking module %ls", modulePathW );
-                    if( NULL != ( diskSample = _getModuleDiskStringSample( modulePathW ) ) )
+                    if( 0 != ( fileSize = rpal_file_getSizew( modulePathW, TRUE ) ) )
                     {
-                        if( _checkMemoryForStringSample( diskSample,
-                                                         pid,
-                                                         NUMBER_TO_PTR( moduleBase ),
-                                                         moduleSize ) )
+                        nSamplesFound = 0;
+                        nSamplesTotal = 0;
+                        tmpSamplesFound = (RU32)( -1 );
+
+                        while( !rEvent_wait( isTimeToStop, 0 ) &&
+                            NULL != ( diskSample = _getModuleDiskStringSample( modulePathW,
+                                                                               &lastScratchIndex ) ) )
                         {
-                            //rpal_debug_info( "sign of process hollowing found in process %d module %ls",
-                                             //pid,
-                                             //modulePathW );
-                            if( NULL != ( hollowedModule = rSequence_duplicate( module ) ) )
+                            tmpSamplesSize = obsLib_getNumPatterns( diskSample );
+
+                            if( 0 != tmpSamplesSize )
                             {
-                                if( !rList_addSEQUENCE( hollowedModules, hollowedModule ) )
+                                tmpSamplesFound = _checkMemoryForStringSample( diskSample,
+                                                                               pid,
+                                                                               NUMBER_TO_PTR( moduleBase ),
+                                                                               moduleSize,
+                                                                               isTimeToStop );
+                                obsLib_free( diskSample );
+
+                                if( (RU32)( -1 ) == tmpSamplesFound )
                                 {
-                                    rSequence_free( hollowedModule );
+                                    break;
+                                }
+
+                                nSamplesFound += tmpSamplesFound;
+                                nSamplesTotal += tmpSamplesSize;
+
+                                if( _MIN_DISK_SAMPLE_SIZE <= nSamplesTotal &&
+                                    ( _MIN_SAMPLE_MATCH_PERCENT < ( (RFLOAT)nSamplesFound /
+                                                                    nSamplesTotal ) * 100 ) &&
+                                    _MIN_DISK_BIN_COVERAGE_PERCENT <= (RFLOAT)( ( lastScratchIndex *
+                                                                                  _SCRATCH_SIZE ) /
+                                                                                fileSize ) * 100 )
+                                {
+                                    break;
                                 }
                             }
+                            else
+                            {
+                                obsLib_free( diskSample );
+                            }
                         }
+                    }
+                    else
+                    {
+                        rpal_debug_info( "could not get file information, not checking" );
+                    }
 
-                        obsLib_free( diskSample );
+                    rpal_debug_info( "process hollowing check found a match %d - %ls of %d / %d : %d", 
+                                     pid, 
+                                     modulePathW, 
+                                     nSamplesFound, 
+                                     nSamplesTotal,
+                                     lastScratchIndex );
+                    
+                    if( !rEvent_wait( isTimeToStop, 0 ) &&
+                        (RU32)(-1) != tmpSamplesFound &&
+                        _MIN_DISK_SAMPLE_SIZE <= nSamplesTotal &&
+                        ( ( (RFLOAT)nSamplesFound / nSamplesTotal ) * 100 ) < _MIN_SAMPLE_MATCH_PERCENT )
+                    {
+                        rpal_debug_info( "sign of process hollowing found in process %d module %ls",
+                            pid,
+                            modulePathW );
+
+                        if( NULL != ( hollowedModule = rSequence_duplicate( module ) ) )
+                        {
+                            if( !rList_addSEQUENCE( hollowedModules, hollowedModule ) )
+                            {
+                                rSequence_free( hollowedModule );
+                            }
+                        }
                     }
                 }
 
@@ -457,7 +534,7 @@ RPVOID
 
 static
 RPVOID
-    spotCheckRandomProcess
+    spotCheckProcessConstantly
     (
         rEvent isTimeToStop,
         RPVOID ctx
@@ -468,54 +545,50 @@ RPVOID
     processLibProcEntry* proc = NULL;
     rList hollowedModules = NULL;
     rSequence processInfo = NULL;
-    RU32 nProcesses = 0;
-    RU32 pid = 0;
 
-    rpal_debug_info( "spot checking random process" );
-
-    if( NULL != ( procs = processLib_getProcessEntries( TRUE ) ) )
+    while( rpal_memory_isValid( isTimeToStop ) &&
+        !rEvent_wait( isTimeToStop, 0 ) )
     {
-        proc = procs;
-        while( 0 != proc->pid )
+        if( NULL != ( procs = processLib_getProcessEntries( TRUE ) ) )
         {
-            nProcesses++;
-            proc++;
-        }
+            proc = procs;
 
-        if( 0 != nProcesses )
-        {
-            pid = ( procs + ( rpal_rand() % nProcesses ) )->pid;
-        }
-
-        rpal_memory_free( procs );
-    }
-
-    if( 0 != pid &&
-        rpal_memory_isValid( isTimeToStop ) &&
-        !rEvent_wait( isTimeToStop, MSEC_FROM_SEC( 5 ) ) )
-    {
-        if( NULL != ( hollowedModules = _spotCheckProcess( isTimeToStop, pid ) ) )
-        {
-            if( NULL != ( processInfo = processLib_getProcessInfo( pid ) ) ||
-                ( NULL != ( processInfo = rSequence_new() ) &&
-                rSequence_addRU32( processInfo, RP_TAGS_PROCESS_ID, pid ) ) )
+            while( 0 != proc->pid &&
+                rpal_memory_isValid( isTimeToStop ) &&
+                !rEvent_wait( isTimeToStop, _TIMEOUT_BETWEEN_CONSTANT_PROCESSS ) )
             {
-                if( !rSequence_addLIST( processInfo, RP_TAGS_MODULES, hollowedModules ) )
+                if( hbs_whenCpuBelow( _CPU_WATERMARK, _MAX_CPU_WAIT, isTimeToStop ) )
                 {
-                    rList_free( hollowedModules );
-                }
-                else
-                {
-                    hbs_markAsRelated( originalRequest, processInfo );
-                    notifications_publish( RP_TAGS_NOTIFICATION_MODULE_MEM_DISK_MISMATCH, processInfo );
+                    if( NULL != ( hollowedModules = _spotCheckProcess( isTimeToStop, proc->pid ) ) )
+                    {
+                        if( NULL != ( processInfo = processLib_getProcessInfo( proc->pid ) ) ||
+                            ( NULL != ( processInfo = rSequence_new() ) &&
+                            rSequence_addRU32( processInfo, RP_TAGS_PROCESS_ID, proc->pid ) ) )
+                        {
+                            if( !rSequence_addLIST( processInfo, RP_TAGS_MODULES, hollowedModules ) )
+                            {
+                                rList_free( hollowedModules );
+                            }
+                            else
+                            {
+                                hbs_markAsRelated( originalRequest, processInfo );
+                                notifications_publish( RP_TAGS_NOTIFICATION_MODULE_MEM_DISK_MISMATCH, 
+                                                       processInfo );
+                            }
+
+                            rSequence_free( processInfo );
+                        }
+                        else
+                        {
+                            rList_free( hollowedModules );
+                        }
+                    }
                 }
 
-                rSequence_free( processInfo );
+                proc++;
             }
-            else
-            {
-                rList_free( hollowedModules );
-            }
+
+            rpal_memory_free( procs );
         }
     }
 
@@ -602,11 +675,7 @@ RBOOL
                                          0, 
                                          g_newProcessNotifications, 
                                          NULL ) &&
-                rThreadPool_scheduleRecurring( hbsState->hThreadPool, 
-                                               _CHECK_RANDOM_PROCESS_EVERY, 
-                                               spotCheckRandomProcess, 
-                                               NULL, 
-                                               TRUE ) &&
+                rThreadPool_task( hbsState->hThreadPool, spotCheckProcessConstantly, NULL ) &&
                 rThreadPool_task( hbsState->hThreadPool, spotCheckNewProcesses, NULL ) )
             {
                 isSuccess = TRUE;

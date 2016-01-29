@@ -23,8 +23,6 @@ limitations under the License.
 #define _SWAP(pElem1,pElem2,size,scratch) rpal_memory_memcpy(scratch,pElem1,size);\
                                           rpal_memory_memcpy(pElem1,pElem2,size);\
                                           rpal_memory_memcpy(pElem2,scratch,size);
-#define _KEY_64(pElem) (*(RU64*)(pElem))
-#define _KEY_32(pElem) (*(RU32*)(pElem))
 
 static RVOID
     _quicksort
@@ -33,7 +31,8 @@ static RVOID
         RPVOID pArray,
         RU32 elemSize,
         RU32 iBegin,
-        RU32 iEnd
+        RU32 iEnd,
+        rpal_ordering_func orderFunc
     )
 {
     RU32 i = iBegin;
@@ -43,7 +42,7 @@ static RVOID
 
     for( j = iBegin; j <= iEnd - 1; j++ )
     {
-        if( _KEY_32( _ARRAY_ELEM( pArray, j, elemSize ) ) <= _KEY_32( _ARRAY_ELEM( pArray, iEnd, elemSize ) ) )
+        if( 0 < orderFunc( _ARRAY_ELEM( pArray, j, elemSize ), _ARRAY_ELEM( pArray, iEnd, elemSize ) ) )
         {
             _SWAP( _ARRAY_ELEM( pArray, i, elemSize ),
                    _ARRAY_ELEM( pArray, j, elemSize ),
@@ -61,12 +60,12 @@ static RVOID
     if( 0 != i && 
         iBegin < ( i - 1 ) )
     {
-        _quicksort( scratch, pArray, elemSize, iBegin, i - 1 );
+        _quicksort( scratch, pArray, elemSize, iBegin, i - 1, orderFunc );
     }
 
     if( ( i + 1 ) < iEnd )
     {
-        _quicksort( scratch, pArray, elemSize, i + 1, iEnd );
+        _quicksort( scratch, pArray, elemSize, i + 1, iEnd, orderFunc );
     }
 }
 
@@ -76,19 +75,21 @@ RBOOL
     (
         RPVOID pArray,
         RU32 nElements,
-        RU32 elemSize
+        RU32 elemSize,
+        rpal_ordering_func orderFunc
     )
 {
     RBOOL isSuccess = FALSE;
     RPVOID tmpElem = NULL;
 
-    if( NULL != pArray )
+    if( NULL != pArray &&
+        NULL != orderFunc )
     {
         if( 1 < nElements )
         {
             if( NULL != ( tmpElem = rpal_memory_alloc( elemSize ) ) )
             {
-                _quicksort( tmpElem, pArray, elemSize, 0, nElements - 1 );
+                _quicksort( tmpElem, pArray, elemSize, 0, nElements - 1, orderFunc );
 
                 isSuccess = TRUE;
 
@@ -111,27 +112,29 @@ RU32
         RPVOID pArray,
         RU32 nElements,
         RU32 elemSize,
-        RU32 key
+        RPVOID key,
+        rpal_ordering_func orderFunc
     )
 {
     RU32 iMin = 0;
     RU32 iMax = nElements;
     RU32 iMid = 0;
-    RU32 midKey = 0;
+    RS32 order = 0;
 
-    if( NULL != pArray )
+    if( NULL != pArray &&
+        NULL != orderFunc )
     {
         while( iMin <= iMax )
         {
             iMid = ( ( iMax - iMin ) / 2 ) + iMin;
 
-            midKey = _KEY_32( _ARRAY_ELEM( pArray, iMid, elemSize ) );
+            order = orderFunc( _ARRAY_ELEM( pArray, iMid, elemSize ), key );
 
-            if( midKey == key )
+            if( 0 == order )
             {
                 return iMid;
             }
-            else if( midKey < key )
+            else if( 0 < order )
             {
                 iMin = iMid + 1;
             }
@@ -147,4 +150,129 @@ RU32
     }
 
     return (RU32)( -1 );
+}
+
+
+RU32
+    rpal_binsearch_array_closest
+    (
+        RPVOID pArray,
+        RU32 nElements,
+        RU32 elemSize,
+        RPVOID key,
+        rpal_ordering_func orderFunc,
+        RBOOL isFromBelow
+    )
+{
+    RU32 iMin = 0;
+    RU32 iMax = nElements;
+    RU32 iMid = 0;
+    RS32 order = 0;
+
+    if( NULL != pArray &&
+        NULL != orderFunc )
+    {
+        while( iMin <= iMax )
+        {
+            iMid = ( ( iMax - iMin ) / 2 ) + iMin;
+
+            order = orderFunc( _ARRAY_ELEM( pArray, iMid, elemSize ), key );
+
+            if( 0 == order )
+            {
+                return iMid;
+            }
+            else if( 0 < order )
+            {
+                iMin = iMid + 1;
+            }
+            else if( iMid != 0 )
+            {
+                iMax = iMid - 1;
+            }
+            else
+            {
+                break;
+            }
+        }
+
+        if( isFromBelow )
+        {
+            if( 0 < order )
+            {
+                return ( nElements == iMid ? iMid - 1 : iMid );
+            }
+            else
+            {
+                if( 0 < iMid )
+                {
+                    return iMid - 1;
+                }
+            }
+        }
+        else
+        {
+            if( 0 < order )
+            {
+                if( iMid < nElements - 1 )
+                {
+                    return iMid + 1;
+                }
+            }
+            else
+            {
+                return iMid;
+            }
+        }
+    }
+
+    return (RU32)( -1 );
+}
+
+
+RS32
+    rpal_order_RU32
+    (
+        RPU32 p1,
+        RPU32 p2
+    )
+{
+    RS32 order = -1;
+
+    if( NULL != p1 &&
+        NULL != p2 )
+    {
+        order = ( *p2 - *p1 );
+    }
+
+    return order;
+}
+
+RS32
+    rpal_order_RU64
+    (
+        RPU64 p1,
+        RPU64 p2
+    )
+{
+    RS32 order = -1;
+
+    if( NULL != p1 &&
+        NULL != p2 )
+    {
+        if( *p1 == *p2 )
+        {
+            order = 0;
+        }
+        else if( *p2 > *p1 )
+        {
+            order = 1;
+        }
+        else
+        {
+            order = -1;
+        }
+    }
+
+    return order;
 }

@@ -16,6 +16,7 @@ limitations under the License.
 
 #include "collectors.h"
 #include <rpHostCommonPlatformLib/rTags.h>
+#include <libOs/libOs.h>
 
 RBOOL
     hbs_markAsRelated
@@ -43,4 +44,41 @@ RBOOL
     }
 
     return isSuccess;
+}
+
+RBOOL
+    hbs_whenCpuBelow
+    (
+        RU8 percent,
+        RTIME timeoutSeconds,
+        rEvent abortEvent
+    )
+{
+    RBOOL isCpuIdle = FALSE;
+
+    RTIME end = rpal_time_getLocal() + timeoutSeconds;
+
+    do
+    {
+        if( libOs_getCpuUsage() <= percent )
+        {
+            isCpuIdle = TRUE;
+            break;
+        }
+
+        if( NULL == abortEvent )
+        {
+            rpal_thread_sleep( MSEC_FROM_SEC( 1 ) );
+        }
+        else
+        {
+            if( rEvent_wait( abortEvent, MSEC_FROM_SEC( 1 ) ) )
+            {
+                break;
+            }
+        }
+    } 
+    while( end > rpal_time_getLocal() );
+
+    return isCpuIdle;
 }

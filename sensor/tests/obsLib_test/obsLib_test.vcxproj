@@ -118,8 +118,6 @@
     </ProjectReference>
     <ProjectReference Include="..\..\lib\obsLib\obsLib.vcxproj">
       <Project>{af170d17-839b-414a-8693-d5b025839178}</Project>
-      <CopyLocalSatelliteAssemblies>true</CopyLocalSatelliteAssemblies>
-      <ReferenceOutputAssembly>true</ReferenceOutputAssembly>
     </ProjectReference>
     <ProjectReference Include="..\..\lib\rpal\rpal.vcxproj">
       <Project>{c8461925-62d7-49ff-a7c7-6cb5f73fa441}</Project>

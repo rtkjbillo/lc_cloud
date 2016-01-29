@@ -26,6 +26,8 @@ limitations under the License.
 
 #define EFFECTIVE_INDEX(node,value) ((RU32)((value) - (node)->startOffset))
 
+#define DEFAULT_ALLOCATED_PATTERNS  0
+
 //=============================================================================
 //  Internal Routines
 //=============================================================================
@@ -50,13 +52,14 @@ PObsNode
 {
     PObsNode node = NULL;
 
-    node = rpal_memory_alloc( sizeof( ObsNode ) );
+    node = rpal_memory_alloc( sizeof( ObsNode ) + ( DEFAULT_ALLOCATED_PATTERNS * sizeof( RPVOID ) ) );
 
     if( rpal_memory_isValid( node ) )
     {
         node->nElements = 0;
         node->pSigsHit = NULL;
         node->startOffset = 0;
+        node->nAllocated = DEFAULT_ALLOCATED_PATTERNS;
     }
 
     return node;
@@ -110,7 +113,7 @@ PObsNode
 {
     PObsNode retNode = NULL;
     RU32 currentNodeSize = 0;
-    RU32 numElemToAdd = 0;
+    RU8 numElemToAdd = 0;
     RU8 indexToInsert = 0;
     PObsNode originalNode = node;
     RU32 i = 0;
@@ -130,9 +133,12 @@ PObsNode
                 numElemToAdd = node->startOffset - onValue;
             }
 
-            node = rpal_memory_realloc( node, currentNodeSize + ( numElemToAdd * sizeof( RPVOID ) ) );
-
-            rpal_memory_zero( node->elements + node->nElements, numElemToAdd * sizeof( RPVOID ) );
+            if( node->nAllocated < node->nElements + numElemToAdd )
+            {
+                node = rpal_memory_realloc( node, currentNodeSize + ( numElemToAdd * sizeof( RPVOID ) ) );
+                rpal_memory_zero( node->elements + node->nElements, numElemToAdd * sizeof( RPVOID ) );
+                node->nAllocated = node->nElements + numElemToAdd;
+            }
 
             if( onValue < node->startOffset &&
                 0 < node->nElements )

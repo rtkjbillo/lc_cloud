@@ -129,7 +129,15 @@ rList
     processLib_getStackTrace
     (
         RU32 pid,
-        RU32 tid
+        RU32 tid,
+        RBOOL isWithSymbolNames
+    );
+
+RVOID
+    processLib_decorateStackTrace
+    (
+        RU32 pid,
+        rList stackTrace
     );
 
 rList

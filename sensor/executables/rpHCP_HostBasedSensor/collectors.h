@@ -105,3 +105,11 @@ RBOOL
         rSequence parent,
         rSequence toMark
     );
+
+RBOOL
+    hbs_whenCpuBelow
+    (
+        RU8 percent,
+        RTIME timeout,
+        rEvent abortEvent
+    );
