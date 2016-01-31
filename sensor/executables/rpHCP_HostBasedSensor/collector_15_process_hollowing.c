@@ -644,6 +644,52 @@ RPVOID
     return NULL;
 }
 
+static
+RVOID
+    scan_for_hollowing
+    (
+        rpcm_tag eventType,
+        rSequence event
+    )
+{
+    RU32 pid = (RU32)( -1 );
+    rEvent dummy = NULL;
+    rList hollowedModules = NULL;
+    rSequence process = NULL;
+
+    UNREFERENCED_PARAMETER( eventType );
+
+    if( NULL != ( dummy = rEvent_create( TRUE ) ) )
+    {
+        if( rSequence_getRU32( event, RP_TAGS_PROCESS_ID, &pid ) )
+        {
+            if( NULL != ( process = processLib_getProcessInfo( pid ) ) ||
+                ( NULL != ( process = rSequence_new() ) &&
+                  rSequence_addRU32( process, RP_TAGS_PROCESS_ID, pid ) ) )
+            {
+                if( NULL != ( hollowedModules = _spotCheckProcess( dummy, pid ) ) )
+                {
+                    if( !rSequence_addLIST( process, RP_TAGS_MODULES, hollowedModules ) )
+                    {
+                        rList_free( hollowedModules );
+                    }
+                    else
+                    {
+                        notifications_publish( RP_TAGS_NOTIFICATION_MODULE_MEM_DISK_MISMATCH,
+                                               process );
+                    }
+                }
+            }
+
+            if( rpal_memory_isValid( process ) )
+            {
+                rSequence_free( process );
+            }
+        }
+
+        rEvent_free( dummy );
+    }
+}
 
 //=============================================================================
 // COLLECTOR INTERFACE
@@ -672,6 +718,11 @@ RBOOL
                                          0, 
                                          g_newProcessNotifications, 
                                          NULL ) &&
+                notifications_subscribe( RP_TAGS_NOTIFICATION_MODULE_MEM_DISK_MISMATCH_REQ,
+                                         NULL,
+                                         0,
+                                         NULL,
+                                         scan_for_hollowing ) &&
                 rThreadPool_task( hbsState->hThreadPool, spotCheckProcessConstantly, NULL ) &&
                 rThreadPool_task( hbsState->hThreadPool, spotCheckNewProcesses, NULL ) )
             {
@@ -682,6 +733,9 @@ RBOOL
                 notifications_unsubscribe( RP_TAGS_NOTIFICATION_NEW_PROCESS, 
                                            g_newProcessNotifications, 
                                            NULL );
+                notifications_unsubscribe( RP_TAGS_NOTIFICATION_MODULE_MEM_DISK_MISMATCH_REQ,
+                                           NULL,
+                                           scan_for_hollowing );
                 rQueue_free( g_newProcessNotifications );
                 g_newProcessNotifications = NULL;
             }
