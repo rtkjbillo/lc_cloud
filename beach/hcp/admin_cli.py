@@ -1147,6 +1147,19 @@ class HcpCli ( cmd.Cmd ):
                                      rSequence(),
                                      arguments )
 
+    @report_errors
+    def do_hollowed_module_scan( self, s ):
+        '''Kill a process on the host.'''
+
+        parser = self.getParser( 'hollowed_module_scan', True )
+        parser.add_argument( 'pid',
+                             type = int,
+                             help = 'pid of the process to scan' )
+        arguments = self.parse( parser, s )
+        if arguments is not None:
+            self._executeHbsTasking( self.tags.notification.MODULE_MEM_DISK_MISMATCH_REQ,
+                                     rSequence().addInt32( self.tags.base.PROCESS_ID, arguments.pid ),
+                                     arguments )
 
     @report_errors
     def do_run_script( self, s ):
