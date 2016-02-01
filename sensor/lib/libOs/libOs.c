@@ -1062,7 +1062,7 @@ RBOOL
         winTrustData.dwStateAction = WTD_STATEACTION_CLOSE;
         lStatus = WinVerifyTrust( NULL, &WVTPolicyGUID, &winTrustData );
     }
-#else
+#elif defined( RPAL_PLATFORM_MACOSX )
     rpal_debug_not_implemented();
 #endif
     return isSucceed;
