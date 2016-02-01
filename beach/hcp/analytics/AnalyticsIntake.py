@@ -27,6 +27,7 @@ class AnalyticsIntake( Actor ):
         self.analytics_stateless = self.getActorHandle( 'analytics/stateless/intake', timeout = 30, nRetries = 3 )
         self.analytics_stateful = self.getActorHandle( 'analytics/stateful/intake', timeout = 30, nRetries = 3 )
         self.analytics_modeling = self.getActorHandle( 'analytics/modeling/intake', timeout = 120, nRetries = 3 )
+        self.analytics_investigation = self.getActorHandle( 'analytics/investigation/intake', timeout = 120, nRetries = 3 )
 
     def deinit( self ):
         pass
@@ -189,6 +190,10 @@ class AnalyticsIntake( Actor ):
             self.analytics_modeling.shoot( 'analyze', event )
             self.analytics_stateless.shoot( 'analyze', event )
             self.analytics_stateful.shoot( 'analyze', event )
+
+            routing, event, mtd = event
+            if 'investigation_id' in routing:
+                self.analytics_investigation.shoot( 'analyze', event )
 
         return ( True, )
 

@@ -155,6 +155,23 @@ print( beach.addActor( 'analytics/AnalyticsReporting',
                        isIsolated = True ) )
 
 #######################################
+# AnalyticsInvestigation
+# This actor responsible for sending
+# messages to the actors interested in
+# specific investigations.
+# Parameters:
+# ttl: the number of seconds the data
+#    flow for an investigation remains
+#    open after last data seen.
+#######################################
+print( beach.addActor( 'analytics/AnalyticsInvestigation',
+                       'analytics/investigation/intake/1.0',
+                       parameters = { 'ttl' : ( 60 * 60 * 24 ) },
+                       secretIdent = 'analysis/038528f5-5135-4ca8-b79f-d6b8ffc53bf5',
+                       trustedIdents = [ 'intake/6058e556-a102-4e51-918e-d36d6d1823db' ],
+                       n_concurrent = 5 ) )
+
+#######################################
 # ModelView
 # This actor is responsible to query
 # the model to retrieve different
@@ -225,6 +242,25 @@ print( beach.addActor( 'analytics/AutoTasking',
                                       'log_file' : './admin_cli.log' },
                        secretIdent = 'autotasking/a6cd8d9a-a90c-42ec-bd60-0519b6fb1f64',
                        trustedIdents = [ 'analysis/038528f5-5135-4ca8-b79f-d6b8ffc53bf5' ],
+                       n_concurrent = 5 ) )
+
+#######################################
+# HuntsManager
+# This actor manages the registration
+# and configuration of the various
+# automated hunts.
+# Parameters:
+# beach_config: the path to the beach
+#    config file.
+#######################################
+print( beach.addActor( 'analytics/HuntsManager',
+                       'analytics/huntsmanager/1.0',
+                       parameters = { '_hbs_key' : open( os.path.join( REPO_ROOT,
+                                                                       'keys',
+                                                                       'hbs_root.priv.der' ), 'r' ).read(),
+                                      'beach_config' : BEACH_CONFIG_FILE },
+                       secretIdent = 'huntsmanager/d666cbc3-38d5-4086-b9ce-c543625ee45c',
+                       trustedIdents = [ 'hunt/8e0f55c0-6593-4747-9d02-a4937fa79517' ],
                        n_concurrent = 5 ) )
 
 ###############################################################################
@@ -478,3 +514,8 @@ print( beach.addActor( 'analytics/stateful/MacReconTools',
                        secretIdent = 'analysis/038528f5-5135-4ca8-b79f-d6b8ffc53bf5',
                        trustedIdents = [ 'analysis/038528f5-5135-4ca8-b79f-d6b8ffc53bf5' ],
                        n_concurrent = 5 ) )
+
+###############################################################################
+# Hunts
+###############################################################################
+
