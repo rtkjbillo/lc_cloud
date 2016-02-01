@@ -17,7 +17,7 @@ from beach.beach_api import Beach
 
 from sets import Set
 
-class AutoTasking( Actor ):
+class HuntsManager( Actor ):
     def init( self, parameters ):
         self.beach_api = Beach( parameters[ 'beach_config' ], realm = 'hcp' )
         self.handle( 'reg_detect', self.handleRegDetect )

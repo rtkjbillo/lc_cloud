@@ -150,7 +150,8 @@ print( beach.addActor( 'analytics/AnalyticsReporting',
                                       'max_concurrent' : 5,
                                       'block_on_queue_size' : 200000 },
                        secretIdent = 'reporting/9ddcc95e-274b-4a49-a003-c952d12049b8',
-                       trustedIdents = [ 'analysis/038528f5-5135-4ca8-b79f-d6b8ffc53bf5' ],
+                       trustedIdents = [ 'analysis/038528f5-5135-4ca8-b79f-d6b8ffc53bf5',
+                                         'hunt/8e0f55c0-6593-4747-9d02-a4937fa79517' ],
                        n_concurrent = 5,
                        isIsolated = True ) )
 
@@ -198,7 +199,8 @@ print( beach.addActor( 'analytics/ModelView',
                                       'rate_limit_per_sec' : 500,
                                       'max_concurrent' : 10,
                                       'beach_config' : BEACH_CONFIG_FILE },
-                       trustedIdents = [ 'lc/0bf01f7e-62bd-4cc4-9fec-4c52e82eb903' ],
+                       trustedIdents = [ 'lc/0bf01f7e-62bd-4cc4-9fec-4c52e82eb903',
+                                         'hunt/8e0f55c0-6593-4747-9d02-a4937fa79517' ],
                        n_concurrent = 5,
                        isIsolated = True ) )
 
@@ -229,7 +231,7 @@ print( beach.addActor( 'analytics/AutoTasking',
                                       'allowed' : [ 'file_info',
                                                     'file_hash',
                                                     'mem_map',
-                                                    'mem_string',
+                                                    'mem_strings',
                                                     'mem_handles',
                                                     'os_processes',
                                                     'hidden_module_scan',
@@ -241,7 +243,8 @@ print( beach.addActor( 'analytics/AutoTasking',
                                                     'hollowed_module_scan' ],
                                       'log_file' : './admin_cli.log' },
                        secretIdent = 'autotasking/a6cd8d9a-a90c-42ec-bd60-0519b6fb1f64',
-                       trustedIdents = [ 'analysis/038528f5-5135-4ca8-b79f-d6b8ffc53bf5' ],
+                       trustedIdents = [ 'analysis/038528f5-5135-4ca8-b79f-d6b8ffc53bf5',
+                                         'hunt/8e0f55c0-6593-4747-9d02-a4937fa79517' ],
                        n_concurrent = 5 ) )
 
 #######################################
@@ -518,4 +521,9 @@ print( beach.addActor( 'analytics/stateful/MacReconTools',
 ###############################################################################
 # Hunts
 ###############################################################################
-
+print( beach.addActor( 'analytics/hunt/SampleHunt',
+                       'analytics/hunt/samplehunt/1.0',
+                       parameters = {  },
+                       secretIdent = 'hunt/8e0f55c0-6593-4747-9d02-a4937fa79517',
+                       trustedIdents = [ 'analysis/038528f5-5135-4ca8-b79f-d6b8ffc53bf5' ],
+                       n_concurrent = 5 ) )
