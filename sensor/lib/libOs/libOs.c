@@ -45,6 +45,7 @@ limitations under the License.
 #include <mach/mach_init.h>
 #include <mach/thread_act.h>
 #include <mach/mach_port.h>
+#include <mach/task.h>
 #endif
 #endif
 

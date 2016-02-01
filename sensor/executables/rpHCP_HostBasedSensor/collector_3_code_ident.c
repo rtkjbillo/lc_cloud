@@ -32,7 +32,7 @@ typedef struct
 
 } CodeIdent;
 
-static rBloom knownCode = NULL;
+static rBloom g_knownCode = NULL;
 
 
 static
@@ -64,7 +64,7 @@ RVOID
         rpal_memory_memcpy( ident.fileHash, pFileHash, CRYPTOLIB_HASH_SIZE );
     }
 
-    if( rpal_bloom_addIfNew( knownCode, &ident, sizeof( ident ) ) )
+    if( rpal_bloom_addIfNew( g_knownCode, &ident, sizeof( ident ) ) )
     {
         if( NULL != ( notif = rSequence_new() ) )
         {
@@ -126,7 +126,7 @@ RVOID
         rpal_memory_memcpy( ident.fileHash, pFileHash, CRYPTOLIB_HASH_SIZE );
     }
 
-    if( rpal_bloom_addIfNew( knownCode, &ident, sizeof( ident ) ) )
+    if( rpal_bloom_addIfNew( g_knownCode, &ident, sizeof( ident ) ) )
     {
         if( NULL != ( notif = rSequence_new() ) )
         {
@@ -273,7 +273,7 @@ RBOOL
 
     if( NULL != hbsState )
     {
-        if( NULL != ( knownCode = rpal_bloom_create( 50000, 0.00001 ) ) )
+        if( NULL != ( g_knownCode = rpal_bloom_create( 50000, 0.00001 ) ) )
         {
             isSuccess = FALSE;
 
@@ -285,7 +285,7 @@ RBOOL
             else
             {
                 notifications_unsubscribe( RP_TAGS_NOTIFICATION_MODULE_LOAD, NULL, processNewModule );
-                rpal_bloom_destroy( knownCode );
+                rpal_bloom_destroy( g_knownCode );
             }
         }
     }
@@ -312,8 +312,8 @@ RBOOL
             isSuccess = TRUE;
         }
 
-        rpal_bloom_destroy( knownCode );
-        knownCode = NULL;
+        rpal_bloom_destroy( g_knownCode );
+        g_knownCode = NULL;
     }
 
     return isSuccess;
