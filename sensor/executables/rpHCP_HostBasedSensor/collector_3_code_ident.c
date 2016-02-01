@@ -33,6 +33,7 @@ typedef struct
 } CodeIdent;
 
 static rBloom g_knownCode = NULL;
+static rMutex g_mutex = NULL;
 
 
 static
@@ -64,37 +65,46 @@ RVOID
         rpal_memory_memcpy( ident.fileHash, pFileHash, CRYPTOLIB_HASH_SIZE );
     }
 
-    if( rpal_bloom_addIfNew( g_knownCode, &ident, sizeof( ident ) ) )
+    if( rMutex_lock( g_mutex ) )
     {
-        if( NULL != ( notif = rSequence_new() ) )
+        if( rpal_bloom_addIfNew( g_knownCode, &ident, sizeof( ident ) ) )
         {
-            hbs_markAsRelated( originalEvent, notif );
+            rMutex_unlock( g_mutex );
 
-            if( rSequence_addSTRINGW( notif, RP_TAGS_FILE_PATH, name ) &&
-                rSequence_addRU32( notif, RP_TAGS_MEMORY_SIZE, (RU32)codeSize ) &&
-                rSequence_addTIMESTAMP( notif, RP_TAGS_TIMESTAMP, rpal_time_getGlobal() ) )
+            if( NULL != ( notif = rSequence_new() ) )
             {
-                if( NULL != pFileHash )
-                {
-                    rSequence_addBUFFER( notif, RP_TAGS_HASH, pFileHash, CRYPTOLIB_HASH_SIZE );
-                }
+                hbs_markAsRelated( originalEvent, notif );
 
-                if( libOs_getSignature( name, 
-                                        &sig, 
-                                        ( OSLIB_SIGNCHECK_NO_NETWORK | OSLIB_SIGNCHECK_CHAIN_VERIFICATION ), 
-                                        &isSigned, 
-                                        &isVerifiedLocal, 
-                                        &isVerifiedGlobal ) )
+                if( rSequence_addSTRINGW( notif, RP_TAGS_FILE_PATH, name ) &&
+                    rSequence_addRU32( notif, RP_TAGS_MEMORY_SIZE, (RU32)codeSize ) &&
+                    rSequence_addTIMESTAMP( notif, RP_TAGS_TIMESTAMP, rpal_time_getGlobal() ) )
                 {
-                    if( !rSequence_addSEQUENCE( notif, RP_TAGS_SIGNATURE, sig ) )
+                    if( NULL != pFileHash )
                     {
-                        rSequence_free( sig );
+                        rSequence_addBUFFER( notif, RP_TAGS_HASH, pFileHash, CRYPTOLIB_HASH_SIZE );
                     }
-                }
 
-                notifications_publish( RP_TAGS_NOTIFICATION_CODE_IDENTITY, notif );
+                    if( libOs_getSignature( name,
+                        &sig,
+                        ( OSLIB_SIGNCHECK_NO_NETWORK | OSLIB_SIGNCHECK_CHAIN_VERIFICATION ),
+                        &isSigned,
+                        &isVerifiedLocal,
+                        &isVerifiedGlobal ) )
+                    {
+                        if( !rSequence_addSEQUENCE( notif, RP_TAGS_SIGNATURE, sig ) )
+                        {
+                            rSequence_free( sig );
+                        }
+                    }
+
+                    notifications_publish( RP_TAGS_NOTIFICATION_CODE_IDENTITY, notif );
+                }
+                rSequence_free( notif );
             }
-            rSequence_free( notif );
+        }
+        else
+        {
+            rMutex_unlock( g_mutex );
         }
     }
 }
@@ -126,37 +136,46 @@ RVOID
         rpal_memory_memcpy( ident.fileHash, pFileHash, CRYPTOLIB_HASH_SIZE );
     }
 
-    if( rpal_bloom_addIfNew( g_knownCode, &ident, sizeof( ident ) ) )
+    if( rMutex_lock( g_mutex ) )
     {
-        if( NULL != ( notif = rSequence_new() ) )
+        if( rpal_bloom_addIfNew( g_knownCode, &ident, sizeof( ident ) ) )
         {
-            hbs_markAsRelated( originalEvent, notif );
+            rMutex_unlock( g_mutex );
 
-            if( rSequence_addSTRINGA( notif, RP_TAGS_FILE_NAME, name ) &&
-                rSequence_addRU32( notif, RP_TAGS_MEMORY_SIZE, (RU32)codeSize ) &&
-                rSequence_addTIMESTAMP( notif, RP_TAGS_TIMESTAMP, rpal_time_getGlobal() ) )
+            if( NULL != ( notif = rSequence_new() ) )
             {
-                if( NULL != pFileHash )
-                {
-                    rSequence_addBUFFER( notif, RP_TAGS_HASH, pFileHash, CRYPTOLIB_HASH_SIZE );
-                }
+                hbs_markAsRelated( originalEvent, notif );
 
-                if( NULL != ( wPath = rpal_string_atow( name ) ) )
+                if( rSequence_addSTRINGA( notif, RP_TAGS_FILE_NAME, name ) &&
+                    rSequence_addRU32( notif, RP_TAGS_MEMORY_SIZE, (RU32)codeSize ) &&
+                    rSequence_addTIMESTAMP( notif, RP_TAGS_TIMESTAMP, rpal_time_getGlobal() ) )
                 {
-                    if( libOs_getSignature( wPath, &sig, OSLIB_SIGNCHECK_NO_NETWORK, NULL, NULL, NULL ) )
+                    if( NULL != pFileHash )
                     {
-                        if( !rSequence_addSEQUENCE( notif, RP_TAGS_SIGNATURE, sig ) )
-                        {
-                            rSequence_free( sig );
-                        }
+                        rSequence_addBUFFER( notif, RP_TAGS_HASH, pFileHash, CRYPTOLIB_HASH_SIZE );
                     }
 
-                    rpal_memory_free( wPath );
-                }
+                    if( NULL != ( wPath = rpal_string_atow( name ) ) )
+                    {
+                        if( libOs_getSignature( wPath, &sig, OSLIB_SIGNCHECK_NO_NETWORK, NULL, NULL, NULL ) )
+                        {
+                            if( !rSequence_addSEQUENCE( notif, RP_TAGS_SIGNATURE, sig ) )
+                            {
+                                rSequence_free( sig );
+                            }
+                        }
 
-                notifications_publish( RP_TAGS_NOTIFICATION_CODE_IDENTITY, notif );
+                        rpal_memory_free( wPath );
+                    }
+
+                    notifications_publish( RP_TAGS_NOTIFICATION_CODE_IDENTITY, notif );
+                }
+                rSequence_free( notif );
             }
-            rSequence_free( notif );
+        }
+        else
+        {
+            rMutex_unlock( g_mutex );
         }
     }
 }
@@ -273,19 +292,29 @@ RBOOL
 
     if( NULL != hbsState )
     {
-        if( NULL != ( g_knownCode = rpal_bloom_create( 50000, 0.00001 ) ) )
+        if( NULL != ( g_mutex = rMutex_create() ) )
         {
-            isSuccess = FALSE;
-
-            if( notifications_subscribe( RP_TAGS_NOTIFICATION_NEW_PROCESS, NULL, 0, NULL, processNewProcesses ) &&
-                notifications_subscribe( RP_TAGS_NOTIFICATION_MODULE_LOAD, NULL, 0, NULL, processNewModule ) )
+            if( NULL != ( g_knownCode = rpal_bloom_create( 50000, 0.00001 ) ) )
             {
-                isSuccess = TRUE;
+                isSuccess = FALSE;
+
+                if( notifications_subscribe( RP_TAGS_NOTIFICATION_NEW_PROCESS, NULL, 0, NULL, processNewProcesses ) &&
+                    notifications_subscribe( RP_TAGS_NOTIFICATION_MODULE_LOAD, NULL, 0, NULL, processNewModule ) )
+                {
+                    isSuccess = TRUE;
+                }
+                else
+                {
+                    notifications_unsubscribe( RP_TAGS_NOTIFICATION_MODULE_LOAD, NULL, processNewModule );
+                    rpal_bloom_destroy( g_knownCode );
+                    rMutex_free( g_mutex );
+                    g_mutex = NULL;
+                }
             }
             else
             {
-                notifications_unsubscribe( RP_TAGS_NOTIFICATION_MODULE_LOAD, NULL, processNewModule );
-                rpal_bloom_destroy( g_knownCode );
+                rMutex_free( g_mutex );
+                g_mutex = NULL;
             }
         }
     }
@@ -314,6 +343,9 @@ RBOOL
 
         rpal_bloom_destroy( g_knownCode );
         g_knownCode = NULL;
+
+        rMutex_free( g_mutex );
+        g_mutex = NULL;
     }
 
     return isSuccess;
