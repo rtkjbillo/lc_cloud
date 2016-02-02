@@ -33,7 +33,7 @@ class SampleHunt ( Hunt ):
             detect = context[ 'detect' ]
             pid = _x_( detect, '?/base.PROCESS_ID' )
 
-            self.task( source, ( ( 'mem_strings', pid ), ), expiry = 60, inv_id = inv_id )
+            self.task( source, ( ( 'mem_map', pid ), ), expiry = 60, inv_id = inv_id )
         else:
             # Detection and investigation has started
             routing, event, mtd = newMsg
