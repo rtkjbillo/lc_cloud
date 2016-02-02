@@ -69,13 +69,17 @@ $var title = 'Detect'
                         $tsToTime( event[ 1 ] / 1000 )
                     </td>
                     <td>
-                        $event[ 3 ]
+                        $event[ 3 ].replace('notification.', '')
                     </td>
                     <td style="text-align: left;">
                         <pre>
-                            <code>
+                            $ details = json.dumps( event[ 2 ], indent = 2 )
+                            $if 4096 > len(details):
+                                <code>
+                                    $json.dumps( event[ 2 ], indent = 2 )
+                                </code>
+                            $else:
                                 $json.dumps( event[ 2 ], indent = 2 )
-                            </code>
                         </pre>
                     </td>
                 </tr>
