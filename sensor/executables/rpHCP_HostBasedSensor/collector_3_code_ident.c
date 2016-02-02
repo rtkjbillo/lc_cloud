@@ -85,11 +85,11 @@ RVOID
                     }
 
                     if( libOs_getSignature( name,
-                        &sig,
-                        ( OSLIB_SIGNCHECK_NO_NETWORK | OSLIB_SIGNCHECK_CHAIN_VERIFICATION ),
-                        &isSigned,
-                        &isVerifiedLocal,
-                        &isVerifiedGlobal ) )
+                                            &sig,
+                                            ( OSLIB_SIGNCHECK_NO_NETWORK | OSLIB_SIGNCHECK_CHAIN_VERIFICATION ),
+                                            &isSigned,
+                                            &isVerifiedLocal,
+                                            &isVerifiedGlobal ) )
                     {
                         if( !rSequence_addSEQUENCE( notif, RP_TAGS_SIGNATURE, sig ) )
                         {

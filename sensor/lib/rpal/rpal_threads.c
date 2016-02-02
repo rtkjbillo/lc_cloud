@@ -751,6 +751,7 @@ RVOID
     _rThreadPool* p = (_rThreadPool*)pool;
 
     _rThreadPoolThread tmpThread = {0};
+    RU32 i = 0;
 
     if( rpal_memory_isValid( pool ) )
     {
@@ -776,6 +777,15 @@ RVOID
         {
             p->nThreads = 0;
             rMutex_unlock( p->counterMutex );
+        }
+
+        // First we signal all the threads, then we wait.
+        for( i = 0; i < rStack_getSize( p->hThreads ); i++ )
+        {
+            if( rStack_atIndex( p->hThreads, i, &tmpThread ) )
+            {
+                rEvent_set( tmpThread.timeToStopEvent );
+            }
         }
 
         while( rStack_pop( p->hThreads, &tmpThread ) )

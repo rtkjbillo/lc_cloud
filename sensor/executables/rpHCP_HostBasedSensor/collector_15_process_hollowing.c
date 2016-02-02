@@ -150,7 +150,8 @@ HObs
     _getModuleDiskStringSample
     (
         RPWCHAR modulePath,
-        RU32* pLastScratch
+        RU32* pLastScratch,
+        rEvent isTimeToStop
     )
 {
     HObs sample = NULL;
@@ -165,6 +166,7 @@ HObs
     RPU8 sampleNumber = 0;
     rBloom stringsSeen = NULL;
     RU64 readOffset = 0;
+    RU32 nThString = 0;
 
     if( NULL != modulePath &&
         NULL != pLastScratch )
@@ -178,8 +180,8 @@ HObs
                                                     RPAL_FILE_OPEN_READ ) )
                 {
                     if( readOffset == rFile_seek( hFile, 
-                                                    readOffset, 
-                                                    rFileSeek_SET ) &&
+                                                  readOffset, 
+                                                  rFileSeek_SET ) &&
                         0 != ( read = rFile_readUpTo( hFile, _SCRATCH_SIZE, scratch ) ) )
                     {
                         if( NULL != ( sample = obsLib_new( _MAX_DISK_SAMPLE_SIZE, 0 ) ) )
@@ -191,23 +193,26 @@ HObs
                             // We parse for strings up to 'read', we don't care about the 
                             // memory boundary, we might truncate some strings but we're
                             // sampling anyway.
-                            while( ( start >= scratch ) && ( start >= scratch ) &&
-                                ( start + _MIN_SAMPLE_STR_LEN ) < ( scratch + read ) &&
-                                _MAX_DISK_SAMPLE_SIZE >= PTR_TO_NUMBER( sampleNumber ) )
+                            while( !rEvent_wait( isTimeToStop, 0 ) &&
+                                   ( start >= scratch ) && ( start >= scratch ) &&
+                                   ( start + _MIN_SAMPLE_STR_LEN ) < ( scratch + read ) &&
+                                   _MAX_DISK_SAMPLE_SIZE >= PTR_TO_NUMBER( sampleNumber ) )
                             {
+                                nThString++;
+
                                 isUnicode = FALSE;
 
                                 if( _longestString( (RPCHAR)start,
-                                    (RU32)( end - start ),
-                                    &toSkip,
-                                    &longestLength,
-                                    &isUnicode ) &&
+                                                    (RU32)( end - start ),
+                                                    &toSkip,
+                                                    &longestLength,
+                                                    &isUnicode ) &&
                                     _MIN_SAMPLE_STR_LEN <= longestLength &&
                                     _MAX_SAMPLE_STR_LEN >= longestLength )
                                 {
                                     if( rpal_bloom_addIfNew( stringsSeen,
-                                        start,
-                                        longestLength ) )
+                                                             start,
+                                                             longestLength ) )
                                     {
                                         /*
                                         if( isUnicode )
@@ -221,9 +226,9 @@ HObs
                                         */
 
                                         if( obsLib_addPattern( sample,
-                                            start,
-                                            longestLength,
-                                            sampleNumber ) )
+                                                               start,
+                                                               longestLength,
+                                                               sampleNumber ) )
                                         {
                                             sampleNumber++;
                                         }
@@ -244,6 +249,11 @@ HObs
                                 }
 
                                 start += toSkip;
+
+                                if( 0 == ( nThString % 20 ) )
+                                {
+                                    rEvent_wait( isTimeToStop, 1 );
+                                }
                             }
                         }
                     }
@@ -388,7 +398,8 @@ rList
 
                         while( !rEvent_wait( isTimeToStop, 0 ) &&
                             NULL != ( diskSample = _getModuleDiskStringSample( modulePathW,
-                                                                               &lastScratchIndex ) ) )
+                                                                               &lastScratchIndex,
+                                                                               isTimeToStop ) ) )
                         {
                             tmpSamplesSize = obsLib_getNumPatterns( diskSample );
 
@@ -759,7 +770,10 @@ RBOOL
 
     if( notifications_unsubscribe( RP_TAGS_NOTIFICATION_NEW_PROCESS, 
                                    g_newProcessNotifications, 
-                                   NULL ) )
+                                   NULL ) &&
+        notifications_unsubscribe( RP_TAGS_NOTIFICATION_MODULE_MEM_DISK_MISMATCH_REQ,
+                                   NULL,
+                                   scan_for_hollowing ) )
     {
         if( rQueue_free( g_newProcessNotifications ) )
         {

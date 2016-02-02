@@ -18,6 +18,7 @@ limitations under the License.
 #include <librpcm/librpcm.h>
 #include "collectors.h"
 #include <notificationsLib/notificationsLib.h>
+#include <processLib/processLib.h>
 #include <rpHostCommonPlatformLib/rTags.h>
 
 #ifdef RPAL_PLATFORM_WINDOWS
@@ -30,15 +31,14 @@ limitations under the License.
 
 typedef struct
 {
-    RU64 fuzz; // This is a predictable hash-ish value used to balance the btree naturally
     RU32 procId;
     RU64 baseAddr;
-    RU32 size;
+    RU64 size;
 } _moduleHistEntry;
 
 static
 RS32
-    _isModule
+    _cmpModule
     (
         _moduleHistEntry* m1,
         _moduleHistEntry* m2
@@ -55,36 +55,6 @@ RS32
     return ret;
 }
 
-
-
-#ifdef RPAL_PLATFORM_WINDOWS
-static
-RVOID
-    _notifyOfNewModule
-    (
-        MODULEENTRY32W* entry
-    )
-{
-    rSequence notif = NULL;
-
-    if( NULL != entry &&
-        NULL != ( notif = rSequence_new() ) )
-    {
-        if( rSequence_addRU32( notif, RP_TAGS_PROCESS_ID, entry->th32ProcessID ) &&
-            rSequence_addSTRINGW( notif, RP_TAGS_MODULE_NAME, entry->szModule ) &&
-            rSequence_addSTRINGW( notif, RP_TAGS_FILE_PATH, entry->szExePath ) &&
-            rSequence_addPOINTER64( notif, RP_TAGS_BASE_ADDRESS, (RU64)entry->modBaseAddr ) &&
-            rSequence_addRU64( notif, RP_TAGS_MEMORY_SIZE, entry->modBaseSize ) &&
-            rSequence_addTIMESTAMP( notif, RP_TAGS_TIMESTAMP, rpal_time_getGlobal() ) )
-        {
-            notifications_publish( RP_TAGS_NOTIFICATION_MODULE_LOAD, notif );
-        }
-
-        rSequence_free( notif );
-    }
-}
-#endif
-
 static
 RPVOID
     diffProcessModules
@@ -93,90 +63,91 @@ RPVOID
         RPVOID ctx
     )
 {
-    RBOOL isFirstRun = TRUE;
-    rBTree previousSnapshot = NULL;
-    rBTree newSnapshot = NULL;
+    rBlob previousSnapshot = NULL;
+    rBlob newSnapshot = NULL;
     _moduleHistEntry curModule = { 0 };
-
-#ifdef RPAL_PLATFORM_WINDOWS
-    HANDLE hSnapshotProc = NULL;
-    HANDLE hSnapshotMod = NULL;
-    MODULEENTRY32W modEntry = { 0 };
-    PROCESSENTRY32W procEntry = { 0 };
-    modEntry.dwSize = sizeof( modEntry );
-    procEntry.dwSize = sizeof( procEntry );
-#endif
+    processLibProcEntry* processes = NULL;
+    processLibProcEntry* curProc = NULL;
+    rList modules = NULL;
+    rSequence module = NULL;
 
     UNREFERENCED_PARAMETER( ctx );
 
     while( rpal_memory_isValid( isTimeToStop ) &&
-          !rEvent_wait( isTimeToStop, 0 ) )
+           !rEvent_wait( isTimeToStop, 0 ) )
     {
-        newSnapshot = rpal_btree_create( sizeof( curModule ), (rpal_btree_comp_f)_isModule, NULL );
-
-#ifdef RPAL_PLATFORM_WINDOWS
-        if( INVALID_HANDLE_VALUE != ( hSnapshotProc = CreateToolhelp32Snapshot( TH32CS_SNAPPROCESS, 0 ) ) )
+        if( NULL != ( processes = processLib_getProcessEntries( FALSE ) ) )
         {
-            if( Process32FirstW( hSnapshotProc, &procEntry ) )
+            if( NULL != ( newSnapshot = rpal_blob_create( 1000 * sizeof( _moduleHistEntry ),
+                                                          1000 * sizeof( _moduleHistEntry ) ) ) )
             {
-                do
+                curProc = processes;
+                while( rpal_memory_isValid( isTimeToStop ) &&
+                       !rEvent_wait( isTimeToStop, 0 ) &&
+                       0 != curProc->pid )
                 {
-                    if( 0 == procEntry.th32ProcessID )
+                    if( NULL != ( modules = processLib_getProcessModules( curProc->pid ) ) )
                     {
-                        continue;
-                    }
-
-                    curModule.procId = procEntry.th32ProcessID;
-
-                    if( INVALID_HANDLE_VALUE != ( hSnapshotMod = CreateToolhelp32Snapshot( TH32CS_SNAPMODULE32 | TH32CS_SNAPMODULE,
-                        procEntry.th32ProcessID ) ) )
-                    {
-                        if( Module32FirstW( hSnapshotMod, &modEntry ) )
+                        while( rpal_memory_isValid( isTimeToStop ) &&
+                               !rEvent_wait( isTimeToStop, 20 ) &&
+                               rList_getSEQUENCE( modules, RP_TAGS_DLL, &module ) )
                         {
-                            do
+                            if( rSequence_getPOINTER64( module,
+                                                        RP_TAGS_BASE_ADDRESS, 
+                                                        &( curModule.baseAddr ) ) &&
+                                rSequence_getRU64( module, 
+                                                   RP_TAGS_MEMORY_SIZE, 
+                                                   &(curModule.size) ) )
                             {
-                                curModule.baseAddr = (RU64)modEntry.modBaseAddr;
-                                curModule.size = modEntry.modBaseSize;
-                                curModule.fuzz = curModule.baseAddr | ( (RU64)( curModule.procId ^ curModule.size ) << 32 );
-
-                                if( !isFirstRun )
+                                curModule.procId = curProc->pid;
+                                rpal_blob_add( newSnapshot, &curModule, sizeof( curModule ) );
+                                if( NULL != previousSnapshot &&
+                                    -1 == rpal_binsearch_array( rpal_blob_getBuffer( previousSnapshot ),
+                                                                rpal_blob_getSize( previousSnapshot ) /
+                                                                    sizeof( _moduleHistEntry ),
+                                                                sizeof( _moduleHistEntry ),
+                                                                &curModule, 
+                                                                (rpal_ordering_func)_cmpModule ) )
                                 {
-                                    if( !rpal_btree_search( previousSnapshot, &curModule, NULL, TRUE ) )
-                                    {
-                                        _notifyOfNewModule( &modEntry );
-                                    }
+                                    rSequence_addTIMESTAMP( module,
+                                                            RP_TAGS_TIMESTAMP,
+                                                            rpal_time_getGlobal() );
+                                    notifications_publish( RP_TAGS_NOTIFICATION_MODULE_LOAD,
+                                                           module );
                                 }
-
-                                rpal_btree_add( newSnapshot, &curModule, TRUE );
-                            } while( rpal_memory_isValid( isTimeToStop ) &&
-                                     !rEvent_wait( isTimeToStop, 20 ) &&
-                                     Module32NextW( hSnapshotMod, &modEntry ) );
+                            }
                         }
 
-                        CloseHandle( hSnapshotMod );
+                        rList_free( modules );
                     }
-                } while( Process32NextW( hSnapshotProc, &procEntry ) );
+
+                    curProc++;
+                }
+
+                if( !rpal_sort_array( rpal_blob_getBuffer( newSnapshot ),
+                                      rpal_blob_getSize( newSnapshot ) / sizeof( _moduleHistEntry ),
+                                      sizeof( _moduleHistEntry ),
+                                      (rpal_ordering_func)_cmpModule ) )
+                {
+                    rpal_debug_warning( "error sorting modules" );
+                }
             }
 
-            CloseHandle( hSnapshotProc );
+            rpal_memory_free( processes );
         }
-#endif
 
         if( NULL != previousSnapshot )
         {
-            rpal_btree_destroy( previousSnapshot, TRUE );
+            rpal_blob_free( previousSnapshot );
         }
-
         previousSnapshot = newSnapshot;
         newSnapshot = NULL;
-
-        if( isFirstRun )
-        {
-            isFirstRun = FALSE;
-        }
     }
 
-    rpal_btree_destroy( previousSnapshot, TRUE );
+    if( NULL != previousSnapshot )
+    {
+        rpal_blob_free( previousSnapshot );
+    }
 
     return NULL;
 }
