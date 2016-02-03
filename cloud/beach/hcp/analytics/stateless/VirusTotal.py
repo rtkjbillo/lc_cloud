@@ -23,12 +23,13 @@ class VirusTotal ( StatelessActor ):
         super( VirusTotal, self ).init( parameters )
 
         self.key = parameters.get( '_key', None )
-        if self.key is None: raise Exception( 'missing API key' )
+        if self.key is None: self.logCritical( 'missing API key' )
 
         # Maximum number of queries per minute
         self.qpm = parameters.get( 'qpm', 4 )
 
-        self.vt = virustotal.VirusTotal( self.key, limit_per_min = self.qpm )
+        if self.key is not None:
+            self.vt = virustotal.VirusTotal( self.key, limit_per_min = self.qpm )
 
         # Minimum number of AVs saying it's a hit before we flag it
         self.threshold = parameters.get( 'min_av', 5 )
@@ -41,6 +42,8 @@ class VirusTotal ( StatelessActor ):
         # Todo: move from RingCache to using Cassandra as larger cache
 
     def process( self, msg ):
+        if self.key is None: return []
+
         routing, event, mtd = msg.data
         detects = []
         retries = 0
