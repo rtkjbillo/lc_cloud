@@ -123,16 +123,13 @@ void
 
 #ifdef RPAL_PLATFORM_WINDOWS
 	// Windows signed file
-	rList_addSTRINGW( filePaths, _WCH( "C:\\WINDOWS\\system32\\smss.exe" ) );
+	rList_addSTRINGW( filePaths, _WCH( "C:\\WINDOWS\\system32\\Taskmgr.exe" ) );
 	rList_addSTRINGW( filePaths, _WCH( "C:\\Program Files\\Internet Explorer\\iexplore.exe" ) );
 
 	// Catalogs files
 	rList_addSTRINGW( filePaths, _WCH( "C:\\WINDOWS\\explorer.exe" ) );
 	rList_addSTRINGW( filePaths, _WCH( "C:\\WINDOWS\\system32\\calc.exe" ) );
 	rList_addSTRINGW( filePaths, _WCH( "C:\\WINDOWS\\system32\\cmd.exe" ) );
-
-	// ThirdParty
-	rList_addSTRINGW( filePaths, _WCH( "C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe" ) );
 #endif
 
     while( rList_getSTRINGW( filePaths, RP_TAGS_FILE_PATH, &filePath ) )
@@ -161,7 +158,7 @@ int
     )
 {
     int ret = 1;
-
+    
     CU_pSuite suite = NULL;
 #ifdef RPAL_PLATFORM_WINDOWS
     RCHAR strSeDebug[] = "SeDebugPrivilege";
@@ -171,10 +168,9 @@ int
     UNREFERENCED_PARAMETER( argv );
 
     rpal_initialize( NULL, 1 );
-
     CU_initialize_registry();
 
-    if( NULL != ( suite = CU_add_suite( "raptd", NULL, NULL ) ) )
+    if( NULL != ( suite = CU_add_suite( "libOs", NULL, NULL ) ) )
     {
         if( NULL == CU_add_test( suite, "signCheck", test_signCheck ) )
         {

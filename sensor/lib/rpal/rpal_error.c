@@ -32,6 +32,7 @@ RERROR rpal_error_rErrorFromOsError( RU32 osError )
         case EBUSY : err = RPAL_ERROR_BUSY; break;
 
         // todo: add more unix error to rpal error conversions...
+        default: err = osError; break;
     }
 
     return err;
@@ -45,6 +46,15 @@ RERROR rpal_error_getLast()
     return GetLastError();
 #elif defined( RPAL_PLATFORM_LINUX ) || defined( RPAL_PLATFORM_MACOSX )
     return rpal_error_rErrorFromOsError( errno );
+#endif
+}
+
+RVOID rpal_error_setLast( RERROR err )
+{
+#ifdef RPAL_PLATFORM_WINDOWS
+    SetLastError( err );
+#elif defined( RPAL_PLATFORM_LINUX ) || defined( RPAL_PLATFORM_MACOSX )
+    errno = err;
 #endif
 }
 

@@ -45,7 +45,7 @@ class AnalyticsReporting( Actor ):
         category = msg.data[ 'cat' ]
         source = msg.data[ 'source' ]
         detect = base64.b64encode( msgpack.packb( msg.data[ 'detect' ] ) )
-        report_id = msg.data[ 'report_id' ]
+        report_id = msg.data[ 'report_id' ].upper()
 
         self.db.execute_async( self.report_stmt_rep.bind( ( report_id, source, category, ' / '.join( event_ids ), detect ) ) )
         self.db.execute_async( self.report_stmt_tl.bind( ( random.randint( 0, 255 ), report_id ) ) )

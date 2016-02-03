@@ -414,6 +414,9 @@ RU32
     RU32 crashContextSize = 0;
     RU8 defaultCrashContext = 1;
 
+    RTIME curLocalTime = 0;
+    RTIME lastLocalTime = rpal_time_getLocal();
+
     UNREFERENCED_PARAMETER( context );
 
     // First let's check if we have a crash context already present
@@ -478,6 +481,18 @@ RU32
         // Sleep for 1 second, we aproximate beacon times
         rpal_thread_sleep( 1 * 1000 );
         if( 0 != g_hcpContext.beaconTimeout ){ g_hcpContext.beaconTimeout--; }
+
+        // We look for major drift of the clock that might indicate
+        // we're on a VM or laptop that went to sleep. In those cases
+        // we assume major change indicates that the host has a decent
+        // time source and it's safer to reset the global time offset to
+        // zero instead of having very large offsets.
+        curLocalTime = rpal_time_getLocal();
+        if( curLocalTime > ( lastLocalTime + ( 60 * 10 ) ) )
+        {
+            rpal_time_setGlobalOffset( 0 );
+        }
+        lastLocalTime = curLocalTime;
     }
 
     return status;
@@ -1056,7 +1071,7 @@ RBOOL
 {
     RBOOL isSuccess = FALSE;
     CURL* curlCtx = NULL;
-    RU32 timeout = ( 1000 * 10 );
+    RU32 timeout = ( 1000 * 60 );
     RCHAR userAgent[] = "rpHCP";
     rBlob dataReceived = NULL;
     RBOOL isDataReturned = FALSE;
@@ -1071,6 +1086,7 @@ RBOOL
                 rpal_debug_info( "posting to %s", location );
                 
                 if( CURLE_OK == ( curlError = curl_easy_setopt( curlCtx, CURLOPT_URL, location ) ) &&
+                    CURLE_OK == ( curlError = curl_easy_setopt( curlCtx, CURLOPT_TIMEOUT_MS, timeout ) ) &&
                     CURLE_OK == ( curlError = curl_easy_setopt( curlCtx, CURLOPT_USERAGENT, userAgent ) ) &&
                     CURLE_OK == ( curlError = curl_easy_setopt( curlCtx, CURLOPT_POSTFIELDS, params ) ) &&
                     CURLE_OK == ( curlError = curl_easy_setopt( curlCtx, CURLOPT_WRITEFUNCTION, (RPVOID)_curlToBuffer ) ) &&

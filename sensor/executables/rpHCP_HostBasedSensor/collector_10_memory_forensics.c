@@ -272,10 +272,20 @@ rSequence
                     if( rSequence_getPOINTER64( region, RP_TAGS_BASE_ADDRESS, &memBase ) &&
                         rSequence_getRU64( region, RP_TAGS_MEMORY_SIZE, &memSize ) )
                     {
-                        if( processLib_getProcessMemory( pid, (RPVOID)rpal_ULongToPtr( memBase ), memSize, (RPVOID*)&pRegion ) )
+                        if( processLib_getProcessMemory( pid, 
+                                                         (RPVOID)rpal_ULongToPtr( memBase ), 
+                                                         memSize, 
+                                                         (RPVOID*)&pRegion, 
+                                                         TRUE ) )
                         {
                             // now search for strings inside this region
-                            _searchForStrings( stringsFound, searchStrings, pRegion, memSize, memBase, minLength, maxLength);
+                            _searchForStrings( stringsFound, 
+                                               searchStrings, 
+                                               pRegion, 
+                                               memSize, 
+                                               memBase, 
+                                               minLength, 
+                                               maxLength);
 
                             rpal_memory_free( pRegion );
                         }
@@ -424,7 +434,7 @@ RVOID
             rSequence_getRU64( event, RP_TAGS_BASE_ADDRESS, &baseAddr ) &&
             rSequence_getRU32( event, RP_TAGS_MEMORY_SIZE, &memSize ) )
         {
-            if( processLib_getProcessMemory( pid, (RPVOID)rpal_ULongToPtr( baseAddr ), memSize, &mem ) )
+            if( processLib_getProcessMemory( pid, (RPVOID)rpal_ULongToPtr( baseAddr ), memSize, &mem, TRUE ) )
             {
                 rSequence_addBUFFER( event, RP_TAGS_MEMORY_DUMP, (RPU8)mem, memSize );
                 rpal_memory_free( mem );
@@ -432,7 +442,10 @@ RVOID
             else
             {
                 rSequence_addRU32( event, RP_TAGS_ERROR, rpal_error_getLast() );
-                rpal_debug_error( "failed to get memory (base address = 0x%llx, size = 0x%x ) for pid 0x%x.", baseAddr, memSize, pid );
+                rpal_debug_error( "failed to get memory (base address = 0x%llx, size = 0x%x ) for pid 0x%x.", 
+                                  baseAddr, 
+                                  memSize, 
+                                  pid );
             }
         }
 
@@ -549,7 +562,11 @@ RVOID
                     if( rSequence_getPOINTER64( region, RP_TAGS_BASE_ADDRESS, &memBase ) &&
                         rSequence_getRU64( region, RP_TAGS_MEMORY_SIZE, &memSize ) )
                     {
-                        if( processLib_getProcessMemory( pid, (RPVOID)rpal_ULongToPtr( memBase ), memSize, (RPVOID*)&pRegion ) )
+                        if( processLib_getProcessMemory( pid, 
+                                                         (RPVOID)rpal_ULongToPtr( memBase ), 
+                                                         memSize, 
+                                                         (RPVOID*)&pRegion,
+                                                         TRUE ) )
                         {
                             // now search for strings inside this region
                             _getStringsList( stringsAList, stringsWList, pRegion, memSize, minLength, maxLength );

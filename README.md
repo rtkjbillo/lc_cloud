@@ -6,6 +6,10 @@
 *For more direct enquiries, contact us at limacharlie@refractionpoint.com*
 
 ## What's New
+- New Hunt framework in the cloud. Script complex automatic investigations.
+- Many stability/performance improvements.
+- New sensor collector detecting process/module hollowing.
+- New web UI component for examining detections.
 - New sensor collector detecting thread execution out of known modules.
 - AutoTasking Actor now allows stateless detection modules to automatically task the sensor back with follow-up 
 investigation steps.
@@ -89,6 +93,9 @@ full spread of events. This rolling buffer can be flushed and sent to the cloud 
 
 ##### Execution Out of Bounds
 Looks for threads executing outside of known modules. Full recurring scan as well as process specific tasking. 
+
+##### Hollowed Process
+Looks for mismatch between disk and memory from modules indicating possible hollowed process execution.
 
 #### In-Cloud
 
@@ -599,8 +606,8 @@ Please, feel at home contributing and testing out with the platform, it's what i
 of prototyping, but it lacks many of the low level event-driven APIs to do things like getting callbacks for processes
 creation. So here are some of the capabilities that are coming:
 - Kernel Mode thin module providing low level events and APIs.
-- Code injection detection through stack introspection.
-- Make Linux and OS X capabilities on par with Windows. 
+- Make Linux and OS X capabilities on par with Windows.
+- Find workaround for new root-less OS X.
 
 ## Screen Shots
 ### Command Line Interface

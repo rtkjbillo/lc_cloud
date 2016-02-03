@@ -32,7 +32,7 @@ limitations under the License.
 
 #define RPAL_FILE_ID       63
 
-#define MAX_SNAPSHOT_SIZE 512
+#define MAX_SNAPSHOT_SIZE 1024
 
 typedef struct
 {
@@ -115,7 +115,6 @@ static RBOOL
         struct kinfo_proc* infos = NULL;
         size_t size = 0;
         int ret = 0;
-        int j = 0;
 
         if( 0 == ( ret = sysctl( mib, ARRAY_N_ELEM( mib ), infos, &size, NULL, 0 ) ) )
         {
@@ -135,11 +134,10 @@ static RBOOL
         {
             isSuccess = TRUE;
             size = size / sizeof( struct kinfo_proc );
-            for( j = 0; j < size; j++ )
+            for( i = 0; i < size && MAX_SNAPSHOT_SIZE > i; i++ )
             {
-                toSnapshot[ i ].pid = infos[ j ].kp_proc.p_pid;
-                toSnapshot[ i ].ppid = infos[ j ].kp_eproc.e_ppid;
-                i++;
+                toSnapshot[ i ].pid = infos[ i ].kp_proc.p_pid;
+                toSnapshot[ i ].ppid = infos[ i ].kp_eproc.e_ppid;
             }
 
             if( NULL != infos )
@@ -150,7 +148,10 @@ static RBOOL
         }
 #endif
 
-        rpal_sort_array( toSnapshot, i, sizeof( processEntry ) );
+        rpal_sort_array( toSnapshot, 
+                         i, 
+                         sizeof( processEntry ), 
+                         (rpal_ordering_func)rpal_order_RU32 );
         *nElem = i;
     }
 
@@ -259,7 +260,8 @@ static RPVOID
                 if( (RU32)( -1 ) != rpal_binsearch_array( previousSnapshot, 
                                                           nPrevElem, 
                                                           sizeof( processEntry ), 
-                                                          currentSnapshot[ i ].pid ) )
+                                                          &(currentSnapshot[ i ].pid),
+                                                          (rpal_ordering_func)rpal_order_RU32 ) )
                 {
                     isFound = TRUE;
                 }
@@ -284,7 +286,8 @@ static RPVOID
                 if( (RU32)( -1 ) != rpal_binsearch_array( currentSnapshot,
                                                           nCurElem,
                                                           sizeof( processEntry ),
-                                                          previousSnapshot[ i ].pid ) )
+                                                          &(previousSnapshot[ i ].pid),
+                                                          (rpal_ordering_func)rpal_order_RU32 ) )
                 {
                     isFound = TRUE;
                 }

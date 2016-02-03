@@ -259,3 +259,60 @@ RBOOL
     return isRemoved;
 }
 
+
+RBOOL
+    rStack_atIndex
+    (
+        rStack stack,
+        RU32 i,
+        RPVOID pOutElem
+    )
+{
+    RBOOL isSuccess = FALSE;
+    _prStack pStack = (_prStack)stack;
+    RPVOID tmpElem = NULL;
+
+    if( NULL != stack &&
+        NULL != pOutElem &&
+        0 < pStack->nElements &&
+        i < pStack->nElements )
+    {
+        if( rMutex_lock( pStack->lock ) )
+        {
+            tmpElem = rpal_blob_arrElem( pStack->blob, pStack->elemSize, i );
+
+            if( NULL != tmpElem )
+            {
+                rpal_memory_memcpy( pOutElem, tmpElem, pStack->elemSize );
+
+                isSuccess = TRUE;
+            }
+
+            rMutex_unlock( pStack->lock );
+        }
+    }
+
+    return isSuccess;
+}
+
+RU32
+    rStack_getSize
+    (
+        rStack stack
+    )
+{
+    RU32 size = 0;
+    _prStack pStack = (_prStack)stack;
+
+    if( NULL != stack )
+    {
+        if( rMutex_lock( pStack->lock ) )
+        {
+            size = pStack->nElements;
+
+            rMutex_unlock( pStack->lock );
+        }
+    }
+
+    return size;
+}

@@ -39,13 +39,17 @@ $var title = 'Object'
                     <thead>
                         <tr>
                             <th>Sensor Id</th>
+                            <th>Last Seen</th>
                         </tr>
                     </thead>
                     <tbody>
-                        $for o in info[ 'olocs' ]:
+                        $for o, last in info[ 'olocs' ]:
                             <tr>
                                 <td>
                                     $o
+                                </td>
+                                <td>
+                                    $tsToTime( last )
                                 </td>
                             </tr>
                     </tbody>

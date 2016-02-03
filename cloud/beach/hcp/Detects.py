@@ -32,38 +32,33 @@ class StatelessActor ( Actor ):
             raise Exception( 'Stateless Actor has no "process" function' )
         self._reporting = self.getActorHandle( 'analytics/report' )
         self._tasking = None
+        self._cat = type( self ).__name__
+        self._cat = self._cat[ self._cat.rfind( '.' ) + 1 : ]
+        self._detects = self.getActorHandle( 'analytics/detects/%s' % self._cat )
         self.handle( 'process', self._process )
 
-    def newDetect( self, objects = [], relations = [], desc = None, mtd = {} ):
-        d = {}
+    def task( self, dest, cmdsAndArgs, expiry = None, inv_id = None ):
+        '''Send a task manually to a sensor
 
-        if 0 != len( objects ):
-            d[ 'obj' ] = objects
-        if 0 != len( relations ):
-            d[ 'rel' ] = relations
-        if desc is not None:
-            d[ 'desc' ] = desc
-        if 0 != len( mtd ):
-            d[ 'mtd' ] = mtd
-
-        return d
-
-    def task( self, msg, dest, cmdsAndArgs, expiry = None, inv_id = None ):
-        routing, event, mtd = msg.data
+        :param dest: sensor to task
+        :param cmdAndArgs: tuple of arguments (like the CLI) of the task
+        :param expiry: number of seconds before the task is not valid anymore
+        :param inv_id: investigation id to associate the tasking and reply to
+        '''
         if self._tasking is None:
             self._tasking = self.getActorHandle( 'analytics/autotasking', mode = 'affinity' )
             self.log( "creating tasking handle for the first time for this detection module" )
 
         if type( cmdsAndArgs[ 0 ] ) not in ( tuple, list ):
             cmdsAndArgs = ( cmdsAndArgs, )
-        data = { 'msg' : msg.data, 'dest' : dest, 'tasks' : cmdsAndArgs }
+        data = { 'dest' : dest, 'tasks' : cmdsAndArgs }
 
         if expiry is not None:
             data[ 'expiry' ] = expiry
         if inv_id is not None:
             data[ 'inv_id' ] = inv_id
 
-        self._tasking.shoot( 'task', data, key = routing[ 'agentid' ] )
+        self._tasking.shoot( 'task', data, key = dest )
         self.log( "sent for tasking: %s" % ( str(cmdsAndArgs), ) )
 
     def _process( self, msg ):
@@ -72,13 +67,15 @@ class StatelessActor ( Actor ):
         if 0 != len( detects ):
             self.log( "reporting detects generated" )
             routing, event, mtd = msg.data
-            cat = type( self ).__name__
-            cat = cat[ cat.rfind( '.' ) + 1 : ]
-            for detect in detects:
-                self._reporting.shoot( 'report', GenerateDetectReport( routing[ 'agentid' ],
-                                                                       ( routing[ 'event_id' ], ),
-                                                                       cat,
-                                                                       detect ) )
+            for detect, taskings in detects:
+                report = GenerateDetectReport( routing[ 'agentid' ],
+                                               ( routing[ 'event_id' ], ),
+                                               self._cat,
+                                               detect )
+                self._reporting.shoot( 'report', report )
+                self._detects.broadcast( 'detect', report )
+                if taskings is not None and 0 != len( taskings ):
+                    self.task( routing[ 'agentid' ], taskings, expiry = ( 60 * 60 ), inv_id = report[ 'report_id' ] )
         return ( True, )
 
 class StatefulActor ( Actor ):
@@ -99,6 +96,7 @@ class StatefulActor ( Actor ):
             raise Exception( 'Stateful Actor has no associated shardingKey (or None)' )
 
         self._reporting = self.getActorHandle( 'analytics/report' )
+        self._detects = {}
         self.handle( 'process', self._process )
 
         self.schedule( 60 * 60, self._garbageCollectOldMachines )
@@ -108,6 +106,30 @@ class StatefulActor ( Actor ):
             if self._machine_activity[ shard ] < time.time() - self._machine_ttl:
                 del( self._machine_activity[ shard ] )
                 del( self._compiled_machines[ shard ] )
+
+    def task( self, dest, cmdsAndArgs, expiry = None, inv_id = None ):
+        '''Send a task manually to a sensor
+
+        :param dest: sensor to task
+        :param cmdAndArgs: tuple of arguments (like the CLI) of the task
+        :param expiry: number of seconds before the task is not valid anymore
+        :param inv_id: investigation id to associate the tasking and reply to
+        '''
+        if self._tasking is None:
+            self._tasking = self.getActorHandle( 'analytics/autotasking', mode = 'affinity' )
+            self.log( "creating tasking handle for the first time for this detection module" )
+
+        if type( cmdsAndArgs[ 0 ] ) not in ( tuple, list ):
+            cmdsAndArgs = ( cmdsAndArgs, )
+        data = { 'dest' : dest, 'tasks' : cmdsAndArgs }
+
+        if expiry is not None:
+            data[ 'expiry' ] = expiry
+        if inv_id is not None:
+            data[ 'inv_id' ] = inv_id
+
+        self._tasking.shoot( 'task', data, key = dest )
+        self.log( "sent for tasking: %s" % ( str(cmdsAndArgs), ) )
 
     def _process( self, msg ):
         routing, event, mtd = msg.data
@@ -128,13 +150,18 @@ class StatefulActor ( Actor ):
         machineEvent = { 'event' : event, 'routing' : routing }
 
         for mName, m in actual_machines.iteritems():
+            cat = '%s/%s' % ( self.__class__.__name__, mName )
             detects = m._execute( machineEvent )
             if detects is not None and 0 != len( detects ):
                 detects = self.processDetects( detects )
                 for detect in detects:
-                    self._reporting.shoot( 'report',
-                                           GenerateDetectReport( tuple( Set( [ e[ 'routing' ][ 'agentid' ] for e in detect ] ) ),
-                                                                 tuple( Set( [ e[ 'routing' ][ 'event_id' ] for e in detect ] ) ),
-                                                                 '%s/%s' % ( self.__class__.__name__, mName ),
-                                                                 detect ) )
+                    report = GenerateDetectReport( tuple( Set( [ e[ 'routing' ][ 'agentid' ] for e in detect ] ) ),
+                                                   tuple( Set( [ e[ 'routing' ][ 'event_id' ] for e in detect ] ) ),
+                                                   cat,
+                                                   detect )
+                    self._reporting.shoot( 'report', report )
+                    self._detects.setdefault( cat,
+                                              self.getActorHandle( 'analytics/detects/%s' % cat ) ).broadcast( 'detect',
+                                                                                                               report )
+
         return ( True, )

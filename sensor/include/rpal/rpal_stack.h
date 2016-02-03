@@ -65,4 +65,18 @@ RBOOL
         RPVOID pElem
     );
 
+RBOOL
+    rStack_atIndex
+    (
+        rStack stack,
+        RU32 i,
+        RPVOID pOutElement
+    );
+
+RU32
+    rStack_getSize
+    (
+        rStack stack
+    );
+
 #endif

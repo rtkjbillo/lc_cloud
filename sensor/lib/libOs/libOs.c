@@ -45,6 +45,7 @@ limitations under the License.
 #include <mach/mach_init.h>
 #include <mach/thread_act.h>
 #include <mach/mach_port.h>
+#include <mach/task.h>
 #endif
 #endif
 
@@ -536,8 +537,16 @@ RU32
         {
             version = OSLIB_VERSION_WINDOWS_8;
         }
-        else if( 6 < versionEx.dwMajorVersion ||
-                 ( 6 == versionEx.dwMajorVersion && 2 < versionEx.dwMinorVersion ) )
+        else if( 6 == versionEx.dwMajorVersion && 3 == versionEx.dwMinorVersion )
+        {
+            version = OSLIB_VERSION_WINDOWS_8_1;
+        }
+        else if( 10 == versionEx.dwMajorVersion && 0 == versionEx.dwMinorVersion )
+        {
+            version = OSLIB_VERSION_WINDOWS_10;
+        }
+        else if( 10 < versionEx.dwMajorVersion ||
+                 ( 10 == versionEx.dwMajorVersion && 0 < versionEx.dwMinorVersion ) )
         {
             version = OSLIB_VERSION_WINDOWS_FUTURE;
         }
@@ -827,15 +836,15 @@ RBOOL
         NULL != pIsVerified_local &&
         NULL != pIsVerified_global )
     {
-        if( NULL != winTrust_data ||
+        if( NULL != winTrust_data &&
             NULL != winTrust_data->hWVTStateData )
         {
 
             cryptProviderData = WTHelperProvDataFromStateData( winTrust_data->hWVTStateData );
             cryptProviderSigner = WTHelperGetProvSignerFromChain( cryptProviderData, 0, FALSE, 0 );
-            if( NULL != cryptProviderSigner ||
-                NULL != cryptProviderSigner->pasCertChain ||
-                NULL != cryptProviderSigner->pasCertChain->pCert ||
+            if( NULL != cryptProviderSigner &&
+                NULL != cryptProviderSigner->pasCertChain &&
+                NULL != cryptProviderSigner->pasCertChain->pCert &&
                 NULL != cryptProviderSigner->pasCertChain->pCert->pCertInfo )
             {
                 //FileTimeToLocalFileTime(&cryptProviderSigner->pasCertChain->pCert->pCertInfo->NotBefore, &fileTime);
@@ -1053,7 +1062,7 @@ RBOOL
         winTrustData.dwStateAction = WTD_STATEACTION_CLOSE;
         lStatus = WinVerifyTrust( NULL, &WVTPolicyGUID, &winTrustData );
     }
-#else
+#elif defined( RPAL_PLATFORM_MACOSX )
     rpal_debug_not_implemented();
 #endif
     return isSucceed;
@@ -1386,7 +1395,14 @@ RBOOL
         ULARGE_INTEGER uSystem = { 0 };
         ULARGE_INTEGER uUser = { 0 };
 
-        hThread = OpenThread( THREAD_ALL_ACCESS , FALSE, threadId );
+        if( 0 == threadId )
+        {
+            hThread = GetCurrentThread();
+        }
+        else
+        {
+            hThread = OpenThread( THREAD_QUERY_INFORMATION, FALSE, threadId );
+        }
         if( NULL != hThread )
         {
             if( GetThreadTimes( hThread, &ftCreation, &ftExit, &ftSystem, &ftUser ) )
@@ -1411,6 +1427,11 @@ RBOOL
         thread_basic_info_data_t info = { 0 };
         mach_msg_type_number_t count = THREAD_BASIC_INFO_COUNT;
 
+        if( 0 == threadId )
+        {
+            threadId = rpal_thread_self();
+        }
+
         if( KERN_SUCCESS == ( kr = thread_info( threadId, THREAD_BASIC_INFO, (thread_info_t)&info, &count ) ) )
         {
             *pTime = ( (RU64)info.user_time.seconds + (RU64)info.system_time.seconds ) * 1000000 +
@@ -1429,6 +1450,11 @@ RBOOL
     long tmp = 0;
     unsigned long utime = 0;
     unsigned long stime = 0;
+
+    if( 0 == threadId )
+    {
+        threadId = rpal_thread_self();
+    }
 
     if( 0 == user_hz )
     {
@@ -1468,5 +1494,225 @@ RBOOL
     return isSuccess;
 }
 
+RU32
+    libOs_getPageSize
+    (
+
+    )
+{
+    RU32 pSize = 0;
+#ifdef RPAL_PLATFORM_WINDOWS
+    SYSTEM_INFO sysInfo;
+    GetSystemInfo (&sysInfo);
+    pSize = sysInfo.dwPageSize;
+#elif defined( RPAL_PLATFORM_LINUX )
+    pSize = sysconf( _SC_PAGESIZE );
+#elif defined( RPAL_PLATFORM_MACOSX )
+    pSize = getpagesize();
+#endif
+
+    return pSize;
+}
+
+RU8
+    libOs_getCurrentThreadCpuUsage
+    (
+        LibOsThreadTimeContext* ctx
+    )
+{
+    RU8 percent = (RU8)( -1 );
+
+    RU64 curSystemTime = 0;
+    RU64 curThreadTime = 0;
+    RU64 deltaSystem = 0;
+    RU64 deltaThread = 0;
+    RFLOAT pr = 0;
+
+    if( libOs_getSystemCPUTime( &curSystemTime ) &&
+        libOs_getThreadTime( 0, &curThreadTime ) )
+    {
+        if( curSystemTime >= ctx->lastSystemTime &&
+            curThreadTime >= ctx->lastThreadTime )
+        {
+            deltaSystem = curSystemTime - ctx->lastSystemTime;
+            deltaThread = curThreadTime - ctx->lastThreadTime;
+
+            if( 0 != deltaSystem &&
+                0 != deltaThread )
+            {
+                pr = ( (RFLOAT)deltaThread / deltaSystem ) * 100;
+                percent = (RU8)pr;
+            }
+        }
+
+        ctx->lastSystemTime = curSystemTime;
+        ctx->lastThreadTime = curThreadTime;
+    }
+
+    return percent;
+}
+
+RBOOL
+    libOs_getProcessTime
+    (
+        RU32 processId,
+        RU64* pTime
+    )
+{
+    RBOOL isSuccess = TRUE;
+
+    if( NULL != pTime )
+    {
+#if defined( RPAL_PLATFORM_WINDOWS )
+        HANDLE hProcess = NULL;
+        FILETIME ftCreation = { 0 };
+        FILETIME ftExit = { 0 };
+        FILETIME ftSystem = { 0 };
+        FILETIME ftUser = { 0 };
+        ULARGE_INTEGER uSystem = { 0 };
+        ULARGE_INTEGER uUser = { 0 };
+
+        if( 0 == processId )
+        {
+            hProcess = GetCurrentProcess();
+        }
+        else
+        {
+            hProcess = OpenProcess( PROCESS_QUERY_INFORMATION, FALSE, processId );
+        }
+        if( NULL != hProcess )
+        {
+            if( GetProcessTimes( hProcess, &ftCreation, &ftExit, &ftSystem, &ftUser ) )
+            {
+                FILETIME2ULARGE( uSystem, ftSystem );
+                FILETIME2ULARGE( uUser, ftUser );
+                *pTime = uUser.QuadPart + uSystem.QuadPart;
+                isSuccess = TRUE;
+            }
+            else
+            {
+                rpal_debug_error( "GetTProcessTimes failed for thread ID %u, handle %p.", 
+                                  processId, 
+                                  hProcess );
+            }
+            CloseHandle( hProcess );
+        }
+        else
+        {
+            rpal_debug_error( "Unable to open a new handle to process ID %u to get its performance.\n", 
+                              processId );
+        }
+#elif defined( RPAL_PLATFORM_MACOSX )
+        kern_return_t kr;
+        task_t task;
+        struct task_basic_info info = { 0 };
+        mach_msg_type_number_t count = TASK_BASIC_INFO_COUNT;
+
+        if( 0 == processId )
+        {
+            processId = getpid();
+        }
+
+        if( KERN_SUCCESS == ( kr = task_info(task, TASK_BASIC_INFO, (task_info_t)&info, &count) ) )
+        {
+            *pTime = ( (RU64)info.user_time.seconds + (RU64)info.system_time.seconds ) * 1000000 +
+                       (RU64)info.user_time.microseconds + (RU64)info.system_time.microseconds;
+            isSuccess = TRUE;
+        }
+        else
+        {
+            rpal_debug_error( "Access to process info failed -- return code %d.", (int)kr );
+            isSuccess = FALSE;
+        }
+#elif defined( RPAL_PLATFORM_LINUX )
+        static RU64 user_hz = 0;
+        char path_stat[ 1024 ] = { 0 };
+        FILE* file_stat = NULL;
+        long tmp = 0;
+        unsigned long utime = 0;
+        unsigned long stime = 0;
+
+        if( 0 == processId )
+        {
+            processId = getpid();
+        }
+
+        if( 0 == user_hz )
+        {
+            tmp = sysconf( _SC_CLK_TCK );
+            if( tmp < 0 )
+            {
+                rpal_debug_error( "Cannot find the proc clock tick size -- error code %u.", errno );
+                return FALSE;
+            }
+            user_hz = (RU64)tmp;
+        }
+
+        snprintf( path_stat, sizeof( path_stat ), "/proc/%d/stat", processId );
+        if( NULL != ( file_stat = fopen( path_stat, "r" ) ) )
+        {
+            if( 2 == fscanf( file_stat,
+                "%*d %*s %*c %*d %*d %*d %*d %*d %*u %*u %*u %*u %*u %lu %lu",
+                &utime,
+                &stime ) )
+            {
+                /* user_hz = clock ticks per second; we want time in microseconds. */
+                *pTime = ( ( (RU64)utime + (RU64)stime ) * 1000000 ) / user_hz;
+                isSuccess = TRUE;
+            }
+            else
+            {
+                rpal_debug_error( "Unable to read file %s properly.", path_stat );
+            }
+
+            fclose( file_stat );
+        }
+#else
+        rpal_debug_not_implemented();
+#endif
+    }
+
+    return isSuccess;
+}
+
+RU8
+    libOs_getCurrentProcessCpuUsage
+    (
+
+    )
+{
+    RU8 percent = (RU8)( -1 );
+
+    RU64 curSystemTime = 0;
+    RU64 curProcessTime = 0;
+    RU64 deltaSystem = 0;
+    RU64 deltaProcess = 0;
+    static RU64 lastSystemTime;
+    static RU64 lastProcessTime;
+    RFLOAT pr = 0;
+
+    if( libOs_getSystemCPUTime( &curSystemTime ) &&
+        libOs_getProcessTime( 0, &curProcessTime ) )
+    {
+        if( curSystemTime >= lastSystemTime &&
+            curProcessTime >= lastProcessTime )
+        {
+            deltaSystem = curSystemTime - lastSystemTime;
+            deltaProcess = curProcessTime - lastProcessTime;
+
+            if( 0 != deltaSystem &&
+                0 != deltaProcess )
+            {
+                pr = ( (RFLOAT)deltaProcess / deltaSystem ) * 100;
+                percent = (RU8)pr;
+            }
+        }
+
+        lastSystemTime = curSystemTime;
+        lastProcessTime = curProcessTime;
+    }
+
+    return percent;
+}
 
 /* EOF */

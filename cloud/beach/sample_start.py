@@ -150,9 +150,27 @@ print( beach.addActor( 'analytics/AnalyticsReporting',
                                       'max_concurrent' : 5,
                                       'block_on_queue_size' : 200000 },
                        secretIdent = 'reporting/9ddcc95e-274b-4a49-a003-c952d12049b8',
-                       trustedIdents = [ 'analysis/038528f5-5135-4ca8-b79f-d6b8ffc53bf5' ],
+                       trustedIdents = [ 'analysis/038528f5-5135-4ca8-b79f-d6b8ffc53bf5',
+                                         'hunt/8e0f55c0-6593-4747-9d02-a4937fa79517' ],
                        n_concurrent = 5,
                        isIsolated = True ) )
+
+#######################################
+# AnalyticsInvestigation
+# This actor responsible for sending
+# messages to the actors interested in
+# specific investigations.
+# Parameters:
+# ttl: the number of seconds the data
+#    flow for an investigation remains
+#    open after last data seen.
+#######################################
+print( beach.addActor( 'analytics/AnalyticsInvestigation',
+                       'analytics/investigation/intake/1.0',
+                       parameters = { 'ttl' : ( 60 * 60 * 24 ) },
+                       secretIdent = 'analysis/038528f5-5135-4ca8-b79f-d6b8ffc53bf5',
+                       trustedIdents = [ 'intake/6058e556-a102-4e51-918e-d36d6d1823db' ],
+                       n_concurrent = 5 ) )
 
 #######################################
 # ModelView
@@ -181,7 +199,8 @@ print( beach.addActor( 'analytics/ModelView',
                                       'rate_limit_per_sec' : 500,
                                       'max_concurrent' : 10,
                                       'beach_config' : BEACH_CONFIG_FILE },
-                       trustedIdents = [ 'lc/0bf01f7e-62bd-4cc4-9fec-4c52e82eb903' ],
+                       trustedIdents = [ 'lc/0bf01f7e-62bd-4cc4-9fec-4c52e82eb903',
+                                         'hunt/8e0f55c0-6593-4747-9d02-a4937fa79517' ],
                        n_concurrent = 5,
                        isIsolated = True ) )
 
@@ -212,16 +231,39 @@ print( beach.addActor( 'analytics/AutoTasking',
                                       'allowed' : [ 'file_info',
                                                     'file_hash',
                                                     'mem_map',
+                                                    'mem_strings',
+                                                    'mem_handles',
                                                     'os_processes',
                                                     'hidden_module_scan',
                                                     'exec_oob_scan',
                                                     'history_dump',
                                                     'remain_live',
                                                     'exfil_add',
-                                                    'critical_add' ],
+                                                    'critical_add',
+                                                    'hollowed_module_scan' ],
                                       'log_file' : './admin_cli.log' },
                        secretIdent = 'autotasking/a6cd8d9a-a90c-42ec-bd60-0519b6fb1f64',
-                       trustedIdents = [ 'analysis/038528f5-5135-4ca8-b79f-d6b8ffc53bf5' ],
+                       trustedIdents = [ 'analysis/038528f5-5135-4ca8-b79f-d6b8ffc53bf5',
+                                         'hunt/8e0f55c0-6593-4747-9d02-a4937fa79517' ],
+                       n_concurrent = 5 ) )
+
+#######################################
+# HuntsManager
+# This actor manages the registration
+# and configuration of the various
+# automated hunts.
+# Parameters:
+# beach_config: the path to the beach
+#    config file.
+#######################################
+print( beach.addActor( 'analytics/HuntsManager',
+                       'analytics/huntsmanager/1.0',
+                       parameters = { '_hbs_key' : open( os.path.join( REPO_ROOT,
+                                                                       'keys',
+                                                                       'hbs_root.priv.der' ), 'r' ).read(),
+                                      'beach_config' : BEACH_CONFIG_FILE },
+                       secretIdent = 'huntsmanager/d666cbc3-38d5-4086-b9ce-c543625ee45c',
+                       trustedIdents = [ 'hunt/8e0f55c0-6593-4747-9d02-a4937fa79517' ],
                        n_concurrent = 5 ) )
 
 ###############################################################################
@@ -248,7 +290,8 @@ print( beach.addActor( 'analytics/stateless/TestDetection',
 # various known suspicious locations.
 #######################################
 print( beach.addActor( 'analytics/stateless/WinSuspExecLoc',
-                       'analytics/stateless/windows/notification.NEW_PROCESS/suspexecloc/1.0',
+                       [ 'analytics/stateless/windows/notification.NEW_PROCESS/suspexecloc/1.0',
+                         'analytics/stateless/windows/notification.CODE_IDENTITY/suspexecloc/1.0' ],
                        parameters = {  },
                        secretIdent = 'analysis/038528f5-5135-4ca8-b79f-d6b8ffc53bf5',
                        trustedIdents = [ 'analysis/038528f5-5135-4ca8-b79f-d6b8ffc53bf5' ],
@@ -260,7 +303,8 @@ print( beach.addActor( 'analytics/stateless/WinSuspExecLoc',
 # various known suspicious locations.
 #######################################
 print( beach.addActor( 'analytics/stateless/MacSuspExecLoc',
-                       'analytics/stateless/osx/notification.NEW_PROCESS/suspexecloc/1.0',
+                       [ 'analytics/stateless/osx/notification.NEW_PROCESS/suspexecloc/1.0',
+                         'analytics/stateless/osx/notification.CODE_IDENTITY/suspexecloc/1.0', ],
                        parameters = {  },
                        secretIdent = 'analysis/038528f5-5135-4ca8-b79f-d6b8ffc53bf5',
                        trustedIdents = [ 'analysis/038528f5-5135-4ca8-b79f-d6b8ffc53bf5' ],
@@ -293,42 +337,12 @@ print( beach.addActor( 'analytics/stateless/BatchSelfDelete',
 #    the source.
 #######################################
 print( beach.addActor( 'analytics/stateless/KnownObjects',
-                       'analytics/stateless/common/notification.NEW_PROCESS/knownobjects/1.0',
-                       parameters = { 'source' : 'sources/known_objects/',
-                                      'source_refresh_sec' : 3600 },
-                       secretIdent = 'analysis/038528f5-5135-4ca8-b79f-d6b8ffc53bf5',
-                       trustedIdents = [ 'analysis/038528f5-5135-4ca8-b79f-d6b8ffc53bf5' ],
-                       n_concurrent = 5 ) )
-print( beach.addActor( 'analytics/stateless/KnownObjects',
-                       'analytics/stateless/common/notification.CODE_IDENTITY/knownobjects/1.0',
-                       parameters = { 'source' : 'sources/known_objects/',
-                                      'source_refresh_sec' : 3600 },
-                       secretIdent = 'analysis/038528f5-5135-4ca8-b79f-d6b8ffc53bf5',
-                       trustedIdents = [ 'analysis/038528f5-5135-4ca8-b79f-d6b8ffc53bf5' ],
-                       n_concurrent = 5 ) )
-print( beach.addActor( 'analytics/stateless/KnownObjects',
-                       'analytics/stateless/common/notification.OS_SERVICES_REP/knownobjects/1.0',
-                       parameters = { 'source' : 'sources/known_objects/',
-                                      'source_refresh_sec' : 3600 },
-                       secretIdent = 'analysis/038528f5-5135-4ca8-b79f-d6b8ffc53bf5',
-                       trustedIdents = [ 'analysis/038528f5-5135-4ca8-b79f-d6b8ffc53bf5' ],
-                       n_concurrent = 5 ) )
-print( beach.addActor( 'analytics/stateless/KnownObjects',
-                       'analytics/stateless/common/notification.OS_DRIVERS_REP/knownobjects/1.0',
-                       parameters = { 'source' : 'sources/known_objects/',
-                                      'source_refresh_sec' : 3600 },
-                       secretIdent = 'analysis/038528f5-5135-4ca8-b79f-d6b8ffc53bf5',
-                       trustedIdents = [ 'analysis/038528f5-5135-4ca8-b79f-d6b8ffc53bf5' ],
-                       n_concurrent = 5 ) )
-print( beach.addActor( 'analytics/stateless/KnownObjects',
-                       'analytics/stateless/common/notification.OS_AUTORUNS_REP/knownobjects/1.0',
-                       parameters = { 'source' : 'sources/known_objects/',
-                                      'source_refresh_sec' : 3600 },
-                       secretIdent = 'analysis/038528f5-5135-4ca8-b79f-d6b8ffc53bf5',
-                       trustedIdents = [ 'analysis/038528f5-5135-4ca8-b79f-d6b8ffc53bf5' ],
-                       n_concurrent = 5 ) )
-print( beach.addActor( 'analytics/stateless/KnownObjects',
-                       'analytics/stateless/common/notification.DNS_REQUEST/knownobjects/1.0',
+                       [ 'analytics/stateless/common/notification.NEW_PROCESS/knownobjects/1.0',
+                         'analytics/stateless/common/notification.CODE_IDENTITY/knownobjects/1.0',
+                         'analytics/stateless/common/notification.OS_SERVICES_REP/knownobjects/1.0',
+                         'analytics/stateless/common/notification.OS_DRIVERS_REP/knownobjects/1.0',
+                         'analytics/stateless/common/notification.OS_AUTORUNS_REP/knownobjects/1.0',
+                         'analytics/stateless/common/notification.DNS_REQUEST/knownobjects/1.0' ],
                        parameters = { 'source' : 'sources/known_objects/',
                                       'source_refresh_sec' : 3600 },
                        secretIdent = 'analysis/038528f5-5135-4ca8-b79f-d6b8ffc53bf5',
@@ -353,25 +367,10 @@ print( beach.addActor( 'analytics/stateless/KnownObjects',
 # cache_size: how many results to cache.
 #######################################
 print( beach.addActor( 'analytics/stateless/VirusTotal',
-                       'analytics/stateless/common/notification.CODE_IDENTITY/virustotal/1.0',
-                       parameters = { 'qpm' : 1 },
-                       secretIdent = 'analysis/038528f5-5135-4ca8-b79f-d6b8ffc53bf5',
-                       trustedIdents = [ 'analysis/038528f5-5135-4ca8-b79f-d6b8ffc53bf5' ],
-                       n_concurrent = 1 ) )
-print( beach.addActor( 'analytics/stateless/VirusTotal',
-                       'analytics/stateless/common/notification.OS_SERVICES_REP/virustotal/1.0',
-                       parameters = { 'qpm' : 1 },
-                       secretIdent = 'analysis/038528f5-5135-4ca8-b79f-d6b8ffc53bf5',
-                       trustedIdents = [ 'analysis/038528f5-5135-4ca8-b79f-d6b8ffc53bf5' ],
-                       n_concurrent = 1 ) )
-print( beach.addActor( 'analytics/stateless/VirusTotal',
-                       'analytics/stateless/common/notification.OS_DRIVERS_REP/virustotal/1.0',
-                       parameters = { 'qpm' : 1 },
-                       secretIdent = 'analysis/038528f5-5135-4ca8-b79f-d6b8ffc53bf5',
-                       trustedIdents = [ 'analysis/038528f5-5135-4ca8-b79f-d6b8ffc53bf5' ],
-                       n_concurrent = 1 ) )
-print( beach.addActor( 'analytics/stateless/VirusTotal',
-                       'analytics/stateless/common/notification.OS_AUTORUNS_REP/virustotal/1.0',
+                       [ 'analytics/stateless/common/notification.CODE_IDENTITY/virustotal/1.0',
+                         'analytics/stateless/common/notification.OS_SERVICES_REP/virustotal/1.0',
+                         'analytics/stateless/common/notification.OS_DRIVERS_REP/virustotal/1.0',
+                         'analytics/stateless/common/notification.OS_AUTORUNS_REP/virustotal/1.0' ],
                        parameters = { 'qpm' : 1 },
                        secretIdent = 'analysis/038528f5-5135-4ca8-b79f-d6b8ffc53bf5',
                        trustedIdents = [ 'analysis/038528f5-5135-4ca8-b79f-d6b8ffc53bf5' ],
@@ -385,6 +384,57 @@ print( beach.addActor( 'analytics/stateless/VirusTotal',
 #######################################
 print( beach.addActor( 'analytics/stateless/WinFirewallCliMods',
                        'analytics/stateless/windows/notification.NEW_PROCESS/firewallclimods/1.0',
+                       parameters = {  },
+                       secretIdent = 'analysis/038528f5-5135-4ca8-b79f-d6b8ffc53bf5',
+                       trustedIdents = [ 'analysis/038528f5-5135-4ca8-b79f-d6b8ffc53bf5' ],
+                       n_concurrent = 5 ) )
+
+#######################################
+# stateless/HiddenModules
+# This actor looks hidden module
+# notifications.
+#######################################
+print( beach.addActor( 'analytics/stateless/HiddenModules',
+                       'analytics/stateless/common/notification.HIDDEN_MODULE_DETECTED/hiddenmodules/1.0',
+                       parameters = {  },
+                       secretIdent = 'analysis/038528f5-5135-4ca8-b79f-d6b8ffc53bf5',
+                       trustedIdents = [ 'analysis/038528f5-5135-4ca8-b79f-d6b8ffc53bf5' ],
+                       n_concurrent = 5 ) )
+
+#######################################
+# stateless/WinOobExec
+# This actor looks OOB execution
+# notifications.
+#######################################
+print( beach.addActor( 'analytics/stateless/WinOobExec',
+                       'analytics/stateless/windows/notification.EXEC_OOB/oobexec/1.0',
+                       parameters = {  },
+                       secretIdent = 'analysis/038528f5-5135-4ca8-b79f-d6b8ffc53bf5',
+                       trustedIdents = [ 'analysis/038528f5-5135-4ca8-b79f-d6b8ffc53bf5' ],
+                       n_concurrent = 5 ) )
+
+#######################################
+# stateless/ExecNotOnDisk
+# This actor for code loading from disk
+# but not visible on disk. In other
+# words it has a code ident but no hash.
+#######################################
+print( beach.addActor( 'analytics/stateless/ExecNotOnDisk',
+                       'analytics/stateless/common/notification.CODE_IDENTITY/execnotondisk/1.0',
+                       parameters = {  },
+                       secretIdent = 'analysis/038528f5-5135-4ca8-b79f-d6b8ffc53bf5',
+                       trustedIdents = [ 'analysis/038528f5-5135-4ca8-b79f-d6b8ffc53bf5' ],
+                       n_concurrent = 5 ) )
+
+#######################################
+# stateless/HollowedProcess
+# This actor for mismatch between a
+# module on disk and in memory for
+# signs of process hollowing.
+#######################################
+print( beach.addActor( 'analytics/stateless/HollowedProcess',
+                       [ 'analytics/stateless/windows/notification.MODULE_MEM_DISK_MISMATCH/hollowedprocess/1.0',
+                         'analytics/stateless/linux/notification.MODULE_MEM_DISK_MISMATCH/hollowedprocess/1.0' ],
                        parameters = {  },
                        secretIdent = 'analysis/038528f5-5135-4ca8-b79f-d6b8ffc53bf5',
                        trustedIdents = [ 'analysis/038528f5-5135-4ca8-b79f-d6b8ffc53bf5' ],
@@ -465,5 +515,15 @@ print( beach.addActor( 'analytics/stateful/MacReconTools',
                        'analytics/stateful/modules/osx/recontools/1.0',
                        parameters = {  },
                        secretIdent = 'analysis/038528f5-5135-4ca8-b79f-d6b8ffc53bf5',
+                       trustedIdents = [ 'analysis/038528f5-5135-4ca8-b79f-d6b8ffc53bf5' ],
+                       n_concurrent = 5 ) )
+
+###############################################################################
+# Hunts
+###############################################################################
+print( beach.addActor( 'analytics/hunt/SampleHunt',
+                       'analytics/hunt/samplehunt/1.0',
+                       parameters = {  },
+                       secretIdent = 'hunt/8e0f55c0-6593-4747-9d02-a4937fa79517',
                        trustedIdents = [ 'analysis/038528f5-5135-4ca8-b79f-d6b8ffc53bf5' ],
                        n_concurrent = 5 ) )

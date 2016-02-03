@@ -62,14 +62,20 @@ class HcpDb( object ):
     def connect( self ):
         isSuccess = False
 
-        try:
-            self.hDb = MySQLdb.connect( host = self.cred_uri, user = self.cred_name, passwd = self.cred_password, db = self.cred_dbname )
-            self.hCur = self.hDb.cursor( cursorclass = MySQLdb.cursors.DictCursor )
-            isSuccess = True
-            self.last_activity = time.time()
-        except:
-            self.last_error = traceback.format_exc()
-            isSuccess = False
+        retries = 10
+
+        while 0 != retries:
+            try:
+                self.hDb = MySQLdb.connect( host = self.cred_uri, user = self.cred_name, passwd = self.cred_password, db = self.cred_dbname )
+                self.hCur = self.hDb.cursor( cursorclass = MySQLdb.cursors.DictCursor )
+                isSuccess = True
+                self.last_activity = time.time()
+            except:
+                self.last_error = traceback.format_exc()
+                isSuccess = False
+            if self.hCur is not None: break
+            retries -= 1
+            time.sleep( 3 )
 
         return isSuccess
 

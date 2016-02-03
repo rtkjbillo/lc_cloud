@@ -23,12 +23,13 @@ class VirusTotal ( StatelessActor ):
         super( VirusTotal, self ).init( parameters )
 
         self.key = parameters.get( '_key', None )
-        if self.key is None: raise Exception( 'missing API key' )
+        if self.key is None: self.logCritical( 'missing API key' )
 
         # Maximum number of queries per minute
         self.qpm = parameters.get( 'qpm', 4 )
 
-        self.vt = virustotal.VirusTotal( self.key, limit_per_min = self.qpm )
+        if self.key is not None:
+            self.vt = virustotal.VirusTotal( self.key, limit_per_min = self.qpm )
 
         # Minimum number of AVs saying it's a hit before we flag it
         self.threshold = parameters.get( 'min_av', 5 )
@@ -41,6 +42,8 @@ class VirusTotal ( StatelessActor ):
         # Todo: move from RingCache to using Cassandra as larger cache
 
     def process( self, msg ):
+        if self.key is None: return []
+
         routing, event, mtd = msg.data
         detects = []
         retries = 0
@@ -54,9 +57,12 @@ class VirusTotal ( StatelessActor ):
                     if info is not None: break
                     retries += 1
                 report = {}
-                for av, r in info:
-                    if r is not None:
-                        report[ av[ 0 ] ] = r
+                if info is not None:
+                    for av, r in info:
+                        if r is not None:
+                            report[ av[ 0 ] ] = r
+                else:
+                    self.log( 'failed to get vt report for: %s' % h )
 
                 if self.threshold > len( report ):
                     report = None
@@ -64,6 +70,6 @@ class VirusTotal ( StatelessActor ):
                 self.cache.add( h, report )
 
             if report is not None:
-                detects.append( self.newDetect( objects = ( h, ), mtd = report ) )
+                detects.append( ( { 'report' : report, 'hash' : h }, None ) )
 
         return detects

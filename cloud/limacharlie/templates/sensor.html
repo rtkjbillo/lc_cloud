@@ -1,12 +1,22 @@
-$def with ( sensor_id, before, after )
+$def with ( sensor_id, before, after, max_size, per_page )
 $var title = sensor_id
 <div class="row">
     <div class="col-lg-2">
         <h2>$sensor_id</h2>
         <h4>Online: <i id="status_indicator" class="glyphicon glyphicon-remove"></i></h4>
         <i id="last_seen"></i>
+        <h5>Events per page:</h5>
+        <select id="eventsperpage">
+            $for t in ('10','50','100','500'):
+                <option value="$t" $('selected' if t == per_page else '')>$t</option>
+        </select>
+        <h5>Max event size:</h5>
+        <select id="maxeventsize">
+            $for t in ('512','2048','4096','40960'):
+                <option value="$t" $('selected' if t == max_size else '')>$t</option>
+        </select>
     </div>
-    <div class="col-lg-3">
+    <div class="col-lg-2">
         <h4>Last Events</h4>
         <div style="overflow: auto; height:250px;">
             <table class="table table-striped">
@@ -25,6 +35,8 @@ $var title = sensor_id
     <div class="col-lg-2">
         <h4>Filter Events</h4>
         <form method="GET" action="/sensor">
+            <input type="hidden" name="per_page" class="eventsperpage_form" value=""/>
+            <input type="hidden" name="max_size" class="maxeventsize_form" value=""/>
             <input type="hidden" name="sensor_id" value="$sensor_id"/>
             <div class="form-group">
                 <div class='input-group date datetimepicker'>
@@ -50,6 +62,8 @@ $var title = sensor_id
         </form>
         <br/>
         <form method="GET" action="/sensor">
+            <input type="hidden" name="per_page" class="eventsperpage_form" value=""/>
+            <input type="hidden" name="max_size" class="maxeventsize_form" value=""/>
             <input type="hidden" name="sensor_id" value="$sensor_id"/>
             <button type="submit" class="btn btn-default" id="flux_live">
                 <span class="glyphicon glyphicon-play"></span> Live
@@ -81,6 +95,23 @@ $var title = sensor_id
             </tr>
         </table>
     </div>
+    <div class="col-lg-4">
+        <h4>Changes</h4>
+        <table class="table table-striped">
+            <thead>
+                <tr>
+                    <th>Time</th>
+                    <th>Type</th>
+                    <th>Add/Remove</th>
+                    <th>Object</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody id="changes" style="text-align: left;">
+
+            </tbody>
+        </table>
+    </div>
 </div>
 <div class="row">
     <div class="col-lg-12">
@@ -95,7 +126,6 @@ $var title = sensor_id
                 </tr>
             </thead>
             <tbody id="timeline">
-
             </tbody>
         </table>
     </div>
@@ -188,7 +218,7 @@ $var title = sensor_id
 
                 from_time = Math.floor( e[ 0 ] / 1000 );
                 all_events[ e[ 2 ] ] = 0;
-                if( 20 < Object.keys( all_events ).length )
+                if( parseInt( jQuery('#eventsperpage').find(":selected").text(), 10 ) < Object.keys( all_events ).length )
                 {
                     event = jQuery( '.t_event' ).last();
                     t_id = event.attr( 'id' );
@@ -203,6 +233,7 @@ $var title = sensor_id
     {
         future = jQuery.getJSON( '/timeline',
                     { sensor_id : "$sensor_id",
+                      max_size : jQuery('#maxeventsize').find(":selected").text(),
                       $if before is not None:
                           before : Date.parse("$before" + " GMT") / 1000,
                       $if after is not None:
@@ -225,7 +256,7 @@ $var title = sensor_id
 
             jQuery('#lastevents').prepend(
                 jQuery('<tr>').append(
-                    jQuery('<td>').html( e[ 0 ] )
+                    jQuery('<td>').html( e[ 0 ].replace('notification.', '') )
                 ).append(
                     jQuery('<td>').append( jQuery('<a>').attr('href','/event?id=' + e[ 1 ] )
                                                         .attr('title','View Event')
@@ -236,6 +267,54 @@ $var title = sensor_id
         });
     }
 
+    function set_changes( eventTypes )
+    {
+        jQuery('#changes').empty();
+
+        for( var eType in eventTypes )
+        {
+            changes = eventTypes[ eType ];
+            for( var elem in changes[ '+' ] )
+            {
+                jQuery('#changes').prepend(
+                    jQuery('<tr>').append(
+                        jQuery('<td>').html( ts_to_time( changes[ '+' ][ elem ][ 1 ] ) )
+                    ).append(
+                        jQuery('<td>').html( eType.replace('notification.', '') )
+                    ).append(
+                        jQuery('<td>').html( '+' )
+                    ).append(
+                        jQuery('<td>').html( elem )
+                    ).append(
+                        jQuery('<td>').append( jQuery('<a>').attr('href','/event?id=' + changes[ '+' ][ elem ][ 0 ] )
+                                                            .attr('title','View Event')
+                                                            .addClass('glyphicon' )
+                                                            .addClass('glyphicon-log-in') )
+                    )
+                );
+            }
+            for( var elem in changes[ '-' ] )
+            {
+                jQuery('#changes').prepend(
+                    jQuery('<tr>').append(
+                        jQuery('<td>').html( ts_to_time( changes[ '-' ][ elem ][ 1 ] ) )
+                    ).append(
+                        jQuery('<td>').html( eType )
+                    ).append(
+                        jQuery('<td>').html( '-' )
+                    ).append(
+                        jQuery('<td>').html( elem )
+                    ).append(
+                        jQuery('<td>').append( jQuery('<a>').attr('href','/event?id=' + changes[ '-' ][ elem ][ 0 ] )
+                                                            .attr('title','View Event')
+                                                            .addClass('glyphicon' )
+                                                            .addClass('glyphicon-log-in') )
+                    )
+                );
+            }
+        }
+    }
+
     function do_refresh_lastevents()
     {
         jQuery.getJSON( '/lastevents',
@@ -243,10 +322,24 @@ $var title = sensor_id
                                                       .always(function(){setTimeout( do_refresh_lastevents, 10000 );});
     }
 
+    function do_refresh_changes()
+    {
+        jQuery.getJSON( '/hostchanges',
+                        { sensor_id : "$sensor_id" } ).done(function(data){set_changes(data);})
+                                                      .always(function(){setTimeout( do_refresh_changes, 3600000 );});
+    }
+
     jQuery( function(){
         hljs.initHighlighting();
         do_refresh_online();
         do_refresh_timeline();
         do_refresh_lastevents();
+        do_refresh_changes();
+        jQuery('#eventsperpage').change(function(){
+            jQuery('.eventsperpage_form').val(this.value);
+        });
+        jQuery('#maxeventsize').change(function(){
+            jQuery('.maxeventsize_form').val(this.value);
+        });
     });
 </script>

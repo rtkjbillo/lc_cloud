@@ -16,6 +16,7 @@ from beach.actor import Actor
 import re
 ObjectTypes = Actor.importLib( '../../ObjectsDb', 'ObjectTypes' )
 StatelessActor = Actor.importLib( '../../Detects', 'StatelessActor' )
+_xm_ = Actor.importLib( '../../hcp_helpers', '_xm_' )
 
 class BatchSelfDelete ( StatelessActor ):
     def init( self, parameters ):
@@ -26,8 +27,8 @@ class BatchSelfDelete ( StatelessActor ):
     def process( self, msg ):
         routing, event, mtd = msg.data
         detects = []
-        for o in mtd[ 'obj' ].get( ObjectTypes.CMD_LINE, [] ):
-            if self.self_del.search( o ):
-                detects.append( self.newDetect( objects = ( o, ObjectTypes.CMD_LINE ) ) )
+        for cmdline in _xm_( event, '?/base.COMMAND_LINE' ):
+            if self.self_del.search( cmdline ):
+                detects.append( ( event, None ) )
 
         return detects

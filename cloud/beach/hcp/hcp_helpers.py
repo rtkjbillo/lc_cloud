@@ -99,13 +99,20 @@ def _x_( o, path, isWildcardDepth = False ):
 def exeFromPath( path, agent = None ):
     if path is None:
         return None
-    if agent is None or ( not agent.isWindows() and path.startswith( '/' ) ):
+    if agent is None or agent.isWindows():
         i = path.rfind( '\\' )
-        if -1 == i:
-            i = path.rfind( '/' )
-        exeName = path[ i + 1 : ]
+        j = path.rfind( '/' )
+        i = max( i, j )
+        if -1 != i:
+            exeName = path[ i + 1 : ]
+        else:
+            exeName = path
     else:
-        exeName = path
+        i = path.rfind( '/' )
+        if -1 != i:
+            exeName = path[ i + 1 : ]
+        else:
+            exeName = path
     return exeName
 
 def hexDump( src, length = 8 ):
@@ -139,6 +146,7 @@ class HbsCollectorId ( object ):
     _AVAILABLE = 12
     EXEC_OOB = 13
     OPERATIONS_MAN = 14
+    PROCESS_HOLLOWING = 15
 
     lookup = {
         0 : 'EXFIL',
@@ -155,7 +163,8 @@ class HbsCollectorId ( object ):
         11 : 'OS_FORENSIC',
         12 : '_AVAILABLE',
         13 : 'EXEC_OOB',
-        14 : 'OPERATIONS_MAN'
+        14 : 'OPERATIONS_MAN',
+        15 : 'PROCESS_HOLLOWING'
     }
 
 class TwoFactorAuth(object):
@@ -390,7 +399,7 @@ class AgentId( object ):
                 if self.config is not None:
                     s += '.%s' % hex( self.config )[ 2 : ]
         else:
-            s = None
+            s = ''
 
         return s
 

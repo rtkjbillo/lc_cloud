@@ -27,7 +27,7 @@ rBlob
 	(
 		RU32 initialSize,
 		RU32 growBy,
-    RU32 from
+        RU32 from
 	);
 
 RVOID

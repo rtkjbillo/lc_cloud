@@ -125,7 +125,10 @@ RBOOL
                 pList->nElem--;
             }
 
-            rpal_sort_array( pList->pElems, pList->nElem, sizeof( *( pList->pElems ) ) );
+            rpal_sort_array( pList->pElems, 
+                             pList->nElem, 
+                             sizeof( *( pList->pElems ) ), 
+                             (rpal_ordering_func)rpal_order_RU32 );
 
             rMutex_unlock( pList->mutex );
         }
@@ -153,7 +156,8 @@ RBOOL
             if( (RU32)( -1 ) != ( i = rpal_binsearch_array( pList->pElems, 
                                                             pList->nElem, 
                                                             sizeof( *( pList->pElems ) ), 
-                                                            eventId ) ) )
+                                                            &eventId,
+                                                            (rpal_ordering_func)rpal_order_RU32 ) ) )
             {
                 rpal_memory_memmove( &( pList->pElems[ i ] ), 
                                      &( pList->pElems[ i + 1 ] ), 
@@ -164,7 +168,10 @@ RBOOL
                                                      pList->nElem * sizeof( *( pList->pElems ) ) );
                 if( rpal_memory_isValid( pList->pElems ) )
                 {
-                    rpal_sort_array( pList->pElems, pList->nElem, sizeof( *( pList->pElems ) ) );
+                    rpal_sort_array( pList->pElems, 
+                                     pList->nElem, 
+                                     sizeof( *( pList->pElems ) ), 
+                                     (rpal_ordering_func)rpal_order_RU32 );
                     isSuccess = TRUE;
                 }
                 else
@@ -198,7 +205,8 @@ RBOOL
             if( (RU32)( -1 ) != rpal_binsearch_array( pList->pElems,
                                                       pList->nElem,
                                                       sizeof( *( pList->pElems ) ),
-                                                      eventId ) )
+                                                      &eventId,
+                                                      (rpal_ordering_func)rpal_order_RU32 ) )
             {
                 isSuccess = TRUE;
             }
@@ -674,8 +682,7 @@ RBOOL
     RU32 i = 0;
     RU32 j = 0;
 
-    if( NULL != hbsState &&
-        rpal_memory_isValid( config ) )
+    if( NULL != hbsState )
     {
         if( NULL != ( g_history_mutex = rMutex_create() ) &&
             _initEventList( &g_exfil_profile ) &&
@@ -747,7 +754,8 @@ RBOOL
                 }
 
                 // Next we assemble the list of events for profile exfil.
-                if( rSequence_getLIST( config, RP_TAGS_HBS_LIST_NOTIFICATIONS, &subscribed ) )
+                if( rpal_memory_isValid( config ) &&
+                    rSequence_getLIST( config, RP_TAGS_HBS_LIST_NOTIFICATIONS, &subscribed ) )
                 {
                     while( rList_getRU32( subscribed, RP_TAGS_HBS_NOTIFICATION_ID, &notifId ) )
                     {
@@ -759,7 +767,8 @@ RBOOL
                 }
 
                 // Finally we get the list of critical events.
-                if( rSequence_getLIST( config, RP_TAGS_HBS_CRITICAL_EVENTS, &subscribed ) )
+                if( rpal_memory_isValid( config ) &&
+                    rSequence_getLIST( config, RP_TAGS_HBS_CRITICAL_EVENTS, &subscribed ) )
                 {
                     while( rList_getRU32( subscribed, RP_TAGS_HBS_NOTIFICATION_ID, &notifId ) )
                     {
@@ -819,8 +828,9 @@ RBOOL
     RU32 i = 0;
     RU32 j = 0;
 
-    if( NULL != hbsState &&
-        rpal_memory_isValid( config ) )
+    UNREFERENCED_PARAMETER( config );
+
+    if( NULL != hbsState )
     {
         if( rMutex_lock( g_history_mutex ) )
         {

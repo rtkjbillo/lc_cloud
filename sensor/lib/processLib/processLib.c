@@ -49,6 +49,7 @@ static pfnNtQueryInformationFile queryFile = NULL;
     #endif
 #endif
 
+
 RBOOL
     processLib_isPidInUse
     (
@@ -1413,22 +1414,33 @@ RBOOL
         RU32 processId,
         RPVOID baseAddr,
         RU64 size,
-        RPVOID* pBuffer
+        RPVOID* pBuffer,
+        RBOOL isBridgeGaps
     )
 {
     RBOOL isSuccess = FALSE;
+    RU32 pageSize = 0;
+    RPU8 pPageOffset = NULL;
+    RPU8 pBufferOffset = NULL;
 
     if( NULL != pBuffer )
     {
-#ifdef RPAL_PLATFORM_WINDOWS
-        HANDLE hProcess = NULL;
-        RSIZET sizeRead = 0;
-
-        if( NULL != ( hProcess = OpenProcess( PROCESS_QUERY_INFORMATION | PROCESS_VM_READ, FALSE, processId ) ) )
+        if( isBridgeGaps )
         {
-            if( NULL != ( *pBuffer = rpal_memory_alloc( (RU32)size ) ) )
+            pageSize = libOs_getPageSize();
+        }
+
+        if( NULL != ( *pBuffer = rpal_memory_alloc( (RU32)size ) ) )
+        {
+#ifdef RPAL_PLATFORM_WINDOWS
+            HANDLE hProcess = NULL;
+            RSIZET sizeRead = 0;
+
+            if( NULL != ( hProcess = OpenProcess( PROCESS_QUERY_INFORMATION | PROCESS_VM_READ,
+                                                  FALSE,
+                                                  processId ) ) )
             {
-                if( ReadProcessMemory( hProcess, baseAddr, *pBuffer, (RU32)size, (RPVOID)&sizeRead ) &&
+                if( ReadProcessMemory( hProcess, baseAddr, *pBuffer, (RU32)size, (SIZE_T*)&sizeRead ) &&
                     sizeRead == size )
                 {
                     isSuccess = TRUE;
@@ -1436,27 +1448,43 @@ RBOOL
 
                 if( !isSuccess )
                 {
-                    rpal_memory_free( *pBuffer );
-                    *pBuffer = NULL;
+                    if( isBridgeGaps )
+                    {
+                        isSuccess = TRUE;
+
+                        pPageOffset = baseAddr;
+                        pBufferOffset = *pBuffer;
+                        while( pPageOffset < ( (RPU8)baseAddr + size ) )
+                        {
+                            ReadProcessMemory( hProcess,
+                                               pPageOffset,
+                                               pBufferOffset,
+                                               pageSize,
+                                               (SIZE_T*)&sizeRead );
+
+                            pPageOffset += pageSize;
+                            pBufferOffset += pageSize;
+                        }
+                    }
                 }
+
+                CloseHandle( hProcess );
             }
-
-            CloseHandle( hProcess );
-        }
 #elif defined( RPAL_PLATFORM_LINUX )
-        RCHAR procMemFile[] = "/proc/%d/mem";
-        RCHAR tmpFile[ RPAL_MAX_PATH ] = {0};
-        RPWCHAR tmpFileW = NULL;
-        rFile memFile = NULL;
-        RU32 snpf_size = 0;
+            RCHAR procMemFile[] = "/proc/%d/mem";
+            RCHAR tmpFile[ RPAL_MAX_PATH ] = {0};
+            RPWCHAR tmpFileW = NULL;
+            rFile memFile = NULL;
+            RU32 snpf_size = 0;
 
-        snpf_size = rpal_string_snprintf( (RPCHAR)&tmpFile, sizeof( tmpFile ), (RPCHAR)&procMemFile, processId );
-        if( snpf_size > 0
+            snpf_size = rpal_string_snprintf( (RPCHAR)&tmpFile, 
+                                              sizeof( tmpFile ), 
+                                              (RPCHAR)&procMemFile, 
+                                              processId );
+            if( snpf_size > 0
                 && snpf_size < sizeof( tmpFile ) )
-        {
-            if( NULL != ( tmpFileW = rpal_string_atow( (RPCHAR)&tmpFile ) ) )
             {
-                if( NULL != ( *pBuffer = rpal_memory_alloc( (RU32)size ) ))
+                if( NULL != ( tmpFileW = rpal_string_atow( (RPCHAR)&tmpFile ) ) )
                 {
                     if( rFile_open( tmpFileW, &memFile, RPAL_FILE_OPEN_READ|RPAL_FILE_OPEN_EXISTING ) )
                     {
@@ -1468,49 +1496,80 @@ RBOOL
                             }
                         }
 
+                        if( !isSuccess )
+                        {
+                            if( isBridgeGaps )
+                            {
+                                isSuccess = TRUE;
+
+                                pPageOffset = baseAddr;
+                                pBufferOffset = *pBuffer;
+                                while( pPageOffset < ( (RPU8)baseAddr + size ) )
+                                {
+                                    if( rFile_seek( memFile, (RU64)pPageOffset, rFileSeek_SET ) )
+                                    {
+                                        rFile_read( memFile, pageSize, pBufferOffset );
+                                    }
+
+                                    pPageOffset += pageSize;
+                                    pBufferOffset += pageSize;
+                                }
+                            }
+                        }
+
                         rFile_close( memFile );
                     }
-                   
-                    if( !isSuccess )
-                    {
-                        rpal_memory_free( *pBuffer );
-                        *pBuffer = NULL;
-                    }
+
+                    rpal_memory_free( tmpFileW );
                 }
-
-                rpal_memory_free( tmpFileW );
             }
-        }
 #elif defined( RPAL_PLATFORM_MACOSX )
-        kern_return_t kret;
-        mach_port_t task;
-        unsigned char *rBuffer;
-        mach_msg_type_number_t data_cnt;
+            kern_return_t kret;
+            mach_port_t task;
+            unsigned char *rBuffer;
+            mach_msg_type_number_t data_cnt;
 
-        kret = task_for_pid( mach_task_self(), processId, &task );
-        if ( KERN_SUCCESS == kret )
-        {
-            kret = mach_vm_read(task, (RU64)baseAddr, size, (vm_offset_t*)&rBuffer, &data_cnt);
-            if( KERN_SUCCESS == kret )
+            kret = task_for_pid( mach_task_self(), processId, &task );
+            if ( KERN_SUCCESS == kret )
             {
-                if( NULL != ( *pBuffer = rpal_memory_alloc( (RU32)size ) ) )
+                kret = mach_vm_read(task, (RU64)baseAddr, size, (vm_offset_t*)&rBuffer, &data_cnt);
+                if( KERN_SUCCESS == kret )
                 {
                     rpal_memory_memcpy( *pBuffer, rBuffer, size );
+
                     isSuccess = TRUE;
+
+                    mach_vm_deallocate( task, (mach_vm_address_t)rBuffer, size );
                 }
 
                 if( !isSuccess )
                 {
-                    rpal_memory_free( *pBuffer );
-                    *pBuffer = NULL;
-                }
+                    if( isBridgeGaps )
+                    {
+                        isSuccess = TRUE;
 
-                mach_vm_deallocate( task, (mach_vm_address_t)rBuffer, size );
+                        pPageOffset = baseAddr;
+                        pBufferOffset = *pBuffer;
+                        while( pPageOffset < ( (RPU8)baseAddr + size ) )
+                        {
+                            kret = mach_vm_read(task, (RU64)pPageOffset, pageSize, (vm_offset_t*)&rBuffer, &data_cnt);
+
+                            pPageOffset += pageSize;
+                            pBufferOffset += pageSize;
+                        }
+                    }
+                }
             }
-        }
 #else
-        rpal_debug_not_implemented();
+            rpal_debug_not_implemented();
 #endif
+        }
+
+        if( !isSuccess )
+        {
+            rpal_memory_free( *pBuffer );
+            *pBuffer = NULL;
+        }
     }
 
     return isSuccess;
@@ -2170,7 +2229,8 @@ rList
 
     if( NULL != ( svcs = rList_new( RP_TAGS_SVC, RPCM_SEQUENCE ) ) )
     {
-        if( NULL != ( hCrawl = rpal_file_crawlStart( rootDir, (RPWCHAR*)&fileExp, 0 ) ) )
+        if( PROCESSLIB_SVCS == type &&
+            NULL != ( hCrawl = rpal_file_crawlStart( rootDir, (RPWCHAR*)&fileExp, 0 ) ) )
         {
             while( rpal_file_crawlNextFile( hCrawl, &fileInfo ) )
             {
@@ -2201,7 +2261,10 @@ rList
         {
             if( NULL != ( svcs = rList_new( RP_TAGS_SVC, RPCM_SEQUENCE ) ) )
             {
-                launch_data_dict_iterate(resp, iterateJobs, svcs);
+                if( PROCESSLIB_SVCS == type )
+                {
+                    launch_data_dict_iterate(resp, iterateJobs, svcs);
+                }
             }
         }
         launch_data_free( resp );
@@ -2516,18 +2579,26 @@ rList
 }
 
 // NOT THREAD SAFE because of the Sym functions.
+// BE VERY CARFUL REQUESTING SYMBOLS WITH TRACE
+// AS THERE ARE SOME MEMORY LEAKS IN THE MS CODE
 rList
     processLib_getStackTrace
     (
         RU32 pid,
-        RU32 tid
+        RU32 tid,
+        RBOOL isWithSymbolNames
     )
 {
     rList frames = NULL;
 #ifdef RPAL_PLATFORM_WINDOWS
     __declspec( align( 16 ) ) CONTEXT context = {0};
-    STACKFRAME64 stack = {0};
+    STACKFRAME64* pStacks = NULL;
+    STACKFRAME64 lastStack = { 0 };
+    RU32 nPreAllocFrames = 10;
+    RBOOL isSnapshotDone = FALSE;
+    RU32 nFrames = 0;
     PIMAGEHLP_SYMBOL64 pSymbol = NULL;
+    RU32 symbolSize = sizeof( IMAGEHLP_SYMBOL64 ) + ( RPAL_MAX_PATH * sizeof( TCHAR ) );
 
     RCHAR importLib[] = { "DbgHelp.dll" };
     RCHAR import1[] = { "SymInitialize" };
@@ -2536,7 +2607,8 @@ rList
     RCHAR import4[] = { "SymFunctionTableAccess64" };
     RCHAR import5[] = { "SymGetModuleBase64" };
     RCHAR import6[] = { "UnDecorateSymbolName" };
-    RCHAR import7[] = { "SymCleanup" };
+    RCHAR import7[] = { "SymSetOptions" };
+    RCHAR import8[] = { "SymCleanup" };
 
     HINSTANCE hDbgHelp = NULL;
     StackWalk64_f fpStackWalk64 = NULL;
@@ -2545,6 +2617,7 @@ rList
     UndecorateSymbolName_f fpUndecorateSymbolName = NULL;
     SymFunctionTableAccess64_f fpSymFunctionTableAccess64 = NULL;
     SymGetModuleBase64_f fpSymGetModuleBase64 = NULL;
+    SymSetOptions_f fpSymSetOptions = NULL;
     SymCleanup_f fpSymCleanup = NULL;
 
     RU32 fr = 0;
@@ -2568,108 +2641,282 @@ rList
          ( NULL != ( fpSymFunctionTableAccess64 = (SymFunctionTableAccess64_f)GetProcAddress( hDbgHelp, import4 ) ) ) &&
          ( NULL != ( fpSymGetModuleBase64 = (SymGetModuleBase64_f)GetProcAddress( hDbgHelp, import5 ) ) ) &&
          ( NULL != ( fpUndecorateSymbolName = (UndecorateSymbolName_f)GetProcAddress( hDbgHelp, import6 ) ) ) &&
-         ( NULL != ( fpSymCleanup = (SymCleanup_f)GetProcAddress( hDbgHelp, import7 ) ) ) )
+         ( NULL != ( fpSymSetOptions = (SymSetOptions_f)GetProcAddress( hDbgHelp, import7 ) ) ) &&
+         ( NULL != ( fpSymCleanup = (SymCleanup_f)GetProcAddress( hDbgHelp, import8 ) ) ) )
     {
-        fpSymInitialize( hProcess, NULL, TRUE);
-        rpal_memory_zero( &stack, sizeof( STACKFRAME64 ) );
+        rpal_memory_zero( &context, sizeof( context ) );
+        context.ContextFlags = CONTEXT_FULL;
 
-        if( SuspendThread( hThread ) >= 0 )
-		{
-			rpal_memory_zero( &context, sizeof( context ) );
-			context.ContextFlags = CONTEXT_FULL;
-        
-			if( GetThreadContext( hThread, &context ) )
-			{
+        fpSymInitialize( hProcess, NULL, TRUE );
+        fpSymSetOptions( SYMOPT_DEFERRED_LOADS |
+                         SYMOPT_FAIL_CRITICAL_ERRORS |
+                         SYMOPT_NO_PROMPTS );
+
+        if( NULL != ( pStacks = rpal_memory_alloc( sizeof( *pStacks ) * nPreAllocFrames ) ) &&
+            SuspendThread( hThread ) >= 0 )
+        {
+            if( GetThreadContext( hThread, &context ) )
+            {
 #ifndef RPAL_PLATFORM_WINDOWS_64
-				stack.AddrPC.Offset    = context.Eip;
-				stack.AddrPC.Mode      = AddrModeFlat;
-				stack.AddrStack.Offset = context.Esp;
-				stack.AddrStack.Mode   = AddrModeFlat;
-				stack.AddrFrame.Offset = context.Ebp;
-				stack.AddrFrame.Mode   = AddrModeFlat;
+                lastStack.AddrPC.Offset = context.Eip;
+                lastStack.AddrPC.Mode = AddrModeFlat;
+                lastStack.AddrStack.Offset = context.Esp;
+                lastStack.AddrStack.Mode = AddrModeFlat;
+                lastStack.AddrFrame.Offset = context.Ebp;
+                lastStack.AddrFrame.Mode = AddrModeFlat;
 #else
-				stack.AddrPC.Offset    = context.Rip;
-				stack.AddrPC.Mode      = AddrModeFlat;
-				stack.AddrStack.Offset = context.Rsp;
-				stack.AddrStack.Mode   = AddrModeFlat;
-				stack.AddrFrame.Offset = context.Rbp;
-				stack.AddrFrame.Mode   = AddrModeFlat;
+                lastStack.AddrPC.Offset = context.Rip;
+                lastStack.AddrPC.Mode = AddrModeFlat;
+                lastStack.AddrStack.Offset = context.Rsp;
+                lastStack.AddrStack.Mode = AddrModeFlat;
+                lastStack.AddrFrame.Offset = context.Rbp;
+                lastStack.AddrFrame.Mode = AddrModeFlat;
 #endif
-				if ( NULL != ( pSymbol = ( PIMAGEHLP_SYMBOL64 ) rpal_memory_alloc( sizeof( IMAGEHLP_SYMBOL64 ) + RPAL_MAX_PATH * sizeof( TCHAR ) ) ) && 
-					 NULL != ( frames = rList_new( RP_TAGS_STACK_TRACE_FRAME, RPCM_SEQUENCE ) ) )
-				{
-					for( fr = 0; ; fr++ )
-					{
+
+                isSnapshotDone = TRUE;
+
+                for( fr = 0;; fr++ )
+                {
+                    if( nPreAllocFrames >= ( fr + 1 ) ||
+                        NULL != ( pStacks = rpal_memory_reAlloc( pStacks, sizeof( *pStacks ) * ( fr + 1 ) ) ) )
+                    {
 #ifndef RPAL_PLATFORM_WINDOWS_64
-						if ( fpStackWalk64( IMAGE_FILE_MACHINE_I386, hProcess, hThread, &stack, &context, NULL, fpSymFunctionTableAccess64,
-											fpSymGetModuleBase64, NULL ) && 
-								NULL != ( frame = rSequence_new() ) )
+
+                        if( !fpStackWalk64( IMAGE_FILE_MACHINE_I386,
+                                            hProcess,
+                                            hThread,
+                                            &lastStack,
+                                            &context,
+                                            NULL,
+                                            isWithSymbolNames ? fpSymFunctionTableAccess64 : NULL,
+                                            isWithSymbolNames ? fpSymGetModuleBase64 : NULL,
+                                            NULL ) )
+                        {
+                            break;
+                        }
 #else
-						if ( fpStackWalk64( IMAGE_FILE_MACHINE_AMD64, hProcess, hThread, &stack, &context, NULL, fpSymFunctionTableAccess64,
-											fpSymGetModuleBase64, NULL ) && 
-								NULL != ( frame = rSequence_new() ) )
+
+                        if( !fpStackWalk64( IMAGE_FILE_MACHINE_AMD64,
+                                            hProcess,
+                                            hThread,
+                                            &lastStack,
+                                            &context,
+                                            NULL,
+                                            NULL,
+                                            NULL,
+                                            NULL ) )
+                        {
+                            break;
+                        }
 #endif
-						{
-							pSymbol->SizeOfStruct  = sizeof( IMAGEHLP_SYMBOL64 ) + RPAL_MAX_PATH * sizeof( TCHAR );
-							pSymbol->MaxNameLength = RPAL_MAX_PATH;
-							if( fpSymGetSymFromAddr64( hProcess, ( ULONG64 )stack.AddrPC.Offset, &displacement, pSymbol ) )
-							{
-								if( fpUndecorateSymbolName( pSymbol->Name, ( PSTR )symbolName, sizeof( symbolName ), UNDNAME_COMPLETE ) > 0 )
-								{
-									rSequence_addSTRINGA( frame, RP_TAGS_STACK_TRACE_FRAME_SYM_NAME, symbolName );
-								}
-								else
-								{
-									rSequence_addSTRINGA( frame, RP_TAGS_STACK_TRACE_FRAME_SYM_NAME, pSymbol->Name );
-								}
-							}
-							rSequence_addRU64( frame, RP_TAGS_STACK_TRACE_FRAME_PC, ( ULONG64 )stack.AddrPC.Offset );
-							rSequence_addRU64( frame, RP_TAGS_STACK_TRACE_FRAME_SP, ( ULONG64 )stack.AddrStack.Offset );
-							rSequence_addRU64( frame, RP_TAGS_STACK_TRACE_FRAME_FP, ( ULONG64 )stack.AddrFrame.Offset );
+                        if( 0 == lastStack.AddrPC.Offset )
+                        {
+                            break;
+                        }
 
-							if( !rList_addSEQUENCE( frames, frame ) )
-							{
-								rSequence_free( frame );
-							}
-						}
-						else
-						{
-							break;
-						}
-					}
+                        pStacks[ fr ] = lastStack;
+                    }
+                }
 
-					rpal_memory_free( pSymbol );
-				}
-			}
-			else
-			{
-				rpal_debug_warning( "Unable to get context of thread %u of process %u -- last error %u.", tid, pid, GetLastError() );
-			}
+                nFrames = fr;
+            }
+            else
+            {
+                rpal_debug_warning( "Unable to get context of thread %u of process %u -- last error %u.", tid, pid, GetLastError() );
+            }
 
-			ResumeThread( hThread );
-		}
-		else
-		{
-			rpal_debug_warning( "Unable to suspend thread %u of process %u -- last error %u.", tid, pid, GetLastError() );
-		}
+            ResumeThread( hThread );
+        }
+        else
+        {
+            rpal_debug_warning( "Unable to suspend thread %u of process %u -- last error %u.", tid, pid, GetLastError() );
+        }
+
+        if( isSnapshotDone )
+        {
+            if( NULL != ( pSymbol = (PIMAGEHLP_SYMBOL64)rpal_memory_alloc( symbolSize ) ) )
+            {
+                if( NULL != ( frames = rList_new( RP_TAGS_STACK_TRACE_FRAME, RPCM_SEQUENCE ) ) )
+                {
+                    for( fr = 0; fr < nFrames; fr++ )
+                    {
+                        if( NULL == ( frame = rSequence_new() ) )
+                        {
+                            break;
+                        }
+
+                        if( isWithSymbolNames )
+                        {
+                            rpal_memory_zero( pSymbol, symbolSize );
+                            pSymbol->SizeOfStruct = symbolSize;
+                            pSymbol->MaxNameLength = RPAL_MAX_PATH;
+
+                            if( fpSymGetSymFromAddr64( hProcess,
+                                                       (ULONG64)pStacks[ fr ].AddrPC.Offset,
+                                                       &displacement,
+                                                       pSymbol ) )
+                            {
+                                if( 0 < fpUndecorateSymbolName( pSymbol->Name,
+                                                                (PSTR)symbolName,
+                                                                sizeof( symbolName ),
+                                                                UNDNAME_COMPLETE ) )
+                                {
+                                    rSequence_addSTRINGA( frame, 
+                                                          RP_TAGS_STACK_TRACE_FRAME_SYM_NAME, 
+                                                          symbolName );
+                                }
+                                else
+                                {
+                                    rSequence_addSTRINGA( frame, 
+                                                          RP_TAGS_STACK_TRACE_FRAME_SYM_NAME, 
+                                                          pSymbol->Name );
+                                }
+                            }
+                        }
+
+                        rSequence_addRU64( frame, 
+                                           RP_TAGS_STACK_TRACE_FRAME_PC, 
+                                           (ULONG64)pStacks[ fr ].AddrPC.Offset );
+                        rSequence_addRU64( frame, 
+                                           RP_TAGS_STACK_TRACE_FRAME_SP, 
+                                           (ULONG64)pStacks[ fr ].AddrStack.Offset );
+                        rSequence_addRU64( frame, 
+                                           RP_TAGS_STACK_TRACE_FRAME_FP, 
+                                           (ULONG64)pStacks[ fr ].AddrFrame.Offset );
+
+                        if( !rList_addSEQUENCE( frames, frame ) )
+                        {
+                            rSequence_free( frame );
+                        }
+                    }
+                }
+
+                rpal_memory_free( pSymbol );
+            }
+        }
 
         fpSymCleanup( hProcess );
     }
 
-    if( NULL != hProcess )
+    if( NULL != pStacks )
     {
-        CloseHandle( hProcess );
+        rpal_memory_free( pStacks );
     }
 
     if( NULL != hThread )
     {
         CloseHandle( hThread );
     }
+
+    if( NULL != hProcess )
+    {
+        CloseHandle( hProcess );
+    }
 #else
     rpal_debug_not_implemented();
 #endif
 
     return frames;
+}
+
+// NOT THREAD SAFE because of the Sym functions.
+// BE VERY CARFUL REQUESTING SYMBOLS WITH TRACE
+// AS THERE ARE SOME MEMORY LEAKS IN THE MS CODE
+RVOID
+    processLib_decorateStackTrace
+    (
+        RU32 pid,
+        rList stackTrace
+    )
+{
+#ifdef RPAL_PLATFORM_WINDOWS
+    RU64 displacement = 0;
+    rSequence frame = NULL;
+    RCHAR symbolName[ 0x100 ] = { 0 };
+    RU64 offset = 0;
+    PIMAGEHLP_SYMBOL64 pSymbol = NULL;
+    RU32 symbolSize = sizeof( IMAGEHLP_SYMBOL64 ) + ( RPAL_MAX_PATH * sizeof( TCHAR ) );
+    HANDLE hProcess = 0;
+
+    RCHAR importLib[] = { "DbgHelp.dll" };
+    RCHAR import1[] = { "SymInitialize" };
+    RCHAR import2[] = { "StackWalk64" };
+    RCHAR import3[] = { "SymGetSymFromAddr64" };
+    RCHAR import4[] = { "SymFunctionTableAccess64" };
+    RCHAR import5[] = { "SymGetModuleBase64" };
+    RCHAR import6[] = { "UnDecorateSymbolName" };
+    RCHAR import7[] = { "SymCleanup" };
+
+    HINSTANCE hDbgHelp = NULL;
+    StackWalk64_f fpStackWalk64 = NULL;
+    SymGetSymFromAddr64_f fpSymGetSymFromAddr64 = NULL;
+    SymInitialize_f fpSymInitialize = NULL;
+    UndecorateSymbolName_f fpUndecorateSymbolName = NULL;
+    SymFunctionTableAccess64_f fpSymFunctionTableAccess64 = NULL;
+    SymGetModuleBase64_f fpSymGetModuleBase64 = NULL;
+    SymCleanup_f fpSymCleanup = NULL;
+
+    if( rpal_memory_isValid( stackTrace ) )
+    {
+        if( ( NULL != ( hDbgHelp = GetModuleHandleA( importLib ) ) ||
+              NULL != ( hDbgHelp = LoadLibraryA( importLib ) ) ) &&
+            ( NULL != ( fpSymInitialize = (SymInitialize_f)GetProcAddress( hDbgHelp, import1 ) ) ) &&
+            ( NULL != ( fpStackWalk64 = (StackWalk64_f)GetProcAddress( hDbgHelp, import2 ) ) ) &&
+            ( NULL != ( fpSymGetSymFromAddr64 = (SymGetSymFromAddr64_f)GetProcAddress( hDbgHelp, import3 ) ) ) &&
+            ( NULL != ( fpSymFunctionTableAccess64 = (SymFunctionTableAccess64_f)GetProcAddress( hDbgHelp, import4 ) ) ) &&
+            ( NULL != ( fpSymGetModuleBase64 = (SymGetModuleBase64_f)GetProcAddress( hDbgHelp, import5 ) ) ) &&
+            ( NULL != ( fpUndecorateSymbolName = (UndecorateSymbolName_f)GetProcAddress( hDbgHelp, import6 ) ) ) &&
+            ( NULL != ( fpSymCleanup = (SymCleanup_f)GetProcAddress( hDbgHelp, import7 ) ) ) )
+        {
+            if( NULL != ( hProcess = OpenProcess( PROCESS_ALL_ACCESS, FALSE, pid ) ) )
+            {
+                fpSymInitialize( hProcess, NULL, TRUE );
+
+                if( NULL != ( pSymbol = (PIMAGEHLP_SYMBOL64)rpal_memory_alloc( symbolSize ) ) )
+                {
+                    while( rList_getSEQUENCE( stackTrace, RP_TAGS_STACK_TRACE_FRAME, &frame ) )
+                    {
+                        if( rSequence_getRU64( frame, RP_TAGS_STACK_TRACE_FRAME_PC, &offset ) )
+                        {
+                            rpal_memory_zero( pSymbol, symbolSize );
+                            pSymbol->SizeOfStruct = symbolSize;
+                            pSymbol->MaxNameLength = RPAL_MAX_PATH;
+
+                            if( fpSymGetSymFromAddr64( hProcess,
+                                                       (ULONG64)offset,
+                                                       &displacement,
+                                                       pSymbol ) )
+                            {
+                                if( 0 < fpUndecorateSymbolName( pSymbol->Name,
+                                                                (PSTR)symbolName,
+                                                                sizeof( symbolName ),
+                                                                UNDNAME_COMPLETE ) )
+                                {
+                                    rpal_debug_info( "FOUND %s", symbolName );
+                                    rSequence_addSTRINGA( frame,
+                                                          RP_TAGS_STACK_TRACE_FRAME_SYM_NAME,
+                                                          symbolName );
+                                }
+                                else
+                                {
+                                    rpal_debug_info( "FOUND %s", symbolName );
+                                    rSequence_addSTRINGA( frame,
+                                                          RP_TAGS_STACK_TRACE_FRAME_SYM_NAME,
+                                                          pSymbol->Name );
+                                }
+                            }
+                        }
+                    }
+
+                    rpal_memory_free( pSymbol );
+                }
+
+                fpSymCleanup( hProcess );
+                CloseHandle( hProcess );
+            }
+        }
+    }
+#endif
 }
 
 rList

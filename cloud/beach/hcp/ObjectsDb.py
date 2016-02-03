@@ -315,9 +315,6 @@ class HostObjects( object ):
         if within is not None:
             within = int( time.time() ) - int( within )
 
-        # There are currently performance issues with filtering by time within in this query.
-        within = None
-
         for ids in chunks( self._ids, self._queryChunks ):
             for row in self._db.execute( 'SELECT id, aid , last FROM loc_by_id WHERE id IN ( \'%s\' )' % '\',\''.join( ids ) ):
                 ts = int( time.mktime( row[ 2 ].timetuple() ) ) if row[ 2 ] is not None else 0
@@ -330,7 +327,7 @@ class HostObjects( object ):
                 ts = 0
                 for row in self._db.execute( 'SELECT id, plat, nloc FROM ref_loc WHERE id IN ( \'%s\' )' % '\',\''.join( ids ) ):
                     for i in range( 1, row[ 2 ] if row[ 2 ] < 100000 else 100000 ):
-                        yield ( row[ 0 ], 'ff.ff.%x.%x' % ( i, row[ 1 ] << 4 ), ts )
+                        yield ( row[ 0 ], 'ff.ff.%x.%x' % ( i, row[ 1 ] ), ts )
 
     def children( self, types = None ):
         withType = ''
@@ -513,7 +510,7 @@ class Host( object ):
                     tmp_filters.extend( filters )
                     tmp_values = [ t ]
                     tmp_values.extend( filterValues )
-                    for row in self._db.execute( 'SELECT unixTimestampOf( ts ), eventtype, eventid FROM timeline WHERE %s%s' % ( ' AND '.join( tmp_filters ), limit ), tmp_values ):
+                    for row in self._db.execute( 'SELECT unixTimestampOf( ts ), eventtype, eventid FROM timeline_by_type WHERE %s%s' % ( ' AND '.join( tmp_filters ), limit ), tmp_values ):
                         record = ( row[ 0 ], row[ 1 ], row[ 2 ] )
                         if isIncludeContent:
                             event = self._db.getOne( 'SELECT event FROM events WHERE eventid = %s', ( record[ 2 ], ) )
@@ -614,14 +611,22 @@ class Reporting( object ):
                 for d in xrange( 0, 255 ):
                     for row in cls._db.execute( 'SELECT d, ts, repid FROM report_timeline WHERE d = %s AND %s%s' % ( d, ' AND '.join( filters ), limit ), filterValues ):
                         for reprow in cls._db.execute( 'SELECT gen, repid, source, dtype, events, detect FROM reports WHERE repid = \'%s\'' % ( row[ 2 ],  ) ):
-                            yield ( timeToTs( reprow[ 0 ] ) * 1000, reprow[ 1 ], reprow[ 2 ], reprow[ 3 ], reprow[ 4 ], reprow[ 5 ] )
+                            yield ( timeToTs( reprow[ 0 ] ) * 1000, reprow[ 1 ].upper(), reprow[ 2 ], reprow[ 3 ], reprow[ 4 ], reprow[ 5 ] )
 
 
             return thisGen()
         else:
             r = None
-            for row in cls._db.execute( 'SELECT gen, repid, source, dtype, events, detect FROM reports WHERE repid = \'%s\'' % ( id, ) ):
-                r = ( timeToTs( row[ 0 ] ) * 1000, row[ 1 ], row[ 2 ], row[ 3 ], row[ 4 ], row[ 5 ] )
+            for row in cls._db.execute( 'SELECT gen, repid, source, dtype, events, detect FROM reports WHERE repid = \'%s\'' % ( id.upper(), ) ):
+                r = ( timeToTs( row[ 0 ] ) * 1000, row[ 1 ].upper(), row[ 2 ], row[ 3 ], row[ 4 ], row[ 5 ] )
             return r
 
+    @classmethod
+    def getRelatedEvents( cls, id, isIncludeContent = True ):
+        for row in cls._db.execute( 'SELECT invid, unixTimestampOf( ts ), eid, etype FROM investigation_data WHERE invid = \'%s\'' % ( id, ) ):
+            record = ( row[ 0 ].upper(), row[ 1 ], row[ 2 ], row[ 3 ] )
+            if isIncludeContent:
+                event = cls._db.getOne( 'SELECT event FROM events WHERE eventid = %s', ( record[ 2 ], ) )
+                record = ( record[ 0 ], record[ 1 ], event[ 0 ], record[ 3 ] )
+            yield record
 

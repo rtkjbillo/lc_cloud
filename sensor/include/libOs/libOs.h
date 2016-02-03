@@ -31,6 +31,8 @@ limitations under the License.
 #define OSLIB_VERSION_WINDOWS_VISTA_2K8     4
 #define OSLIB_VERSION_WINDOWS_7_2K8R2       5
 #define OSLIB_VERSION_WINDOWS_8             6
+#define OSLIB_VERSION_WINDOWS_8_1           7
+#define OSLIB_VERSION_WINDOWS_10            8
 
 //=============================================================================
 //  SignCheck operations
@@ -47,6 +49,12 @@ typedef struct
     RWCHAR name[ 256 ];
     RWCHAR version[ 64 ];
 } LibOsPackageInfo;
+
+typedef struct
+{
+    RU64 lastSystemTime;
+    RU64 lastThreadTime;
+} LibOsThreadTimeContext;
 
 //=============================================================================
 //  API
@@ -118,6 +126,31 @@ RBOOL
     (
         rThreadID threadID,
         RU64* pTime
+    );
+
+RU32
+    libOs_getPageSize
+    (
+
+    );
+
+RU8
+    libOs_getCurrentThreadCpuUsage
+    (
+        LibOsThreadTimeContext* ctx
+    );
+
+RBOOL
+    libOs_getProcessTime
+    (
+        RU32 processId,
+        RU64* pTime
+    );
+
+RU8
+    libOs_getCurrentProcessCpuUsage
+    (
+
     );
 
 #endif

@@ -109,6 +109,7 @@
     <ClCompile Include="collector_13_exec_oob.c" />
     <ClCompile Include="collector_14_operations_man.c" />
     <ClCompile Include="collector_12_profiler.c" />
+    <ClCompile Include="collector_15_process_hollowing.c" />
     <ClCompile Include="collector_1_process_tracker.c" />
     <ClCompile Include="collector_2_dns_tracker.c" />
     <ClCompile Include="collector_3_code_ident.c" />
@@ -138,6 +139,9 @@
     </ProjectReference>
     <ProjectReference Include="..\..\lib\obfuscationLib\obfuscationLib.vcxproj">
       <Project>{53e5cf95-eaba-412b-82c4-39632419171f}</Project>
+    </ProjectReference>
+    <ProjectReference Include="..\..\lib\obsLib\obsLib.vcxproj">
+      <Project>{af170d17-839b-414a-8693-d5b025839178}</Project>
     </ProjectReference>
     <ProjectReference Include="..\..\lib\processLib\processLib.vcxproj">
       <Project>{55ed069a-2899-3dfa-cccd-9036543e919f}</Project>

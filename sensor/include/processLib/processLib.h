@@ -85,7 +85,8 @@ RBOOL
         RU32 processId,
         RPVOID baseAddr,
         RU64 size,
-        RPVOID* pBuffer
+        RPVOID* pBuffer,
+        RBOOL isBridgeGaps
     );
 
 rList
@@ -128,7 +129,15 @@ rList
     processLib_getStackTrace
     (
         RU32 pid,
-        RU32 tid
+        RU32 tid,
+        RBOOL isWithSymbolNames
+    );
+
+RVOID
+    processLib_decorateStackTrace
+    (
+        RU32 pid,
+        rList stackTrace
     );
 
 rList

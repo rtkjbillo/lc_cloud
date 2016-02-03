@@ -71,5 +71,6 @@ typedef RU32 RERROR;
 RERROR rpal_error_rErrorFromOsError( RU32 osError );
 
 RERROR rpal_error_getLast();
+RVOID rpal_error_setLast( RERROR err );
 #endif // _RPAL_ERROR_H
 

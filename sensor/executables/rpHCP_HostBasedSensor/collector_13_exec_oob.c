@@ -23,49 +23,139 @@ limitations under the License.
 #include <processLib/processLib.h>
 #include <rpHostCommonPlatformLib/rTags.h>
 
-#ifdef RPAL_PLATFORM_DEBUG
-#define _DEFAULT_TIME_DELTA     (60 * 30)
-#else
-#define _DEFAULT_TIME_DELTA     (0)
-#endif
+#define _TIMEOUT_BETWEEN_THREAD             (5*1000)
+#define _TIMEOUT_BETWEEN_CONSTANT_PROCESSS  (0*1000)
+#define _MAX_CPU_WAIT                       (60)
+#define _CPU_WATERMARK                      (50)
 
 static rMutex g_oob_exec_mutex = NULL;
+
+typedef struct
+{
+    RU64 base;
+    RU64 size;
+} _MemRange;
 
 static
 RBOOL
     isMemInModule
     (
         RU64 memBase,
-        rList modules
+        _MemRange* memRanges,
+        RU32 nRanges
     )
 {
     RBOOL isInMod = FALSE;
-    rSequence mod = NULL;
+    RU32 i = 0;
 
-    RU64 modBase = 0;
-    RU64 modSize = 0;
-
-    if( NULL != modules )
+    if( NULL != memRanges )
     {
-        rList_resetIterator( modules );
-
-        while( rList_getSEQUENCE( modules, RP_TAGS_DLL, &mod ) )
+        i = rpal_binsearch_array_closest( memRanges,
+                                          nRanges,
+                                          sizeof( _MemRange ),
+                                          &memBase,
+                                          (rpal_ordering_func)rpal_order_RU64,
+                                          TRUE );
+        if( (RU32)( -1 ) != i )
         {
-            if( rSequence_getPOINTER64( mod, RP_TAGS_BASE_ADDRESS, &modBase ) &&
-                rSequence_getRU64( mod, RP_TAGS_MEMORY_SIZE, &modSize ) )
+            if( IS_WITHIN_BOUNDS( NUMBER_TO_PTR( memBase ),
+                                  1,
+                                  NUMBER_TO_PTR( memRanges[ i ].base ),
+                                  memRanges[ i ].size ) )
             {
-                if( IS_WITHIN_BOUNDS( NUMBER_TO_PTR( memBase ), 4, NUMBER_TO_PTR( modBase ), modSize ) )
+                isInMod = TRUE;
+            }
+        }
+    }
+
+    return isInMod;
+}
+
+static
+RBOOL
+    assembleRanges
+    (
+        rList mods,
+        _MemRange** pRanges,
+        RU32* pNRanges
+    )
+{
+    RBOOL isSuccess = FALSE;
+    _MemRange* memRanges = NULL;
+    rSequence mod = NULL;
+    RU64 base = 0;
+    RU64 size = 0;
+    RU32 i = 0;
+
+    if( rpal_memory_isValid( mods ) &&
+        NULL != pRanges &&
+        NULL != pNRanges )
+    {
+        if( NULL != ( memRanges = rpal_memory_alloc( sizeof( _MemRange ) *
+                                                     rList_getNumElements( mods ) ) ) )
+        {
+            rList_resetIterator( mods );
+
+            while( rList_getSEQUENCE( mods, RP_TAGS_DLL, &mod ) )
+            {
+                if( rSequence_getPOINTER64( mod, RP_TAGS_BASE_ADDRESS, &base ) &&
+                    rSequence_getRU64( mod, RP_TAGS_MEMORY_SIZE, &size ) )
                 {
-                    isInMod = TRUE;
+                    memRanges[ i ].base = base;
+                    memRanges[ i ].size = size;
+                    i++;
+                }
+            }
+
+            if( rpal_sort_array( memRanges, 
+                                 i, 
+                                 sizeof( _MemRange ), 
+                                 (rpal_ordering_func)rpal_order_RU64 ) )
+            {
+                isSuccess = TRUE;
+                *pRanges = memRanges;
+                *pNRanges = i;
+            }
+        }
+    }
+
+    return isSuccess;
+}
+
+static
+RBOOL
+    isJITPresentInProcess
+    (
+        RU32 processId
+    )
+{
+    RBOOL isJITPresent = FALSE;
+
+#ifdef RPAL_PLATFORM_WINDOWS
+    rList mods = NULL;
+    rSequence mod = NULL;
+    RPWCHAR nameW = NULL;
+    RWCHAR dotNetDir[] = _WCH( "\\windows\\microsoft.net\\" );
+    
+    if( NULL != ( mods = processLib_getProcessModules( processId ) ) )
+    {
+        while( rList_getSEQUENCE( mods, RP_TAGS_DLL, &mod ) )
+        {
+            if( rSequence_getSTRINGW( mod, RP_TAGS_FILE_PATH, &nameW ) )
+            {
+                if( NULL != rpal_string_stristrw( nameW, dotNetDir ) )
+                {
+                    isJITPresent = TRUE;
                     break;
                 }
             }
         }
 
-        rList_resetIterator( modules );
+        rList_free( mods );
     }
+#endif
 
-    return isInMod;
+    return isJITPresent;
 }
 
 
@@ -79,6 +169,8 @@ RPVOID
     )
 {
     rList mods = NULL;
+    _MemRange* memRanges = NULL;
+    RU32 nRanges = 0;
     rList threads = NULL;
     RU32 threadId = 0;
     rList stackTrace = NULL;
@@ -90,68 +182,88 @@ RPVOID
     rSequence taggedTrace = NULL;
     RU32 curThreadId = 0;
     RU32 curProcId = 0;
+    RBOOL isJITPresent = FALSE;
 
     curProcId = processLib_getCurrentPid();
     curThreadId = processLib_getCurrentThreadId();
+
+    if( curProcId == processId )
+    {
+        return NULL;
+    }
 
     if( !rMutex_lock( g_oob_exec_mutex ) )
     {
         return NULL;
     }
 
+    isJITPresent = isJITPresentInProcess( processId );
+
     rpal_debug_info( "looking for execution out of bounds in process %d.", processId );
 
-    if( NULL != ( traces = rList_new( RP_TAGS_STACK_TRACE, RPCM_SEQUENCE ) ) )
+    if( !isJITPresent &&
+        NULL != ( traces = rList_new( RP_TAGS_STACK_TRACE, RPCM_SEQUENCE ) ) )
     {
-        if( NULL != ( mods = processLib_getProcessModules( processId ) ) )
+        if( NULL != ( threads = processLib_getThreads( processId ) ) )
         {
-            if( NULL != ( threads = processLib_getThreads( processId ) ) )
+            while( !rEvent_wait( isTimeToStop, _TIMEOUT_BETWEEN_THREAD ) &&
+                    rList_getRU32( threads, RP_TAGS_THREAD_ID, &threadId ) )
             {
-                while( !rEvent_wait( isTimeToStop, 0 ) &&
-                       rList_getRU32( threads, RP_TAGS_THREAD_ID, &threadId ) )
+                // We get the modules for every thread right before getting the
+                // stack trace to limit time difference between both snapshots.
+                if( NULL != ( mods = processLib_getProcessModules( processId ) ) )
                 {
-                    if( curProcId == processId )
+                    if( assembleRanges( mods, &memRanges, &nRanges ) )
                     {
-                        continue;
-                    }
-
-                    if( NULL != ( stackTrace = processLib_getStackTrace( processId, threadId ) ) )
-                    {
-                        while( !rEvent_wait( isTimeToStop, 0 ) &&
-                            rList_getSEQUENCE( stackTrace, RP_TAGS_STACK_TRACE_FRAME, &frame ) )
+                        if( NULL != ( stackTrace = processLib_getStackTrace( processId, 
+                                                                             threadId, 
+                                                                             FALSE ) ) )
                         {
-                            if( rSequence_getRU64( frame, RP_TAGS_STACK_TRACE_FRAME_PC, &pc ) &&
-                                0 != pc &&
-                                !isMemInModule( pc, mods ) )
+                            while( !rEvent_wait( isTimeToStop, 0 ) &&
+                                rList_getSEQUENCE( stackTrace, RP_TAGS_STACK_TRACE_FRAME, &frame ) )
                             {
-                                rpal_debug_info( "covert execution detected in pid %d at 0x%016llX.", 
-                                                 processId, 
-                                                 pc );
-                                if( NULL != ( taggedTrace = rSequence_new() ) )
+                                if( rSequence_getRU64( frame, RP_TAGS_STACK_TRACE_FRAME_PC, &pc ) &&
+                                    0 != pc &&
+                                    !isMemInModule( pc, memRanges, nRanges ) )
                                 {
-                                    if( rSequence_addRU32( taggedTrace, RP_TAGS_THREAD_ID, threadId ) &&
-                                        rSequence_addLISTdup( taggedTrace, 
-                                                              RP_TAGS_STACK_TRACE_FRAMES, 
-                                                              stackTrace ) )
-                                    {
-                                        rList_addSEQUENCEdup( traces, taggedTrace );
-                                        isFound = TRUE;
-                                    }
+                                    rpal_debug_info( "covert execution detected in pid %d at 0x%016llX.",
+                                        processId,
+                                        pc );
 
-                                    rSequence_free( taggedTrace );
+                                    // Note that we are not decorating the stack trace with symbols
+                                    // anywhere as the Microsoft code contains memory leaks. The API
+                                    // was clearly not written for long term continuous use in a process.
+
+                                    if( NULL != ( taggedTrace = rSequence_new() ) )
+                                    {
+                                        if( rSequence_addRU32( taggedTrace, 
+                                                               RP_TAGS_THREAD_ID, 
+                                                               threadId ) &&
+                                            rSequence_addLISTdup( taggedTrace,
+                                            RP_TAGS_STACK_TRACE_FRAMES,
+                                            stackTrace ) )
+                                        {
+                                            rList_addSEQUENCEdup( traces, taggedTrace );
+                                            isFound = TRUE;
+                                        }
+
+                                        rSequence_free( taggedTrace );
+                                    }
+                                    break;
                                 }
-                                break;
                             }
+
+                            rList_free( stackTrace );
                         }
 
-                        rList_free( stackTrace );
+                        rpal_memory_free( memRanges );
                     }
-                }
 
-                rList_free( threads );
+                    rList_free( mods );
+                }
             }
 
-            rList_free( mods );
+            rList_free( threads );
         }
 
         if( isFound &&
@@ -163,6 +275,7 @@ RPVOID
             }
 
             hbs_markAsRelated( originalRequest, notif );
+            rSequence_addTIMESTAMP( notif, RP_TAGS_TIMESTAMP, rpal_time_getGlobal() );
 
             notifications_publish( RP_TAGS_NOTIFICATION_EXEC_OOB, notif );
 
@@ -172,6 +285,10 @@ RPVOID
         {
             rList_free( traces );
         }
+    }
+    else
+    {
+        rpal_debug_info( "process has JIT present, ignoring it" );
     }
 
     rMutex_unlock( g_oob_exec_mutex );
@@ -239,6 +356,44 @@ RVOID
     }
 }
 
+static
+RPVOID
+    lookForExecOobConstantly
+    (
+        rEvent isTimeToStop,
+        RPVOID ctx
+    )
+{
+    rSequence originalRequest = (rSequence)ctx;
+    processLibProcEntry* procs = NULL;
+    processLibProcEntry* proc = NULL;
+
+    while( rpal_memory_isValid( isTimeToStop ) &&
+           !rEvent_wait( isTimeToStop, 0 ) )
+    {
+        if( NULL != ( procs = processLib_getProcessEntries( TRUE ) ) )
+        {
+            proc = procs;
+
+            while( 0 != proc->pid &&
+                   rpal_memory_isValid( isTimeToStop ) &&
+                   !rEvent_wait( isTimeToStop, _TIMEOUT_BETWEEN_CONSTANT_PROCESSS ) )
+            {
+                if( hbs_whenCpuBelow( _CPU_WATERMARK, _MAX_CPU_WAIT, isTimeToStop ) )
+                {
+                    lookForExecOobIn( isTimeToStop, proc->pid, originalRequest );
+                }
+
+                proc++;
+            }
+
+            rpal_memory_free( procs );
+        }
+    }
+
+    return NULL;
+}
+
 //=============================================================================
 // COLLECTOR INTERFACE
 //=============================================================================
@@ -254,18 +409,11 @@ RBOOL
     )
 {
     RBOOL isSuccess = FALSE;
-    RU64 timeDelta = 0;
-
+    
     UNREFERENCED_PARAMETER( config );
 
     if( NULL != hbsState )
     {
-        if( rpal_memory_isValid( config ) ||
-            !rSequence_getTIMEDELTA( config, RP_TAGS_TIMEDELTA, &timeDelta ) )
-        {
-            timeDelta = _DEFAULT_TIME_DELTA;
-        }
-
         if( NULL != ( g_oob_exec_mutex = rMutex_create() ) )
         {
             if( notifications_subscribe( RP_TAGS_NOTIFICATION_EXEC_OOB_REQ,
@@ -273,8 +421,7 @@ RBOOL
                                          0,
                                          NULL,
                                          scan_for_exec_oob ) &&
-                ( 0 == timeDelta ||
-                  rThreadPool_scheduleRecurring( hbsState->hThreadPool, timeDelta, lookForExecOob, NULL, TRUE ) ) )
+                rThreadPool_task( hbsState->hThreadPool, lookForExecOobConstantly, NULL) )
             {
                 isSuccess = TRUE;
             }
@@ -290,7 +437,7 @@ RBOOL
 }
 
 RBOOL
-collector_13_cleanup
+    collector_13_cleanup
     (
         HbsState* hbsState,
         rSequence config

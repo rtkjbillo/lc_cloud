@@ -361,6 +361,12 @@ RBOOL
         RCHAR c
     );
 
+RBOOL
+    rpal_string_charIsAlphaNum
+    (
+        RCHAR c
+    );
+
 #include <stdio.h>
 #define rpal_string_snprintf(outStr,buffLen,format,...) snprintf((outStr),(buffLen),(format),__VA_ARGS__)
 #define rpal_string_sscanf(inStr,format,...) sscanf((inStr),(format),__VA_ARGS__)

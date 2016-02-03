@@ -297,7 +297,7 @@ rBloom
         else
         {
 #ifdef RPAL_PLATFORM_DEBUG
-            bloom_print( &pB->rawBloom );
+            //bloom_print( &pB->rawBloom );
 #endif
         }
     }

@@ -26,6 +26,10 @@ limitations under the License.
 #include "collectors.h"
 #include "keys.h"
 
+#ifdef RPAL_PLATFORM_MACOSX
+#include <Security/Authorization.h>
+#endif
+
 //=============================================================================
 //  RP HCP Module Requirements
 //=============================================================================
@@ -64,7 +68,7 @@ HbsState g_hbs_state = { NULL,
                            ENABLED_COLLECTOR( 3 ),
                            ENABLED_WINDOWS_COLLECTOR( 4 ),
                            ENABLED_WINDOWS_COLLECTOR( 5 ),
-                           ENABLED_WINDOWS_COLLECTOR( 6 ),
+                           ENABLED_COLLECTOR( 6 ),
                            ENABLED_WINDOWS_COLLECTOR( 7 ),
                            ENABLED_COLLECTOR( 8 ),
                            ENABLED_COLLECTOR( 9 ),
@@ -72,7 +76,8 @@ HbsState g_hbs_state = { NULL,
                            ENABLED_COLLECTOR( 11 ),
                            DISABLED_COLLECTOR( 12 ),
                            ENABLED_WINDOWS_COLLECTOR( 13 ),
-                           ENABLED_COLLECTOR( 14 ) } };
+                           ENABLED_COLLECTOR( 14 ),
+                           DISABLED_OSX_COLLECTOR( 15 ) } };
 RU8* hbs_cloud_pub_key = hbs_cloud_default_pub_key;
 
 //=============================================================================
@@ -199,11 +204,35 @@ RBOOL
     {
         rpal_debug_warning( "error getting SeRestorePrivilege" );
     }
-#elif defined( RPAL_PLATFORM_LINUX ) || defined( RPAL_PLATFORM_MACOSX )
-    /*cap_t capability_context = 0;
-    if( NULL != ( capability_context = cap_get_proc() ) )
+#elif defined( RPAL_PLATFORM_LINUX )
+    
+#elif defined( RPAL_PLATFORM_MACOSX )
+    /*
+    OSStatus stat;
+    AuthorizationItem taskport_item[] = {{"system.privilege.taskport:"}};
+    AuthorizationRights rights = {1, taskport_item}, *out_rights = NULL;
+    AuthorizationRef author;
+    
+    AuthorizationFlags auth_flags = kAuthorizationFlagExtendRights | 
+                                    kAuthorizationFlagPreAuthorize | 
+                                    ( 1 << 5);
+
+    stat = AuthorizationCreate( NULL, kAuthorizationEmptyEnvironment, auth_flags, &author );
+    if( stat != errAuthorizationSuccess )
     {
-        cap_free( capability_context );
+        isSuccess = TRUE;
+    }
+    else
+    {
+        stat = AuthorizationCopyRights( author, 
+                                        &rights, 
+                                        kAuthorizationEmptyEnvironment, 
+                                        auth_flags, 
+                                        &out_rights );
+        if( stat == errAuthorizationSuccess )
+        {
+            isSuccess = TRUE;
+        }
     }
     */
 #endif
@@ -693,7 +722,10 @@ RPAL_THREAD_FUNC
 
     CryptoLib_init();
 
-    getPrivileges();
+    if( !getPrivileges() )
+    {
+        rpal_debug_info( "special privileges not acquired" );
+    }
 
     // This is the event for the collectors, it is different than the
     // hbs proper event so that we can restart the collectors without

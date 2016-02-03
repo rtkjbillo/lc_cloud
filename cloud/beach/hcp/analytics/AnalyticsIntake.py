@@ -27,6 +27,7 @@ class AnalyticsIntake( Actor ):
         self.analytics_stateless = self.getActorHandle( 'analytics/stateless/intake', timeout = 30, nRetries = 3 )
         self.analytics_stateful = self.getActorHandle( 'analytics/stateful/intake', timeout = 30, nRetries = 3 )
         self.analytics_modeling = self.getActorHandle( 'analytics/modeling/intake', timeout = 120, nRetries = 3 )
+        self.analytics_investigation = self.getActorHandle( 'analytics/investigation/intake', timeout = 120, nRetries = 3 )
 
     def deinit( self ):
         pass
@@ -91,7 +92,7 @@ class AnalyticsIntake( Actor ):
             self._addRel( mtd, svcname, ObjectTypes.SERVICE_NAME, displayname, ObjectTypes.SERVICE_NAME )
 
         self._addObj( mtd, mainMod, ObjectTypes.FILE_PATH )
-        self._addRel( mtd, svcname, ObjectTypes.SERVICE_NAME, dll, ObjectTypes.FILE_PATH )
+        self._addRel( mtd, svcname, ObjectTypes.SERVICE_NAME, mainMod, ObjectTypes.FILE_PATH )
         if h is not None:
             self._addObj( mtd, h, ObjectTypes.FILE_HASH )
             self._addRel( mtd, svcname, ObjectTypes.SERVICE_NAME, h, ObjectTypes.FILE_HASH )
@@ -127,7 +128,7 @@ class AnalyticsIntake( Actor ):
 
     def _extractObjects( self, message ):
         routing, event = message
-        mtd = { 'obj' : {}, 'rel' : {}, 'k' : [] }
+        mtd = { 'obj' : {}, 'rel' : {} }
         agent = AgentId( routing[ 'agentid' ] )
         eventType = routing.get( 'event_type', None )
         eventRoot = event.values()[ 0 ]
@@ -189,6 +190,10 @@ class AnalyticsIntake( Actor ):
             self.analytics_modeling.shoot( 'analyze', event )
             self.analytics_stateless.shoot( 'analyze', event )
             self.analytics_stateful.shoot( 'analyze', event )
+
+            routing, event, mtd = event
+            if 'investigation_id' in routing:
+                self.analytics_investigation.shoot( 'analyze', event )
 
         return ( True, )
 

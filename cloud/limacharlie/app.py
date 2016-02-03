@@ -78,7 +78,7 @@ class Dashboard:
 
 class Sensor:
     def GET( self ):
-        params = web.input( sensor_id = None, before = None, after = None )
+        params = web.input( sensor_id = None, before = None, after = None, max_size = '4096', per_page = '10' )
 
         if params.sensor_id is None:
             return render.error( 'sensor_id required' )
@@ -99,7 +99,7 @@ class Sensor:
         if '' != params.after:
             after = params.after
 
-        return render.sensor( info.data[ 'id' ], before, after )
+        return render.sensor( info.data[ 'id' ], before, after, params.max_size, params.per_page )
 
 class SensorState:
     @jsonApi
@@ -122,7 +122,7 @@ class SensorState:
 class Timeline:
     @jsonApi
     def GET( self ):
-        params = web.input( sensor_id = None, after = None, before = None )
+        params = web.input( sensor_id = None, after = None, before = None, max_size = '4096' )
 
         if params.sensor_id is None:
             raise web.HTTPError( '400 Bad Request: sensor id required' )
@@ -138,7 +138,7 @@ class Timeline:
         req = { 'id' : params.sensor_id,
                 'is_include_content' : True,
                 'after' : start_time,
-                'max_size' : 512 }
+                'max_size' : int( params.max_size ) }
 
         if params.before is not None and '' != params.before:
             req[ 'before' ] = int( params.before )
@@ -282,12 +282,27 @@ class ViewDetect:
         if params.id is None:
             return render.error( 'need to supply a detect id' )
 
-        info = model.request( 'get_detect', { 'id' : params.id } )
+        info = model.request( 'get_detect', { 'id' : params.id, 'with_events' : True } )
 
         if not info.isSuccess:
             return render.error( str( info ) )
 
-        return render.detect( info.data.get( 'detect', {} ) )
+        return render.detect( info.data.get( 'detect', [] ) )
+
+class HostChanges:
+    @jsonApi
+    def GET( self ):
+        params = web.input( sensor_id = None )
+
+        if params.sensor_id is None:
+            raise web.HTTPError( '400 Bad Request: sensor id required' )
+
+        info = model.request( 'get_host_changes', { 'id' : params.sensor_id } )
+
+        if not info.isSuccess:
+            raise web.HTTPError( '503 Service Unavailable : %s' % str( info ) )
+
+        return info.data.get( 'changes', {} )
 
 ###############################################################################
 # BOILER PLATE
@@ -307,7 +322,8 @@ urls = ( r'/', 'Index',
          r'/hostobjects', 'HostObjects',
          r'/detects_data', 'JsonDetects',
          r'/detects', 'ViewDetects',
-         r'/detect', 'ViewDetect' )
+         r'/detect', 'ViewDetect',
+         r'/hostchanges', 'HostChanges' )
 
 web.config.debug = False
 app = web.application( urls, globals() )

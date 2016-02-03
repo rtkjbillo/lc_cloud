@@ -637,31 +637,32 @@ RPWCHAR
     )
 {
     RPWCHAR out = NULL;
-    RU32 i = 0;
-    RU32 hayLen = 0;
-    RU32 neeLen = 0;
+    RPWCHAR tmpHaystack = NULL;
+    RPWCHAR tmpNeedle = NULL;
 
     if( NULL != haystack &&
         NULL != needle )
     {
-        hayLen = rpal_string_strlenw( haystack );
-        neeLen = rpal_string_strlenw( needle );
-        
-        if( hayLen >= neeLen )
+        tmpHaystack = rpal_string_strdupw( haystack );
+        tmpNeedle = rpal_string_strdupw( needle );
+
+        if( NULL != tmpHaystack &&
+            NULL != tmpNeedle )
         {
-            for( i = 0; i <= ( hayLen - neeLen ); i++ )
-            {
-#ifdef RPAL_PLATFORM_WINDOWS
-                if( 0 == wcsicmp( haystack + i, needle ) )
-#elif defined( RPAL_PLATFORM_LINUX ) || defined( RPAL_PLATFORM_MACOSX )
-                RPAL_PLATFORM_TODO(Confirm GLIBC doesnt break this with optimizations)
-                if( 0 == wcscasecmp( haystack + i, needle ) )
-#endif
-                {
-                    out = haystack + i;
-                    break;
-                }
-            }
+            tmpHaystack = rpal_string_toupperw( tmpHaystack );
+            tmpNeedle = rpal_string_toupperw( tmpNeedle );
+
+            out = rpal_string_strstrw( tmpHaystack, tmpNeedle );
+        }
+
+        if( NULL != tmpHaystack )
+        {
+            rpal_memory_free( tmpHaystack );
+        }
+
+        if( NULL != tmpNeedle )
+        {
+            rpal_memory_free( tmpNeedle );
         }
     }
 
@@ -1746,4 +1747,22 @@ RBOOL
     }
 
     return isAscii;
+}
+
+RBOOL
+    rpal_string_charIsAlphaNum
+    (
+        RCHAR c
+    )
+{
+    RBOOL isAlphaNum = FALSE;
+
+    if( ( 0x30 <= c && 0x39 >= c ) ||
+        ( 0x41 <= c && 0x5A >= c ) ||
+        ( 0x61 <= c && 0x7A >= c ) )
+    {
+        isAlphaNum = TRUE;
+    }
+
+    return isAlphaNum;
 }
