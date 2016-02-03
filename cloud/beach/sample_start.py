@@ -142,13 +142,25 @@ print( beach.addActor( 'analytics/AnalyticsStateful',
 # stateless and stateful detection
 # actors and ingest them into the
 # reporting pipeline.
+# Parameters:
+# db: the Cassandra seed nodes to
+#    connect to for storage.
+# rate_limit_per_sec: number of db ops
+#    per second, limiting to avoid
+#    db overload since C* is bad at that.
+# max_concurrent: number of concurrent
+#    db queries.
+# block_on_queue_size: stop queuing after
+#    n number of items awaiting ingestion.
+# paging_dest: email addresses to page.
 #######################################
 print( beach.addActor( 'analytics/AnalyticsReporting',
                        'analytics/reporting/1.0',
                        parameters = { 'db' : [ 'hcp-scale-db' ],
                                       'rate_limit_per_sec' : 10,
                                       'max_concurrent' : 5,
-                                      'block_on_queue_size' : 200000 },
+                                      'block_on_queue_size' : 200000,
+                                      'paging_dest' : [] },
                        secretIdent = 'reporting/9ddcc95e-274b-4a49-a003-c952d12049b8',
                        trustedIdents = [ 'analysis/038528f5-5135-4ca8-b79f-d6b8ffc53bf5',
                                          'hunt/8e0f55c0-6593-4747-9d02-a4937fa79517' ],
@@ -264,6 +276,24 @@ print( beach.addActor( 'analytics/HuntsManager',
                                       'beach_config' : BEACH_CONFIG_FILE },
                        secretIdent = 'huntsmanager/d666cbc3-38d5-4086-b9ce-c543625ee45c',
                        trustedIdents = [ 'hunt/8e0f55c0-6593-4747-9d02-a4937fa79517' ],
+                       n_concurrent = 5 ) )
+
+#######################################
+# PagingActor
+# This actor responsible for sending
+# pages by email.
+# Parameters:
+# from: email/user to send page from.
+# password: password of the account
+#    used to send.
+# smtp_server: URI of the smtp server.
+# smtp_port: port of the smtp server.
+#######################################
+print( beach.addActor( 'PagingActor',
+                       'paging/1.0',
+                       parameters = {  },
+                       secretIdent = 'paging/31d29b6a-d455-4df7-a196-aec3104f105d',
+                       trustedIdents = [ 'reporting/9ddcc95e-274b-4a49-a003-c952d12049b8' ],
                        n_concurrent = 5 ) )
 
 ###############################################################################

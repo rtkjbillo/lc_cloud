@@ -16,6 +16,7 @@ from beach.actor import Actor
 import msgpack
 import base64
 import random
+import json
 CassDb = Actor.importLib( '../hcp_databases', 'CassDb' )
 CassPool = Actor.importLib( '../hcp_databases', 'CassPool' )
 
@@ -35,6 +36,10 @@ class AnalyticsReporting( Actor ):
 
         self.db.start()
         self.handle( 'report', self.report )
+        self.paging = self.getActorHandle( 'paging' )
+        self.pageDest = parameters.get( 'paging_dest', [] )
+        if type( self.pageDest ) is str or type( self.pageDest ) is unicode:
+            self.pageDest = [ self.pageDest ]
 
     def deinit( self ):
         self.db.stop()
@@ -49,5 +54,10 @@ class AnalyticsReporting( Actor ):
 
         self.db.execute_async( self.report_stmt_rep.bind( ( report_id, source, category, ' / '.join( event_ids ), detect ) ) )
         self.db.execute_async( self.report_stmt_tl.bind( ( random.randint( 0, 255 ), report_id ) ) )
+
+        if 0 != len( self.pageDest ):
+            self.paging.shoot( 'page', { 'to' : self.pageDest,
+                                         'msg' : json.dumps( msg.data[ 'detect' ], indent = 2 ),
+                                         'subject' : 'Detect: %s/%s' % ( category, source ) } )
 
         return ( True, )
