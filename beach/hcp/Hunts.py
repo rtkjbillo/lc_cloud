@@ -35,7 +35,10 @@ class Hunt ( Actor ):
 
         self._reporting = self.getActorHandle( 'analytics/report' )
         self._tasking = None
+
+        # APIs made available for Hunts
         self.Models = self.getActorHandle( 'models' )
+        self.VirusTotal = self.getActorHandle( 'analytics/virustotal' )
 
     def _regCulling( self ):
         curTime = int( time.time() )
