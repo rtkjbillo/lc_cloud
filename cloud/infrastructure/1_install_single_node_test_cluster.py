@@ -31,6 +31,9 @@ Return Values: %s
 ''' % ( step, str( ret ) )
     print( msg )
 
+printStep( 'Upgrade max number of file descriptors.',
+           os.system( 'echo "* soft nofile 10240" >> /etc/security/limits.conf' ),
+           os.system( 'echo "* hard nofile 20480" >> /etc/security/limits.conf' ))
 
 printStep( 'Updating repo and upgrading existing components.',
     os.system( 'apt-get update -y' ),

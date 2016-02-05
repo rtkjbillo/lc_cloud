@@ -23,11 +23,10 @@ class Hunt ( Actor ):
             raise Exception( 'Hunt requires an updateHunt( context, newEvent ) callback' )
         self._ttl = parameters.get( 'ttl', 60 * 60 * 24 )
         self._registration = self.getActorHandle( 'analytics/huntsmanager' )
-        self._regDetectTtl = {}
         self._regInvTtl = {}
         if hasattr( self, 'detects' ):
             for detect in self.detects:
-                self.registerToDetect( detect )
+                self._registerToDetect( detect )
 
         self.handle( 'detect', self._handleDetects )
         self.handle( 'inv', self._handleInvData )
@@ -40,42 +39,61 @@ class Hunt ( Actor ):
 
     def _regCulling( self ):
         curTime = int( time.time() )
-        for name in ( name for name, ts in self._regDetectTtl.iteritems() if ts < ( curTime - self._ttl ) ):
-            self._registration.request( 'unreg_detect', { 'uid' : self.name, 'name' : name } )
         for name in ( name for name, ts in self._regInvTtl.iteritems() if ts < ( curTime - self._ttl ) ):
-            self._registration.request( 'unreg_inv', { 'uid' : self.name, 'name' : name } )
+            self._unregisterToInvData( name )
 
-    def registerToDetect( self, detect ):
+    def _registerToDetect( self, detect ):
         resp = self._registration.request( 'reg_detect', { 'uid' : self.name, 'name' : detect } )
-        self._regDetectTtl[ detect ] = int( time.time() )
         return resp.isSuccess
 
-    def registerToInvData( self, inv_id ):
+    def _registerToInvData( self, inv_id ):
         resp = self._registration.request( 'reg_inv', { 'uid' : self.name, 'name' : inv_id } )
         self._regInvTtl[ inv_id ] = int( time.time() )
         return resp.isSuccess
 
+    def _unregisterToDetect( self, detect ):
+        resp = self._registration.request( 'unreg_detect', { 'uid' : self.name, 'name' : detect } )
+        return resp.isSuccess
+
+    def _unregisterToInvData( self, inv_id ):
+        resp = self._registration.request( 'unreg_inv', { 'uid' : self.name, 'name' : inv_id } )
+        del( self._regInvTtl[ inv_id ] )
+        del( self._contexts[ inv_id ] )
+        return resp.isSuccess
+
     def generateNewInv( self ):
         inv_id = '%s/%s' % ( self.__class__.__name__, str( uuid.uuid4() ) )
-        isSuccess = self.registerToInvData( inv_id )
-        self._handleDetects( { 'report_id' : inv_id } )
+        isSuccess = self._registerToInvData( inv_id )
+        self._handleDetects( { 'report_id' : inv_id, 'detect' : {} } )
         return isSuccess
 
     def postUpdatedDetect( self, context ):
+        self.log( 'updating report %s with new context' % context[ 'report_id' ] )
         self._reporting.shoot( 'report', context )
 
     def _handleDetects( self, msg ):
         detect = msg.data
         if detect[ 'report_id' ] not in self._contexts:
-            self._contexts[ detect[ 'report_id' ] ] = detect
-            self.updateHunt( detect, None )
+            inv_id = detect[ 'report_id' ]
+            self._registerToInvData( inv_id )
+            self._contexts[ inv_id ] = detect
+            isKeepSubscribing = self.updateHunt( detect, None )
+            if not isKeepSubscribing:
+                self._unregisterToInvData( inv_id )
+                self.log( 'investigation requested termination' )
 
     def _handleInvData( self, msg ):
         routing, event, mtd = msg.data
         inv_id = routing[ 'investigation_id' ]
         if inv_id in self._contexts:
+            self._regInvTtl[ inv_id ] = int( time.time() )
             curContext = self._contexts[ inv_id ]
-            self.updateHunt( curContext, msg.data )
+            isKeepSubscribing = self.updateHunt( curContext, msg.data )
+            if not isKeepSubscribing:
+                self._unregisterToInvData( inv_id )
+                self.log( 'investigation requested termination' )
+        else:
+            self.logCritical( 'received investigation data without context' )
 
     def task( self, dest, cmdsAndArgs, expiry = None, inv_id = None ):
         if self._tasking is None:

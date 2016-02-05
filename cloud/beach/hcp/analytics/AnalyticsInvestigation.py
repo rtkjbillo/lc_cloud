@@ -51,6 +51,7 @@ class AnalyticsInvestigation( Actor ):
                 handle = self.handleCache[ inv_id ]
                 self.handleTtl[ inv_id ] = int( time.time() )
 
+            self.log( 'investigation data going to: %d' % handle.getNumAvailable() )
             handle.broadcast( 'inv', msg.data )
 
 

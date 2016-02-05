@@ -41,8 +41,8 @@ RpHcp_ModuleId g_current_Module_id = 2;
 //=============================================================================
 #define HBS_DEFAULT_BEACON_TIMEOUT              (1*60)
 #define HBS_DEFAULT_BEACON_TIMEOUT_FUZZ         (1*60)
-#define HBS_EXFIL_QUEUE_MAX_NUM                 500
-#define HBS_EXFIL_QUEUE_MAX_SIZE                (1024*10)
+#define HBS_EXFIL_QUEUE_MAX_NUM                 5000
+#define HBS_EXFIL_QUEUE_MAX_SIZE                (1024*1024*10)
 
 // Large blank buffer to be used to patch configurations post-build
 #define _HCP_DEFAULT_STATIC_STORE_SIZE                          (1024 * 10)

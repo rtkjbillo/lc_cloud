@@ -23,7 +23,7 @@ limitations under the License.
 #include <rpHostCommonPlatformLib/rTags.h>
 
 #define _HISTORY_MAX_LENGTH     (1000)
-#define _HISTORY_MAX_SIZE       (1024*1024*1)
+#define _HISTORY_MAX_SIZE       (1024*1024*5)
 
 typedef struct
 {
