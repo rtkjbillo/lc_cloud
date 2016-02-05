@@ -78,7 +78,7 @@ def _xm_( o, path, isWildcardDepth = False ):
             if isWildcardDepth:
                 tmpTokens = tokens[ : ]
                 for elem in o.itervalues():
-                    if _isListType( elem ):
+                    if _isDynamicType( elem ):
                         result += _xm_( elem, tmpTokens, True )
     elif issubclass( oType, list ) or oType is tuple:
         result = []
