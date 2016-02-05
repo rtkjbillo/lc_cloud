@@ -191,9 +191,12 @@ class AnalyticsIntake( Actor ):
             self.analytics_stateless.shoot( 'analyze', event )
             self.analytics_stateful.shoot( 'analyze', event )
 
-            routing, event, mtd = event
+            routing, rawEvent, mtd = event
             if 'investigation_id' in routing:
                 self.analytics_investigation.shoot( 'analyze', event )
+                self.log( 'routing event to investigation (%d)' % self.analytics_investigation.getNumAvailable() )
+
+            self.log( 'received %s' % routing[ 'event_type' ] )
 
         return ( True, )
 
