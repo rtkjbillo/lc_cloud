@@ -35,8 +35,8 @@ $var title = sensor_id
     <div class="col-lg-2">
         <h4>Filter Events</h4>
         <form method="GET" action="/sensor">
-            <input type="hidden" name="per_page" class="eventsperpage_form" value=""/>
-            <input type="hidden" name="max_size" class="maxeventsize_form" value=""/>
+            <input type="hidden" name="per_page" class="eventsperpage_form" value="$per_page"/>
+            <input type="hidden" name="max_size" class="maxeventsize_form" value="$max_size"/>
             <input type="hidden" name="sensor_id" value="$sensor_id"/>
             <div class="form-group">
                 <div class='input-group date datetimepicker'>
@@ -62,8 +62,8 @@ $var title = sensor_id
         </form>
         <br/>
         <form method="GET" action="/sensor">
-            <input type="hidden" name="per_page" class="eventsperpage_form" value=""/>
-            <input type="hidden" name="max_size" class="maxeventsize_form" value=""/>
+            <input type="hidden" name="per_page" class="eventsperpage_form" value="$per_page"/>
+            <input type="hidden" name="max_size" class="maxeventsize_form" value="$max_size"/>
             <input type="hidden" name="sensor_id" value="$sensor_id"/>
             <button type="submit" class="btn btn-default" id="flux_live">
                 <span class="glyphicon glyphicon-play"></span> Live
