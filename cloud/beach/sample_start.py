@@ -296,6 +296,26 @@ print( beach.addActor( 'PagingActor',
                        trustedIdents = [ 'reporting/9ddcc95e-274b-4a49-a003-c952d12049b8' ],
                        n_concurrent = 5 ) )
 
+#######################################
+# stateless/VirusTotalActor
+# This actor retrieves VT reports while
+# caching results.
+# Parameters:
+# _key: the VT API Key.
+# qpm: maximum number of queries to
+#    to VT per minute, based on your
+#    subscription level, default of 4
+#    which matches their free tier.
+# cache_size: how many results to cache.
+#######################################
+print( beach.addActor( 'analytics/VirusTotalActor',
+                       [ 'analytics/virustotal/1.0' ],
+                       parameters = { 'qpm' : 4 },
+                       secretIdent = 'virustotal/697bfbf7-aa78-41f3-adb8-26f59bdba0da',
+                       trustedIdents = [ 'analysis/038528f5-5135-4ca8-b79f-d6b8ffc53bf5',
+                                         'hunt/8e0f55c0-6593-4747-9d02-a4937fa79517' ],
+                       n_concurrent = 1 ) )
+
 ###############################################################################
 # Stateless Detection
 ###############################################################################
@@ -380,31 +400,26 @@ print( beach.addActor( 'analytics/stateless/KnownObjects',
                        n_concurrent = 5 ) )
 
 #######################################
-# stateless/VirusTotal
+# stateless/VirusTotalKnownBad
 # This actor checks all hashes against
 # VirusTotal and reports hashes that
 # have more than a threshold of AV
 # reports, while caching results.
 # Parameters:
 # _key: the VT API Key.
-# qpm: maximum number of queries to
-#    to VT per minute, based on your
-#    subscription level, default of 4
-#    which matches their free tier.
 # min_av: minimum number of AV reporting
 #    a result on the hash before it is
 #    reported as a detection.
-# cache_size: how many results to cache.
 #######################################
-print( beach.addActor( 'analytics/stateless/VirusTotal',
-                       [ 'analytics/stateless/common/notification.CODE_IDENTITY/virustotal/1.0',
-                         'analytics/stateless/common/notification.OS_SERVICES_REP/virustotal/1.0',
-                         'analytics/stateless/common/notification.OS_DRIVERS_REP/virustotal/1.0',
-                         'analytics/stateless/common/notification.OS_AUTORUNS_REP/virustotal/1.0' ],
+print( beach.addActor( 'analytics/stateless/VirusTotalKnownBad',
+                       [ 'analytics/stateless/common/notification.CODE_IDENTITY/virustotalknownbad/1.0',
+                         'analytics/stateless/common/notification.OS_SERVICES_REP/virustotalknownbad/1.0',
+                         'analytics/stateless/common/notification.OS_DRIVERS_REP/virustotalknownbad/1.0',
+                         'analytics/stateless/common/notification.OS_AUTORUNS_REP/virustotalknownbad/1.0' ],
                        parameters = { 'qpm' : 1 },
                        secretIdent = 'analysis/038528f5-5135-4ca8-b79f-d6b8ffc53bf5',
                        trustedIdents = [ 'analysis/038528f5-5135-4ca8-b79f-d6b8ffc53bf5' ],
-                       n_concurrent = 1 ) )
+                       n_concurrent = 2 ) )
 
 #######################################
 # stateless/WinFirewallCliMods
