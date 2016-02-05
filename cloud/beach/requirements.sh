@@ -17,3 +17,6 @@ pip install pexpect
 pip install time_uuid
 pip install cassandra-driver
 pip install virustotal
+
+echo "* soft nofile 10240" >> /etc/security/limits.conf
+echo "* hard nofile 20480" >> /etc/security/limits.conf

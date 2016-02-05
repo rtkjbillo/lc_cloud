@@ -261,6 +261,8 @@ or in a sample Salt config:
 cloud/infrastructure/salt/limacharlie_deps.sls
 ```
 
+Note that you may need to bump up the maximum number of open file descriptors depending on your system configuration.
+
 #### Setup Http Endpoint
 
 
