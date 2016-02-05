@@ -21,7 +21,7 @@ class HuntsManager( Actor ):
     def init( self, parameters ):
         self.beach_api = Beach( parameters[ 'beach_config' ], realm = 'hcp' )
         self.handle( 'reg_detect', self.handleRegDetect )
-        self.handle( 'reg_inv', self.handleUnRegInvestigation )
+        self.handle( 'reg_inv', self.handleRegInvestigation )
         self.handle( 'unreg_detect', self.handleRegDetect )
         self.handle( 'unreg_inv', self.handleUnRegInvestigation )
 
@@ -33,6 +33,7 @@ class HuntsManager( Actor ):
         name = msg.data[ 'name' ]
 
         isSuccess = self.beach_api.addToCategory( uid, 'analytics/detects/%s' % ( name, ) )
+        self.log( 'registering detect %s to %s: %s' % ( uid, name, isSuccess ) )
 
         return ( isSuccess, )
 
@@ -41,6 +42,7 @@ class HuntsManager( Actor ):
         name = msg.data[ 'name' ]
 
         isSuccess = self.beach_api.removeFromCategory( uid, 'analytics/detects/%s' % ( name, ) )
+        self.log( 'unregistering detect %s to %s: %s' % ( uid, name, isSuccess ) )
 
         return ( isSuccess, )
 
@@ -49,6 +51,7 @@ class HuntsManager( Actor ):
         name = msg.data[ 'name' ]
 
         isSuccess = self.beach_api.addToCategory( uid, 'analytics/inv_id/%s' % ( name, ) )
+        self.log( 'registering inv %s to %s: %s' % ( uid, name, isSuccess ) )
 
         return ( isSuccess, )
 
@@ -57,5 +60,6 @@ class HuntsManager( Actor ):
         name = msg.data[ 'name' ]
 
         isSuccess = self.beach_api.removeFromCategory( uid, 'analytics/inv_id/%s' % ( name, ) )
+        self.log( 'unregistering inv %s to %s: %s' % ( uid, name, isSuccess ) )
 
         return ( isSuccess, )

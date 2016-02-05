@@ -38,4 +38,11 @@ class SampleHunt ( Hunt ):
             # Detection and investigation has started
             routing, event, mtd = newMsg
             self.log( 'follow up event received' )
+            fileHash = _x_( event, '*/base.HASH' )
+            if fileHash is not None:
+                context[ 'detect' ][ 'EvilHash' ] = fileHash.encode( 'hex' )
+                self.postUpdatedDetect( context )
+
+        # Keep this investigation alive
+        return True
 
