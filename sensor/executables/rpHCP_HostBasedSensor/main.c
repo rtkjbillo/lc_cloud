@@ -626,6 +626,7 @@ static RVOID
                 rSequence_getSEQUENCE( cloudEvent, RP_TAGS_HBS_NOTIFICATION, &(cloudEventStub->event) ) )
             {
                 rSequence_getTIMESTAMP( cloudEvent, RP_TAGS_EXPIRY, &expiry );
+                rSequence_addTIMESTAMP( cloudEvent, RP_TAGS_TIMESTAMP, rpal_time_getGlobal() );
 
                 tmpId = rpHcpI_seqToHcpId( targetId );
 
