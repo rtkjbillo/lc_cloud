@@ -13,6 +13,7 @@
 # limitations under the License.
 
 from beach.actor import Actor
+CreateOnAccess = Actor.importLib( 'hcp_helpers', 'CreateOnAccess' )
 
 import time
 import uuid
@@ -33,12 +34,12 @@ class Hunt ( Actor ):
 
         self._contexts = {}
 
-        self._reporting = self.getActorHandle( 'analytics/report' )
-        self._tasking = None
+        self._reporting = CreateOnAccess( self.getActorHandle, 'analytics/report' )
+        self._tasking = CreateOnAccess( self.getActorHandle, 'analytics/autotasking', mode = 'affinity' )
 
         # APIs made available for Hunts
-        self.Models = self.getActorHandle( 'models' )
-        self.VirusTotal = self.getActorHandle( 'analytics/virustotal' )
+        self.Models = CreateOnAccess( self.getActorHandle, 'models' )
+        self.VirusTotal = CreateOnAccess( self.getActorHandle, 'analytics/virustotal' )
 
     def _regCulling( self ):
         curTime = int( time.time() )
@@ -99,9 +100,6 @@ class Hunt ( Actor ):
             self.logCritical( 'received investigation data without context' )
 
     def task( self, dest, cmdsAndArgs, expiry = None, inv_id = None ):
-        if self._tasking is None:
-            self._tasking = self.getActorHandle( 'analytics/autotasking', mode = 'affinity' )
-            self.log( "creating tasking handle for the first time for this detection module" )
 
         if type( cmdsAndArgs[ 0 ] ) not in ( tuple, list ):
             cmdsAndArgs = ( cmdsAndArgs, )
