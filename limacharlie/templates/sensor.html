@@ -190,12 +190,7 @@ $var title = sensor_id
             {
                 var eventContent = '<<< Too Large >>>';
 
-                if( e[ 3 ] )
-                {
-                    eventContent = JSON.stringify( e[ 3 ], null, 2 );
-                }
-
-                eventContent = jQuery('<td>').append(jQuery('<pre>').append(jQuery('<code>').text(eventContent))).css('text-align','left')
+                eventContent = jQuery('<td>').html(e[3]).css('text-align','left')
 
                 jQuery('#timeline').prepend(
                     jQuery('<tr>').append(
@@ -233,6 +228,7 @@ $var title = sensor_id
     {
         future = jQuery.getJSON( '/timeline',
                     { sensor_id : "$sensor_id",
+                      rich : "true",
                       max_size : jQuery('#maxeventsize').find(":selected").text(),
                       $if before is not None:
                           before : Date.parse("$before" + " GMT") / 1000,
