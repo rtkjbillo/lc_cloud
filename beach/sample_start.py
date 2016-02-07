@@ -348,6 +348,21 @@ print( beach.addActor( 'analytics/stateless/WinSuspExecLoc',
                        n_concurrent = 5 ) )
 
 #######################################
+# stateless/WinSuspExecName
+# This actor looks for execution from
+# executables with suspicious names that
+# try to hide the fact the files are
+# executables.
+#######################################
+print( beach.addActor( 'analytics/stateless/WinSuspExecName',
+                       [ 'analytics/stateless/windows/notification.NEW_PROCESS/suspexecname/1.0',
+                         'analytics/stateless/windows/notification.CODE_IDENTITY/suspexecname/1.0' ],
+                       parameters = {  },
+                       secretIdent = 'analysis/038528f5-5135-4ca8-b79f-d6b8ffc53bf5',
+                       trustedIdents = [ 'analysis/038528f5-5135-4ca8-b79f-d6b8ffc53bf5' ],
+                       n_concurrent = 5 ) )
+
+#######################################
 # stateless/MacSuspExecLoc
 # This actor looks for execution from
 # various known suspicious locations.
