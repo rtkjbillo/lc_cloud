@@ -40,19 +40,18 @@ class AnalyticsInvestigation( Actor ):
     def analyze( self, msg ):
         routing, event, mtd = msg.data
 
-        inv_id = routing.get( 'investigation_id', None )
+        inv_id = routing[ 'investigation_id' ]
 
-        if inv_id is not None:
-            if inv_id not in self.handleCache:
-                handle = self.getActorHandle( 'analytics/inv_id/%s' % inv_id )
-                self.handleCache[ inv_id ] = handle
-                self.handleTtl[ inv_id ] = int( time.time() )
-            else:
-                handle = self.handleCache[ inv_id ]
-                self.handleTtl[ inv_id ] = int( time.time() )
+        if inv_id not in self.handleCache:
+            handle = self.getActorHandle( 'analytics/inv_id/%s' % inv_id )
+            self.handleCache[ inv_id ] = handle
+            self.handleTtl[ inv_id ] = int( time.time() )
+        else:
+            handle = self.handleCache[ inv_id ]
+            self.handleTtl[ inv_id ] = int( time.time() )
 
-            self.log( 'investigation data going to: %d' % handle.getNumAvailable() )
-            handle.broadcast( 'inv', msg.data )
+        self.log( 'investigation data going to: %d' % handle.getNumAvailable() )
+        handle.broadcast( 'inv', msg.data )
 
 
         return ( True, )

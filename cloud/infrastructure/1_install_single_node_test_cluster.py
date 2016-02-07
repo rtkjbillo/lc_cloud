@@ -32,8 +32,11 @@ Return Values: %s
     print( msg )
 
 printStep( 'Upgrade max number of file descriptors.',
-           os.system( 'echo "* soft nofile 10240" >> /etc/security/limits.conf' ),
-           os.system( 'echo "* hard nofile 20480" >> /etc/security/limits.conf' ))
+           os.system( 'echo "* soft nofile 100000" >> /etc/security/limits.conf' ),
+           os.system( 'echo "* hard nofile 100000" >> /etc/security/limits.conf' ),
+           os.system( 'echo "root soft nofile 100000" >> /etc/security/limits.conf' ),
+           os.system( 'echo "root hard nofile 100000" >> /etc/security/limits.conf' ),
+           os.system( 'echo "session required pam_limits.so" >> /etc/pam.d/common-session' ) )
 
 printStep( 'Updating repo and upgrading existing components.',
     os.system( 'apt-get update -y' ),

@@ -17,6 +17,7 @@ import hashlib
 from sets import Set
 import time
 SAMLoadWidgets = Actor.importLib( 'analytics/StateAnalysis', 'SAMLoadWidgets' )
+CreateOnAccess = Actor.importLib( 'hcp_helpers', 'CreateOnAccess' )
 
 def GenerateDetectReport( agentid, msgIds, cat, detect ):
     if type( msgIds ) is not tuple and type( msgIds ) is not list:
@@ -31,10 +32,10 @@ class StatelessActor ( Actor ):
         if not hasattr( self, 'process' ):
             raise Exception( 'Stateless Actor has no "process" function' )
         self._reporting = self.getActorHandle( 'analytics/report' )
-        self._tasking = None
+        self._tasking = CreateOnAccess( self.getActorHandle, 'analytics/autotasking', mode = 'affinity' )
         self._cat = type( self ).__name__
         self._cat = self._cat[ self._cat.rfind( '.' ) + 1 : ]
-        self._detects = self.getActorHandle( 'analytics/detects/%s' % self._cat )
+        self._detects = CreateOnAccess( self.getActorHandle, 'analytics/detects/%s' % self._cat )
         self.handle( 'process', self._process )
 
     def task( self, dest, cmdsAndArgs, expiry = None, inv_id = None ):
@@ -45,9 +46,6 @@ class StatelessActor ( Actor ):
         :param expiry: number of seconds before the task is not valid anymore
         :param inv_id: investigation id to associate the tasking and reply to
         '''
-        if self._tasking is None:
-            self._tasking = self.getActorHandle( 'analytics/autotasking', mode = 'affinity' )
-            self.log( "creating tasking handle for the first time for this detection module" )
 
         if type( cmdsAndArgs[ 0 ] ) not in ( tuple, list ):
             cmdsAndArgs = ( cmdsAndArgs, )
@@ -95,7 +93,8 @@ class StatefulActor ( Actor ):
         if not hasattr( self, 'shardingKey' ):
             raise Exception( 'Stateful Actor has no associated shardingKey (or None)' )
 
-        self._reporting = self.getActorHandle( 'analytics/report' )
+        self._reporting = CreateOnAccess( self.getActorHandle, 'analytics/report' )
+        self._tasking = CreateOnAccess( self.getActorHandle, 'analytics/autotasking', mode = 'affinity' )
         self._detects = {}
         self.handle( 'process', self._process )
 
@@ -115,9 +114,6 @@ class StatefulActor ( Actor ):
         :param expiry: number of seconds before the task is not valid anymore
         :param inv_id: investigation id to associate the tasking and reply to
         '''
-        if self._tasking is None:
-            self._tasking = self.getActorHandle( 'analytics/autotasking', mode = 'affinity' )
-            self.log( "creating tasking handle for the first time for this detection module" )
 
         if type( cmdsAndArgs[ 0 ] ) not in ( tuple, list ):
             cmdsAndArgs = ( cmdsAndArgs, )
