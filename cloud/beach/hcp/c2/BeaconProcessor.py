@@ -44,7 +44,7 @@ class BeaconProcessor( Actor ):
                                                      parameters[ 'state_db' ][ 'user' ],
                                                      parameters[ 'state_db' ][ 'password' ],
                                                      isConnectRightAway = True ) )
-        self.taskBackTimeout = parameters.get( 'task_back_timeout', 5 )
+        self.taskBackTimeout = parameters.get( 'task_back_timeout', 2 )
         self.analytics_intake = self.getActorHandle( 'analytics/intake' )
 
     def deinit( self ):

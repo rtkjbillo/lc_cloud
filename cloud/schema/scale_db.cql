@@ -141,3 +141,14 @@ CREATE TABLE report_timeline
 
   PRIMARY KEY( d, ts )
 ) WITH compaction = { 'class' : 'DateTieredCompactionStrategy', 'timestamp_resolution' : 'SECONDS' } AND gc_grace_seconds = 86400;
+
+CREATE TABLE keyvalue
+(
+  k varchar,
+  c varchar,
+  cts timestamp,
+  v varchar,
+
+  PRIMARY KEY( k, c )
+) WITH compaction = { 'class' : 'DateTieredCompactionStrategy', 'timestamp_resolution' : 'SECONDS' } AND gc_grace_seconds = 86400;
+

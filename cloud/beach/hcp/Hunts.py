@@ -13,6 +13,7 @@
 # limitations under the License.
 
 from beach.actor import Actor
+from threading import Lock
 CreateOnAccess = Actor.importLib( 'hcp_helpers', 'CreateOnAccess' )
 
 import time
@@ -62,26 +63,32 @@ class Hunt ( Actor ):
     def _unregisterToInvData( self, inv_id ):
         resp = self._registration.request( 'unreg_inv', { 'uid' : self.name, 'name' : inv_id } )
         del( self._regInvTtl[ inv_id ] )
+        self._contexts[ inv_id ][ 1 ].acquire()
         del( self._contexts[ inv_id ] )
         return resp.isSuccess
 
     def generateNewInv( self ):
         inv_id = '%s/%s' % ( self.__class__.__name__, str( uuid.uuid4() ) )
         isSuccess = self._registerToInvData( inv_id )
-        self._handleDetects( { 'report_id' : inv_id, 'detect' : {} } )
+        self._handleDetects( None, { 'report_id' : inv_id, 'detect' : {} } )
         return isSuccess
 
     def postUpdatedDetect( self, context ):
         self.log( 'updating report %s with new context' % context[ 'report_id' ] )
         self._reporting.shoot( 'report', context )
 
-    def _handleDetects( self, msg ):
-        detect = msg.data
+    def _handleDetects( self, msg, manualDetect = None ):
+        if manualDetect is not None:
+            detect = manualDetect
+        else:
+            detect = msg.data
         if detect[ 'report_id' ] not in self._contexts:
             inv_id = detect[ 'report_id' ]
             self._registerToInvData( inv_id )
-            self._contexts[ inv_id ] = detect
+            self._contexts[ inv_id ] = ( detect, Lock() )
+            self._contexts[ inv_id ][ 1 ].acquire()
             isKeepSubscribing = self.updateHunt( detect, None )
+            self._contexts[ inv_id ][ 1 ].release()
             if not isKeepSubscribing:
                 self._unregisterToInvData( inv_id )
                 self.log( 'investigation requested termination' )
@@ -92,7 +99,9 @@ class Hunt ( Actor ):
         if inv_id in self._contexts:
             self._regInvTtl[ inv_id ] = int( time.time() )
             curContext = self._contexts[ inv_id ]
+            self._contexts[ inv_id ][ 1 ].acquire()
             isKeepSubscribing = self.updateHunt( curContext, msg.data )
+            self._contexts[ inv_id ][ 1 ].release()
             if not isKeepSubscribing:
                 self._unregisterToInvData( inv_id )
                 self.log( 'investigation requested termination' )
