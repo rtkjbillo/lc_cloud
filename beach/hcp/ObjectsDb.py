@@ -630,3 +630,31 @@ class Reporting( object ):
                 record = ( record[ 0 ], record[ 1 ], event[ 0 ], record[ 3 ] )
             yield record
 
+
+class KeyValueStore( object ):
+    _db = None
+    _keySelect = None
+    _keySet = None
+    _keyTouch = None
+
+    @classmethod
+    def setDatabase( cls, cassUrl ):
+        cls._db = CassDb( cassUrl, 'hcp_analytics', consistencyOne = True )
+        cls._keySet = cls._db.prepare( 'INSERT INTO keyvalue ( k, c, v, cts ) VALUES ( ?, ?, ?, dateOf(now()) ) USING TTL ?' )
+        cls._keySelect = cls._db.prepare( 'SELECT v, cts FROM keyvalue WHERE k = ? AND c = ?' )
+
+    @classmethod
+    def closeDatabase( cls ):
+        cls._db.shutdown()
+
+    @classmethod
+    def setKey( cls, cat, k, v, ttl = ( 60 * 60 * 24 * 30 ) ):
+        return cls._db.execute( cls._keySet.bind( ( k, cat, v, ttl ) ) )
+
+    @classmethod
+    def getKey( cls, cat, k ):
+        ret = None
+        res = cls._db.getOne( cls._keySelect.bind( ( k, cat ) ) )
+        if res:
+            ret = ( res[ 0 ], res[ 1 ] )
+        return ret
