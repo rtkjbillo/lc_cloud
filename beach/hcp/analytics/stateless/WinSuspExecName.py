@@ -21,13 +21,14 @@ _xm_ = Actor.importLib( '../../hcp_helpers', '_xm_' )
 class WinSuspExecName ( StatelessActor ):
     def init( self, parameters ):
         super( WinSuspExecName, self ).init( parameters )
-        self.susp = re.compile( r'.*((\.txt)|(\.doc)|(\.rtf)|(\.jpg)|(\.gif)|(\.pdf)|(\.wmi)|(\.avi)|( {5}.*))\.exe' )
+        self.susp = re.compile( r'.*((\.txt)|(\.doc)|(\.rtf)|(\.jpg)|(\.gif)|(\.pdf)|(\.wmi)|(\.avi)|( {5}.*))\.exe', re.IGNORECASE )
+        self.rtlo = re.compile( r'.*\xE2\x80\x8F.*' )
 
     def process( self, msg ):
         routing, event, mtd = msg.data
         detects = []
         for filePath in _xm_( event, '?/base.FILE_PATH' ):
-            if self.susp.match( filePath ):
+            if self.susp.match( filePath ) or self.rtlo.match( filePath ):
                 detects.append( ( event, ( ( 'remain_live', 60 ),
                                            ( 'history_dump', ),
                                            ( 'exfil_add', 'notification.FILE_CREATE', '--expire', 60 ) ) ) )
