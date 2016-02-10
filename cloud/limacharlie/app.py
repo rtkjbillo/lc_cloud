@@ -44,6 +44,72 @@ def tsToTime( ts ):
 def timeToTs( timeStr ):
     return time.mktime( datetime.datetime.strptime( timeStr, '%Y-%m-%d %H:%M:%S' ).timetuple() )
 
+def _xm_( o, path, isWildcardDepth = False ):
+    def _isDynamicType( e ):
+        eType = type( e )
+        return issubclass( eType, dict ) or issubclass( eType, list ) or issubclass( eType, tuple )
+
+    def _isListType( e ):
+        eType = type( e )
+        return issubclass( eType, list ) or issubclass( eType, tuple )
+
+    def _isSeqType( e ):
+        eType = type( e )
+        return issubclass( eType, dict )
+
+    result = []
+    oType = type( o )
+
+    if type( path ) is str or type( path ) is unicode:
+        tokens = [ x for x in path.split( '/' ) if x != '' ]
+    else:
+        tokens = path
+
+    if issubclass( oType, dict ):
+        isEndPoint = False
+        if 0 != len( tokens ):
+            if 1 == len( tokens ):
+                isEndPoint = True
+
+            curToken = tokens[ 0 ]
+
+            if '*' == curToken:
+                if 1 < len( tokens ):
+                    result = _xm_( o, tokens[ 1 : ], True )
+            elif '?' == curToken:
+                if 1 < len( tokens ):
+                    result = []
+                    for elem in o.itervalues():
+                        if _isDynamicType( elem ):
+                            result += _xm_( elem, tokens[ 1 : ], False )
+
+            elif o.has_key( curToken ):
+                if isEndPoint:
+                    result = [ o[ curToken ] ] if not _isListType( o[ curToken ] ) else o[ curToken ]
+                elif _isDynamicType( o[ curToken ] ):
+                    result = _xm_( o[ curToken ], tokens[ 1 : ] )
+
+            if isWildcardDepth:
+                tmpTokens = tokens[ : ]
+                for elem in o.itervalues():
+                    if _isDynamicType( elem ):
+                        result += _xm_( elem, tmpTokens, True )
+    elif issubclass( oType, list ) or oType is tuple:
+        result = []
+        for elem in o:
+            if _isDynamicType( elem ):
+                result += _xm_( elem, tokens )
+
+    return result
+
+def _x_( o, path, isWildcardDepth = False ):
+    r = _xm_( o, path, isWildcardDepth )
+    if 0 != len( r ):
+        r = r[ 0 ]
+    else:
+        r = None
+    return r
+
 ###############################################################################
 # PAGE DECORATORS
 ###############################################################################
@@ -122,7 +188,7 @@ class SensorState:
 class Timeline:
     @jsonApi
     def GET( self ):
-        params = web.input( sensor_id = None, after = None, before = None, max_size = '4096' )
+        params = web.input( sensor_id = None, after = None, before = None, max_size = '4096', rich = 'false' )
 
         if params.sensor_id is None:
             raise web.HTTPError( '400 Bad Request: sensor id required' )
@@ -131,14 +197,18 @@ class Timeline:
             raise web.HTTPError( '400 Bad Request: need start time' )
 
         start_time = int( params.after )
+        max_size = int( params.max_size )
+        rich = True if params.rich == 'true' else False
 
         if 0 == start_time:
             start_time = int( time.time() ) - 5
 
         req = { 'id' : params.sensor_id,
                 'is_include_content' : True,
-                'after' : start_time,
-                'max_size' : int( params.max_size ) }
+                'after' : start_time }
+
+        if not rich:
+            req[ 'max_size' ] = max_size
 
         if params.before is not None and '' != params.before:
             req[ 'before' ] = int( params.before )
@@ -151,6 +221,23 @@ class Timeline:
         if 0 == int( params.after ):
             info.data[ 'new_start' ] = start_time
 
+        if rich:
+            originalEvents = info.data.get( 'events', [] )
+            info.data[ 'events' ] = []
+            for event in originalEvents:
+                richEvent = None
+                if hasattr( eventRender, event[ 1 ] ):
+                    try:
+                        richEvent = str( getattr( eventRender, event[ 1 ] )( event[ 3 ] ) )
+                    except:
+                        richEvent = None
+                if richEvent is None:
+                    richEvent = str( eventRender.default( event[ 3 ] ) )
+
+                info.data[ 'events' ].append( ( event[ 0 ],
+                                                event[ 1 ],
+                                                event[ 2 ],
+                                                richEvent ) )
         return info.data
 
 class ObjSearch:
@@ -328,7 +415,16 @@ urls = ( r'/', 'Index',
 web.config.debug = False
 app = web.application( urls, globals() )
 
-render = web.template.render( 'templates', base = 'base', globals = { 'json' : json, 'tsToTime' : tsToTime } )
+render = web.template.render( 'templates', base = 'base', globals = { 'json' : json,
+                                                                      'tsToTime' : tsToTime,
+                                                                      '_x_' : _x_,
+                                                                      '_xm_' : _xm_,
+                                                                      'hex' : hex } )
+eventRender = web.template.render( 'templates/custom_events', globals = { 'json' : json,
+                                                                          'tsToTime' : tsToTime,
+                                                                          '_x_' : _x_,
+                                                                          '_xm_' : _xm_,
+                                                                          'hex' : hex } )
 
 if len( sys.argv ) < 2:
     print( "Usage: python app.py beach_config [listen_port]" )

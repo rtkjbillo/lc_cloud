@@ -83,7 +83,12 @@ RPVOID
             {
                 curProc = processes;
                 while( rpal_memory_isValid( isTimeToStop ) &&
+#ifdef RPAL_PLATFORM_WINDOWS
                        !rEvent_wait( isTimeToStop, 0 ) &&
+#else
+                       // Module listing outside of 
+                       !rEvent_wait( isTimeToStop, MSEC_FROM_SEC( 1 ) ) &&
+#endif
                        0 != curProc->pid )
                 {
                     if( NULL != ( modules = processLib_getProcessModules( curProc->pid ) ) )

@@ -37,7 +37,7 @@ print( beach.addActor( 'c2/BeaconProcessor',
                                       '_priv_key' : open( os.path.join( REPO_ROOT,
                                                                         'keys',
                                                                         'c2.priv.pem' ), 'r' ).read(),
-                                      'task_back_timeout' : 5 },
+                                      'task_back_timeout' : 2 },
                        secretIdent = 'beacon/09ba97ab-5557-4030-9db0-1dbe7f2b9cfd',
                        trustedIdents = [ 'http/5bc10821-2d3f-413a-81ee-30759b9f863b' ],
                        n_concurrent = 5 ) )
@@ -238,8 +238,8 @@ print( beach.addActor( 'analytics/AutoTasking',
                                                                        'keys',
                                                                        'hbs_root.priv.der' ), 'r' ).read(),
                                       'beach_config' : BEACH_CONFIG_FILE,
-                                      'sensor_qph' : 10,
-                                      'global_qph' : 100,
+                                      'sensor_qph' : 100,
+                                      'global_qph' : 1000,
                                       'allowed' : [ 'file_info',
                                                     'file_hash',
                                                     'mem_map',
@@ -252,7 +252,10 @@ print( beach.addActor( 'analytics/AutoTasking',
                                                     'remain_live',
                                                     'exfil_add',
                                                     'critical_add',
-                                                    'hollowed_module_scan' ],
+                                                    'hollowed_module_scan',
+                                                    'os_services',
+                                                    'os_drivers',
+                                                    'os_autoruns' ],
                                       'log_file' : './admin_cli.log' },
                        secretIdent = 'autotasking/a6cd8d9a-a90c-42ec-bd60-0519b6fb1f64',
                        trustedIdents = [ 'analysis/038528f5-5135-4ca8-b79f-d6b8ffc53bf5',
@@ -270,10 +273,7 @@ print( beach.addActor( 'analytics/AutoTasking',
 #######################################
 print( beach.addActor( 'analytics/HuntsManager',
                        'analytics/huntsmanager/1.0',
-                       parameters = { '_hbs_key' : open( os.path.join( REPO_ROOT,
-                                                                       'keys',
-                                                                       'hbs_root.priv.der' ), 'r' ).read(),
-                                      'beach_config' : BEACH_CONFIG_FILE },
+                       parameters = { 'beach_config' : BEACH_CONFIG_FILE },
                        secretIdent = 'huntsmanager/d666cbc3-38d5-4086-b9ce-c543625ee45c',
                        trustedIdents = [ 'hunt/8e0f55c0-6593-4747-9d02-a4937fa79517' ],
                        n_concurrent = 5 ) )
@@ -295,6 +295,26 @@ print( beach.addActor( 'PagingActor',
                        secretIdent = 'paging/31d29b6a-d455-4df7-a196-aec3104f105d',
                        trustedIdents = [ 'reporting/9ddcc95e-274b-4a49-a003-c952d12049b8' ],
                        n_concurrent = 5 ) )
+
+#######################################
+# stateless/VirusTotalActor
+# This actor retrieves VT reports while
+# caching results.
+# Parameters:
+# _key: the VT API Key.
+# qpm: maximum number of queries to
+#    to VT per minute, based on your
+#    subscription level, default of 4
+#    which matches their free tier.
+# cache_size: how many results to cache.
+#######################################
+print( beach.addActor( 'analytics/VirusTotalActor',
+                       [ 'analytics/virustotal/1.0' ],
+                       parameters = { 'qpm' : 4 },
+                       secretIdent = 'virustotal/697bfbf7-aa78-41f3-adb8-26f59bdba0da',
+                       trustedIdents = [ 'analysis/038528f5-5135-4ca8-b79f-d6b8ffc53bf5',
+                                         'hunt/8e0f55c0-6593-4747-9d02-a4937fa79517' ],
+                       n_concurrent = 1 ) )
 
 ###############################################################################
 # Stateless Detection
@@ -322,6 +342,21 @@ print( beach.addActor( 'analytics/stateless/TestDetection',
 print( beach.addActor( 'analytics/stateless/WinSuspExecLoc',
                        [ 'analytics/stateless/windows/notification.NEW_PROCESS/suspexecloc/1.0',
                          'analytics/stateless/windows/notification.CODE_IDENTITY/suspexecloc/1.0' ],
+                       parameters = {  },
+                       secretIdent = 'analysis/038528f5-5135-4ca8-b79f-d6b8ffc53bf5',
+                       trustedIdents = [ 'analysis/038528f5-5135-4ca8-b79f-d6b8ffc53bf5' ],
+                       n_concurrent = 5 ) )
+
+#######################################
+# stateless/WinSuspExecName
+# This actor looks for execution from
+# executables with suspicious names that
+# try to hide the fact the files are
+# executables.
+#######################################
+print( beach.addActor( 'analytics/stateless/WinSuspExecName',
+                       [ 'analytics/stateless/windows/notification.NEW_PROCESS/suspexecname/1.0',
+                         'analytics/stateless/windows/notification.CODE_IDENTITY/suspexecname/1.0' ],
                        parameters = {  },
                        secretIdent = 'analysis/038528f5-5135-4ca8-b79f-d6b8ffc53bf5',
                        trustedIdents = [ 'analysis/038528f5-5135-4ca8-b79f-d6b8ffc53bf5' ],
@@ -380,31 +415,26 @@ print( beach.addActor( 'analytics/stateless/KnownObjects',
                        n_concurrent = 5 ) )
 
 #######################################
-# stateless/VirusTotal
+# stateless/VirusTotalKnownBad
 # This actor checks all hashes against
 # VirusTotal and reports hashes that
 # have more than a threshold of AV
 # reports, while caching results.
 # Parameters:
 # _key: the VT API Key.
-# qpm: maximum number of queries to
-#    to VT per minute, based on your
-#    subscription level, default of 4
-#    which matches their free tier.
 # min_av: minimum number of AV reporting
 #    a result on the hash before it is
 #    reported as a detection.
-# cache_size: how many results to cache.
 #######################################
-print( beach.addActor( 'analytics/stateless/VirusTotal',
-                       [ 'analytics/stateless/common/notification.CODE_IDENTITY/virustotal/1.0',
-                         'analytics/stateless/common/notification.OS_SERVICES_REP/virustotal/1.0',
-                         'analytics/stateless/common/notification.OS_DRIVERS_REP/virustotal/1.0',
-                         'analytics/stateless/common/notification.OS_AUTORUNS_REP/virustotal/1.0' ],
+print( beach.addActor( 'analytics/stateless/VirusTotalKnownBad',
+                       [ 'analytics/stateless/common/notification.CODE_IDENTITY/virustotalknownbad/1.0',
+                         'analytics/stateless/common/notification.OS_SERVICES_REP/virustotalknownbad/1.0',
+                         'analytics/stateless/common/notification.OS_DRIVERS_REP/virustotalknownbad/1.0',
+                         'analytics/stateless/common/notification.OS_AUTORUNS_REP/virustotalknownbad/1.0' ],
                        parameters = { 'qpm' : 1 },
                        secretIdent = 'analysis/038528f5-5135-4ca8-b79f-d6b8ffc53bf5',
                        trustedIdents = [ 'analysis/038528f5-5135-4ca8-b79f-d6b8ffc53bf5' ],
-                       n_concurrent = 1 ) )
+                       n_concurrent = 2 ) )
 
 #######################################
 # stateless/WinFirewallCliMods
@@ -553,6 +583,13 @@ print( beach.addActor( 'analytics/stateful/MacReconTools',
 ###############################################################################
 print( beach.addActor( 'analytics/hunt/SampleHunt',
                        'analytics/hunt/samplehunt/1.0',
+                       parameters = {  },
+                       secretIdent = 'hunt/8e0f55c0-6593-4747-9d02-a4937fa79517',
+                       trustedIdents = [ 'analysis/038528f5-5135-4ca8-b79f-d6b8ffc53bf5' ],
+                       n_concurrent = 5 ) )
+
+print( beach.addActor( 'analytics/hunt/SuspectedDropperHunt',
+                       'analytics/hunt/suspecteddropperhunt/1.0',
                        parameters = {  },
                        secretIdent = 'hunt/8e0f55c0-6593-4747-9d02-a4937fa79517',
                        trustedIdents = [ 'analysis/038528f5-5135-4ca8-b79f-d6b8ffc53bf5' ],

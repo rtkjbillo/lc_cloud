@@ -30,19 +30,19 @@ rSequence = Actor.importLib( 'rpcm', 'rSequence' )
 
 import hmac, base64, struct, hashlib, time, string, random
 
-def _isDynamicType( e ):
-    eType = type( e )
-    return issubclass( eType, dict ) or issubclass( eType, list ) or issubclass( eType, tuple )
-
-def _isListType( e ):
-    eType = type( e )
-    return issubclass( eType, list ) or issubclass( eType, tuple )
-
-def _isSeqType( e ):
-    eType = type( e )
-    return issubclass( eType, dict )
-
 def _xm_( o, path, isWildcardDepth = False ):
+    def _isDynamicType( e ):
+        eType = type( e )
+        return issubclass( eType, dict ) or issubclass( eType, list ) or issubclass( eType, tuple )
+
+    def _isListType( e ):
+        eType = type( e )
+        return issubclass( eType, list ) or issubclass( eType, tuple )
+
+    def _isSeqType( e ):
+        eType = type( e )
+        return issubclass( eType, dict )
+
     result = []
     oType = type( o )
 
@@ -636,3 +636,14 @@ class PooledResource( object ):
                 self.release( db )
         else:
             self.release( db )
+
+class CreateOnAccess( object ):
+    def __init__( self, toCall, *args, **kwargs ):
+        self._toCall = toCall
+        self._args = args
+        self._kwargs = kwargs
+        self._instance = None
+    def __getattr__(self, item):
+        if self._instance is None:
+            self._instance = self._toCall( *self._args, **self._kwargs )
+        return getattr( self._instance, item )

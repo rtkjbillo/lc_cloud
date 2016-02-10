@@ -23,6 +23,7 @@ ObjectTypes = Actor.importLib( '../ObjectsDb', 'ObjectTypes' )
 ObjectKey = Actor.importLib( '../ObjectsDb', 'ObjectKey' )
 RelationNameFromId = Actor.importLib( '../ObjectsDb', 'RelationNameFromId' )
 Reporting = Actor.importLib( '../ObjectsDb', 'Reporting' )
+KeyValueStore = Actor.importLib( '../ObjectsDb', 'KeyValueStore' )
 AgentId = Actor.importLib( '../hcp_helpers', 'AgentId' )
 _xm_ = Actor.importLib( '../hcp_helpers', '_xm_' )
 _x_ = Actor.importLib( '../hcp_helpers', '_x_' )
@@ -33,6 +34,7 @@ class ModelView( Actor ):
         Host.setDatabase( self.admin, parameters[ 'scale_db' ] )
         HostObjects.setDatabase( parameters[ 'scale_db' ] )
         Reporting.setDatabase( parameters[ 'scale_db' ] )
+        KeyValueStore.setDatabase( parameters[ 'scale_db' ] )
         self.handle( 'get_timeline', self.get_timeline )
         self.handle( 'get_sensor_info', self.get_sensor_info )
         self.handle( 'get_obj_list', self.get_obj_list )
@@ -43,6 +45,8 @@ class ModelView( Actor ):
         self.handle( 'get_detects', self.get_detects )
         self.handle( 'get_detect', self.get_detect )
         self.handle( 'get_host_changes', self.get_host_changes )
+        self.handle( 'set_kv', self.set_kv )
+        self.handle( 'get_kc', self.get_kv )
 
     def deinit( self ):
         Host.closeDatabase()
@@ -234,13 +238,14 @@ class ModelView( Actor ):
 
     def get_host_changes( self, msg ):
         changes = {}
+        timeWindow = msg.get( 'time_window', ( 60 * 60 * 24 * 7 ) )
         eTypes = ( ( 'notification.OS_SERVICES_REP', '?/base.SVCS/base.SVC_NAME' ),
                    ( 'notification.OS_DRIVERS_REP', '?/base.SVCS/base.SVC_NAME' ),
                    ( 'notification.OS_AUTORUNS_REP', '?/base.AUTORUNS/base.FILE_PATH' ) )
 
         host = Host( msg.data[ 'id' ] )
         for eType in eTypes:
-            events = host.getEvents( after = ( int( time.time() ) - ( 60 * 60 * 24 * 7 ) ),
+            events = host.getEvents( after = ( int( time.time() ) - timeWindow ),
                                      ofTypes = ( eType[ 0 ], ),
                                      isIncludeContent = True )
             previous = None
@@ -260,3 +265,19 @@ class ModelView( Actor ):
                 previous = current
 
         return ( True, { 'changes' : changes } )
+
+    def set_kv( self, msg ):
+        cat = msg.data[ 'cat' ]
+        k = msg.data[ 'k' ]
+        v = msg.data[ 'v' ]
+        ttl = msg.data.get( 'ttl', ( 60 * 60 * 24 * 30 ) )
+        return ( KeyValueStore.setKey( cat, k, v, ttl ), )
+
+    def get_kv( self, msg ):
+        cat = msg.data[ 'cat' ]
+        k = msg.data[ 'k' ]
+        res = KeyValueStore.getKey( cat, k )
+        if res is None:
+            return ( False, )
+        else:
+            return ( True, { 'v' : res[ 0 ], 'created' : res[ 1 ] } )
