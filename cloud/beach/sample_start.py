@@ -273,10 +273,7 @@ print( beach.addActor( 'analytics/AutoTasking',
 #######################################
 print( beach.addActor( 'analytics/HuntsManager',
                        'analytics/huntsmanager/1.0',
-                       parameters = { '_hbs_key' : open( os.path.join( REPO_ROOT,
-                                                                       'keys',
-                                                                       'hbs_root.priv.der' ), 'r' ).read(),
-                                      'beach_config' : BEACH_CONFIG_FILE },
+                       parameters = { 'beach_config' : BEACH_CONFIG_FILE },
                        secretIdent = 'huntsmanager/d666cbc3-38d5-4086-b9ce-c543625ee45c',
                        trustedIdents = [ 'hunt/8e0f55c0-6593-4747-9d02-a4937fa79517' ],
                        n_concurrent = 5 ) )
