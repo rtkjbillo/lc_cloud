@@ -36,7 +36,9 @@ printStep( 'Upgrade max number of file descriptors.',
            os.system( 'echo "* hard nofile 100000" >> /etc/security/limits.conf' ),
            os.system( 'echo "root soft nofile 100000" >> /etc/security/limits.conf' ),
            os.system( 'echo "root hard nofile 100000" >> /etc/security/limits.conf' ),
-           os.system( 'echo "session required pam_limits.so" >> /etc/pam.d/common-session' ) )
+           os.system( 'echo "session required pam_limits.so" >> /etc/pam.d/common-session' ),
+           os.system( 'echo "fs.file-max = 2097152" >> /etc/sysctl.conf'),
+           os.system( 'sysctl -p' ) )
 
 printStep( 'Updating repo and upgrading existing components.',
     os.system( 'apt-get update -y' ),
