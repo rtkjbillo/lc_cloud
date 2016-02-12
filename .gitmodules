@@ -1,0 +1,3 @@
+[submodule "sensor/lib/yara"]
+	path = sensor/lib/yara
+	url = https://github.com/plusvic/yara.git
