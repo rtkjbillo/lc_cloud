@@ -850,6 +850,7 @@ RPVOID
 
     if( NULL != ( dummy = rSequence_new() ) )
     {
+        rpal_debug_info( "beginning full os snapshots run" );
         while( !rEvent_wait( isTimeToStop, MSEC_FROM_SEC( 60 ) ) &&
                rpal_memory_isValid( isTimeToStop ) &&
                i < ARRAY_N_ELEM( events ) )

@@ -238,7 +238,7 @@ class ModelView( Actor ):
 
     def get_host_changes( self, msg ):
         changes = {}
-        timeWindow = msg.get( 'time_window', ( 60 * 60 * 24 * 7 ) )
+        timeWindow = msg.data.get( 'time_window', ( 60 * 60 * 24 * 7 ) )
         eTypes = ( ( 'notification.OS_SERVICES_REP', '?/base.SVCS/base.SVC_NAME' ),
                    ( 'notification.OS_DRIVERS_REP', '?/base.SVCS/base.SVC_NAME' ),
                    ( 'notification.OS_AUTORUNS_REP', '?/base.AUTORUNS/base.FILE_PATH' ) )

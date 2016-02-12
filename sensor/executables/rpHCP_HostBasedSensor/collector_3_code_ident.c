@@ -24,6 +24,8 @@ limitations under the License.
 
 #define RPAL_FILE_ID 72
 
+#define _MAX_FILE_HASH_SIZE                 (1024 * 1024 * 20)
+
 typedef struct
 {
     RU8 nameHash[ CRYPTOLIB_HASH_SIZE ];
@@ -200,18 +202,28 @@ RVOID
         if( rSequence_getSTRINGA( event, RP_TAGS_FILE_PATH, &nameA ) ||
             rSequence_getSTRINGW( event, RP_TAGS_FILE_PATH, &nameW ) )
         {
-            if( NULL != nameA &&
-                !CryptoLib_hashFileA( nameA, fileHash, TRUE ) )
+            if( ( NULL != nameA &&
+                  _MAX_FILE_HASH_SIZE < rpal_file_getSize( nameA, TRUE ) ) ||
+                ( NULL != nameW &&
+                  _MAX_FILE_HASH_SIZE < rpal_file_getSizew( nameW, TRUE ) ) )
             {
-                rpal_debug_info( "unable to fetch file hash for ident" );
+                rSequence_addRU32( event, RP_TAGS_ERROR, RPAL_ERROR_FILE_TOO_LARGE );
+            }
+            else
+            {
+                if( NULL != nameA &&
+                    !CryptoLib_hashFileA( nameA, fileHash, TRUE ) )
+                {
+                    rpal_debug_info( "unable to fetch file hash for ident" );
+                }
+
+                if( NULL != nameW &&
+                    !CryptoLib_hashFileW( nameW, fileHash, TRUE ) )
+                {
+                    rpal_debug_info( "unable to fetch file hash for ident" );
+                }
             }
             
-            if( NULL != nameW &&
-                !CryptoLib_hashFileW( nameW, fileHash, TRUE ) )
-            {
-                rpal_debug_info( "unable to fetch file hash for ident" );
-            }
-
             rSequence_getRU64( event, RP_TAGS_MEMORY_SIZE, &size );
 
             if( NULL != nameA )
@@ -247,16 +259,26 @@ RVOID
         if( rSequence_getSTRINGA( event, RP_TAGS_FILE_PATH, &nameA ) ||
             rSequence_getSTRINGW( event, RP_TAGS_FILE_PATH, &nameW ) )
         {
-            if( NULL != nameA &&
-                !CryptoLib_hashFileA( nameA, fileHash, TRUE ) )
+            if( ( NULL != nameA &&
+                _MAX_FILE_HASH_SIZE < rpal_file_getSize( nameA, TRUE ) ) ||
+                ( NULL != nameW &&
+                _MAX_FILE_HASH_SIZE < rpal_file_getSizew( nameW, TRUE ) ) )
             {
-                rpal_debug_info( "unable to fetch file hash for ident" );
+                rSequence_addRU32( event, RP_TAGS_ERROR, RPAL_ERROR_FILE_TOO_LARGE );
             }
-
-            if( NULL != nameW &&
-                !CryptoLib_hashFileW( nameW, fileHash, TRUE ) )
+            else
             {
-                rpal_debug_info( "unable to fetch file hash for ident" );
+                if( NULL != nameA &&
+                    !CryptoLib_hashFileA( nameA, fileHash, TRUE ) )
+                {
+                    rpal_debug_info( "unable to fetch file hash for ident" );
+                }
+
+                if( NULL != nameW &&
+                    !CryptoLib_hashFileW( nameW, fileHash, TRUE ) )
+                {
+                    rpal_debug_info( "unable to fetch file hash for ident" );
+                }
             }
 
             rSequence_getRU64( event, RP_TAGS_MEMORY_SIZE, &size );
