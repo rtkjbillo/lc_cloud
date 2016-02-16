@@ -203,7 +203,7 @@ CREATE TABLE hbs_agent_tasks
     uniqueid INT UNSIGNED NOT NULL,
     platform TINYINT UNSIGNED NOT NULL,
 
-    task BLOB NOT NULL,
+    task LONGBLOB NOT NULL,
 
     PRIMARY KEY ( taskid )
 

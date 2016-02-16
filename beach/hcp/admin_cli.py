@@ -25,6 +25,7 @@ import pexpect
 import os.path
 import sys
 import syslog
+import base64
 
 try:
     from admin_lib import BEAdmin
@@ -1200,6 +1201,21 @@ class HcpCli ( cmd.Cmd ):
         if arguments is not None:
             self._executeHbsTasking( self.tags.notification.HISTORY_DUMP_REQ,
                                      rSequence(),
+                                     arguments )
+
+    @report_errors
+    def do_yara_update( self, s ):
+        '''Update the Yara rules on the sensor.'''
+
+        parser = self.getParser( 'yara_update', True )
+        parser.add_argument( 'ruleFile',
+                             type = argparse.FileType( 'r' ),
+                             help = 'file holding the compiled rules to upload' )
+        arguments = self.parse( parser, s )
+        if arguments is not None:
+            self._executeHbsTasking( self.tags.notification.YARA_RULES_UPDATE,
+                                     rSequence().addBuffer( self.tags.base.RULES,
+                                                            arguments.ruleFile.read() ),
                                      arguments )
 
 if __name__ == '__main__':

@@ -45,7 +45,7 @@ printStep( 'Updating repo and upgrading existing components.',
     os.system( 'apt-get upgrade -y' ) )
 
 printStep( 'Installing some basic packages required for Beach (mainly).',
-    os.system( 'apt-get install python-pip python-dev debconf-utils python-m2crypto python-pexpect python-mysqldb -y' ) )
+    os.system( 'apt-get install python-pip python-dev debconf-utils python-m2crypto python-pexpect python-mysqldb autoconf libtool git -y' ) )
 
 printStep( 'Installing Beach.',
     os.system( 'pip install beach' ) )
@@ -78,6 +78,24 @@ printStep( 'Initializing Cassandra schema.',
 
 printStep( 'Installing pip packages for various analytics components.',
     os.system( 'pip install time_uuid cassandra-driver virustotal' ) )
+
+printStep( 'Installing Yara.',
+    os.system( 'git clone https://github.com/refractionPOINT/yara.git' ),
+    os.system( 'cd yara' ),
+    os.system( './bootstrap.sh' ),
+    os.system( './configure --without-crypto' ),
+    os.system( 'make' ),
+    os.system( 'make install' ),
+    os.system( 'cd ..' ),
+    os.system( 'git clone https://github.com/refractionPOINT/yara-python.git' ),
+    os.system( 'cd yara-python' ),
+    os.system( 'python setup.py build' ),
+    os.system( 'python setup.py install' ),
+    os.system( 'cd ..' ),
+    os.system( 'echo "/usr/local/lib" >> /etc/ld.so.conf' ),
+    os.system( 'ldconfig' ) )
+
+# TODO: change max_allowed_packet to a greater value like 64M programatically in my.cnf (mysql)
 
 printStep( 'Setting up host file entries for databases locally.',
     os.system( 'echo "127.0.0.1 hcp-state-db" >> /etc/hosts' ),
