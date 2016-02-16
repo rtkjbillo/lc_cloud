@@ -88,18 +88,30 @@
       <TargetEnvironment>X64</TargetEnvironment>
     </Midl>
     <ClCompile />
+    <ClCompile>
+      <AdditionalIncludeDirectories>$(SolutionDir)\..\lib\yara\libyara\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+    </ClCompile>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <Midl>
       <TargetEnvironment>X64</TargetEnvironment>
     </Midl>
     <ClCompile />
+    <ClCompile>
+      <AdditionalIncludeDirectories>$(SolutionDir)\..\lib\yara\libyara\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+    </ClCompile>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile />
+    <ClCompile>
+      <AdditionalIncludeDirectories>$(SolutionDir)\..\lib\yara\libyara\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+    </ClCompile>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <ClCompile />
+    <ClCompile>
+      <AdditionalIncludeDirectories>$(SolutionDir)\..\lib\yara\libyara\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+    </ClCompile>
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="collectors.c" />
@@ -110,6 +122,7 @@
     <ClCompile Include="collector_14_operations_man.c" />
     <ClCompile Include="collector_12_profiler.c" />
     <ClCompile Include="collector_15_process_hollowing.c" />
+    <ClCompile Include="collector_16_yara.c" />
     <ClCompile Include="collector_1_process_tracker.c" />
     <ClCompile Include="collector_2_dns_tracker.c" />
     <ClCompile Include="collector_3_code_ident.c" />
@@ -151,6 +164,9 @@
     </ProjectReference>
     <ProjectReference Include="..\..\lib\rpHostCommonPlatformIFaceLib\rpHostCommonPlatformIFaceLib.vcxproj">
       <Project>{b0349999-458d-4831-a9f7-0568156c9534}</Project>
+    </ProjectReference>
+    <ProjectReference Include="..\..\lib\yara\windows\libyara\libyara.vcxproj">
+      <Project>{76c5dc28-20da-4c90-bd42-a414c3a4ba86}</Project>
     </ProjectReference>
   </ItemGroup>
   <ItemGroup>

@@ -212,7 +212,8 @@ print( beach.addActor( 'analytics/ModelView',
                                       'max_concurrent' : 10,
                                       'beach_config' : BEACH_CONFIG_FILE },
                        trustedIdents = [ 'lc/0bf01f7e-62bd-4cc4-9fec-4c52e82eb903',
-                                         'hunt/8e0f55c0-6593-4747-9d02-a4937fa79517' ],
+                                         'hunt/8e0f55c0-6593-4747-9d02-a4937fa79517',
+                                         'rest/be41bb0f-449a-45e9-87d8-ef4533336a2d' ],
                        n_concurrent = 5,
                        isIsolated = True ) )
 
@@ -255,7 +256,8 @@ print( beach.addActor( 'analytics/AutoTasking',
                                                     'hollowed_module_scan',
                                                     'os_services',
                                                     'os_drivers',
-                                                    'os_autoruns' ],
+                                                    'os_autoruns',
+                                                    'yara_update' ],
                                       'log_file' : './admin_cli.log' },
                        secretIdent = 'autotasking/a6cd8d9a-a90c-42ec-bd60-0519b6fb1f64',
                        trustedIdents = [ 'analysis/038528f5-5135-4ca8-b79f-d6b8ffc53bf5',
@@ -496,6 +498,32 @@ print( beach.addActor( 'analytics/stateless/HollowedProcess',
                        [ 'analytics/stateless/windows/notification.MODULE_MEM_DISK_MISMATCH/hollowedprocess/1.0',
                          'analytics/stateless/linux/notification.MODULE_MEM_DISK_MISMATCH/hollowedprocess/1.0' ],
                        parameters = {  },
+                       secretIdent = 'analysis/038528f5-5135-4ca8-b79f-d6b8ffc53bf5',
+                       trustedIdents = [ 'analysis/038528f5-5135-4ca8-b79f-d6b8ffc53bf5' ],
+                       n_concurrent = 5 ) )
+
+#######################################
+# stateless/YaraDetects
+# This actor generates detects from
+# sensor events with Yara detections.
+#######################################
+print( beach.addActor( 'analytics/stateless/YaraDetects',
+                       [ 'analytics/stateless/common/notification.YARA_DETECTION/yaradetects/1.0' ],
+                       parameters = {  },
+                       secretIdent = 'analysis/038528f5-5135-4ca8-b79f-d6b8ffc53bf5',
+                       trustedIdents = [ 'analysis/038528f5-5135-4ca8-b79f-d6b8ffc53bf5' ],
+                       n_concurrent = 5 ) )
+
+#######################################
+# stateless/YaraUpdater
+# This actor does not generate detects,
+# it merely updates new sensor coming
+# online with the most recent Yara rules.
+#######################################
+print( beach.addActor( 'analytics/stateless/YaraUpdater',
+                       [ 'analytics/stateless/common/notification.STARTING_UP/yaraupdater/1.0' ],
+                       parameters = { 'rules_dir' : 'hcp/analytics/yara_rules/',
+                                      'remote_rules' : { 'windows/yararules.com.yar' : 'http://yararules.com/rules/malware.yar' } },
                        secretIdent = 'analysis/038528f5-5135-4ca8-b79f-d6b8ffc53bf5',
                        trustedIdents = [ 'analysis/038528f5-5135-4ca8-b79f-d6b8ffc53bf5' ],
                        n_concurrent = 5 ) )

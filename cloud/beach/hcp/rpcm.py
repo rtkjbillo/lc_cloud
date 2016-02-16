@@ -288,7 +288,8 @@ class rpcm( object ):
             
             self._printTrace( 'parsed element header: %s / %s' % ( expected_tag, expected_typ ) )
             
-            if( expected_tag == None or str( tag  )== str( expected_tag ) ) and ( expected_typ == None or str( typ ) == str( expected_typ ) ):
+            if( ( expected_tag == None or str( tag  )== str( expected_tag ) ) and
+                ( expected_typ == None or str( typ ) == str( expected_typ ) ) ):
                 if typ in self._typeParsers:
                     if self._isHumanReadable and None != self._symbols:
                         if str( tag ) in self._symbols:
@@ -384,7 +385,10 @@ class rpcm( object ):
             number = self._consume( '>H' )
         elif self.RPCM_RU32 == typ or self.RPCM_POINTER_32  == typ:
             number = self._consume( '>I' )
-        elif self.RPCM_RU64 == typ or self.RPCM_TIMESTAMP == typ or self.RPCM_POINTER_64  == typ or self.RPCM_TIMEDELTA == typ:
+        elif( self.RPCM_RU64 == typ or
+              self.RPCM_TIMESTAMP == typ or
+              self.RPCM_POINTER_64  == typ or
+              self.RPCM_TIMEDELTA == typ ):
             number = self._consume( '>Q' )
         
         return number
@@ -495,7 +499,10 @@ class rpcm( object ):
             number = struct.pack( '>H', int( value ) )
         elif self.RPCM_RU32 == typ or self.RPCM_POINTER_32  == typ:
             number = struct.pack( '>I', int( value ) )
-        elif self.RPCM_RU64 == typ or self.RPCM_TIMESTAMP == typ or self.RPCM_POINTER_64  == typ or self.RPCM_TIMEDELTA == typ:
+        elif( self.RPCM_RU64 == typ or
+              self.RPCM_TIMESTAMP == typ or
+              self.RPCM_POINTER_64  == typ or
+              self.RPCM_TIMEDELTA == typ ):
             number = struct.pack( '>Q', int( value ) )
         
         return number
@@ -581,7 +588,7 @@ class rpcm( object ):
     # Public interface
     #===========================================================================
     def setBuffer( self, buff ):
-        self._data = buff
+        self._data = str( buff )
         self._offset = 0
     
     def dataInBuffer( self ):
@@ -629,86 +636,3 @@ class rpcm( object ):
             converted = self._symbols[ tag ]
         
         return converted
-        
-
-
-
-
-
-
-
-#===============================================================================
-#   Some testing routines
-#===============================================================================
-if '__main__' == __name__:
-    import json
-    import os
-    os.chdir( os.path.dirname( os.path.abspath( __file__ ) ) )
-    
-    r = rpcm( isDebug = True, isDetailedDeserialize = True, isHumanReadable = True )
-    #f = open( './tags.json', 'r' )
-    #r.loadSymbols( json.loads( f.read() ) )
-    r.loadSymbols( { "666" : "devil", "devil" : 666 } )
-    #f.close()
-    
-    print( "TESTING FROM C FILE" )
-    f = open( './rpcm_test_seq', 'r' )
-    b = f.read()
-    f.close()
-    
-    print( "Packed len: %d" % len( b ) )
-    r.setBuffer( b )
-    a = r.deserialise()
-    
-    
-    print( "TESTING SERIALISING" )
-    c = r.serialise( a )
-    print( "Packed len: %d" % len( c ) )
-    
-    
-    print( "TESTING DESERIALISING" )
-    r.setBuffer( c )
-    d = r.deserialise()
-    
-    print( "TESTING SERIALISING 2" )
-    e = r.serialise( d )
-    print( "Packed len: %d" % len( e ) )
-    
-    
-    print( "COMPARING:" )
-    print( json.dumps( a, indent = 4 ) )
-    print( "-----------------------------------" )
-    print( json.dumps( d, indent = 4 ) )
-    
-    import binascii
-    print( binascii.b2a_hex( b ) )
-    print( "-----------------------------------" )
-    print( binascii.b2a_hex( c ) )
-    print( "-----------------------------------" )
-    print( binascii.b2a_hex( e ) )
-    
-    
-    print( "\n\n\n\nSimple Mode:\n\n" )
-    r = rpcm( isDebug = True, isDetailedDeserialize = False, isHumanReadable = True )
-    #f = open( './tags.json', 'r' )
-    #r.loadSymbols( json.loads( f.read() ) )
-    r.loadSymbols( { "666" : "devil", "devil" : 666 } )
-    #f.close()
-    
-    print( "TESTING FROM C FILE" )
-    f = open( './rpcm_test_seq', 'r' )
-    b = f.read()
-    f.close()
-    
-    print( "Packed len: %d" % len( b ) )
-    a = r.setBuffer( b )
-    a = r.deserialise()
-    print( json.dumps( a, indent = 4 ) )
-    print( a._( '88/77/66' ) )
-    print( a._( '88/*/42' ) )
-    print( a._( '88/?/24' ) )
-    
-    a[ '666' ] = r.loadJson( [ { 'a' : 'yes', 'b' : 'no' }, { 'a' : 'maybe', 'b' : 'forsure' } ] )
-    n = r.loadJson( a )
-    print( a._( '666/b' ) )
-

@@ -18,6 +18,7 @@ for subdir in [
         'processLib',
         'networkLib',
         'obsLib',
+        'yara',
         ]:
     SConscript(
             dirs = [ subdir ],

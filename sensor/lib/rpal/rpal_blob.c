@@ -26,6 +26,7 @@ typedef struct
 	RU32 sizeUsed;
 	RU32 growBy;
 	RU32 from;
+    RU32 readOffset;
 } _rBlob, *_prBlob;
 
 rBlob
@@ -69,6 +70,7 @@ rBlob
 			((_prBlob)blob)->sizeUsed = 0;
 			((_prBlob)blob)->growBy = growBy;
 			((_prBlob)blob)->from = from;
+            ((_prBlob)blob)->readOffset = 0;
 		}
 	}
 	else
@@ -373,3 +375,55 @@ RPVOID
     return buffer;
 }
 
+rBlob
+    rpal_blob_createFromBuffer
+    (
+        RPVOID pBuffer,
+        RU32 bufferSize
+    )
+{
+    rBlob blob = NULL;
+
+    blob = rpal_memory_alloc( sizeof( _rBlob ) );
+
+    if( rpal_memory_isValid( blob ) )
+    {
+        ( (_prBlob)blob )->currentSize = bufferSize;
+        ( (_prBlob)blob )->from = 0;
+        ( (_prBlob)blob )->growBy = 0;
+        ( (_prBlob)blob )->pData = pBuffer;
+        ( (_prBlob)blob )->sizeUsed = bufferSize;
+    }
+    else
+    {
+        blob = NULL;
+    }
+
+    return blob;
+}
+
+RBOOL
+    rpal_blob_readBytes
+    (
+        rBlob blob,
+        RU32 nBytesToRead,
+        RPVOID toBuffer
+    )
+{
+    RBOOL isRead = FALSE;
+    _prBlob pBlob = (_prBlob)blob;
+
+    if( rpal_memory_isValid( blob ) &&
+        0 != nBytesToRead &&
+        NULL != toBuffer )
+    {
+        if( nBytesToRead <= pBlob->sizeUsed - pBlob->readOffset )
+        {
+            rpal_memory_memcpy( toBuffer, pBlob->pData + pBlob->readOffset, nBytesToRead );
+            pBlob->readOffset += nBytesToRead;
+            isRead = TRUE;
+        }
+    }
+
+    return isRead;
+}
