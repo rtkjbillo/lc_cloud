@@ -17,7 +17,7 @@ $var title = 'Object Search'
                             $o[ 2 ]
                         </td>
                         <td>
-                            $o[ 1 ]
+                            $( o[ 1 ] if 50 > len( o[ 1 ] ) else '%s...' % ( o[ 1 ][ : 50 ], ) )
                         </td>
                         <td>
                             <a href="/obj?id=$('%s%s' % ( o[ 0 ], ( ('&sensor_id=%s' % host) if host is not None else '' ) ))">$o[ 0 ]</a>

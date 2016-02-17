@@ -79,7 +79,7 @@ $var title = 'Object'
                                     $o[ 2 ]
                                 </td>
                                 <td>
-                                    $o[ 1 ]
+                                    $( o[ 1 ] if 30 > len( o[ 1 ] ) else '%s...' % ( o[ 1 ][ : 30 ], ) )
                                 </td>
                                 <td>
                                     $info[ 'locs' ].get( o[ 0 ], 'N/A' )
@@ -117,7 +117,7 @@ $var title = 'Object'
                                     $o[ 2 ]
                                 </td>
                                 <td>
-                                    $o[ 1 ]
+                                    $( o[ 1 ] if 30 > len( o[ 1 ] ) else '%s...' % ( o[ 1 ][ : 30 ], ) )
                                 </td>
                                 <td>
                                     $info[ 'locs' ].get( o[ 0 ], 'N/A' )
