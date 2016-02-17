@@ -186,12 +186,12 @@ int
 
             if( NULL != context->processInfo )
             {
-                rSequence_addSEQUENCE( event, RP_TAGS_PROCESS, context->processInfo );
+                rSequence_addSEQUENCE( event, RP_TAGS_PROCESS, rSequence_duplicate( context->processInfo ) );
             }
 
             if( NULL != context->moduleInfo )
             {
-                rSequence_addSEQUENCE( event, RP_TAGS_DLL, context->moduleInfo );
+                rSequence_addSEQUENCE( event, RP_TAGS_DLL, rSequence_duplicate( context->moduleInfo ) );
             }
 
             rSequence_addSTRINGA( event, RP_TAGS_RULE_NAME, (char*)rule->identifier );
