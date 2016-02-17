@@ -33,9 +33,21 @@ class AnalyticsIntake( Actor ):
         pass
 
     def _addObj( self, mtd, o, oType ):
+        if type( o ) is not int:
+            if 0 == len( o ) or 400 < len( o ):
+                self.log( 'unexpected obj len: %d' % len( o ) )
+                return
         mtd[ 'obj' ].setdefault( oType, Set() ).add( o )
 
     def _addRel( self, mtd, parent, parentType, child, childType ):
+        if type( parent ) is not int:
+            if 0 == len( parent ) or 400 < len( parent ):
+                self.log( 'unexpected obj len: %d' % len( parent ) )
+                return
+        if type( child ) is not int:
+            if 0 == len( child ) or 400 < len( parent ):
+                self.log( 'unexpected obj len: %d' % len( child ) )
+                return
         mtd[ 'rel' ].setdefault( ( parentType, childType ), Set() ).add( ( parent, child ) )
 
     def _extractProcess( self, agent, mtd, procRoot ):
@@ -125,6 +137,13 @@ class AnalyticsIntake( Actor ):
             self._addObj( mtd, h, ObjectTypes.FILE_HASH )
             if fileName is not None:
                 self._addRel( mtd, fileName, ObjectTypes.MODULE_NAME, h, ObjectTypes.FILE_HASH )
+
+        sig = cRoot.get( 'base.SIGNATURE', None )
+        if sig is not None:
+            issuer = sig.get( 'base.CERT_ISSUER', None )
+            if issuer is not None:
+                self._addObj( mtd, issuer, ObjectTypes.CERT_ISSUER )
+                self._addRel( mtd, fileName, ObjectTypes.MODULE_NAME, issuer, ObjectTypes.CERT_ISSUER )
 
     def _extractObjects( self, message ):
         routing, event = message
