@@ -95,6 +95,7 @@ class ObjectTypes (object):
     PACKAGE = 15
     STRING = 16
     IP_ADDRESS = 17
+    CERT_ISSUER = 18
 
     tup = ( ( 'RELATION', 0 ),
             ( 'FILE_PATH', 1 ),
@@ -113,7 +114,8 @@ class ObjectTypes (object):
             ( 'DOMAIN_NAME', 14 ),
             ( 'PACKAGE', 15 ),
             ( 'STRING', 16 ),
-            ( 'IP_ADDRESS', 17 ) )
+            ( 'IP_ADDRESS', 17 ),
+            ( 'CERT_ISSUER', 18 ))
 
     forward = { 'RELATION': 0,
                 'FILE_PATH': 1,
@@ -132,7 +134,8 @@ class ObjectTypes (object):
                 'DOMAIN_NAME': 14,
                 'PACKAGE': 15,
                 'STRING': 16,
-                'IP_ADDRESS': 17 }
+                'IP_ADDRESS': 17,
+                'CERT_ISSUER' : 18 }
 
     rev = { 0 : 'RELATION',
             1 : 'FILE_PATH',
@@ -151,7 +154,8 @@ class ObjectTypes (object):
             14 : 'DOMAIN_NAME',
             15 : 'PACKAGE',
             16 : 'STRING',
-            17 : 'IP_ADDRESS' }
+            17 : 'IP_ADDRESS',
+            18 : 'CERT_ISSUER' }
 
 def dbgprint( s ):
     sys.stderr.write( s + "\n" )
