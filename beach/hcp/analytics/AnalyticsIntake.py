@@ -113,10 +113,10 @@ class AnalyticsIntake( Actor ):
         reg = aRoot.get( 'base.REGISTRY_KEY', None )
         path = aRoot.get( 'base.FILE_PATH', None )
         h = aRoot.get( 'base.HASH', None )
-        if reg is not None:
-            autorun = reg
-        elif path is not None:
+        if path is not None:
             autorun = path
+        elif reg is not None:
+            autorun = reg
 
         if autorun is not None:
             self._addObj( mtd, autorun, ObjectTypes.AUTORUNS )
