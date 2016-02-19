@@ -105,6 +105,9 @@ Looks for threads executing outside of known modules. Full recurring scan as wel
 ##### Hollowed Process
 Looks for mismatch between disk and memory from modules indicating possible hollowed process execution.
 
+##### Yara Signatures
+Does continuous lookup for Yara signatures in memory and on disk. Also supports one-off signature checking.
+
 #### In-Cloud
 
 ##### Stateless
