@@ -6,6 +6,7 @@
 *For more direct enquiries, contact us at limacharlie@refractionpoint.com*
 
 ## What's New
+- Yara signature support for continuous disk, memory and on-demand.
 - New Hunt framework in the cloud. Script complex automatic investigations.
 - Many stability/performance improvements.
 - New sensor collector detecting process/module hollowing.
@@ -18,6 +19,13 @@ maintain live connectivity automatically (using AutoTasking) on sensor where sus
 - New set of commands to change events to be exfiled in sensor at runtime (outside of Profiles).
 - New set of commands to set "critical" events, which when they occur in the sensor always trigger an immediate
 beacon to the cloud.
+
+## Release Notes
+### 0.7.4
+- Yara signature support may require to bump the max_allowed_packet in MySql to a higher value to be able to hold
+potentially larger Yara signature files in tasking. Additionally, tasking datatype in MySql has been moved from BLOB to
+LONGBLOB to be able to hold larger tasking, this may require you to drop-recreate the table in question with the new
+datatype.
 
 ## Overview
 LIMA CHARLIE is an endpoint security platform. It is itself a collection of small projects all working together
