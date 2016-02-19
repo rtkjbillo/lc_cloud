@@ -630,137 +630,136 @@ RVOID
 
     if( rpal_memory_isValid( event ) )
     {
-        if( rSequence_getRU32( event, RP_TAGS_PROCESS_ID, &pid ) ||
-            rSequence_getSTRINGW( event, RP_TAGS_FILE_PATH, &fileW ) ||
-            rSequence_getSTRINGA( event, RP_TAGS_FILE_PATH, &fileA ) ||
-            rSequence_getSTRINGW( event, RP_TAGS_PROCESS, &procW ) ||
-            rSequence_getSTRINGA( event, RP_TAGS_PROCESS, &procA ) )
+        rSequence_getRU32( event, RP_TAGS_PROCESS_ID, &pid );
+        rSequence_getSTRINGW( event, RP_TAGS_FILE_PATH, &fileW );
+        rSequence_getSTRINGA( event, RP_TAGS_FILE_PATH, &fileA );
+        rSequence_getSTRINGW( event, RP_TAGS_PROCESS, &procW );
+        rSequence_getSTRINGA( event, RP_TAGS_PROCESS, &procA );
+
+        if( rSequence_getBUFFER( event, RP_TAGS_RULES, &rulesBuffer, &rulesBufferSize ) )
         {
-            if( rSequence_getBUFFER( event, RP_TAGS_RULES, &rulesBuffer, &rulesBufferSize ) )
+            rules = loadYaraRules( rulesBuffer, rulesBufferSize );
+        }
+
+        if( NULL != rules )
+        {
+            if( NULL != fileW )
             {
-                rules = loadYaraRules( rulesBuffer, rulesBufferSize );
+                fileA = rpal_string_wtoa( fileW );
             }
 
-            if( NULL != rules )
+            if( NULL != procW )
             {
-                if( NULL != fileW )
+                procA = rpal_string_wtoa( procW );
+            }
+
+            if( NULL != fileA )
+            {
+                matchContext.fileInfo = event;
+
+                // Scan this file
+                if( ERROR_SUCCESS != ( scanError = yr_rules_scan_file( rules,
+                                                                       fileA,
+                                                                       SCAN_FLAGS_FAST_MODE,
+                                                                       _yaraFileMatchCallback,
+                                                                       &matchContext,
+                                                                       60 ) ) )
                 {
-                    fileA = rpal_string_wtoa( fileW );
+                    rpal_debug_warning( "Yara file scan error: %d", scanError );
                 }
-
-                if( NULL != procW )
+            }
+            else if( NULL != procA )
+            {
+                // Scan processes matching
+                if( NULL != ( processes = processLib_getProcessEntries( TRUE ) ) )
                 {
-                    procA = rpal_string_wtoa( procW );
-                }
-
-                if( NULL != fileA )
-                {
-                    matchContext.fileInfo = event;
-
-                    // Scan this file
-                    if( ERROR_SUCCESS != ( scanError = yr_rules_scan_file( g_global_rules,
-                                                                           fileA,
-                                                                           SCAN_FLAGS_FAST_MODE,
-                                                                           _yaraFileMatchCallback,
-                                                                           &matchContext,
-                                                                           60 ) ) )
+                    curProc = processes;
+                    while( 0 != curProc->pid )
                     {
-                        rpal_debug_warning( "Yara file scan error: %d", scanError );
-                    }
-                }
-                else if( NULL != procA )
-                {
-                    // Scan processes matching
-                    if( NULL != ( processes = processLib_getProcessEntries( TRUE ) ) )
-                    {
-                        curProc = processes;
-                        while( 0 != curProc->pid )
+                        if( NULL != ( processInfo = processLib_getProcessInfo( curProc->pid ) ) )
                         {
-                            if( NULL != ( processInfo = processLib_getProcessInfo( curProc->pid ) ) )
+                            if( rSequence_getSTRINGW( processInfo, RP_TAGS_FILE_PATH, &tmpW ) ||
+                                rSequence_getSTRINGA( processInfo, RP_TAGS_FILE_PATH, &tmpA ) )
                             {
-                                if( rSequence_getSTRINGW( processInfo, RP_TAGS_FILE_PATH, &tmpW ) ||
-                                    rSequence_getSTRINGA( processInfo, RP_TAGS_FILE_PATH, &tmpA ) )
+                                if( NULL != tmpW )
                                 {
-                                    if( NULL != tmpW )
-                                    {
-                                        tmpA = rpal_string_wtoa( tmpW );
-                                    }
+                                    tmpA = rpal_string_wtoa( tmpW );
+                                }
 
-                                    if( NULL != tmpA )
+                                if( NULL != tmpA )
+                                {
+                                    if( rpal_string_match( procA, tmpA ) )
                                     {
-                                        if( rpal_string_match( procA, tmpA ) )
-                                        {
-                                            matchContext.pid = curProc->pid;
-                                            matchContext.processInfo = processInfo;
+                                        matchContext.pid = curProc->pid;
+                                        matchContext.processInfo = processInfo;
 
-                                            scanError = _scanProcessWith( curProc->pid,
-                                                                          &matchContext,
-                                                                          rules,
-                                                                          NULL );
-                                        }
-                                    }
-
-                                    if( NULL != tmpW && NULL != tmpA )
-                                    {
-                                        // If both are allocated it means we got a strW and converted to A
-                                        // so we must free the strA version.
-                                        rpal_memory_free( tmpA );
+                                        scanError = _scanProcessWith( curProc->pid,
+                                                                      &matchContext,
+                                                                      rules,
+                                                                      NULL );
                                     }
                                 }
 
-                                rSequence_free( processInfo );
+                                if( NULL != tmpW && NULL != tmpA )
+                                {
+                                    // If both are allocated it means we got a strW and converted to A
+                                    // so we must free the strA version.
+                                    rpal_memory_free( tmpA );
+                                }
                             }
 
-                            curProc++;
+                            rSequence_free( processInfo );
                         }
 
-                        rpal_memory_free( processes );
+                        curProc++;
                     }
+
+                    rpal_memory_free( processes );
                 }
-                else if( 0 != pid )
-                {
-                    // Scan this process
-                    matchContext.pid = pid;
-                    scanError = _scanProcessWith( pid, &matchContext, rules, NULL );
-                    rSequence_free( matchContext.processInfo );
-                }
-                else
-                {
-                    // Scan all processes
-                    if( NULL != ( processes = processLib_getProcessEntries( TRUE ) ) )
-                    {
-                        curProc = processes;
-                        while( 0 != curProc->pid )
-                        {
-                            matchContext.pid = curProc->pid;
-
-                            scanError = _scanProcessWith( curProc->pid, &matchContext, rules, NULL );
-                            rSequence_free( matchContext.processInfo );
-
-                            curProc++;
-                        }
-                        
-                        rpal_memory_free( processes );
-                    }
-                }
-
-
-                if( NULL != fileW && NULL != fileA )
-                {
-                    // If both are allocated it means we got a strW and converted to A
-                    // so we must free the strA version.
-                    rpal_memory_free( fileA );
-                }
-
-                if( NULL != procW && NULL != procA )
-                {
-                    // If both are allocated it means we got a strW and converted to A
-                    // so we must free the strA version.
-                    rpal_memory_free( procA );
-                }
-
-                yr_rules_destroy( rules );
             }
+            else if( 0 != pid )
+            {
+                // Scan this process
+                matchContext.pid = pid;
+                scanError = _scanProcessWith( pid, &matchContext, rules, NULL );
+                rSequence_free( matchContext.processInfo );
+            }
+            else
+            {
+                // Scan all processes
+                if( NULL != ( processes = processLib_getProcessEntries( TRUE ) ) )
+                {
+                    curProc = processes;
+                    while( 0 != curProc->pid )
+                    {
+                        matchContext.pid = curProc->pid;
+
+                        scanError = _scanProcessWith( curProc->pid, &matchContext, rules, NULL );
+                        rSequence_free( matchContext.processInfo );
+
+                        curProc++;
+                    }
+                        
+                    rpal_memory_free( processes );
+                }
+            }
+
+
+            if( NULL != fileW && NULL != fileA )
+            {
+                // If both are allocated it means we got a strW and converted to A
+                // so we must free the strA version.
+                rpal_memory_free( fileA );
+            }
+
+            if( NULL != procW && NULL != procA )
+            {
+                // If both are allocated it means we got a strW and converted to A
+                // so we must free the strA version.
+                rpal_memory_free( procA );
+            }
+
+            yr_rules_destroy( rules );
         }
     }
 
