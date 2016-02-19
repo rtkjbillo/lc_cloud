@@ -22,6 +22,7 @@ import web
 import datetime
 import time
 import json
+import base64
 from functools import wraps
 
 
@@ -110,6 +111,19 @@ def _x_( o, path, isWildcardDepth = False ):
         r = None
     return r
 
+def sanitizeJson( o ):
+    if type( o ) is dict:
+        for k, v in o.iteritems():
+            o[ k ] = sanitizeJson( v )
+    elif type( o ) is list or type( o ) is tuple:
+        o = [ sanitizeJson( x ) for x in o ]
+    else:
+        try:
+            json.dumps( o )
+        except:
+            o = base64.b64encode( o )
+    return o
+
 ###############################################################################
 # PAGE DECORATORS
 ###############################################################################
@@ -140,7 +154,7 @@ class Dashboard:
         if not sensors.isSuccess:
             return render.error( str( sensors ) )
 
-        return render.dashboard( sensors = sensors.data )
+        return render.dashboard( sensors = sanitizeJson( sensors.data ) )
 
 class Sensor:
     def GET( self ):
@@ -228,11 +242,11 @@ class Timeline:
                 richEvent = None
                 if hasattr( eventRender, event[ 1 ] ):
                     try:
-                        richEvent = str( getattr( eventRender, event[ 1 ] )( event[ 3 ] ) )
+                        richEvent = str( getattr( eventRender, event[ 1 ] )( sanitizeJson( event[ 3 ] ) ) )
                     except:
                         richEvent = None
                 if richEvent is None:
-                    richEvent = str( eventRender.default( event[ 3 ] ) )
+                    richEvent = str( eventRender.default( sanitizeJson( event[ 3 ] ) ) )
 
                 info.data[ 'events' ].append( ( event[ 0 ],
                                                 event[ 1 ],
@@ -252,7 +266,7 @@ class ObjSearch:
         if not objects.isSuccess:
             return render.error( str( objects ) )
 
-        return render.objlist( objects.data[ 'objects' ], None )
+        return render.objlist( sanitizeJson( objects.data[ 'objects' ] ), None )
 
 class ObjViewer:
     def GET( self ):
@@ -271,7 +285,7 @@ class ObjViewer:
         if not info.isSuccess:
             return render.error( str( info ) )
 
-        return render.obj( info.data, params.sensor_id )
+        return render.obj( sanitizeJson( info.data ), params.sensor_id )
 
 class LastEvents:
     @jsonApi
@@ -300,7 +314,7 @@ class EventView:
         if not info.isSuccess:
             return render.error( str( info ) )
 
-        return render.event( info.data.get( 'event', {} ) )
+        return render.event( sanitizeJson( info.data.get( 'event', {} ) ) )
 
 class HostObjects:
     def GET( self ):
@@ -316,7 +330,7 @@ class HostObjects:
 
         objects = model.request( 'get_obj_list', req )
 
-        return render.objlist( objects.data[ 'objects' ], params.sensor_id )
+        return render.objlist( sanitizeJson( objects.data[ 'objects' ] ), params.sensor_id )
 
 class JsonDetects:
     @jsonApi
@@ -374,7 +388,7 @@ class ViewDetect:
         if not info.isSuccess:
             return render.error( str( info ) )
 
-        return render.detect( info.data.get( 'detect', [] ) )
+        return render.detect( sanitizeJson( info.data.get( 'detect', [] ) ) )
 
 class HostChanges:
     @jsonApi
@@ -419,12 +433,14 @@ render = web.template.render( 'templates', base = 'base', globals = { 'json' : j
                                                                       'tsToTime' : tsToTime,
                                                                       '_x_' : _x_,
                                                                       '_xm_' : _xm_,
-                                                                      'hex' : hex } )
+                                                                      'hex' : hex,
+                                                                      'sanitize' : sanitizeJson } )
 eventRender = web.template.render( 'templates/custom_events', globals = { 'json' : json,
                                                                           'tsToTime' : tsToTime,
                                                                           '_x_' : _x_,
                                                                           '_xm_' : _xm_,
-                                                                          'hex' : hex } )
+                                                                          'hex' : hex,
+                                                                          'sanitize' : sanitizeJson } )
 
 if len( sys.argv ) < 2:
     print( "Usage: python app.py beach_config [listen_port]" )

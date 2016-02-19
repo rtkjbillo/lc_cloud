@@ -89,10 +89,6 @@ $var title = sensor_id
                 <td>Autoruns</td>
                 <td><a href="/hostobjects?sensor_id=$sensor_id&otype=AUTORUNS" title="View All" class="glyphicon glyphicon-log-in"></a></td>
             </tr>
-            <tr>
-                <td>Modules</td>
-                <td><a href="/hostobjects?sensor_id=$sensor_id&otype=MODULE_NAME" title="View All" class="glyphicon glyphicon-log-in"></a></td>
-            </tr>
         </table>
     </div>
     <div class="col-lg-4">
@@ -295,7 +291,7 @@ $var title = sensor_id
                     jQuery('<tr>').append(
                         jQuery('<td>').html( ts_to_time( changes[ '-' ][ elem ][ 1 ] ) )
                     ).append(
-                        jQuery('<td>').html( eType )
+                        jQuery('<td>').html( eType.replace('notification.', '') )
                     ).append(
                         jQuery('<td>').html( '-' )
                     ).append(

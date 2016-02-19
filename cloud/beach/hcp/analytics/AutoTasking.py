@@ -26,8 +26,8 @@ class AutoTasking( Actor ):
                            parameters.get( 'auth_token', '' ),
                            self.hbs_key,
                            parameters.get( 'log_file', None ) )
-        self.sensor_qph = parameters.get( 'sensor_qph', 10 )
-        self.global_qph = parameters.get( 'global_qph', 100 )
+        self.sensor_qph = parameters.get( 'sensor_qph', 50 )
+        self.global_qph = parameters.get( 'global_qph', 200 )
         self.allowed_commands = Set( parameters.get( 'allowed', [] ) )
         self.handle( 'task', self.handleTasking )
         self.sensor_stats = {}

@@ -47,7 +47,6 @@ class AdminEndpoint( Actor ):
         self.handle( 'hcp.get_period', self.cmd_hcp_getPeriod )
         self.handle( 'hcp.set_period', self.cmd_hcp_setPeriod )
         self.handle( 'hcp.get_enrollment_rules', self.cmd_hcp_getEnrollmentRules )
-        self.handle( 'hcp.get_agent_states', self.cmd_hcp_getAgentStates )
         self.handle( 'hcp.add_enrollment_rule', self.cmd_hcp_addEnrollmentRule )
         self.handle( 'hcp.del_enrollment_rule', self.cmd_hcp_delEnrollmentRule )
         self.handle( 'hcp.get_taskings', self.cmd_hcp_getTaskings )

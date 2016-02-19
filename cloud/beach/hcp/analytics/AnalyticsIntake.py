@@ -33,9 +33,21 @@ class AnalyticsIntake( Actor ):
         pass
 
     def _addObj( self, mtd, o, oType ):
+        if type( o ) is not int:
+            if o is None or 0 == len( o ) or 600 < len( o ):
+                self.log( 'unexpected obj len: %s, rest of mtd: %s' % ( o, str( mtd ) ) )
+                return
         mtd[ 'obj' ].setdefault( oType, Set() ).add( o )
 
     def _addRel( self, mtd, parent, parentType, child, childType ):
+        if type( parent ) is not int:
+            if parent is None or 0 == len( parent ) or 600 < len( parent ):
+                self.log( 'unexpected obj len: %s, rest of mtd: %s' % ( parent, str( mtd ) ) )
+                return
+        if type( child ) is not int:
+            if child is None or 0 == len( child ) or 600 < len( parent ):
+                self.log( 'unexpected obj len: %s, rest of mtd: %s' % ( child, str( mtd ) ) )
+                return
         mtd[ 'rel' ].setdefault( ( parentType, childType ), Set() ).add( ( parent, child ) )
 
     def _extractProcess( self, agent, mtd, procRoot ):
@@ -101,10 +113,10 @@ class AnalyticsIntake( Actor ):
         reg = aRoot.get( 'base.REGISTRY_KEY', None )
         path = aRoot.get( 'base.FILE_PATH', None )
         h = aRoot.get( 'base.HASH', None )
-        if reg is not None:
-            autorun = reg
-        elif path is not None:
+        if path is not None:
             autorun = path
+        elif reg is not None:
+            autorun = reg
 
         if autorun is not None:
             self._addObj( mtd, autorun, ObjectTypes.AUTORUNS )
@@ -125,6 +137,13 @@ class AnalyticsIntake( Actor ):
             self._addObj( mtd, h, ObjectTypes.FILE_HASH )
             if fileName is not None:
                 self._addRel( mtd, fileName, ObjectTypes.MODULE_NAME, h, ObjectTypes.FILE_HASH )
+
+        sig = cRoot.get( 'base.SIGNATURE', None )
+        if sig is not None:
+            issuer = sig.get( 'base.CERT_ISSUER', None )
+            if issuer is not None:
+                self._addObj( mtd, issuer, ObjectTypes.CERT_ISSUER )
+                self._addRel( mtd, fileName, ObjectTypes.MODULE_NAME, issuer, ObjectTypes.CERT_ISSUER )
 
     def _extractObjects( self, message ):
         routing, event = message

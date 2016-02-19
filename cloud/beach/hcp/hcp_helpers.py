@@ -147,6 +147,7 @@ class HbsCollectorId ( object ):
     EXEC_OOB = 13
     OPERATIONS_MAN = 14
     PROCESS_HOLLOWING = 15
+    YARA = 16
 
     lookup = {
         0 : 'EXFIL',

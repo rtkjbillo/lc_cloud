@@ -47,6 +47,7 @@ class ModelView( Actor ):
         self.handle( 'get_host_changes', self.get_host_changes )
         self.handle( 'set_kv', self.set_kv )
         self.handle( 'get_kc', self.get_kv )
+        self.handle( 'get_obj_loc', self.get_obj_loc )
 
     def deinit( self ):
         Host.closeDatabase()
@@ -281,3 +282,15 @@ class ModelView( Actor ):
             return ( False, )
         else:
             return ( True, { 'v' : res[ 0 ], 'created' : res[ 1 ] } )
+
+    def get_obj_loc( self, msg ):
+
+        objects = msg.data[ 'objects' ]
+        if type( objects ) is not tuple and type( objects ) is not list:
+            objects = [ objects ]
+
+        objects = [ ObjectKey( o[ 0 ], ObjectTypes.forward[ o[ 1 ] ] ) for o in objects ]
+
+        locs = [ _ for _ in HostObjects( objects ).locs() ]
+
+        return ( True, locs )

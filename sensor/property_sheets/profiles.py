@@ -109,7 +109,7 @@ class ObfuscatedHeader( Template ):
         cmd_node = env.Command(
                 'obfuscated.h',
                 'obfuscated.txt',
-                'python %s ./' % no_hash( process_path )
+                'python %s %s' % ( no_hash( process_path ), env[ 'BUILD_DIR' ]  )
                 )
         env.Depends( node, cmd_node )
 

@@ -95,4 +95,19 @@ RPVOID
         rBlob blob
     );
 
+rBlob
+    rpal_blob_createFromBuffer
+    (
+        RPVOID pBuffer,
+        RU32 bufferSize
+    );
+
+RBOOL
+    rpal_blob_readBytes
+    (
+        rBlob blob,
+        RU32 nBytesToRead,
+        RPVOID toBuffer
+    );
+
 #endif

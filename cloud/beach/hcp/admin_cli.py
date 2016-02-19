@@ -25,6 +25,7 @@ import pexpect
 import os.path
 import sys
 import syslog
+import base64
 
 try:
     from admin_lib import BEAdmin
@@ -1200,6 +1201,59 @@ class HcpCli ( cmd.Cmd ):
         if arguments is not None:
             self._executeHbsTasking( self.tags.notification.HISTORY_DUMP_REQ,
                                      rSequence(),
+                                     arguments )
+
+    @report_errors
+    def do_yara_update( self, s ):
+        '''Update the Yara rules on the sensor.'''
+
+        parser = self.getParser( 'yara_update', True )
+        parser.add_argument( 'ruleFile',
+                             type = argparse.FileType( 'r' ),
+                             help = 'file holding the compiled rules to upload' )
+        arguments = self.parse( parser, s )
+        if arguments is not None:
+            self._executeHbsTasking( self.tags.notification.YARA_RULES_UPDATE,
+                                     rSequence().addBuffer( self.tags.base.RULES,
+                                                            arguments.ruleFile.read() ),
+                                     arguments )
+
+    @report_errors
+    def do_yara_scan( self, s ):
+        '''Scan using a Yara signature once, signature does not remain on sensor after. If no entity to scan is
+           specified, will scan all processes' memory and all loaded modules on disk.'''
+
+        parser = self.getParser( 'yara_scan', True )
+        parser.add_argument( 'ruleFile',
+                             type = argparse.FileType( 'r' ),
+                             help = 'file holding the compiled rules to upload' )
+        parser.add_argument( '-p', '--pid',
+                             type = int,
+                             required = False,
+                             dest = 'pid',
+                             help = 'pid of the process to scan' )
+        parser.add_argument( '-f', '--filePath',
+                             type = unicode,
+                             required = False,
+                             dest = 'filePath',
+                             help = 'path of the file to scan' )
+        parser.add_argument( '-e', '--processExpr',
+                             type = unicode,
+                             required = False,
+                             dest = 'proc',
+                             help = 'expression to match on to scan (matches on full process path)' )
+        arguments = self.parse( parser, s )
+        if arguments is not None:
+            req = rSequence().addBuffer( self.tags.base.RULES,
+                                         arguments.ruleFile.read() )
+            if arguments.pid is not None:
+                req.addInt32( self.tags.base.PROCESS_ID, arguments.pid )
+            elif arguments.filePath is not None:
+                req.addStringW( self.tags.base.FILE_PATH, arguments.filePath )
+            elif arguments.proc is not None:
+                req.addStringW( self.tags.base.PROCESS, arguments.proc )
+            self._executeHbsTasking( self.tags.notification.YARA_SCAN,
+                                     req,
                                      arguments )
 
 if __name__ == '__main__':

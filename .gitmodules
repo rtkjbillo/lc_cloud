@@ -1,0 +1,3 @@
+[submodule "sensor/lib/yara"]
+	path = sensor/lib/yara
+	url = git@github.com-google:refractionPOINT/yara.git

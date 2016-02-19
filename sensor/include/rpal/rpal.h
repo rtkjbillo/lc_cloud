@@ -27,8 +27,8 @@ limitations under the License.
 #define IS_FLAG_ENABLED(flags,toTest)	( 0 != ( (flags) & (toTest) ) )
 #define ENABLE_FLAG(flags,toEnable)		( (flags) = (flags) | (toEnable) )
 #define DISABLE_FLAG(flags,toDisable)	( (flags) = (flags) & ( (toDisable) ^ (toDisable) ) )
-#define IS_WITHIN_BOUNDS(elem,elemSize,container,containerSize) (((RPU8)(elem) >= (RPU8)(container)) &&\
-                                                                 ((RPU8)(elem) + (elemSize) <= (RPU8)(container) + (containerSize)))
+#define IS_WITHIN_BOUNDS(elem,elemSize,container,containerSize) (((RU64)(elem) >= (RU64)(container)) &&\
+                                                                 ((RU64)(elem) + (RU64)(elemSize) <= (RU64)(container) + (RU64)(containerSize)))
 #define ARRAY_N_ELEM(arr)               (sizeof(arr) / sizeof((arr)[0]))
 #define IF_VALID_DO(elem,doFunc)        if( (elem) ){ doFunc( (elem) ); }
 #define DO_IFF(op,bStatus)              if(bStatus){ bStatus = op; }
