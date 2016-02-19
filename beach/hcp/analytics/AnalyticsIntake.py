@@ -34,18 +34,18 @@ class AnalyticsIntake( Actor ):
 
     def _addObj( self, mtd, o, oType ):
         if type( o ) is not int:
-            if 0 == len( o ) or 400 < len( o ):
+            if o is None or 0 == len( o ) or 400 < len( o ):
                 self.log( 'unexpected obj len: %d' % len( o ) )
                 return
         mtd[ 'obj' ].setdefault( oType, Set() ).add( o )
 
     def _addRel( self, mtd, parent, parentType, child, childType ):
         if type( parent ) is not int:
-            if 0 == len( parent ) or 400 < len( parent ):
+            if parent is None or 0 == len( parent ) or 400 < len( parent ):
                 self.log( 'unexpected obj len: %d' % len( parent ) )
                 return
         if type( child ) is not int:
-            if 0 == len( child ) or 400 < len( parent ):
+            if child is None or 0 == len( child ) or 400 < len( parent ):
                 self.log( 'unexpected obj len: %d' % len( child ) )
                 return
         mtd[ 'rel' ].setdefault( ( parentType, childType ), Set() ).add( ( parent, child ) )

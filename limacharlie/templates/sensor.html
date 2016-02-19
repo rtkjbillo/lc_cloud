@@ -291,7 +291,7 @@ $var title = sensor_id
                     jQuery('<tr>').append(
                         jQuery('<td>').html( ts_to_time( changes[ '-' ][ elem ][ 1 ] ) )
                     ).append(
-                        jQuery('<td>').html( eType )
+                        jQuery('<td>').html( eType.replace('notification.', '') )
                     ).append(
                         jQuery('<td>').html( '-' )
                     ).append(
