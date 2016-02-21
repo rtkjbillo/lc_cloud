@@ -61,8 +61,8 @@ for binary in binaries:
         printStep( 'Signing binary: %s' % binary,
             os.system( 'python %s -k %s -f %s -o %s' % ( os.path.join( root, 'tools', 'signing.py' ),
                                                          os.path.join( root, 'keys', 'root.priv.der' ),
-                                                         os.path.join( root, 'binary_releases', binary ),
-                                                         os.path.join( root, 'binary_releases', binary + '.sig' ) ) ) )
+                                                         os.path.join( root, 'prebuilt_binaries', binary ),
+                                                         os.path.join( root, 'prebuilt_binaries', binary + '.sig' ) ) ) )
 
         if 'release' in binary:
             targetAgent = 'ff.ff.ffffffff.%s%s%s.ff'
@@ -90,8 +90,8 @@ for binary in binaries:
             printStep( 'Tasking HBS %s to all relevant sensors.' % binary,
                 execInBackend( '''hcp_addModule -i 1 -d %s -b %s -s %s
                                   hcp_addTasking -m %s -i 1 -s %s''' % ( binary,
-                                                                         os.path.join( root, 'binary_releases', binary ),
-                                                                         os.path.join( root, 'binary_releases', binary + '.sig' ),
+                                                                         os.path.join( root, 'prebuilt_binaries', binary ),
+                                                                         os.path.join( root, 'prebuilt_binaries', binary + '.sig' ),
                                                                          targetAgent,
                                                                          h ) ) )
 
