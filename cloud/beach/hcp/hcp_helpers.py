@@ -165,7 +165,8 @@ class HbsCollectorId ( object ):
         12 : '_AVAILABLE',
         13 : 'EXEC_OOB',
         14 : 'OPERATIONS_MAN',
-        15 : 'PROCESS_HOLLOWING'
+        15 : 'PROCESS_HOLLOWING',
+        16 : 'YARA'
     }
 
 class TwoFactorAuth(object):
