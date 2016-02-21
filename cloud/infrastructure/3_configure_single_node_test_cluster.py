@@ -55,7 +55,7 @@ def execInBackend( script ):
 printStep( 'Adding enrollment rule to the cloud to enroll all sensors into the 1.1 range.',
     execInBackend( 'hcp_addEnrollmentRule -m ff.ff.ffffffff.fff.ff -o 1 -s 1' ) )
 
-binaries = os.listdir( os.path.join( root, 'binary_releases' ) )
+binaries = os.listdir( os.path.join( root, 'prebuilt_binaries' ) )
 for binary in binaries:
     if binary.startswith( 'hbs_' ) and not binary.endswith( '.sig' ):
         printStep( 'Signing binary: %s' % binary,
@@ -84,7 +84,7 @@ for binary in binaries:
                                           hex( major )[ 2: ],
                                           hex( minor )[ 2: ] )
 
-            with open( os.path.join( root, 'binary_releases', binary ) ) as f:
+            with open( os.path.join( root, 'prebuilt_binaries', binary ) ) as f:
                 h = hashlib.sha256( f.read() ).hexdigest()
 
             printStep( 'Tasking HBS %s to all relevant sensors.' % binary,
