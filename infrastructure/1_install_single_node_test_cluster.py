@@ -20,6 +20,8 @@ if os.geteuid() != 0:
     sys.exit(-1)
 
 root = os.path.join( os.path.abspath( os.path.dirname( __file__ ) ), '..', '..' )
+originalDir = os.getcwd()
+os.chdir( root )
 
 def printStep( step, *ret ):
     msg = '''
@@ -81,17 +83,17 @@ printStep( 'Installing pip packages for various analytics components.',
 
 printStep( 'Installing Yara.',
     os.system( 'git clone https://github.com/refractionPOINT/yara.git' ),
-    os.system( 'cd yara' ),
+    os.chdir( 'yara' ),
     os.system( './bootstrap.sh' ),
     os.system( './configure --without-crypto' ),
     os.system( 'make' ),
     os.system( 'make install' ),
-    os.system( 'cd ..' ),
+    os.chdir( '..' ),
     os.system( 'git clone https://github.com/refractionPOINT/yara-python.git' ),
-    os.system( 'cd yara-python' ),
+    os.chdir( 'yara-python' ),
     os.system( 'python setup.py build' ),
     os.system( 'python setup.py install' ),
-    os.system( 'cd ..' ),
+    os.chdir( '..' ),
     os.system( 'echo "/usr/local/lib" >> /etc/ld.so.conf' ),
     os.system( 'ldconfig' ) )
 
