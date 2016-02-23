@@ -22,6 +22,20 @@ Ultimately LC is meant to be a platform for the security community to experiment
 endpoint monitoring you want or to the platform enabling you to try new endpoint techniques without the hassle of
 rebuilding the basics.)
 
+## Core Values
+LIMA CHARLIE's design and implementation is based on the following core values:
+* Reduce friction for the development of detections and operations.
+* Single cohesive platform across Operating System.
+* Minimize performance impact on host.
+
+## Top Questions
+### What is the difference between LC and GRR?
+LC is a constant monitoring platform, whereas GRR is a forensic platform. Concretely it means that GRR is more adapted
+to point-in-time analysis and data gathering, while LC is better at constantly be on the lookup for techniques, IOCs
+or to gather telemetry to model for anomalies in the cloud. Because LC is designed to be constantly running all its
+detection methods, a lot of emphasis is put on using very little resources, in contrast to a common GRR usage where an 
+investigator knows malware is present on a host and doesn't mind having high usage utilization.
+
 ## Next Steps
 Please, feel at home contributing and testing out with the platform, it's what its for. HBS currently has some limitations
 , mainly around being User Mode only. User Mode is great for stability (not going to blue screen boxes) and speed
