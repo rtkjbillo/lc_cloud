@@ -194,7 +194,7 @@ RVOID
     )
 {
     RPWCHAR filePath = NULL;
-    RU8 hash[ CRYPTOLIB_HASH_SIZE ] = { 0 };
+    CryptoLib_Hash hash = { 0 };
     RU8 flag = 0;
     RBOOL isAvoidTimeStamps = TRUE;
     UNREFERENCED_PARAMETER( eventType );
@@ -208,13 +208,13 @@ RVOID
                 isAvoidTimeStamps = ( 1 == flag ) ? TRUE : FALSE;
             }
 
-            if( !CryptoLib_hashFileW( filePath, hash, isAvoidTimeStamps ) )
+            if( !CryptoLib_hashFileW( filePath, &hash, isAvoidTimeStamps ) )
             {
                 rSequence_addRU32( event, RP_TAGS_ERROR, rpal_error_getLast() );
             }
             else
             {
-                rSequence_addBUFFER( event, RP_TAGS_HASH, hash, sizeof( hash ) );
+                rSequence_addBUFFER( event, RP_TAGS_HASH, (RPU8)&hash, sizeof( hash ) );
             }
         }
 

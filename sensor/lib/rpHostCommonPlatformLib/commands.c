@@ -187,7 +187,7 @@ RBOOL
 
                             if( 0 != g_hcpContext.modules[ moduleIndex ].hThread )
                             {
-                                CryptoLib_hash( tmpBuff, tmpSize, (RPU8)&(g_hcpContext.modules[ moduleIndex ].hash) );
+                                CryptoLib_hash( tmpBuff, tmpSize, &(g_hcpContext.modules[ moduleIndex ].hash) );
                                 g_hcpContext.modules[ moduleIndex ].isOsLoaded = FALSE;
                                 isSuccess = TRUE;
                             }

@@ -150,6 +150,44 @@ void
     rList_free( filePaths );
 }
 
+
+void
+    test_services
+    (
+        void
+    )
+{
+    rList svcs = NULL;
+    rSequence svc = NULL;
+#if defined( RPAL_PLATFORM_WINDOWS ) || defined( RPAL_PLATFORM_LINUX )
+    RPWCHAR svcName = NULL;
+#elif defined( RPAL_PLATFORM_MACOSX )
+    RPCHAR svcName = NULL;
+#endif
+
+    svcs = libOs_getServices( TRUE );
+
+    CU_ASSERT_PTR_NOT_EQUAL_FATAL( svcs, NULL );
+
+    CU_ASSERT_TRUE( rList_getSEQUENCE( svcs, RP_TAGS_SVC, &svc ) );
+
+#if defined( RPAL_PLATFORM_WINDOWS ) || defined( RPAL_PLATFORM_LINUX )
+    CU_ASSERT_TRUE( rSequence_getSTRINGW( svc, RP_TAGS_SVC_NAME, &svcName ) );
+
+    CU_ASSERT_PTR_NOT_EQUAL( svcName, NULL );
+
+    CU_ASSERT_NOT_EQUAL( rpal_string_strlenw( svcName ), 0 );
+#elif defined( RPAL_PLATFORM_MACOSX )
+    CU_ASSERT_TRUE( rSequence_getSTRINGA( svc, RP_TAGS_SVC_NAME, &svcName ) );
+
+    CU_ASSERT_PTR_NOT_EQUAL( svcName, NULL );
+
+    CU_ASSERT_NOT_EQUAL( rpal_string_strlen( svcName ), 0 );
+#endif
+
+    rSequence_free( svcs );
+}
+
 int
     main
     (
@@ -172,7 +210,8 @@ int
 
     if( NULL != ( suite = CU_add_suite( "libOs", NULL, NULL ) ) )
     {
-        if( NULL == CU_add_test( suite, "signCheck", test_signCheck ) )
+        if( NULL == CU_add_test( suite, "signCheck", test_signCheck ) ||
+            NULL == CU_add_test( suite, "services", test_services ) )
         {
             ret = 0;
         }

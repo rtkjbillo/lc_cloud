@@ -153,4 +153,22 @@ RU8
 
     );
 
+rList
+    libOs_getServices
+    (
+        RBOOL isWithHashes
+    );
+
+rList
+    libOs_getDrivers
+    (
+        RBOOL isWithHashes
+    );
+
+rList
+    libOs_getAutoruns
+    (
+        RBOOL isWithHashes
+    );
+
 #endif

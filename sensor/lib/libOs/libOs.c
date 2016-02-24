@@ -16,6 +16,7 @@ limitations under the License.
 
 #include <libOs/libOs.h>
 #include <rpHostCommonPlatformLib/rTags.h>
+#include <cryptoLib/cryptoLib.h>
 
 #define RPAL_FILE_ID   35
 
@@ -24,6 +25,14 @@ limitations under the License.
 #pragma warning( disable: 4306 )
 #include <windows_undocumented.h>
 #define FILETIME2ULARGE( uli, ft )  (uli).u.LowPart = (ft).dwLowDateTime, (uli).u.HighPart = (ft).dwHighDateTime
+
+typedef struct
+{
+    HKEY root;
+    RPWCHAR path;
+    RPWCHAR keyName;
+} _KeyInfo;
+
 #elif defined( RPAL_PLATFORM_LINUX ) || defined( RPAL_PLATFORM_MACOSX )
 #include <stdio.h>
 #include <string.h>
@@ -46,6 +55,7 @@ limitations under the License.
 #include <mach/thread_act.h>
 #include <mach/mach_port.h>
 #include <mach/task.h>
+#include <launch.h>
 #endif
 #endif
 
@@ -1713,6 +1723,1048 @@ RU8
     }
 
     return percent;
+}
+
+
+RBOOL
+    _getAssociatedExecutable
+    (
+        RPWCHAR serviceName,
+        RPWCHAR* executable,
+        RPWCHAR* dll
+    )
+{
+    RBOOL isSuccess = FALSE;
+
+#ifdef RPAL_PLATFORM_WINDOWS
+    HKEY root = HKEY_LOCAL_MACHINE;
+    HKEY curService = 0;
+    RWCHAR services[] = _WCH( "system\\currentcontrolset\\services\\" );
+    RWCHAR forDll[] = _WCH( "\\Parameters\\" );
+    RWCHAR fullService[ 512 ] = { 0 };
+    RWCHAR imagePath[] = _WCH( "ImagePath" );
+    RWCHAR serviceDll[] = _WCH( "ServiceDll" );
+    RU32 type = 0;
+    RWCHAR tmp[ 512 ] = { 0 };
+    RU32 size = 0;
+
+    if( NULL != serviceName &&
+        NULL != executable &&
+        NULL != dll )
+    {
+        *executable = NULL;
+        *dll = NULL;
+
+        if( ( ( ( sizeof( services ) / sizeof( RWCHAR ) ) + rpal_string_strlenw( serviceName ) + 1 ) < ( sizeof( fullService ) / sizeof( RWCHAR ) ) - 1 ) &&
+            rpal_string_strcatw( fullService, services ) &&
+            rpal_string_strcatw( fullService, serviceName ) )
+        {
+            if( ERROR_SUCCESS == RegOpenKeyW( root, fullService, &curService ) )
+            {
+                size = sizeof( tmp ) - sizeof( RWCHAR );
+                if( ERROR_SUCCESS == RegQueryValueExW( curService, imagePath, NULL, (LPDWORD)&type, (RPU8)&tmp, (LPDWORD)&size ) &&
+                    REG_EXPAND_SZ == type ||
+                    REG_SZ == type )
+                {
+                    *(RPWCHAR)( (RPU8)&tmp + size ) = 0;
+                    *executable = rpal_string_strdupw( tmp );
+                    isSuccess = TRUE;
+                }
+
+                RegCloseKey( curService );
+            }
+        }
+
+        rpal_memory_zero( fullService, sizeof( fullService ) );
+        rpal_memory_zero( tmp, sizeof( tmp ) );
+
+        if( ( ( ( sizeof( services ) / sizeof( RWCHAR ) ) + rpal_string_strlenw( serviceName ) + ( sizeof( forDll ) / sizeof( RWCHAR ) ) + 1 ) < ( sizeof( fullService ) / sizeof( RWCHAR ) ) - 1 ) &&
+            rpal_string_strcatw( fullService, services ) &&
+            rpal_string_strcatw( fullService, serviceName ) &&
+            rpal_string_strcatw( fullService, forDll ) )
+        {
+            if( ERROR_SUCCESS == RegOpenKeyW( root, fullService, &curService ) )
+            {
+                size = sizeof( tmp ) - sizeof( RWCHAR );
+                if( ERROR_SUCCESS == RegQueryValueExW( curService, serviceDll, NULL, (LPDWORD)&type, (RPU8)&tmp, (LPDWORD)&size ) &&
+                    REG_EXPAND_SZ == type ||
+                    REG_SZ == type )
+                {
+                    *(RPWCHAR)( (RPU8)&tmp + size ) = 0;
+                    *dll = rpal_string_strdupw( tmp );
+                    isSuccess = TRUE;
+                }
+
+                RegCloseKey( curService );
+            }
+        }
+
+        rpal_memory_zero( fullService, sizeof( fullService ) );
+        rpal_memory_zero( tmp, sizeof( tmp ) );
+    }
+#else
+    rpal_debug_not_implemented();
+#endif
+
+    return isSuccess;
+}
+
+
+#ifdef RPAL_PLATFORM_WINDOWS
+static rList
+    _getWindowsService
+    (
+        RU32 type
+    )
+{
+    rList svcs = NULL;
+
+    SC_HANDLE hSvc;
+    RU32 dwServiceType = type;
+    RU32 dwBytesNeeded = 0;
+    RU32 dwServicesReturned = 0;
+    RU32 dwResumedHandle = 0;
+    RU32 dwSvcStructSize = 0;
+    ENUM_SERVICE_STATUS_PROCESSW* pServices = NULL;
+    RU32 i;
+    rSequence svc = NULL;
+    RPWCHAR assExe = NULL;
+    RPWCHAR assDll = NULL;
+
+    if( NULL != ( svcs = rList_new( RP_TAGS_SVC, RPCM_SEQUENCE ) ) )
+    {
+        if( NULL != ( hSvc = OpenSCManager( NULL, NULL, SC_MANAGER_ENUMERATE_SERVICE ) ) )
+        {
+            if( !EnumServicesStatusExW( hSvc,
+                SC_ENUM_PROCESS_INFO,
+                dwServiceType,
+                SERVICE_STATE_ALL,
+                NULL, 0,
+                (LPDWORD)&dwBytesNeeded,
+                (LPDWORD)&dwServicesReturned,
+                (LPDWORD)&dwResumedHandle,
+                NULL ) &&
+                GetLastError() == ERROR_MORE_DATA )
+            {
+                // now allocate memory for the structure...
+                dwSvcStructSize = sizeof( ENUM_SERVICE_STATUS ) + dwBytesNeeded;
+                if( NULL != ( pServices = (ENUM_SERVICE_STATUS_PROCESSW *)rpal_memory_alloc( dwSvcStructSize ) ) )
+                {
+                    if( EnumServicesStatusExW( hSvc,
+                                               SC_ENUM_PROCESS_INFO,
+                                               dwServiceType,
+                                               SERVICE_STATE_ALL,
+                                               (RPU8)pServices,
+                                               dwSvcStructSize,
+                                               (LPDWORD)&dwBytesNeeded,
+                                               (LPDWORD)&dwServicesReturned,
+                                               (LPDWORD)&dwResumedHandle,
+                                               NULL ) )
+                    {
+                        for( i = 0; i < dwServicesReturned; i++ )
+                        {
+                            // create a sequence to contain Service information
+                            if( NULL != ( svc = rSequence_new() ) )
+                            {
+                                rSequence_addSTRINGW( svc, RP_TAGS_SVC_NAME, pServices[ i ].lpServiceName );
+                                rSequence_addSTRINGW( svc, RP_TAGS_SVC_DISPLAY_NAME, pServices[ i ].lpDisplayName );
+                                rSequence_addRU32( svc, RP_TAGS_SVC_TYPE, pServices[ i ].ServiceStatusProcess.dwServiceType );
+                                rSequence_addRU32( svc, RP_TAGS_SVC_STATE, pServices[ i ].ServiceStatusProcess.dwCurrentState );
+                                rSequence_addRU32( svc, RP_TAGS_PROCESS_ID, pServices[ i ].ServiceStatusProcess.dwProcessId );
+
+                                if( _getAssociatedExecutable( pServices[ i ].lpServiceName, &assExe, &assDll ) )
+                                {
+                                    if( NULL != assExe )
+                                    {
+                                        // TODO: Fix in a more permanent way the issues in glibc with undocumented'
+                                        // incompatibility with mis-aligned pointers in things like strlen and wcstombs.
+                                        rpal_debug_info( "found associated service exe: %ls", assExe );
+                                        rSequence_addSTRINGW( svc, RP_TAGS_EXECUTABLE, assExe );
+                                        rpal_memory_free( assExe );
+                                    }
+
+                                    if( NULL != assDll )
+                                    {
+                                        // TODO: Fix in a more permanent way the issues in glibc with undocumented'
+                                        // incompatibility with mis-aligned pointers in things like strlen and wcstombs.
+                                        rpal_debug_info( "found associated service dll: %ls", assDll );
+                                        rSequence_addSTRINGW( svc, RP_TAGS_DLL, assDll );
+                                        rpal_memory_free( assDll );
+                                    }
+                                }
+
+                                if( !rList_addSEQUENCE( svcs, svc ) )
+                                {
+                                    rSequence_free( svc );
+                                }
+                            }
+                        }
+                    }
+
+                    rpal_memory_free( pServices );
+                }
+            }
+
+            CloseServiceHandle( hSvc );
+        }
+    }
+
+    return svcs;
+}
+#endif
+
+
+static
+RBOOL
+    _thorough_file_hash
+    (
+        RPWCHAR filePath,
+        CryptoLib_Hash* pHash
+    )
+{
+    RBOOL isHashed = FALSE;
+
+    if( NULL != filePath &&
+        NULL != pHash )
+    {
+#ifdef RPAL_PLATFORM_WINDOWS
+        RU32 len = 0;
+        RBOOL isFullPath = FALSE;
+        RU32 i = 0;
+        rString tmpPath = NULL;
+        RPWCHAR tmpStr = NULL;
+        RWCHAR winDir[] = _WCH( "%windir%" );
+        RWCHAR uncPath[] = _WCH( "\\??\\" );
+        RWCHAR sys32Dir[] = _WCH( "\\system32" );
+        RWCHAR sysRootDir[] = _WCH( "\\systemroot" );
+        RWCHAR defaultPath[] = _WCH( "%windir%\\system32\\" );
+        RWCHAR defaultExt[] = _WCH( ".dll" );
+        RWCHAR foundPath[ RPAL_MAX_PATH ] = { 0 };
+        RU32 foundLen = 0;
+        RU32 preModLen = 0;
+
+        len = rpal_string_strlenw( filePath );
+
+        if( 0 != len &&
+            NULL != ( tmpPath = rpal_stringbuffer_new( 0, 0, TRUE ) ) )
+        {
+            // Check for a path token, if we have none, default to system32
+            isFullPath = FALSE;
+            for( i = 0; i < len; i++ )
+            {
+                if( _WCH( '\\' ) == filePath[ i ] ||
+                    _WCH( '/' ) == filePath[ i ] )
+                {
+                    isFullPath = TRUE;
+                    break;
+                }
+            }
+
+            if( !isFullPath )
+            {
+                foundLen = SearchPathW( NULL, filePath, defaultExt, ARRAY_N_ELEM( foundPath ), foundPath, NULL );
+                if( 0 != foundLen && ARRAY_N_ELEM( foundPath ) > foundLen )
+                {
+                    rpal_stringbuffer_addw( tmpPath, foundPath );
+                    rpal_memory_zero( foundPath, sizeof( foundPath ) );
+                }
+                else
+                {
+                    rpal_stringbuffer_addw( tmpPath, (RPWCHAR)defaultPath );
+                    rpal_stringbuffer_addw( tmpPath, filePath );
+                }
+            }
+            else
+            {
+                // If the entry starts with system32, prefix it as necessary
+                if( rpal_string_startswithiw( filePath, sys32Dir ) )
+                {
+                    rpal_stringbuffer_addw( tmpPath, winDir );
+                }
+                // If the entry starts with /SystemRoot, prefix it as necessary
+                else if( rpal_string_startswithiw( filePath, sysRootDir ) )
+                {
+                    rpal_stringbuffer_addw( tmpPath, winDir );
+                    filePath += rpal_string_strlenw( sysRootDir );
+                }
+                // If the entry starts with \??\ we can strip the UNC prefix
+                else if( rpal_string_startswithiw( filePath, uncPath ) )
+                {
+                    filePath += rpal_string_strlenw( uncPath );
+                }
+
+                rpal_stringbuffer_addw( tmpPath, filePath );
+            }
+
+            tmpStr = rpal_stringbuffer_getStringw( tmpPath );
+            len = rpal_string_strlenw( tmpStr );
+
+            // Sometimes we deal with lists with commas, strip them
+            for( i = 0; i < len; i++ )
+            {
+                if( _WCH( ',' ) == tmpStr[ i ] )
+                {
+                    tmpStr[ i ] = 0;
+                }
+            }
+
+            // We remove any trailing white spaces
+            rpal_string_trimw( tmpStr, _WCH( " \t" ) );
+
+            // If this is a quoted path we will move past the first quote
+            // and null-terminate at the next quote
+            len = rpal_string_strlenw( tmpStr );
+            preModLen = len;
+            if( _WCH( '"' ) == tmpStr[ 0 ] )
+            {
+                tmpStr++;
+                len--;
+                for( i = 0; i < len; i++ )
+                {
+                    if( _WCH( '"' ) == tmpStr[ i ] )
+                    {
+                        tmpStr[ i ] = 0;
+                        len = rpal_string_strlenw( tmpStr );
+                        break;
+                    }
+                }
+            }
+
+            // Sometimes extensions are missing, default to dll
+            if( 4 > len ||
+                _WCH( '.' ) != tmpStr[ len - 4 ] )
+            {
+                rpal_stringbuffer_addw( tmpPath, (RPWCHAR)&defaultExt );
+                tmpStr = rpal_stringbuffer_getStringw( tmpPath );
+
+                if( len < preModLen )
+                {
+                    // The string has been shortened, so its actual end does not correspond to
+                    // that of the buffer. Thus, we reconcatenate the default extension to its
+                    // actual end, comfortable in the knowledge that there is enough room
+                    // allocated for it (because of the prior appending to the buffer).
+                    rpal_string_strcatw( tmpStr, (RPWCHAR)defaultExt );
+                }
+            }
+
+            if( CryptoLib_hashFileW( tmpStr, pHash, TRUE ) )
+            {
+                isHashed = TRUE;
+            }
+
+            rpal_stringbuffer_free( tmpPath );
+        }
+#endif
+    }
+
+    return isHashed;
+}
+
+static
+RVOID
+    _enhanceServicesWithHashes
+    (
+        rList svcList
+    )
+{
+    rSequence svcEntry = NULL;
+    RPWCHAR entryDll = NULL;
+    RPWCHAR entryExe = NULL;
+    CryptoLib_Hash hash = { 0 };
+
+    while( rList_getSEQUENCE( svcList, RP_TAGS_SVC, &svcEntry ) )
+    {
+        entryExe = NULL;
+        entryDll = NULL;
+
+        rSequence_getSTRINGW( svcEntry, RP_TAGS_EXECUTABLE, &entryExe );
+        rSequence_getSTRINGW( svcEntry, RP_TAGS_DLL, &entryDll );
+
+        rSequence_unTaintRead( svcEntry );
+
+        if( NULL == entryDll &&
+            NULL != entryExe )
+        {
+            if( _thorough_file_hash( entryExe, &hash ) )
+            {
+                rSequence_addBUFFER( svcEntry, RP_TAGS_HASH, (RPU8)&hash, sizeof( hash ) );
+            }
+        }
+        else if( NULL != entryDll )
+        {
+            if( _thorough_file_hash( entryDll, &hash ) )
+            {
+                rSequence_addBUFFER( svcEntry, RP_TAGS_HASH, (RPU8)&hash, sizeof( hash ) );
+            }
+        }
+    }
+}
+
+
+#ifdef RPAL_PLATFORM_MACOSX
+static
+void
+    iterateJobAttributes
+    (
+        const launch_data_t data,
+        const char* str,
+        void* ptr
+    )
+{
+    rSequence svc = (rSequence)ptr;
+    RPCHAR attrName = (RPCHAR)str;
+
+    if( NULL != data &&
+        NULL != attrName &&
+        NULL != svc )
+    {
+        switch( launch_data_get_type( data ) )
+        {
+            // For a complet list of attributes :
+            // https://developer.apple.com/library/mac/documentation/Darwin/Reference/Manpages/man5/launchd.plist.5.html
+            case LAUNCH_DATA_STRING:
+                if( 0 == rpal_string_strcmpa( attrName, "Program" ) )
+                {
+                    rSequence_addSTRINGA( svc, RP_TAGS_EXECUTABLE, (const RPCHAR)launch_data_get_string( data ) );
+                }
+                else if( 0 == rpal_string_strcmpa( attrName, "Label" ) )
+                {
+                    rSequence_addSTRINGA( svc, RP_TAGS_SVC_NAME, (const RPCHAR)launch_data_get_string( data ) );
+                }
+                else if( 0 == rpal_string_strcmpa( attrName, "ProcessType" ) )
+                {
+                    rSequence_addSTRINGA( svc, RP_TAGS_SVC_TYPE, (const RPCHAR)launch_data_get_string( data ) );
+                }
+                break;
+
+            case LAUNCH_DATA_ARRAY:
+                if( 0 == rpal_string_strcmpa( attrName, "ProgramArguments" ) )
+                {
+                    // Get first argument ( executable path )
+                    launch_data_t iterator = launch_data_array_get_index( data, 0 );
+
+                    if( launch_data_get_type( iterator ) == LAUNCH_DATA_STRING )
+                    {
+                        rSequence_addSTRINGA( svc, RP_TAGS_EXECUTABLE, (const RPCHAR)launch_data_get_string( data ) );
+                    }
+                }
+                break;
+
+            case LAUNCH_DATA_INTEGER:
+                if( 0 == rpal_string_strcmpa( attrName, "PID" ) )
+                {
+                    rSequence_addRU64( svc, RP_TAGS_EXECUTABLE, (RU64)launch_data_get_string( data ) );
+                }
+                break;
+
+            case LAUNCH_DATA_BOOL:
+            case LAUNCH_DATA_DICTIONARY:
+            case LAUNCH_DATA_FD:
+            case LAUNCH_DATA_MACHPORT:
+            default:
+                // Unused
+                break;
+        }
+    }
+}
+
+static
+void
+    iterateJobs
+    (
+        const launch_data_t data,
+        const char* name,
+        void* ptr
+    )
+{
+    rList svcs = (rList)ptr;
+    rSequence svc = NULL;
+
+    if( NULL != data &&
+        NULL != name )
+    {
+        if( launch_data_get_type( data ) == LAUNCH_DATA_DICTIONARY &&
+            NULL != ( svc = rSequence_new() ) )
+        {
+            launch_data_dict_iterate( data, iterateJobAttributes, svc );
+            if( !rList_addSEQUENCE( svcs, svc ) )
+            {
+                rSequence_free( svc );
+            }
+        }
+    }
+}
+#endif
+
+rList
+    libOs_getServices
+    (
+        RBOOL isWithHashes
+    )
+{
+    rList services = NULL;
+#ifdef RPAL_PLATFORM_WINDOWS
+    services = _getWindowsService( SERVICE_WIN32 );
+#elif defined( RPAL_PLATFORM_LINUX )
+    const RPWCHAR rootDir = _WCH( "/etc/init.d/" );
+    RU32 nMaxDepth = 1;
+    RPWCHAR fileExp[] = { _WCH( "*" ), NULL };
+    rDirCrawl hCrawl = NULL;
+    rFileInfo fileInfo = { 0 };
+    rSequence svc = NULL;
+
+    if( NULL != ( services = rList_new( RP_TAGS_SVC, RPCM_SEQUENCE ) ) )
+    {
+        if( NULL != ( hCrawl = rpal_file_crawlStart( rootDir, (RPWCHAR*)&fileExp, 0 ) ) )
+        {
+            while( rpal_file_crawlNextFile( hCrawl, &fileInfo ) )
+            {
+                if( !IS_FLAG_ENABLED( RPAL_FILE_ATTRIBUTE_DIRECTORY, fileInfo.attributes ) &&
+                    IS_FLAG_ENABLED( RPAL_FILE_ATTRIBUTE_EXECUTE, fileInfo.attributes ) )
+                {
+                    if( NULL != ( svc = rSequence_new() ) )
+                    {
+                        rSequence_addSTRINGW( svc, RP_TAGS_SVC_NAME, fileInfo.fileName );
+                        if( !rList_addSEQUENCE( services, svc ) )
+                        {
+                            rSequence_free( svc );
+                        }
+                    }
+                }
+            }
+            rpal_file_crawlStop( hCrawl );
+        }
+    }
+#elif defined( RPAL_PLATFORM_MACOSX )
+    launch_data_t resp = NULL;
+    launch_data_t msg = NULL;
+
+    msg = launch_data_new_string( LAUNCH_KEY_GETJOBS );
+    if( NULL != ( resp = launch_msg( msg ) ) )
+    {
+        if( launch_data_get_type( resp ) == LAUNCH_DATA_DICTIONARY )
+        {
+            if( NULL != ( services = rList_new( RP_TAGS_SVC, RPCM_SEQUENCE ) ) )
+            {
+                launch_data_dict_iterate( resp, iterateJobs, services );
+            }
+        }
+        launch_data_free( resp );
+    }
+    launch_data_free( msg );
+#else
+    rpal_debug_not_implemented();
+#endif
+
+    if( isWithHashes )
+    {
+        _enhanceServicesWithHashes( services );
+    }
+
+    return services;
+}
+
+rList
+    libOs_getDrivers
+    (
+    RBOOL isWithHashes
+    )
+{
+    rList drivers = NULL;
+#ifdef RPAL_PLATFORM_WINDOWS
+    drivers = _getWindowsService( SERVICE_DRIVER );
+#else
+    rpal_debug_not_implemented();
+    drivers = rList_new( RP_TAGS_SVC, RPCM_SEQUENCE );
+#endif
+
+    if( isWithHashes )
+    {
+        _enhanceServicesWithHashes( drivers );
+    }
+
+    return drivers;
+}
+
+static
+RVOID
+    _enhanceAutorunsWithHashes
+    (
+        rList autoList
+    )
+{
+    rSequence autoEntry = NULL;
+    RPWCHAR entryExe = NULL;
+    CryptoLib_Hash hash = { 0 };
+
+    while( rList_getSEQUENCE( autoList, RP_TAGS_AUTORUN, &autoEntry ) )
+    {
+        if( rSequence_getSTRINGW( autoEntry, RP_TAGS_FILE_PATH, &entryExe ) )
+        {
+            rSequence_unTaintRead( autoEntry );
+
+            if( _thorough_file_hash( entryExe, &hash ) )
+            {
+                rSequence_addBUFFER( autoEntry, RP_TAGS_HASH, (RPU8)&hash, sizeof( hash ) );
+            }
+        }
+    }
+}
+
+#ifdef RPAL_PLATFORM_WINDOWS
+
+static
+RBOOL
+    _processRegKey
+    (
+        DWORD type,
+        RPWCHAR path,
+        RPWCHAR keyName,
+        RPU8 value,
+        DWORD size,
+        rList listEntries
+    )
+{
+    rSequence entry = NULL;
+    RPWCHAR state = NULL;
+    RPWCHAR tmp = NULL;
+    RU8 keyValue[ 1024 * sizeof( RWCHAR ) ] = { 0 };
+    RU32 pathLen = 0;
+    RBOOL isSuccess = FALSE;
+
+    if( ( REG_SZ == type ||
+        REG_EXPAND_SZ == type ) &&
+        0 != size )
+    {
+        *(RPWCHAR)( value + size ) = 0;
+
+        // We remove any NULL characters in the string as it's a technique used by some malware.
+        rpal_string_fillw( (RPWCHAR)value, size / sizeof( RWCHAR ) - 1, _WCH( ' ' ) );
+
+        tmp = rpal_string_strtokw( (RPWCHAR)value, _WCH( ',' ), &state );
+
+        while( NULL != tmp &&
+            0 != tmp[ 0 ] )
+        {
+            if( NULL != ( entry = rSequence_new() ) )
+            {
+                isSuccess = TRUE;
+                if( rSequence_addSTRINGW( entry, RP_TAGS_FILE_PATH, (RPWCHAR)value ) )
+                {
+                    keyValue[ 0 ] = 0;
+
+                    pathLen = rpal_string_strlenw( path );
+
+                    if( sizeof( keyValue ) > ( pathLen + rpal_string_strlenw( keyName ) + rpal_string_strlenw( _WCH( "\\" ) ) ) * sizeof( RWCHAR ) )
+                    {
+                        rpal_string_strcpyw( (RPWCHAR)&keyValue, path );
+                        if( _WCH( '\\' ) != path[ pathLen - 1 ] )
+                        {
+                            rpal_string_strcatw( (RPWCHAR)&keyValue, _WCH( "\\" ) );
+                        }
+                        rpal_string_strcatw( (RPWCHAR)&keyValue, keyName );
+                        rSequence_addSTRINGW( entry, RP_TAGS_REGISTRY_KEY, (RPWCHAR)&keyValue );
+                    }
+                    else
+                    {
+                        rSequence_addSTRINGW( entry, RP_TAGS_REGISTRY_KEY, _WCH( "_" ) );
+                    }
+
+                    if( !rList_addSEQUENCE( listEntries, entry ) )
+                    {
+                        rSequence_free( entry );
+                        entry = NULL;
+                    }
+                }
+                else
+                {
+                    rSequence_free( entry );
+                    entry = NULL;
+                }
+            }
+
+            tmp = rpal_string_strtokw( NULL, _WCH( ',' ), &state );
+            while( NULL != tmp && _WCH( ' ' ) == tmp[ 0 ] )
+            {
+                tmp++;
+            }
+        }
+    }
+    else if( REG_MULTI_SZ == type )
+    {
+        tmp = (RPWCHAR)value;
+        while( (RPU8)tmp < ( (RPU8)value + size ) &&
+            (RPU8)( tmp + rpal_string_strlenw( tmp ) ) <= ( (RPU8)value + size ) )
+        {
+            if( 0 != rpal_string_strlenw( tmp ) )
+            {
+                if( NULL != ( entry = rSequence_new() ) )
+                {
+                    isSuccess = TRUE;
+                    if( rSequence_addSTRINGW( entry, RP_TAGS_FILE_PATH, tmp ) )
+                    {
+                        keyValue[ 0 ] = 0;
+                        rpal_string_strcpyw( (RPWCHAR)&keyValue, path );
+                        rpal_string_strcatw( (RPWCHAR)&keyValue, keyName );
+                        rSequence_addSTRINGW( entry, RP_TAGS_REGISTRY_KEY, (RPWCHAR)&keyValue );
+
+                        if( !rList_addSEQUENCE( listEntries, entry ) )
+                        {
+                            rSequence_free( entry );
+                            entry = NULL;
+                        }
+                    }
+                    else
+                    {
+                        rSequence_free( entry );
+                        entry = NULL;
+                    }
+                }
+            }
+
+            tmp += rpal_string_strlenw( tmp ) + 1;
+        }
+    }
+
+    return isSuccess;
+}
+
+static
+RBOOL
+    _getWindowsAutoruns
+    (
+        rList autoruns
+    )
+{
+    RBOOL isSuccess = FALSE;
+
+    rDirCrawl dirCrawl = NULL;
+    RPWCHAR crawlFiles[] = { _WCH( "*" ), NULL };
+    RPWCHAR paths[] = { _WCH( "%ALLUSERSPROFILE%\\Start Menu\\Programs\\Startup" ),
+                        _WCH( "%ProgramData%\\Microsoft\\Windows\\Start Menu\\Programs\\Startup" ),
+                        _WCH( "%systemdrive%\\users\\*\\Start Menu\\Programs\\Startup" ),
+                        _WCH( "%systemdrive%\\users\\*\\AppData\\Roaming\\Microsoft\\Windows\\Start" ),
+                        _WCH( "%systemdrive%\\documents and settings\\*\\Start Menu\\Programs\\Startup" ),
+                        _WCH( "%systemdrive%\\documents and settings\\*\\AppData\\Roaming\\Microsoft\\Windows\\Start" ) };
+    rFileInfo finfo = { 0 };
+
+    RU32 i = 0;
+    DWORD type = 0;
+    RU8 value[ 1024 ] = { 0 };
+    DWORD size = 0;
+    RPWCHAR lnkDest = NULL;
+    HKEY hKey = NULL;
+    rSequence entry = NULL;
+    RU32 iKey = 0;
+    DWORD tmpKeyNameSize = 0;
+    RWCHAR tmpKeyName[ 1024 ] = { 0 };
+    RPWCHAR tmp = NULL;
+
+    _KeyInfo keys[] = { 
+        { HKEY_LOCAL_MACHINE, _WCH( "Software\\Microsoft\\Windows\\CurrentVersion\\Run\\" ), _WCH( "*" ) },
+        { HKEY_LOCAL_MACHINE, _WCH( "Software\\Microsoft\\Windows\\CurrentVersion\\RunOnce\\" ), _WCH( "*" ) },
+        { HKEY_LOCAL_MACHINE, _WCH( "SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Terminal Server\\Install\\Software\\Microsoft\\Windows\\CurrentVersion\\RunOnce" ), _WCH( "*" ) },
+        { HKEY_LOCAL_MACHINE, _WCH( "SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Terminal Server\\Install\\Software\\Microsoft\\Windows\\CurrentVersion\\Run" ), _WCH( "*" ) },
+        { HKEY_LOCAL_MACHINE, _WCH( "SOFTWARE\\Wow6432Node\\Microsoft\\Windows\\CurrentVersion\\Run" ), _WCH( "*" ) },
+        { HKEY_LOCAL_MACHINE, _WCH( "SOFTWARE\\Wow6432Node\\Microsoft\\Windows\\CurrentVersion\\RunOne" ), _WCH( "*" ) },
+        { HKEY_LOCAL_MACHINE, _WCH( "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\Explorer\\Run" ), _WCH( "*" ) },
+        { HKEY_LOCAL_MACHINE, _WCH( "Software\\Microsoft\\Windows\\CurrentVersion\\RunServices" ), _WCH( "*" ) },
+        { HKEY_LOCAL_MACHINE, _WCH( "Wow6432Node\\Microsoft\\Windows\\CurrentVersion\\Policies\\Explorer\\Run" ), _WCH( "*" ) },
+        { HKEY_LOCAL_MACHINE, _WCH( "SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Winlogon\\" ), _WCH( "Userinit" ) },
+        { HKEY_LOCAL_MACHINE, _WCH( "SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Winlogon\\" ), _WCH( "Shell" ) },
+        { HKEY_LOCAL_MACHINE, _WCH( "SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Winlogon\\" ), _WCH( "Taskman" ) },
+        { HKEY_LOCAL_MACHINE, _WCH( "SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Winlogon\\" ), _WCH( "System" ) },
+        { HKEY_LOCAL_MACHINE, _WCH( "SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Winlogon\\" ), _WCH( "Notify" ) },
+        { HKEY_LOCAL_MACHINE, _WCH( "SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Winlogon\\SpecialAccount\\Userlists" ), _WCH( "*" ) },
+        { HKEY_LOCAL_MACHINE, _WCH( "SOFTWARE\\Microsoft\\Active Setup\\" ), _WCH( "Installed Components" ) },
+        { HKEY_LOCAL_MACHINE, _WCH( "SOFTWARE\\Wow6432Node\\Microsoft\\Active Setup\\" ), _WCH( "Installed Components" ) },
+        { HKEY_LOCAL_MACHINE, _WCH( "Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\" ), _WCH( "ShellExecuteHooks" ) },
+        { HKEY_LOCAL_MACHINE, _WCH( "Software\\Wow6432Node\\Microsoft\\Windows\\CurrentVersion\\Explorer\\" ), _WCH( "ShellExecuteHooks" ) },
+        { HKEY_LOCAL_MACHINE, _WCH( "Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\" ), _WCH( "Browser Helper Objects" ) },
+        { HKEY_LOCAL_MACHINE, _WCH( "Software\\Wow6432Node\\Microsoft\\Windows\\CurrentVersion\\Explorer\\" ), _WCH( "Browser Helper Objects" ) },
+        { HKEY_LOCAL_MACHINE, _WCH( "Software\\Microsoft\\Windows NT\\CurrentVersion\\" ), _WCH( "Drivers32" ) },
+        { HKEY_LOCAL_MACHINE, _WCH( "Software\\Wow6432Node\\Microsoft\\Windows NT\\CurrentVersion\\" ), _WCH( "Drivers32" ) },
+        { HKEY_LOCAL_MACHINE, _WCH( "Software\\Microsoft\\Windows NT\\CurrentVersion\\" ), _WCH( "Image File Execution Options" ) },
+        { HKEY_LOCAL_MACHINE, _WCH( "Software\\Wow6432Node\\Microsoft\\Windows NT\\CurrentVersion\\" ), _WCH( "Image File Execution Options" ) },
+        { HKEY_LOCAL_MACHINE, _WCH( "SOFTWARE\\Classes\\Exefile\\Shell\\Open\\Command\\" ), _WCH( "*" ) },
+        { HKEY_LOCAL_MACHINE, _WCH( "SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Windows\\" ), _WCH( "Appinit_Dlls" ) },
+        { HKEY_LOCAL_MACHINE, _WCH( "SOFTWARE\\Wow6432Node\\Microsoft\\Windows NT\\CurrentVersion\\Windows\\" ), _WCH( "Appinit_Dlls" ) },
+        { HKEY_LOCAL_MACHINE, _WCH( "SOFTWARE\\Microsoft\\" ), _WCH( "SchedulingAgent" ) },
+        { HKEY_LOCAL_MACHINE, _WCH( "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Shell Extensions\\" ), _WCH( "Approved" ) },
+        { HKEY_LOCAL_MACHINE, _WCH( "SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\" ), _WCH( "SvcHost" ) },
+        { HKEY_LOCAL_MACHINE, _WCH( "System\\CurrentControlSet\\Control\\Session Manager\\" ), _WCH( "AppCertDlls" ) },
+        { HKEY_LOCAL_MACHINE, _WCH( "SYSTEM\\CurrentControlSet\\Control\\SecurityProviders\\" ), _WCH( "SecurityProviders" ) },
+        { HKEY_LOCAL_MACHINE, _WCH( "SYSTEM\\CurrentControlSet\\Control\\Lsa\\" ), _WCH( "Authentication Packages" ) },
+        { HKEY_LOCAL_MACHINE, _WCH( "SYSTEM\\CurrentControlSet\\Control\\Lsa\\" ), _WCH( "Notification Packages" ) },
+        { HKEY_LOCAL_MACHINE, _WCH( "SYSTEM\\CurrentControlSet\\Control\\Lsa\\" ), _WCH( "Security Packages" ) },
+        { HKEY_LOCAL_MACHINE, _WCH( "SYSTEM\\ControlSet00.$current.\\Control\\Session Manager\\" ), _WCH( "CWDIllegalInDllSearch" ) },
+        { HKEY_LOCAL_MACHINE, _WCH( "SYSTEM\\ControlSet00.$current.\\Control\\" ), _WCH( "SafeBoot" ) },
+        { HKEY_LOCAL_MACHINE, _WCH( "System\\CurrentControlSet\\Control\\Session Manager" ), _WCH( "SetupExecute" ) },  // Values: SetupExecute, Execute, S0InitialCommand
+        { HKEY_LOCAL_MACHINE, _WCH( "System\\CurrentControlSet\\Control\\Session Manager" ), _WCH( "Execute" ) },  // Values: SetupExecute, Execute, S0InitialCommand
+        { HKEY_LOCAL_MACHINE, _WCH( "System\\CurrentControlSet\\Control\\Session Manager" ), _WCH( "S0InitialCommand" ) },  // Values: SetupExecute, Execute, S0InitialCommand
+        { HKEY_LOCAL_MACHINE, _WCH( "System\\CurrentControlSet\\Control\\Session Manager" ), _WCH( "AppCertDlls" ) }, // Read all values of this key
+        { HKEY_LOCAL_MACHINE, _WCH( "System\\CurrentControlSet\\Control" ), _WCH( "ServiceControlManagerExtension" ) },   // Value: ServiceControlManagerExtension
+        { HKEY_LOCAL_MACHINE, _WCH( "Software\\Microsoft\\Command Processor" ), _WCH( "AutoRun" ) },   // Value: AutoRun
+        { HKEY_LOCAL_MACHINE, _WCH( "Software\\Wow6432Node\\Microsoft\\Command Processor" ), _WCH( "AutoRun" ) },   // Value: AutoRun
+        { HKEY_LOCAL_MACHINE, _WCH( "SYSTEM\\Setup\\" ), _WCH( "CmdLine" ) },   // Value: CmdLine
+        { HKEY_LOCAL_MACHINE, _WCH( "SYSTEM\\Setup\\" ), _WCH( "LsaStart" ) },   // Value: LsaStart
+        { HKEY_LOCAL_MACHINE, _WCH( "SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Winlogon" ), _WCH( "GinaDLL" ) },   // Value: GinaDLL
+        { HKEY_LOCAL_MACHINE, _WCH( "SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Winlogon" ), _WCH( "UIHost" ) },   // Value: GinaDLL
+        { HKEY_LOCAL_MACHINE, _WCH( "SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Winlogon" ), _WCH( "AppSetup" ) },   // Value: AppSetup
+        { HKEY_LOCAL_MACHINE, _WCH( "SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Winlogon" ), _WCH( "VmApplet" ) },   // Value: VmApplet
+        { HKEY_LOCAL_MACHINE, _WCH( "Software\\Microsoft\\Windows\\CurrentVersion\\Policies\\System\\" ), _WCH( "Shell" ) },
+        { HKEY_LOCAL_MACHINE, _WCH( "SYSTEM\\CurrentControlSet\\Control\\SafeBoot\\" ), _WCH( "AlternateShell" ) },
+        { HKEY_LOCAL_MACHINE, _WCH( "System\\CurrentControlSet\\Control\\SafeBoot\\Option\\" ), _WCH( "UseAlternateShell" ) },  // This one has to be 1
+        { HKEY_LOCAL_MACHINE, _WCH( "Software\\Microsoft\\Windows\\CurrentVersion\\RunServicesOnce" ), _WCH( "*" ) },
+        { HKEY_LOCAL_MACHINE, _WCH( "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\RunOnceEx" ), _WCH( "*" ) },  // syntax: http://support.microsoft.com/default.aspx?scid=KB;en-us;232509
+        { HKEY_LOCAL_MACHINE, _WCH( "SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Terminal Server\\Install\\Software\\Microsoft\\Windows\\CurrentVersion\\RunOnceEx" ), _WCH( "*" ) },
+        { HKEY_LOCAL_MACHINE, _WCH( "Software\\Policies\\Microsoft\\Windows\\System\\Scripts\\" ), _WCH( "Startup" ) },
+        { HKEY_LOCAL_MACHINE, _WCH( "Software\\Policies\\Microsoft\\Windows\\System\\Scripts\\" ), _WCH( "Logon" ) },
+        { HKEY_LOCAL_MACHINE, _WCH( "System\\CurrentControlSet\\Control\\Terminal Server\\Wds\\rdpwd\\" ), _WCH( "StartupPrograms" ) },
+        { HKEY_LOCAL_MACHINE, _WCH( "Software\\Microsoft\\Windows\\CurrentVersion\\Group Policy\\Scripts\\" ), _WCH( "Startup" ) },
+        { HKEY_LOCAL_MACHINE, _WCH( "System\\CurrentControlSet\\Control\\BootVerificationProgram" ), _WCH( "ImagePath" ) },   // Value: ImagePath
+        { HKEY_LOCAL_MACHINE, _WCH( "SOFTWARE\\Classes\\Protocols\\" ), _WCH( "Handler" ) },
+        { HKEY_LOCAL_MACHINE, _WCH( "SOFTWARE\\Microsoft\\Internet Explorer\\Desktop\\" ), _WCH( "Components" ) },
+        { HKEY_LOCAL_MACHINE, _WCH( "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Explorer\\" ), _WCH( "Shell Folders" ) },
+        { HKEY_LOCAL_MACHINE, _WCH( "Software\\Microsoft\\Windows NT\\CurrentVersion\\" ), _WCH( "Windows" ) },
+        { HKEY_LOCAL_MACHINE, _WCH( "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Explorer\\" ), _WCH( "SharedTaskScheduler" ) },
+        { HKEY_LOCAL_MACHINE, _WCH( "SOFTWARE\\Wow6432Node\\Microsoft\\Windows\\CurrentVersion\\Explorer\\" ), _WCH( "SharedTaskScheduler" ) },
+        { HKEY_LOCAL_MACHINE, _WCH( "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Explorer\\" ), _WCH( "ShellServiceObjects" ) },
+        { HKEY_LOCAL_MACHINE, _WCH( "SOFTWARE\\Wow6432Node\\Microsoft\\Windows\\CurrentVersion\\Explorer\\" ), _WCH( "ShellServiceObjects" ) },
+        { HKEY_LOCAL_MACHINE, _WCH( "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\" ), _WCH( "ShellServiceObjectDelayLoad" ) },
+        { HKEY_LOCAL_MACHINE, _WCH( "SOFTWARE\\Wow6432Node\\Microsoft\\Windows\\CurrentVersion\\" ), _WCH( "ShellServiceObjectDelayLoad" ) },
+        { HKEY_LOCAL_MACHINE, _WCH( "SOFTWARE\\Microsoft\\Windows CE Services\\" ), _WCH( "AutoStartOnConnect" ) },
+        { HKEY_LOCAL_MACHINE, _WCH( "SOFTWARE\\Wow6432Node\\Microsoft\\Windows CE Services\\" ), _WCH( "AutoStartOnConnect" ) },
+        { HKEY_LOCAL_MACHINE, _WCH( "SOFTWARE\\Microsoft\\Windows CE Services\\" ), _WCH( "AutoStartOnDisconnect" ) },
+        { HKEY_LOCAL_MACHINE, _WCH( "SOFTWARE\\Wow6432Node\\Microsoft\\Windows CE Services\\" ), _WCH( "AutoStartOnDisconnect" ) },
+        { HKEY_LOCAL_MACHINE, _WCH( "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Explorer\\" ), _WCH( "Browser Helper Objects" ) },
+        { HKEY_LOCAL_MACHINE, _WCH( "Software\\Classes\\*\\ShellEx\\" ), _WCH( "ContextMenuHandlers" ) },
+        { HKEY_LOCAL_MACHINE, _WCH( "Software\\Wow6432Node\\Classes\\*\\ShellEx\\" ), _WCH( "ContextMenuHandlers" ) },
+        { HKEY_LOCAL_MACHINE, _WCH( "Software\\Classes\\Drive\\ShellEx\\" ), _WCH( "ContextMenuHandlers" ) },
+        { HKEY_LOCAL_MACHINE, _WCH( "Software\\Wow6432Node\\Classes\\Drive\\ShellEx\\" ), _WCH( "ContextMenuHandlers" ) },
+        { HKEY_LOCAL_MACHINE, _WCH( "Software\\Classes\\*\\ShellEx\\" ), _WCH( "PropertySheetHandlers" ) },
+        { HKEY_LOCAL_MACHINE, _WCH( "Software\\Wow6432Node\\Classes\\*\\ShellEx\\" ), _WCH( "PropertySheetHandlers" ) },
+        { HKEY_LOCAL_MACHINE, _WCH( "Software\\Classes\\AllFileSystemObjects\\ShellEx\\" ), _WCH( "ContextMenuHandlers" ) },
+        { HKEY_LOCAL_MACHINE, _WCH( "Software\\Wow6432Node\\Classes\\AllFileSystemObjects\\ShellEx\\" ), _WCH( "ContextMenuHandlers" ) },
+        { HKEY_LOCAL_MACHINE, _WCH( "Software\\Classes\\AllFileSystemObjects\\ShellEx\\" ), _WCH( "DragDropHandlers" ) },
+        { HKEY_LOCAL_MACHINE, _WCH( "Software\\Wow6432Node\\Classes\\AllFileSystemObjects\\ShellEx\\" ), _WCH( "DragDropHandlers" ) },
+        { HKEY_LOCAL_MACHINE, _WCH( "Software\\Classes\\AllFileSystemObjects\\ShellEx\\" ), _WCH( "PropertySheetHandlers" ) },
+        { HKEY_LOCAL_MACHINE, _WCH( "Software\\Wow6432Node\\Classes\\AllFileSystemObjects\\ShellEx\\" ), _WCH( "PropertySheetHandlers" ) },
+        { HKEY_LOCAL_MACHINE, _WCH( "Software\\Classes\\Directory\\ShellEx\\" ), _WCH( "ContextMenuHandlers" ) },
+        { HKEY_LOCAL_MACHINE, _WCH( "Software\\Wow6432Node\\Classes\\Directory\\ShellEx\\" ), _WCH( "ContextMenuHandlers" ) },
+        { HKEY_LOCAL_MACHINE, _WCH( "Software\\Classes\\Directory\\ShellEx\\" ), _WCH( "DragDropHandlers" ) },
+        { HKEY_LOCAL_MACHINE, _WCH( "Software\\Wow6432Node\\Classes\\Directory\\ShellEx\\" ), _WCH( "DragDropHandlers" ) },
+        { HKEY_LOCAL_MACHINE, _WCH( "Software\\Classes\\Directory\\ShellEx\\" ), _WCH( "PropertySheetHandlers" ) },
+        { HKEY_LOCAL_MACHINE, _WCH( "Software\\Wow6432Node\\Classes\\Directory\\ShellEx\\" ), _WCH( "PropertySheetHandlers" ) },
+        { HKEY_LOCAL_MACHINE, _WCH( "Software\\Classes\\Directory\\ShellEx\\" ), _WCH( "CopyHookHandlers" ) },
+        { HKEY_LOCAL_MACHINE, _WCH( "Software\\Wow6432Node\\Classes\\Directory\\ShellEx\\" ), _WCH( "CopyHookHandlers" ) },
+        { HKEY_LOCAL_MACHINE, _WCH( "Software\\Classes\\Directory\\Background\\ShellEx\\" ), _WCH( "ContextMenuHandlers" ) },
+        { HKEY_LOCAL_MACHINE, _WCH( "Software\\Wow6432Node\\Classes\\Directory\\Background\\ShellEx\\" ), _WCH( "ContextMenuHandlers" ) },
+        { HKEY_LOCAL_MACHINE, _WCH( "Software\\Classes\\Folder\\ShellEx\\" ), _WCH( "ColumnHandlers" ) },
+        { HKEY_LOCAL_MACHINE, _WCH( "Software\\Wow6432Node\\Classes\\Folder\\ShellEx\\" ), _WCH( "ColumnHandlers" ) },
+        { HKEY_LOCAL_MACHINE, _WCH( "Software\\Classes\\Folder\\ShellEx\\" ), _WCH( "ContextMenuHandlers" ) },
+        { HKEY_LOCAL_MACHINE, _WCH( "Software\\Wow6432Node\\Classes\\Folder\\ShellEx\\" ), _WCH( "ContextMenuHandlers" ) },
+        { HKEY_LOCAL_MACHINE, _WCH( "Software\\Classes\\Folder\\ShellEx\\" ), _WCH( "DragDropHandlers" ) },
+        { HKEY_LOCAL_MACHINE, _WCH( "Software\\Wow6432Node\\Classes\\Folder\\ShellEx\\" ), _WCH( "DragDropHandlers" ) },
+        { HKEY_LOCAL_MACHINE, _WCH( "Software\\Classes\\Folder\\ShellEx\\" ), _WCH( "ExtShellFolderViews" ) },
+        { HKEY_LOCAL_MACHINE, _WCH( "Software\\Wow6432Node\\Classes\\Folder\\ShellEx\\" ), _WCH( "ExtShellFolderViews" ) },
+        { HKEY_LOCAL_MACHINE, _WCH( "Software\\Classes\\Folder\\ShellEx\\" ), _WCH( "PropertySheetHandlers" ) },
+        { HKEY_LOCAL_MACHINE, _WCH( "Software\\Wow6432Node\\Classes\\Folder\\ShellEx\\" ), _WCH( "PropertySheetHandlers" ) },
+        { HKEY_LOCAL_MACHINE, _WCH( "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Explorer\\" ), _WCH( "ShellIconOverlayIdentifiers" ) },
+        { HKEY_LOCAL_MACHINE, _WCH( "SOFTWARE\\Wow6432Node\\Microsoft\\Windows\\CurrentVersion\\Explorer\\" ), _WCH( "ShellIconOverlayIdentifiers" ) },
+        { HKEY_LOCAL_MACHINE, _WCH( "SOFTWARE\\Microsoft\\Ctf\\" ), _WCH( "LangBarAddin" ) },
+        { HKEY_LOCAL_MACHINE, _WCH( "SOFTWARE\\Microsoft\\Internet Explorer\\" ), _WCH( "UrlSearchHooks" ) },
+        { HKEY_LOCAL_MACHINE, _WCH( "SOFTWARE\\Microsoft\\Internet Explorer\\" ), _WCH( "Toolbar" ) },
+        { HKEY_LOCAL_MACHINE, _WCH( "SOFTWARE\\Wow6432Node\\Microsoft\\Internet Explorer\\" ), _WCH( "Toolbar" ) },
+        { HKEY_LOCAL_MACHINE, _WCH( "SOFTWARE\\Microsoft\\Internet Explorer\\" ), _WCH( "Explorer Bars" ) },
+        { HKEY_LOCAL_MACHINE, _WCH( "SOFTWARE\\Wow6432Node\\Microsoft\\Internet Explorer\\" ), _WCH( "Explorer Bars" ) },
+        { HKEY_LOCAL_MACHINE, _WCH( "SOFTWARE\\Microsoft\\Internet Explorer\\" ), _WCH( "Extensions" ) },
+        { HKEY_LOCAL_MACHINE, _WCH( "SOFTWARE\\Wow6432Node\\Microsoft\\Internet Explorer\\" ), _WCH( "Extensions" ) },
+        { HKEY_LOCAL_MACHINE, _WCH( "SOFTWARE\\Classes\\" ), _WCH( "Filter" ) },
+    };
+
+    // First we check for Registry autoruns
+    for( i = 0; i < ARRAY_N_ELEM( keys ); i++ )
+    {
+        if( ERROR_SUCCESS == RegOpenKeyW( keys[ i ].root, keys[ i ].path, &hKey ) )
+        {
+            if( _WCH( '*' ) != keys[ i ].keyName[ 0 ] )
+            {
+                // This key is a specific leaf value
+                size = sizeof( value ) - sizeof( RWCHAR );
+                if( ERROR_SUCCESS == RegQueryValueExW( hKey,
+                                                       keys[ i ].keyName,
+                                                       NULL,
+                                                       &type,
+                                                       (LPBYTE)&value,
+                                                       &size ) )
+                {
+                    if( !_processRegKey( type, 
+                                         keys[ i ].path, 
+                                         keys[ i ].keyName, 
+                                         (RPU8)&value, 
+                                         size, 
+                                         autoruns ) )
+                    {
+                        rpal_debug_warning( "key contains unexpected data" );
+                    }
+                }
+            }
+            else
+            {
+                // This key is *, meaning all leaf values so we must enumerate
+                tmpKeyNameSize = ARRAY_N_ELEM( tmpKeyName );
+                size = sizeof( value ) - sizeof( RWCHAR );
+                while( ERROR_SUCCESS == RegEnumValueW( hKey, 
+                                                       iKey, 
+                                                       (RPWCHAR)&tmpKeyName, 
+                                                       &tmpKeyNameSize, 
+                                                       NULL, 
+                                                       &type, 
+                                                       (RPU8)&value, 
+                                                       &size ) )
+                {
+                    tmpKeyName[ tmpKeyNameSize ] = 0;
+
+                    if( !_processRegKey( type, keys[ i ].path, tmpKeyName, (RPU8)&value, size, autoruns ) )
+                    {
+                        rpal_debug_warning( "key contains unexpected data" );
+                    }
+
+                    iKey++;
+                    tmpKeyNameSize = ARRAY_N_ELEM( tmpKeyName );
+                    size = sizeof( value ) - sizeof( RWCHAR );
+                }
+            }
+
+            RegCloseKey( hKey );
+        }
+    }
+
+    // Now we look for dir-based autoruns
+    for( i = 0; i < ARRAY_N_ELEM( paths ); i++ )
+    {
+        if( NULL != ( dirCrawl = rpal_file_crawlStart( paths[ i ], crawlFiles, 1 ) ) )
+        {
+            while( rpal_file_crawlNextFile( dirCrawl, &finfo ) )
+            {
+                if( !IS_FLAG_ENABLED( finfo.attributes, RPAL_FILE_ATTRIBUTE_DIRECTORY ) &&
+                    0 != rpal_string_stricmpw( _WCH( "desktop.ini" ), finfo.fileName ) &&
+                    NULL != ( entry = rSequence_new() ) )
+                {
+                    tmp = finfo.filePath;
+                    lnkDest = NULL;
+
+                    if( rpal_string_endswithw( finfo.filePath, _WCH( ".lnk" ) ) )
+                    {
+                        if( rpal_file_getLinkDest( tmp, &lnkDest ) )
+                        {
+                            tmp = lnkDest;
+                        }
+                    }
+
+                    rSequence_addSTRINGW( entry, RP_TAGS_FILE_PATH, tmp );
+
+                    if( NULL != lnkDest )
+                    {
+                        rpal_memory_free( lnkDest );
+                    }
+
+                    if( !rList_addSEQUENCE( autoruns, entry ) )
+                    {
+                        rSequence_free( entry );
+                    }
+                }
+            }
+
+            rpal_file_crawlStop( dirCrawl );
+        }
+    }
+
+    isSuccess = TRUE;
+
+    return isSuccess;
+}
+#elif defined(RPAL_PLATFORM_MACOSX)
+static
+    RBOOL
+    _getMacOSXAutoruns
+    (
+        rList autoruns
+    )
+{
+    RBOOL isSuccess = FALSE;
+
+    RU32 i = 0;
+    rSequence entry = NULL;
+    rDirCrawl dirCrawl = NULL;
+    RPWCHAR crawlFiles[] = { _WCH( "*" ), NULL };
+    RPWCHAR paths[] = {
+        _WCH( "/System/Library/StartupItems" ),
+        _WCH( "/Library/StartupItems" ),
+        _WCH( "%systemdrive%\\users\\*\\Start Menu\\Programs\\Startup" ),
+        _WCH( "%systemdrive%\\users\\*\\AppData\\Roaming\\Microsoft\\Windows\\Start" ),
+        _WCH( "%systemdrive%\\documents and settings\\*\\Start Menu\\Programs\\Startup" ),
+        _WCH( "%systemdrive%\\documents and settings\\*\\AppData\\Roaming\\Microsoft\\Windows\\Start" ) };
+    rFileInfo finfo = { 0 };
+
+    // Look for dir-based autoruns
+    for( i = 0; i < ARRAY_N_ELEM( paths ); i++ )
+    {
+        if( NULL != ( dirCrawl = rpal_file_crawlStart( paths[ i ], crawlFiles, 1 ) ) )
+        {
+            while( rpal_file_crawlNextFile( dirCrawl, &finfo ) )
+            {
+                if( !IS_FLAG_ENABLED( finfo.attributes, RPAL_FILE_ATTRIBUTE_DIRECTORY ) &&
+                    NULL != ( entry = rSequence_new() ) )
+                {
+                    rSequence_addSTRINGW( entry, RP_TAGS_FILE_PATH, finfo.filePath );
+
+                    if( !rList_addSEQUENCE( autoruns, entry ) )
+                    {
+                        rSequence_free( entry );
+                    }
+                }
+            }
+
+            rpal_file_crawlStop( dirCrawl );
+        }
+    }
+
+    isSuccess = TRUE;
+
+    return isSuccess;
+}
+#endif
+
+rList
+    libOs_getAutoruns
+    (
+        RBOOL isWithHashes
+    )
+{
+    rList autoruns = NULL;
+
+    if( NULL != ( autoruns = rList_new( RP_TAGS_AUTORUN, RPCM_SEQUENCE ) ) )
+    {
+#ifdef RPAL_PLATFORM_WINDOWS
+        if( !_getWindowsAutoruns( autoruns ) )
+        {
+            rpal_debug_warning( "error getting windows autoruns" );
+        }
+#elif defined(RPAL_PLATFORM_MACOSX)
+        if( !_getMacOSXAutoruns( autoruns ) )
+        {
+            rpal_debug_warning( "error getting mac autoruns" );
+        }
+#endif
+        if( isWithHashes )
+        {
+            _enhanceAutorunsWithHashes( autoruns );
+        }
+    }
+
+    return autoruns;
 }
 
 /* EOF */

@@ -90,6 +90,9 @@
     </Midl>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ProjectReference Include="..\cryptoLib\cryptoLib.vcxproj">
+      <Project>{533b36b9-e781-4132-baa7-33bf68de7013}</Project>
+    </ProjectReference>
     <ProjectReference Include="..\rpal\rpal.vcxproj">
       <Project>{c8461925-62d7-49ff-a7c7-6cb5f73fa441}</Project>
       <CopyLocalSatelliteAssemblies>true</CopyLocalSatelliteAssemblies>

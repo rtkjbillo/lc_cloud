@@ -41,7 +41,7 @@ typedef struct
     rEvent isTimeToStop;
     HMEMORYMODULE hModule;
     rpHCPModuleContext context;
-    RU8 hash[ CRYPTOLIB_HASH_SIZE ];
+    CryptoLib_Hash hash;
     RBOOL isOsLoaded;
 
 } rpHCPModuleInfo;

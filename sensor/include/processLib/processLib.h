@@ -46,9 +46,6 @@ typedef struct
 #define PROCESSLIB_MEM_ACCESS_WRITE_ONLY            0x09
 #define PROCESSLIB_MEM_ACCESS_EXECUTE_WRITE         0x0a
 
-#define PROCESSLIB_SVCS         0x01
-#define PROCESSLIB_DRIVERS      0x02
-
 RBOOL
     processLib_isPidInUse
     (
@@ -95,13 +92,6 @@ rList
         RU32 processId,
         RBOOL isOnlyReturnNamed,
         RPWCHAR optSubstring
-    );
-
-
-rList
-    processLib_getServicesList
-    (
-        RU32 type
     );
 
 RBOOL 

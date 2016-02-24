@@ -28,8 +28,8 @@ limitations under the License.
 
 typedef struct
 {
-    RU8 nameHash[ CRYPTOLIB_HASH_SIZE ];
-    RU8 fileHash[ CRYPTOLIB_HASH_SIZE ];
+    CryptoLib_Hash nameHash;
+    CryptoLib_Hash fileHash;
     RU64 codeSize;
 
 } CodeIdent;
@@ -43,7 +43,7 @@ RVOID
     processCodeIdentW
     (
         RPWCHAR name,
-        RPU8 pFileHash,
+        CryptoLib_Hash* pFileHash,
         RU64 codeSize,
         rSequence originalEvent
     )
@@ -59,12 +59,12 @@ RVOID
 
     if( NULL != name )
     {
-        CryptoLib_hash( name, rpal_string_strlenw( name ) * sizeof( RWCHAR ), ident.nameHash );
+        CryptoLib_hash( name, rpal_string_strlenw( name ) * sizeof( RWCHAR ), &ident.nameHash );
     }
 
     if( NULL != pFileHash )
     {
-        rpal_memory_memcpy( ident.fileHash, pFileHash, CRYPTOLIB_HASH_SIZE );
+        rpal_memory_memcpy( &ident.fileHash, pFileHash, CRYPTOLIB_HASH_SIZE );
     }
 
     if( rMutex_lock( g_mutex ) )
@@ -83,7 +83,7 @@ RVOID
                 {
                     if( NULL != pFileHash )
                     {
-                        rSequence_addBUFFER( notif, RP_TAGS_HASH, pFileHash, CRYPTOLIB_HASH_SIZE );
+                        rSequence_addBUFFER( notif, RP_TAGS_HASH, (RPU8)pFileHash, CRYPTOLIB_HASH_SIZE );
                     }
 
                     if( libOs_getSignature( name,
@@ -116,7 +116,7 @@ RVOID
     processCodeIdentA
     (
         RPCHAR name,
-        RPU8 pFileHash,
+        CryptoLib_Hash* pFileHash,
         RU64 codeSize,
         rSequence originalEvent
     )
@@ -130,12 +130,12 @@ RVOID
 
     if( NULL != name )
     {
-        CryptoLib_hash( name, rpal_string_strlen( name ) * sizeof( RCHAR ), ident.nameHash );
+        CryptoLib_hash( name, rpal_string_strlen( name ) * sizeof( RCHAR ), &ident.nameHash );
     }
 
     if( NULL != pFileHash )
     {
-        rpal_memory_memcpy( ident.fileHash, pFileHash, CRYPTOLIB_HASH_SIZE );
+        rpal_memory_memcpy( &ident.fileHash, pFileHash, CRYPTOLIB_HASH_SIZE );
     }
 
     if( rMutex_lock( g_mutex ) )
@@ -154,7 +154,7 @@ RVOID
                 {
                     if( NULL != pFileHash )
                     {
-                        rSequence_addBUFFER( notif, RP_TAGS_HASH, pFileHash, CRYPTOLIB_HASH_SIZE );
+                        rSequence_addBUFFER( notif, RP_TAGS_HASH, (RPU8)pFileHash, CRYPTOLIB_HASH_SIZE );
                     }
 
                     if( NULL != ( wPath = rpal_string_atow( name ) ) )
@@ -192,7 +192,7 @@ RVOID
 {
     RPWCHAR nameW = NULL;
     RPCHAR nameA = NULL;
-    RU8 fileHash[ CRYPTOLIB_HASH_SIZE ] = { 0 };
+    CryptoLib_Hash fileHash = { 0 };
     RU64 size = 0;
 
     UNREFERENCED_PARAMETER( notifType );
@@ -212,13 +212,13 @@ RVOID
             else
             {
                 if( NULL != nameA &&
-                    !CryptoLib_hashFileA( nameA, fileHash, TRUE ) )
+                    !CryptoLib_hashFileA( nameA, &fileHash, TRUE ) )
                 {
                     rpal_debug_info( "unable to fetch file hash for ident" );
                 }
 
                 if( NULL != nameW &&
-                    !CryptoLib_hashFileW( nameW, fileHash, TRUE ) )
+                    !CryptoLib_hashFileW( nameW, &fileHash, TRUE ) )
                 {
                     rpal_debug_info( "unable to fetch file hash for ident" );
                 }
@@ -228,11 +228,11 @@ RVOID
 
             if( NULL != nameA )
             {
-                processCodeIdentA( nameA, fileHash, size, event );
+                processCodeIdentA( nameA, &fileHash, size, event );
             }
             else if( NULL != nameW )
             {
-                processCodeIdentW( nameW, fileHash, size, event );
+                processCodeIdentW( nameW, &fileHash, size, event );
             }
         }
     }
@@ -249,7 +249,7 @@ RVOID
 {
     RPWCHAR nameW = NULL;
     RPCHAR nameA = NULL;
-    RU8 fileHash[ CRYPTOLIB_HASH_SIZE ] = { 0 };
+    CryptoLib_Hash fileHash = { 0 };
     RU64 size = 0;
 
     UNREFERENCED_PARAMETER( notifType );
@@ -276,13 +276,13 @@ RVOID
             else
             {
                 if( NULL != nameA &&
-                    !CryptoLib_hashFileA( nameA, fileHash, TRUE ) )
+                    !CryptoLib_hashFileA( nameA, &fileHash, TRUE ) )
                 {
                     rpal_debug_info( "unable to fetch file hash for ident" );
                 }
 
                 if( NULL != nameW &&
-                    !CryptoLib_hashFileW( nameW, fileHash, TRUE ) )
+                    !CryptoLib_hashFileW( nameW, &fileHash, TRUE ) )
                 {
                     rpal_debug_info( "unable to fetch file hash for ident" );
                 }
@@ -292,11 +292,11 @@ RVOID
 
             if( NULL != nameA )
             {
-                processCodeIdentA( nameA, fileHash, size, event );
+                processCodeIdentA( nameA, &fileHash, size, event );
             }
             else if( NULL != nameW )
             {
-                processCodeIdentW( nameW, fileHash, size, event );
+                processCodeIdentW( nameW, &fileHash, size, event );
             }
         }
     }

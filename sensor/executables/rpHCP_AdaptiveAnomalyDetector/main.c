@@ -78,9 +78,9 @@ static RU32 RPAL_THREAD_FUNC
     RPWCHAR modulePath = NULL;
     RPWCHAR moduleName = NULL;
     rSequence report = NULL;
-    RU8 fileHash[ CRYPTOLIB_HASH_SIZE ] = { 0 };
+    CryptoLib_Hash fileHash = { 0 };
     rBTree checkedHashes = NULL;
-    RU8 fileNameHash[ CRYPTOLIB_HASH_SIZE ] = { 0 };
+    CryptoLib_Hash fileNameHash = { 0 };
     RTIME lastCacheReset = 0;
     
     UNREFERENCED_PARAMETER( context );
@@ -154,24 +154,24 @@ static RU32 RPAL_THREAD_FUNC
 
                                 // We can throttle the likeliness of us checking a hash.
                                 // But first we check if we've hashed that path in the current run.
-                                if( CryptoLib_hash( modulePath, rpal_string_strlenw( modulePath ), fileNameHash ) &&
-                                    rpal_btree_add( checkedHashes, fileNameHash, FALSE ) &&
+                                if( CryptoLib_hash( modulePath, rpal_string_strlenw( modulePath ), &fileNameHash ) &&
+                                    rpal_btree_add( checkedHashes, &fileNameHash, FALSE ) &&
                                     ( rpal_rand() % 100 ) < FILE_HASH_CHECK_PERCENT )
                                 {
                                     rpal_debug_info( "Initiating a hash lookup of %ls.", modulePath );
 
-                                    if( CryptoLib_hashFileW( modulePath, fileHash, FALSE ) )
+                                    if( CryptoLib_hashFileW( modulePath, &fileHash, FALSE ) )
                                     {
-                                        if( aad_checkRelation_WCH_HASH( g_stashes_phase_2[ AAD_REL_MODULE_HASH ], moduleName, fileHash ) &&
-                                            NULL != ( report = aad_newReport_WCH_HASH( AAD_REL_MODULE_HASH, moduleName, fileHash ) ) )
+                                        if( aad_checkRelation_WCH_HASH( g_stashes_phase_2[ AAD_REL_MODULE_HASH ], moduleName, (RPU8)&fileHash ) &&
+                                            NULL != ( report = aad_newReport_WCH_HASH( AAD_REL_MODULE_HASH, moduleName, (RPU8)&fileHash ) ) )
                                         {
                                             notifications_publish( RP_TAGS_NOTIFICATION_NEW_RELATION, report );
                                             rSequence_free( report );
                                         }
 
                                         // These have been pre-populated by the phase 1, see below
-                                        if( aad_checkRelation_HASH_WCH( g_stashes_phase_2[ AAD_REL_HASH_MODULE ], fileHash, moduleName ) &&
-                                            NULL != ( report = aad_newReport_HASH_WCH( AAD_REL_HASH_MODULE, fileHash, moduleName ) ) )
+                                        if( aad_checkRelation_HASH_WCH( g_stashes_phase_2[ AAD_REL_HASH_MODULE ], (RPU8)&fileHash, moduleName ) &&
+                                            NULL != ( report = aad_newReport_HASH_WCH( AAD_REL_HASH_MODULE, (RPU8)&fileHash, moduleName ) ) )
                                         {
                                             notifications_publish( RP_TAGS_NOTIFICATION_NEW_RELATION, report );
                                             rSequence_free( report );
@@ -181,7 +181,7 @@ static RU32 RPAL_THREAD_FUNC
                                         if( aad_isParentEnabled_WCH( g_stashes_phase_1[ AAD_REL_HASH_MODULE ], moduleName ) )
                                         {
                                             rpal_debug_info( "New hash found for HASH_MODULE relation found." );
-                                            aad_enableParent_HASH( g_stashes_phase_2[ AAD_REL_HASH_MODULE ], fileHash, 20, 0.01 );
+                                            aad_enableParent_HASH( g_stashes_phase_2[ AAD_REL_HASH_MODULE ], (RPU8)&fileHash, 20, 0.01 );
                                         }
                                     }
                                     else
