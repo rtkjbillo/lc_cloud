@@ -320,4 +320,16 @@ RBOOL
         RU32* pAction
     );
 
+RPWCHAR
+    rpal_file_cleanw
+    (
+        RPWCHAR filePath
+    );
+
+RPCHAR
+    rpal_file_cleana
+    (
+        RPCHAR filePath
+    );
+
 #endif
