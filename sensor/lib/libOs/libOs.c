@@ -2640,6 +2640,8 @@ rList
         {
             rpal_debug_warning( "error getting mac autoruns" );
         }
+#else
+        rpal_debug_not_implemented();
 #endif
         if( isWithHashes )
         {
