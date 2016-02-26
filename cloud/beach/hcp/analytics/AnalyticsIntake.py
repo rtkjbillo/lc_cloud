@@ -126,6 +126,10 @@ class AnalyticsIntake( Actor ):
 
     def _extractCodeIdentity( self, agent, mtd, cRoot ):
         filePath = cRoot.get( 'base.FILE_PATH', None )
+        if filePath is None:
+            filePath = cRoot.get( 'base.DLL', None )
+            if filePath is None:
+                filePath = cRoot.get( 'base.EXECUTABLE', None )
         fileName = exeFromPath( filePath, agent = agent )
         h = cRoot.get( 'base.HASH', None )
 

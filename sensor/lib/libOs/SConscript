@@ -2,6 +2,6 @@ Import( 'env' )
 Import( 'compmap' )
 import profiles
 
-profiles.StaticLibrary( 'Os' ).Target( env, 'libOs.c', compmap, 'rpal' )
+profiles.StaticLibrary( 'Os' ).Target( env, 'libOs.c', compmap, 'rpal', 'cryptoLib' )
 
 # EOF

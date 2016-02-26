@@ -35,6 +35,12 @@ RVOID
         rString pStringBuffer
     );
 
+RVOID
+    rpal_stringbuffer_freeWrapper
+    (
+        rString pStringBuffer
+    );
+
 RBOOL
     rpal_stringbuffer_add
     (

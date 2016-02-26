@@ -1924,137 +1924,20 @@ RBOOL
 {
     RBOOL isHashed = FALSE;
 
+    RPWCHAR cleanPath = NULL;
+
     if( NULL != filePath &&
         NULL != pHash )
     {
-#ifdef RPAL_PLATFORM_WINDOWS
-        RU32 len = 0;
-        RBOOL isFullPath = FALSE;
-        RU32 i = 0;
-        rString tmpPath = NULL;
-        RPWCHAR tmpStr = NULL;
-        RWCHAR winDir[] = _WCH( "%windir%" );
-        RWCHAR uncPath[] = _WCH( "\\??\\" );
-        RWCHAR sys32Dir[] = _WCH( "\\system32" );
-        RWCHAR sysRootDir[] = _WCH( "\\systemroot" );
-        RWCHAR defaultPath[] = _WCH( "%windir%\\system32\\" );
-        RWCHAR defaultExt[] = _WCH( ".dll" );
-        RWCHAR foundPath[ RPAL_MAX_PATH ] = { 0 };
-        RU32 foundLen = 0;
-        RU32 preModLen = 0;
-
-        len = rpal_string_strlenw( filePath );
-
-        if( 0 != len &&
-            NULL != ( tmpPath = rpal_stringbuffer_new( 0, 0, TRUE ) ) )
+        if( NULL != ( cleanPath = rpal_file_cleanw( filePath ) ) )
         {
-            // Check for a path token, if we have none, default to system32
-            isFullPath = FALSE;
-            for( i = 0; i < len; i++ )
-            {
-                if( _WCH( '\\' ) == filePath[ i ] ||
-                    _WCH( '/' ) == filePath[ i ] )
-                {
-                    isFullPath = TRUE;
-                    break;
-                }
-            }
-
-            if( !isFullPath )
-            {
-                foundLen = SearchPathW( NULL, filePath, defaultExt, ARRAY_N_ELEM( foundPath ), foundPath, NULL );
-                if( 0 != foundLen && ARRAY_N_ELEM( foundPath ) > foundLen )
-                {
-                    rpal_stringbuffer_addw( tmpPath, foundPath );
-                    rpal_memory_zero( foundPath, sizeof( foundPath ) );
-                }
-                else
-                {
-                    rpal_stringbuffer_addw( tmpPath, (RPWCHAR)defaultPath );
-                    rpal_stringbuffer_addw( tmpPath, filePath );
-                }
-            }
-            else
-            {
-                // If the entry starts with system32, prefix it as necessary
-                if( rpal_string_startswithiw( filePath, sys32Dir ) )
-                {
-                    rpal_stringbuffer_addw( tmpPath, winDir );
-                }
-                // If the entry starts with /SystemRoot, prefix it as necessary
-                else if( rpal_string_startswithiw( filePath, sysRootDir ) )
-                {
-                    rpal_stringbuffer_addw( tmpPath, winDir );
-                    filePath += rpal_string_strlenw( sysRootDir );
-                }
-                // If the entry starts with \??\ we can strip the UNC prefix
-                else if( rpal_string_startswithiw( filePath, uncPath ) )
-                {
-                    filePath += rpal_string_strlenw( uncPath );
-                }
-
-                rpal_stringbuffer_addw( tmpPath, filePath );
-            }
-
-            tmpStr = rpal_stringbuffer_getStringw( tmpPath );
-            len = rpal_string_strlenw( tmpStr );
-
-            // Sometimes we deal with lists with commas, strip them
-            for( i = 0; i < len; i++ )
-            {
-                if( _WCH( ',' ) == tmpStr[ i ] )
-                {
-                    tmpStr[ i ] = 0;
-                }
-            }
-
-            // We remove any trailing white spaces
-            rpal_string_trimw( tmpStr, _WCH( " \t" ) );
-
-            // If this is a quoted path we will move past the first quote
-            // and null-terminate at the next quote
-            len = rpal_string_strlenw( tmpStr );
-            preModLen = len;
-            if( _WCH( '"' ) == tmpStr[ 0 ] )
-            {
-                tmpStr++;
-                len--;
-                for( i = 0; i < len; i++ )
-                {
-                    if( _WCH( '"' ) == tmpStr[ i ] )
-                    {
-                        tmpStr[ i ] = 0;
-                        len = rpal_string_strlenw( tmpStr );
-                        break;
-                    }
-                }
-            }
-
-            // Sometimes extensions are missing, default to dll
-            if( 4 > len ||
-                _WCH( '.' ) != tmpStr[ len - 4 ] )
-            {
-                rpal_stringbuffer_addw( tmpPath, (RPWCHAR)&defaultExt );
-                tmpStr = rpal_stringbuffer_getStringw( tmpPath );
-
-                if( len < preModLen )
-                {
-                    // The string has been shortened, so its actual end does not correspond to
-                    // that of the buffer. Thus, we reconcatenate the default extension to its
-                    // actual end, comfortable in the knowledge that there is enough room
-                    // allocated for it (because of the prior appending to the buffer).
-                    rpal_string_strcatw( tmpStr, (RPWCHAR)defaultExt );
-                }
-            }
-
-            if( CryptoLib_hashFileW( tmpStr, pHash, TRUE ) )
+            if( CryptoLib_hashFileW( cleanPath, pHash, TRUE ) )
             {
                 isHashed = TRUE;
             }
 
-            rpal_stringbuffer_free( tmpPath );
+            rpal_memory_free( cleanPath );
         }
-#endif
     }
 
     return isHashed;
@@ -2344,7 +2227,7 @@ RBOOL
         tmp = rpal_string_strtokw( (RPWCHAR)value, _WCH( ',' ), &state );
 
         while( NULL != tmp &&
-            0 != tmp[ 0 ] )
+               0 != tmp[ 0 ] )
         {
             if( NULL != ( entry = rSequence_new() ) )
             {
@@ -2757,6 +2640,8 @@ rList
         {
             rpal_debug_warning( "error getting mac autoruns" );
         }
+#else
+        rpal_debug_not_implemented();
 #endif
         if( isWithHashes )
         {
