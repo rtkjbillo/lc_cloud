@@ -24,6 +24,7 @@ limitations under the License.
 #pragma warning( disable: 4127 )
 #pragma warning( disable: 4306 )
 #include <windows_undocumented.h>
+#include <setupapi.h>
 #define FILETIME2ULARGE( uli, ft )  (uli).u.LowPart = (ft).dwLowDateTime, (uli).u.HighPart = (ft).dwHighDateTime
 
 typedef struct
@@ -56,6 +57,11 @@ typedef struct
 #include <mach/mach_port.h>
 #include <mach/task.h>
 #include <launch.h>
+#include <sys/param.h>
+#include <sys/ucred.h>
+#include <sys/mount.h>
+#elif defined( RPAL_PLATFORM_LINUX )
+#include <mntent.h>
 #endif
 #endif
 
@@ -1876,18 +1882,12 @@ static rList
                                 {
                                     if( NULL != assExe )
                                     {
-                                        // TODO: Fix in a more permanent way the issues in glibc with undocumented'
-                                        // incompatibility with mis-aligned pointers in things like strlen and wcstombs.
-                                        rpal_debug_info( "found associated service exe: %ls", assExe );
                                         rSequence_addSTRINGW( svc, RP_TAGS_EXECUTABLE, assExe );
                                         rpal_memory_free( assExe );
                                     }
 
                                     if( NULL != assDll )
                                     {
-                                        // TODO: Fix in a more permanent way the issues in glibc with undocumented'
-                                        // incompatibility with mis-aligned pointers in things like strlen and wcstombs.
-                                        rpal_debug_info( "found associated service dll: %ls", assDll );
                                         rSequence_addSTRINGW( svc, RP_TAGS_DLL, assDll );
                                         rpal_memory_free( assDll );
                                     }
@@ -2765,6 +2765,169 @@ rList
     }
 
     return autoruns;
+}
+
+rList
+    libOs_getDevices
+    (
+
+    )
+{
+    rList devices = NULL;
+    rSequence device = NULL;
+
+    if( NULL != ( devices = rList_new( RP_TAGS_DEVICE, RPCM_SEQUENCE ) ) )
+    {
+#ifdef RPAL_PLATFORM_WINDOWS
+
+        HDEVINFO hDevInfo = NULL;
+        SP_DEVINFO_DATA devInfo = { 0 };
+        RU32 i = 0;
+        RWCHAR desc[ 1024 ] = { 0 };
+
+        if( INVALID_HANDLE_VALUE != ( hDevInfo = SetupDiGetClassDevs( NULL,
+                                                                      0,
+                                                                      0,
+                                                                      DIGCF_PRESENT | DIGCF_ALLCLASSES ) ) )
+        {
+            devInfo.cbSize = sizeof( devInfo );
+            for( i = 0; SetupDiEnumDeviceInfo( hDevInfo, i, &devInfo ); i++ )
+            {
+                if( NULL != ( device = rSequence_new() ) )
+                {
+                    if( SetupDiGetDeviceRegistryPropertyW( hDevInfo,
+                                                           &devInfo,
+                                                           SPDRP_DEVICEDESC,
+                                                           NULL,
+                                                           (PBYTE)desc,
+                                                           sizeof( desc ),
+                                                           NULL ) )
+                    {
+                        rSequence_addSTRINGW( device, RP_TAGS_DEVICE_NAME, desc );
+                    }
+                    else
+                    {
+                        rpal_debug_warning( "device info too long" );
+                    }
+
+                    if( SetupDiGetDeviceRegistryPropertyW( hDevInfo,
+                                                           &devInfo,
+                                                           SPDRP_HARDWAREID,
+                                                           NULL,
+                                                           (PBYTE)desc,
+                                                           sizeof( desc ),
+                                                           NULL ) )
+                    {
+                        rSequence_addSTRINGW( device, RP_TAGS_DEVICE_HW_ID, desc );
+                    }
+                    else
+                    {
+                        rpal_debug_warning( "device info too long" );
+                    }
+
+                    if( !rList_addSEQUENCE( devices, device ) )
+                    {
+                        rSequence_free( device );
+                    }
+                }
+            }
+
+            SetupDiDestroyDeviceInfoList( hDevInfo );
+        }
+#else
+        rpal_debug_not_implemented();
+#endif
+    }
+    return devices;
+}
+
+rList
+    libOs_getVolumes
+    (
+
+    )
+{
+    rList volumes = NULL;
+    rSequence volume = NULL;
+
+    if( NULL != ( volumes = rList_new( RP_TAGS_VOLUME, RPCM_SEQUENCE ) ) )
+    {
+#ifdef RPAL_PLATFORM_WINDOWS
+        RU32 driveIndex = 0;
+        RU32 drivesMask = 0;
+        RWCHAR driveRoot[ 4 ] = { _WCH('0'), _WCH(':'), 0 , 0 };
+        RWCHAR deviceName[ RPAL_MAX_PATH ] = { 0 };
+        
+        if( 0 != ( drivesMask = GetLogicalDrives() ) )
+        {
+            while( driveIndex < 32 )
+            {
+                driveIndex++;
+
+                if( 0 == ( 0x00000001 & drivesMask ) )
+                {
+                    drivesMask = drivesMask >> 1;
+                    continue;
+                }
+
+                drivesMask = drivesMask >> 1;
+
+                driveRoot[ 0 ] = _WCH('A') + (RWCHAR)driveIndex - 1;
+
+                if( NULL != ( volume = rSequence_new() ) )
+                {
+                    if( 0 != QueryDosDeviceW( driveRoot, deviceName, ARRAY_N_ELEM( deviceName ) ) )
+                    {
+                        rSequence_addSTRINGW( volume, RP_TAGS_DEVICE_NAME, deviceName );
+                    }
+
+                    rSequence_addSTRINGW( volume, RP_TAGS_VOLUME_PATH, driveRoot );
+
+                    if( !rList_addSEQUENCE( volumes, volume ) )
+                    {
+                        rSequence_free( volume );
+                    }
+                }
+            }
+        }
+#elif defined( RPAL_PLATFORM_MACOSX )
+        RU32 nVolumes = 0;
+        RU32 i = 0;
+        struct statfs* fsInfo = NULL;
+        if( 0 != ( nVolumes = getmntinfo( &fsInfo, MNT_NOWAIT ) ) )
+        {
+            if( NULL != ( volume = rSequence_new() ) )
+            {
+                for( i = 0; i < nVolumes; i++ )
+                {
+                    rSequence_addSTRINGA( volume, RP_TAGS_VOLUME_PATH, fsInfo[ i ].f_mntonname );
+                    rSequence_addSTRINGA( volume, RP_TAGS_VOLUME_NAME, fsInfo[ i ].f_mntfromname );
+                }
+            }
+        }
+#elif defined( RPAL_PLATFORM_LINUX )
+        FILE* mtab = NULL;
+        RCHAR tabPath[] = { "/etc/mtab" };
+        struct mntent* fsInfo = NULL;
+
+        if( NULL != ( mtab = setmntent( tabPath, "r" ) ) )
+        {
+            while( NULL != ( fsInfo = getmntent( mtab ) ) )
+            {
+                if( NULL != ( volume = rSequence_new() ) )
+                {
+                    rSequence_addSTRINGA( volume, RP_TAGS_VOLUME_PATH, fsInfo->mnt_dir );
+                    rSequence_addSTRINGA( volume, RP_TAGS_VOLUME_NAME, fsInfo->mnt_fsname );
+                }
+            }
+
+            endmntent( mtab );
+        }
+#else
+        rpal_debug_not_implemented();
+#endif
+    }
+    return volumes;
 }
 
 /* EOF */
