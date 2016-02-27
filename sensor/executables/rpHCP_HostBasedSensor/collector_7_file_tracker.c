@@ -77,8 +77,9 @@ RPVOID
 
     if( rpal_string_expandw( (RPWCHAR)&rootEnv, &root ) &&
         NULL != ( watch = rDirWatch_new( root, 
-                                         RPAL_DIR_WATCH_CHANGE_CREATION 
-                                         | RPAL_DIR_WATCH_CHANGE_FILE_NAME, 
+                                         RPAL_DIR_WATCH_CHANGE_CREATION |
+                                         RPAL_DIR_WATCH_CHANGE_FILE_NAME | 
+                                         RPAL_DIR_WATCH_CHANGE_LAST_ACCESS, 
                                          TRUE ) ) )
     {
         while( rpal_memory_isValid( isTimeToStop ) &&
@@ -88,7 +89,8 @@ RPVOID
 
             if( rDirWatch_next( watch, 100, &fileName, &apiAction ) &&
                 ( RPAL_DIR_WATCH_ACTION_ADDED  == apiAction ||
-                  RPAL_DIR_WATCH_ACTION_REMOVED == apiAction ) )
+                  RPAL_DIR_WATCH_ACTION_REMOVED == apiAction ||
+                  RPAL_DIR_WATCH_ACTION_MODIFIED  == apiAction ) )
             {
                 curTime = rpal_time_getGlobal();
 
@@ -103,6 +105,10 @@ RPVOID
                         else if( RPAL_DIR_WATCH_ACTION_REMOVED == apiAction )
                         {
                             event = RP_TAGS_NOTIFICATION_FILE_DELETE;
+                        }
+                        else if( RPAL_DIR_WATCH_ACTION_MODIFIED == apiAction )
+                        {
+                            event = RP_TAGS_NOTIFICATION_FILE_MODIFIED;
                         }
 
                         if( rSequence_addSTRINGW( notif, RP_TAGS_FILE_PATH, (RPWCHAR)&fullName ) &&
@@ -131,6 +137,7 @@ RPVOID
 
 rpcm_tag collector_7_events[] = { RP_TAGS_NOTIFICATION_FILE_CREATE,
                                   RP_TAGS_NOTIFICATION_FILE_DELETE,
+                                  RP_TAGS_NOTIFICATION_FILE_MODIFIED,
                                   0};
 
 RBOOL
