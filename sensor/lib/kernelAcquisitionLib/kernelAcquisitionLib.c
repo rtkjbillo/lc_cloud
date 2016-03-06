@@ -46,7 +46,7 @@ RU32
         KernelAcqCommand* cmd
     )
 {
-    RU32 error = (-1);
+    RU32 error = (RU32)(-1);
 
     if( NULL != cmd &&
         rMutex_lock( g_km_mutex ) )
@@ -57,6 +57,8 @@ RU32
         int waitVal = 0;
 
         error = setsockopt( g_km_socket, SYSPROTO_CONTROL, op, cmd, sizeof( *cmd ) );
+#else
+        UNREFERENCED_PARAMETER( op );
 #endif
 
         rMutex_unlock( g_km_mutex );
