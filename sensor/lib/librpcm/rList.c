@@ -611,6 +611,12 @@ RBOOL
             {
                 *pBytesConsumed += sizeof( rpcm_tag ) + sizeof( rpcm_type );
             }
+
+            if( !isSuccess )
+            {
+                rList_free( *pList );
+                *pList = NULL;
+            }
         }
     }
 

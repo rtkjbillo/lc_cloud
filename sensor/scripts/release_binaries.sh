@@ -22,6 +22,11 @@ cp ./sensor/bin/Win32/Release/rpHCP_HostBasedSensor.dll "./prebuilt_binaries/hbs
 cp ./sensor/bin/x64/Debug/rpHCP_HostBasedSensor.dll "./prebuilt_binaries/hbs_win_x64_debug_$1.dll"
 cp ./sensor/bin/x64/Release/rpHCP_HostBasedSensor.dll "./prebuilt_binaries/hbs_win_x64_release_$1.dll"
 
+cp ./sensor/bin/macosx/*/x86_64/debug/librpHCP_KernelAcquisition.dylib "./prebuilt_binaries/kernel_osx_x64_debug_$1.dylib"
+cp ./sensor/bin/macosx/*/x86_64/release/librpHCP_KernelAcquisition.dylib "./prebuilt_binaries/kernel_osx_x64_release_$1.dylib"
+
+python ./cloud/beach/set_sensor_config.py ./cloud/beach/sample_hcp_kernel.conf ./prebuilt_binaries/kernel_osx_x64_debug_*.dylib
+python ./cloud/beach/set_sensor_config.py ./cloud/beach/sample_hcp_kernel.conf ./prebuilt_binaries/kernel_osx_x64_release_*.dylib
 
 cp "./prebuilt_binaries/hcp_osx_x64_debug_$1" ./sensor/scripts/installers/nix/bin
 makeself ./sensor/scripts/installers/nix/ ./prebuilt_binaries/osx_debug_x64_$1_installer.run "LIMA CHARLIE $1 OSX x64 Debug Installer" ./install.sh
