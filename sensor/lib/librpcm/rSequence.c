@@ -589,6 +589,12 @@ RBOOL
         {
             tmpSeq = (_rSequence*)*pSeq;
             isSuccess = set_deserialise( &tmpSeq->set, buffer, bufferSize, pBytesConsumed );
+
+            if( !isSuccess )
+            {
+                rSequence_free( *pSeq );
+                *pSeq = NULL;
+            }
         }
     }
 
