@@ -139,6 +139,9 @@
     <ProjectReference Include="..\..\lib\cryptoLib\cryptoLib.vcxproj">
       <Project>{533b36b9-e781-4132-baa7-33bf68de7013}</Project>
     </ProjectReference>
+    <ProjectReference Include="..\..\lib\kernelAcquisitionLib\kernelAcquisitionLib.vcxproj">
+      <Project>{4e46a8ae-af86-48b7-a444-2b69fbb83d18}</Project>
+    </ProjectReference>
     <ProjectReference Include="..\..\lib\libOs\libOs.vcxproj">
       <Project>{b344474d-101c-4eeb-ac48-40f1d5489bfd}</Project>
     </ProjectReference>

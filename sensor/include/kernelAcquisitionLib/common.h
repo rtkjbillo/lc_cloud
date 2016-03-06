@@ -17,7 +17,6 @@ limitations under the License.
 #ifndef _KERNEL_ACQUISITION_LIB_COMMON_H
 #define _KERNEL_ACQUISITION_LIB_COMMON_H
 
-
 #ifdef RPAL_PLATFORM_MACOSX
     #define ACQUISITION_COMMS_NAME  "com.refractionpoint.hbs.acq"
 #endif
@@ -46,9 +45,9 @@ typedef struct
 // This datastructure matches the processLib processEntry datastructure.
 typedef struct
 {
-    uint32_t pid;
-    uint32_t ppid;
-    uint32_t uid;
+    unsigned int pid;
+    unsigned int ppid;
+    unsigned int uid;
     char path[ 251 ];
 
 } KernelAcqProcess;
