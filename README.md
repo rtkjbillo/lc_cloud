@@ -8,6 +8,8 @@
 ## Documentation
 Most of the documentation is now found on the [LC wiki](https://github.com/refractionPOINT/limacharlie/wiki).
 
+[LimaCharlie Youtube channel](https://www.youtube.com/channel/UCR0GhNmc4gVcD9Uj07HS5AA) contains overview and tutorial videos.
+
 ## Overview
 LIMA CHARLIE is an endpoint security platform. It is itself a collection of small projects all working together
 to become the LC platform. LC gives you a cross-platform (Windows, OSX, Linux, Android and iOS) low-level 
