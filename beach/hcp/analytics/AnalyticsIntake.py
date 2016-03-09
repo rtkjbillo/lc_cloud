@@ -76,6 +76,7 @@ class AnalyticsIntake( Actor ):
 
         if modPath is not None:
             self._addObj( mtd, modPath, ObjectTypes.FILE_PATH )
+            self._addRel( mtd, mod, ObjectTypes.MODULE_NAME, modPath, ObjectTypes.FILE_PATH )
 
         if memSize is not None:
             self._addObj( mtd, memSize, ObjectTypes.MODULE_SIZE )
@@ -136,6 +137,7 @@ class AnalyticsIntake( Actor ):
         if filePath is not None:
             self._addObj( mtd, filePath, ObjectTypes.FILE_PATH )
             self._addObj( mtd, fileName, ObjectTypes.MODULE_NAME )
+            self._addRel( mtd, fileName, ObjectTypes.MODULE_NAME, filePath, ObjectTypes.FILE_PATH )
 
         if h is not None:
             self._addObj( mtd, h, ObjectTypes.FILE_HASH )

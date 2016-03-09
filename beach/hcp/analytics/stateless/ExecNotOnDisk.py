@@ -26,8 +26,11 @@ class ExecNotOnDisk ( StatelessActor ):
         detects = []
 
         h = _x_( event, '?/base.HASH' )
-        if _x_( event, '?/base.EXECUTABLE' ) is not None or _x_( event, '?/base.DLL' ) is not None:
+        if ( _x_( event, '?/base.EXECUTABLE' ) is not None or
+             _x_( event, '?/base.DLL' ) is not None or
+             _x_( event, '?/base.FILE_PATH' ) is not None ):
             if h is None or h == '0000000000000000000000000000000000000000000000000000000000000000':
-                detects.append( ( event, None ) )
+                if _x_( event, '?/base.ERROR' ) is None:
+                    detects.append( ( event, None ) )
 
         return detects
