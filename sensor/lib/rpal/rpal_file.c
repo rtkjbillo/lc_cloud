@@ -2356,6 +2356,8 @@ RPWCHAR
             clean = rpal_string_strdupw( tmpStr );
             rpal_stringbuffer_free( tmpPath );
         }
+#else
+        clean = rpal_string_strdupw( filePath );
 #endif
     }
 

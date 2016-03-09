@@ -1957,6 +1957,8 @@ RBOOL
     if( NULL != ( tmpW = rpal_string_atow( filePath ) ) )
     {
         isSuccess = _thorough_file_hashW( tmpW, pHash );
+
+        rpal_memory_free( tmpW );
     }
 
     return isSuccess;
