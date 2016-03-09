@@ -2622,11 +2622,7 @@ static
     RPWCHAR crawlFiles[] = { _WCH( "*" ), NULL };
     RPWCHAR paths[] = {
         _WCH( "/System/Library/StartupItems" ),
-        _WCH( "/Library/StartupItems" ),
-        _WCH( "%systemdrive%\\users\\*\\Start Menu\\Programs\\Startup" ),
-        _WCH( "%systemdrive%\\users\\*\\AppData\\Roaming\\Microsoft\\Windows\\Start" ),
-        _WCH( "%systemdrive%\\documents and settings\\*\\Start Menu\\Programs\\Startup" ),
-        _WCH( "%systemdrive%\\documents and settings\\*\\AppData\\Roaming\\Microsoft\\Windows\\Start" ) };
+        _WCH( "/Library/StartupItems" ) };
     rFileInfo finfo = { 0 };
 
     // Look for dir-based autoruns
