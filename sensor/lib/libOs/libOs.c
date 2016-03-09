@@ -1916,7 +1916,7 @@ static rList
 
 static
 RBOOL
-    _thorough_file_hash
+    _thorough_file_hashW
     (
         RPWCHAR filePath,
         CryptoLib_Hash* pHash
@@ -1944,6 +1944,25 @@ RBOOL
 }
 
 static
+RBOOL
+    _thorough_file_hashA
+    (
+        RPCHAR filePath,
+        CryptoLib_Hash* pHash
+    )
+{
+    RBOOL isSuccess = FALSE;
+    RPWCHAR tmpW = NULL;
+
+    if( NULL != ( tmpW = rpal_string_atow( filePath ) ) )
+    {
+        isSuccess = _thorough_file_hashW( tmpW, pHash );
+    }
+
+    return isSuccess;
+}
+
+static
 RVOID
     _enhanceServicesWithHashes
     (
@@ -1951,31 +1970,45 @@ RVOID
     )
 {
     rSequence svcEntry = NULL;
-    RPWCHAR entryDll = NULL;
-    RPWCHAR entryExe = NULL;
+    RPWCHAR entryDllW = NULL;
+    RPWCHAR entryExeW = NULL;
+    RPCHAR entryDllA = NULL;
+    RPCHAR entryExeA = NULL;
     CryptoLib_Hash hash = { 0 };
 
     while( rList_getSEQUENCE( svcList, RP_TAGS_SVC, &svcEntry ) )
     {
-        entryExe = NULL;
-        entryDll = NULL;
+        entryExeW = NULL;
+        entryDllW = NULL;
+        entryExeA = NULL;
+        entryDllA = NULL;
 
-        rSequence_getSTRINGW( svcEntry, RP_TAGS_EXECUTABLE, &entryExe );
-        rSequence_getSTRINGW( svcEntry, RP_TAGS_DLL, &entryDll );
+        if( !rSequence_getSTRINGW( svcEntry, RP_TAGS_EXECUTABLE, &entryExeW ) )
+        {
+            rSequence_getSTRINGA( svcEntry, RP_TAGS_EXECUTABLE, &entryExeA );
+        }
+
+        if( !rSequence_getSTRINGW( svcEntry, RP_TAGS_DLL, &entryDllW ) )
+        {
+            rSequence_getSTRINGA( svcEntry, RP_TAGS_DLL, &entryDllA );
+        }
 
         rSequence_unTaintRead( svcEntry );
 
-        if( NULL == entryDll &&
-            NULL != entryExe )
+        if( ( NULL == entryDllW && NULL == entryDllA ) &&
+            ( NULL != entryExeW || NULL != entryExeA ) )
         {
-            if( _thorough_file_hash( entryExe, &hash ) )
+            if( ( NULL != entryExeW && _thorough_file_hashW( entryExeW, &hash ) ) ||
+                ( NULL != entryExeA && _thorough_file_hashA( entryExeA, &hash ) ) )
             {
                 rSequence_addBUFFER( svcEntry, RP_TAGS_HASH, (RPU8)&hash, sizeof( hash ) );
             }
         }
-        else if( NULL != entryDll )
+        else if( NULL != entryDllW ||
+                 NULL != entryDllA )
         {
-            if( _thorough_file_hash( entryDll, &hash ) )
+            if( ( NULL != entryDllW && _thorough_file_hashW( entryDllW, &hash ) ) ||
+                ( NULL != entryDllA && _thorough_file_hashA( entryDllA, &hash ) ) )
             {
                 rSequence_addBUFFER( svcEntry, RP_TAGS_HASH, (RPU8)&hash, sizeof( hash ) );
             }
@@ -2177,16 +2210,19 @@ RVOID
     )
 {
     rSequence autoEntry = NULL;
-    RPWCHAR entryExe = NULL;
+    RPWCHAR entryExeW = NULL;
+    RPCHAR entryExeA = NULL;
     CryptoLib_Hash hash = { 0 };
 
     while( rList_getSEQUENCE( autoList, RP_TAGS_AUTORUN, &autoEntry ) )
     {
-        if( rSequence_getSTRINGW( autoEntry, RP_TAGS_FILE_PATH, &entryExe ) )
+        if( rSequence_getSTRINGW( autoEntry, RP_TAGS_FILE_PATH, &entryExeW ) ||
+            rSequence_getSTRINGA( autoEntry, RP_TAGS_FILE_PATH, &entryExeA ) )
         {
             rSequence_unTaintRead( autoEntry );
 
-            if( _thorough_file_hash( entryExe, &hash ) )
+            if( ( NULL != entryExeW && _thorough_file_hashW( entryExeW, &hash ) ) ||
+                ( NULL != entryExeA && _thorough_file_hashA( entryExeA, &hash ) ) )
             {
                 rSequence_addBUFFER( autoEntry, RP_TAGS_HASH, (RPU8)&hash, sizeof( hash ) );
             }
