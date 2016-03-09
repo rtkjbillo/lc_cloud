@@ -836,22 +836,6 @@ rList
                                         rpal_memory_memcpy( curPath, mapPath, sizeof( curPath ) );
                                         curStart = addrStart;
                                         curEnd = addrEnd;
-                                        // Find the file name after the last slash, or assume it's the entire thing
-                                        size = rpal_string_strlen( mapPath );
-                                        while( 0 != size )
-                                        {
-                                            if( '/' == mapPath[ size ] )
-                                            {
-                                                size++;
-                                                break;
-                                            }
-                                            else
-                                            {
-                                                size--;
-                                            }
-                                        }
-
-                                        rSequence_addSTRINGA( module, RP_TAGS_MODULE_NAME, mapPath + size );
                                     }
                                 }
                             }
@@ -902,7 +886,6 @@ rList
                     rSequence_addPOINTER64( module, RP_TAGS_BASE_ADDRESS, rwpi.prp_prinfo.pri_address );
                     rSequence_addRU64( module, RP_TAGS_MEMORY_SIZE, rwpi.prp_prinfo.pri_size );
                     rSequence_addSTRINGA( module, RP_TAGS_FILE_PATH, rwpi.prp_vip.vip_path );
-                    rSequence_addSTRINGA( module, RP_TAGS_MODULE_NAME, rwpi.prp_vip.vip_path );
 
                     if( !rList_addSEQUENCE( modules, module ) )
                     {

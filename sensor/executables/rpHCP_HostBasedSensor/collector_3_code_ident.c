@@ -159,7 +159,7 @@ RVOID
             {
                 hbs_markAsRelated( originalEvent, notif );
 
-                if( ( rSequence_addSTRINGA( notif, RP_TAGS_FILE_NAME, name ) ||
+                if( ( rSequence_addSTRINGA( notif, RP_TAGS_FILE_PATH, name ) ||
                       rSequence_addSTRINGA( notif, RP_TAGS_DLL, name ) ||
                       rSequence_addSTRINGA( notif, RP_TAGS_EXECUTABLE, name ) ) &&
                     rSequence_addRU32( notif, RP_TAGS_MEMORY_SIZE, (RU32)codeSize ) &&
@@ -339,6 +339,7 @@ RVOID
     RPWCHAR nameW = NULL;
     RPCHAR nameA = NULL;
     CryptoLib_Hash* pHash = NULL;
+    CryptoLib_Hash localHash = { 0 };
     
     UNREFERENCED_PARAMETER( notifType );
 
@@ -355,10 +356,34 @@ RVOID
             
             if( NULL != nameA )
             {
+                if( NULL == pHash )
+                {
+                    if( _MAX_FILE_HASH_SIZE < rpal_file_getSize( nameA, TRUE ) )
+                    {
+                        rSequence_addRU32( event, RP_TAGS_ERROR, RPAL_ERROR_FILE_TOO_LARGE );
+                    }
+                    else if( CryptoLib_hashFileA( nameA, &localHash, TRUE ) )
+                    {
+                        pHash = &localHash;
+                    }
+                }
+
                 processCodeIdentA( nameA, pHash, 0, event );
             }
             else if( NULL != nameW )
             {
+                if( NULL == pHash )
+                {
+                    if( _MAX_FILE_HASH_SIZE < rpal_file_getSizew( nameW, TRUE ) )
+                    {
+                        rSequence_addRU32( event, RP_TAGS_ERROR, RPAL_ERROR_FILE_TOO_LARGE );
+                    }
+                    else if( CryptoLib_hashFileW( nameW, &localHash, TRUE ) )
+                    {
+                        pHash = &localHash;
+                    }
+                }
+
                 processCodeIdentW( nameW, pHash, 0, event );
             }
         }
