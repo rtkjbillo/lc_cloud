@@ -16,57 +16,78 @@
 
 #include "collectors.h"
 
-//kauth_listener_t g_listener = NULL;
-mac_policy_handle_t g_policy = 0;
 
 #define _NUM_BUFFERED_PROCESSES 200
+
+
+//==============================================================================
+//  Enable the following flag to revert to the KAUTH method of process
+//  monitoring. KAUTH is not as reliable and will miss fork-based execution
+//  however it is officially supported by Apple and less likely to break between
+//  new releases.
+//==============================================================================
+//#define _USE_KAUTH
 
 static rMutex g_collector_1_mutex = NULL;
 static KernelAcqProcess g_processes[ _NUM_BUFFERED_PROCESSES ] = { 0 };
 static uint32_t g_nextProcess = 0;
 
+#ifdef _USE_KAUTH
+#include <sys/kauth.h>
+
+kauth_listener_t g_listener = NULL;
+
+static int
+    new_proc_listener
+    (
+        kauth_cred_t   credential,
+        void *         idata,
+        kauth_action_t action,
+        uintptr_t      arg0,
+        uintptr_t      arg1,
+        uintptr_t      arg2,
+        uintptr_t      arg3
+    )
+#else
+#include <security/mac_policy.h>
+
+mac_policy_handle_t g_policy = 0;
 static struct mac_policy_conf g_policy_conf = { 0 };
 static struct mac_policy_ops g_policy_ops = { 0 };
 
-/*
- static int
- new_proc_listener
- (
- kauth_cred_t   credential,
- void *         idata,
- kauth_action_t action,
- uintptr_t      arg0,
- uintptr_t      arg1,
- uintptr_t      arg2,
- uintptr_t      arg3
- )
- */
 static int
-new_proc_listener
-(
- kauth_cred_t cred,
- struct vnode *vp,
- struct vnode *scriptvp,
- struct label *vnodelabel,
- struct label *scriptlabel,
- struct label *execlabel,
- struct componentname *cnp,
- u_int *csflags,
- void *macpolicyattr,
- size_t macpolicyattrlen
- )
+    new_proc_listener
+    (
+        kauth_cred_t cred,
+        struct vnode *vp,
+        struct vnode *scriptvp,
+        struct label *vnodelabel,
+        struct label *scriptlabel,
+        struct label *execlabel,
+        struct componentname *cnp,
+        u_int *csflags,
+        void *macpolicyattr,
+        size_t macpolicyattrlen
+    )
+#endif
 {
-    /*
-     vnode_t prog __unused = (vnode_t)arg0;
-     const char* file_path = (const char*)arg1;
-     */
+    #ifdef _USE_KAUTH
+    vnode_t prog __unused = (vnode_t)arg0;
+    const char* file_path = (const char*)arg1;
+    #else
     int pathLen = sizeof( g_processes[ 0 ].path );
+    #endif
+    
     pid_t pid = 0;
     pid_t ppid = 0;
     uid_t uid = 0;
     
-    //if( KAUTH_FILEOP_EXEC == action )
-    //{
+    #ifdef _USE_KAUTH
+    if( KAUTH_FILEOP_EXEC != action )
+    {
+        return KAUTH_RESULT_DEFER;
+    }
+    #endif
     
     uid = kauth_getuid();
     pid = proc_selfpid();
@@ -75,13 +96,17 @@ new_proc_listener
     
     rpal_mutex_lock( g_collector_1_mutex );
     
+#ifdef _USE_KAUTH
+    strncpy( g_processes[ g_nextProcess ].path,
+             file_path,
+             sizeof( g_processes[ g_nextProcess ].path ) - 1 );
+#else
     vn_getpath( vp, g_processes[ g_nextProcess ].path, &pathLen );
+#endif
+
     g_processes[ g_nextProcess ].pid = pid;
     g_processes[ g_nextProcess ].ppid = ppid;
     g_processes[ g_nextProcess ].uid = uid;
-    //strncpy( g_processes[ g_nextProcess ].path,
-    //         file_path,
-    //         sizeof( g_processes[ g_nextProcess ].path ) - 1 );
     
     g_nextProcess++;
     if( g_nextProcess == _NUM_BUFFERED_PROCESSES )
@@ -93,22 +118,22 @@ new_proc_listener
     rpal_debug_info( "now %d processes in buffer", g_nextProcess );
     
     rpal_mutex_unlock( g_collector_1_mutex );
-    
-    //}
-    
-    //return KAUTH_RESULT_DEFER;
-    
+
+#ifdef _USE_KAUTH
+    return KAUTH_RESULT_DEFER;
+#else
     return 0; // Always allow
+#endif
 }
 
 int
-task_get_new_processes
-(
- void* pArgs,
- int argsSize,
- void* pResult,
- uint32_t* resultSize
- )
+    task_get_new_processes
+    (
+        void* pArgs,
+        int argsSize,
+        void* pResult,
+        uint32_t* resultSize
+    )
 {
     int ret = 0;
     
@@ -143,17 +168,22 @@ task_get_new_processes
 }
 
 int
-collector_1_initialize
-(
- void* d
- )
+    collector_1_initialize
+    (
+        void* d
+    )
 {
     int isSuccess = 0;
     
     if( NULL != ( g_collector_1_mutex = rpal_mutex_create() ) )
     {
-        //g_listener = kauth_listen_scope( KAUTH_SCOPE_FILEOP, new_proc_listener, NULL );
-        //if( NULL != g_listener )
+#ifdef _USE_KAUTH
+        g_listener = kauth_listen_scope( KAUTH_SCOPE_FILEOP, new_proc_listener, NULL );
+        if( NULL != g_listener )
+        {
+            isSuccess = 1;
+        }
+#else
         g_policy_ops.mpo_vnode_check_exec = (mpo_vnode_check_exec_t*)new_proc_listener;
         
         g_policy_conf.mpc_name = "rp_hcp_hbs";
@@ -172,7 +202,9 @@ collector_1_initialize
         {
             isSuccess = 1;
         }
-        else
+#endif
+        
+        if( !isSuccess )
         {
             rpal_mutex_free( g_collector_1_mutex );
         }
@@ -182,14 +214,17 @@ collector_1_initialize
 }
 
 int
-collector_1_deinitialize
-(
+    collector_1_deinitialize
+    (
 
-)
+    )
 {
     rpal_mutex_lock( g_collector_1_mutex );
-    //kauth_unlisten_scope( g_listener );
+#ifdef _USE_KAUTH
+    kauth_unlisten_scope( g_listener );
+#else
     mac_policy_unregister( g_policy );
+#endif
     rpal_mutex_free( g_collector_1_mutex );
     return 1;
 }

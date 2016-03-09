@@ -19,8 +19,6 @@
 
 #include <sys/systm.h>
 #include <mach/mach_types.h>
-#include <sys/kauth.h>
-#include <security/mac_policy.h>
 #include <sys/vnode.h>
 
 #include "helpers.h"
