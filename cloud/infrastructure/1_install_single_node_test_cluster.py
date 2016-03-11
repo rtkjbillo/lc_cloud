@@ -32,6 +32,9 @@ Return Values: %s
 
 ''' % ( step, str( ret ) )
     print( msg )
+    if any( ret ):
+        print( 'Stopping execution since this step failed.' )
+        sys.exit(-1)
 
 printStep( 'Upgrade max number of file descriptors.',
            os.system( 'echo "* soft nofile 100000" >> /etc/security/limits.conf' ),
@@ -72,6 +75,10 @@ printStep( 'Initializing MySql schema.',
                                                                              'schema',
                                                                              'state_db.sql' ), ) ) )
 
+printStep( 'Growing max_allowed_packet for MySql and restarting.',
+    os.system( "sed -i -e 's/max_allowed_packet.*=.*16M/max_allowed_packet = 64M/g' /etc/mysql/my.cnf" ),
+    os.system( "service mysql restart" ) )
+
 printStep( 'Initializing Cassandra schema.',
     os.system( 'cqlsh < %s' % ( os.path.join( root,
                                               'cloud',
@@ -96,8 +103,6 @@ printStep( 'Installing Yara.',
     os.chdir( '..' ),
     os.system( 'echo "/usr/local/lib" >> /etc/ld.so.conf' ),
     os.system( 'ldconfig' ) )
-
-# TODO: change max_allowed_packet to a greater value like 64M programatically in my.cnf (mysql)
 
 printStep( 'Setting up host file entries for databases locally.',
     os.system( 'echo "127.0.0.1 hcp-state-db" >> /etc/hosts' ),
