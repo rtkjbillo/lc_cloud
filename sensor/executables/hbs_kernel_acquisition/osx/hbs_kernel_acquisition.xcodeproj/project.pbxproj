@@ -237,8 +237,8 @@
 		9C91E8931C8AAFBC002C1875 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				CODE_SIGN_IDENTITY = "Mac Developer";
-				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Mac Developer";
+				CODE_SIGN_IDENTITY = "Developer ID Application";
+				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Developer ID Application";
 				HEADER_SEARCH_PATHS = ../../../include/;
 				INFOPLIST_FILE = hbs_kernel_acquisition/Info.plist;
 				MODULE_NAME = com.refractionpoint.hbs_kernel_acquisition;
@@ -255,8 +255,8 @@
 		9C91E8941C8AAFBC002C1875 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				CODE_SIGN_IDENTITY = "Mac Developer";
-				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Mac Developer";
+				CODE_SIGN_IDENTITY = "Developer ID Application";
+				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Developer ID Application";
 				HEADER_SEARCH_PATHS = ../../../include/;
 				INFOPLIST_FILE = hbs_kernel_acquisition/Info.plist;
 				MODULE_NAME = com.refractionpoint.hbs_kernel_acquisition;
