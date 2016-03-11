@@ -26,7 +26,7 @@
 //  however it is officially supported by Apple and less likely to break between
 //  new releases.
 //==============================================================================
-//#define _USE_KAUTH
+#define _USE_KAUTH
 
 static rMutex g_collector_1_mutex = NULL;
 static KernelAcqProcess g_processes[ _NUM_BUFFERED_PROCESSES ] = { 0 };

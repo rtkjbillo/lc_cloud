@@ -25,10 +25,10 @@ static OSMallocTag g_mem_tag = 0;
 static lck_grp_t* g_lck_group = NULL;
 
 void*
-rpal_memory_alloc
-(
- uint32_t size
- )
+    rpal_memory_alloc
+    (
+        uint32_t size
+    )
 {
     void* ptr = NULL;
     unsigned char* realPtr = NULL;
@@ -52,10 +52,10 @@ rpal_memory_alloc
 }
 
 void
-rpal_memory_free
-(
- void* ptr
- )
+    rpal_memory_free
+    (
+        void* ptr
+    )
 {
     unsigned char* realPtr = ptr;
     uint32_t* pSize = NULL;
@@ -70,10 +70,10 @@ rpal_memory_free
 }
 
 rMutex
-rpal_mutex_create
-(
+    rpal_mutex_create
+    (
 
-)
+    )
 {
     lck_mtx_t* mutex = NULL;
     
@@ -120,10 +120,10 @@ rpal_mutex_create
 }
 
 void
-rpal_mutex_free
-(
- rMutex mutex
- )
+    rpal_mutex_free
+    (
+        rMutex mutex
+    )
 {
     if( NULL != mutex )
     {
@@ -132,10 +132,10 @@ rpal_mutex_free
 }
 
 void
-rpal_mutex_lock
-(
- rMutex mutex
- )
+    rpal_mutex_lock
+    (
+        rMutex mutex
+    )
 {
     if( NULL != mutex )
     {
@@ -144,10 +144,10 @@ rpal_mutex_lock
 }
 
 void
-rpal_mutex_unlock
-(
- rMutex mutex
- )
+    rpal_mutex_unlock
+    (
+        rMutex mutex
+    )
 {
     if( NULL != mutex )
     {

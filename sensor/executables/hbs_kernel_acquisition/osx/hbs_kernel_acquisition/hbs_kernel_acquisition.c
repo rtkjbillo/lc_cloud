@@ -47,13 +47,13 @@ typedef struct
 //=========================================================================
 static
 int
-task_ping
-(
- void* pArgs,
- int argsSize,
- void* pResult,
- uint32_t* resultSize
- )
+    task_ping
+    (
+        void* pArgs,
+        int argsSize,
+        void* pResult,
+        uint32_t* resultSize
+    )
 {
     int ret = 0;
     
@@ -89,11 +89,11 @@ static collector_task g_tasks[] = { task_ping,
 
 static
 int
-um_dispatcher
-(
- int op,
- KernelAcqCommand* cmd
- )
+    um_dispatcher
+    (
+        int op,
+        KernelAcqCommand* cmd
+    )
 {
     int error = 0;
     void* pLocalArgs = NULL;
@@ -188,14 +188,14 @@ um_dispatcher
 //=========================================================================
 static
 errno_t
-comms_handle_send
-(
- kern_ctl_ref ctlref,
- unsigned int unit,
- void *userdata,
- mbuf_t m,
- int flags
- )
+    comms_handle_send
+    (
+        kern_ctl_ref ctlref,
+        unsigned int unit,
+        void *userdata,
+        mbuf_t m,
+        int flags
+    )
 {
     int error = EINVAL;
     
@@ -204,14 +204,14 @@ comms_handle_send
 
 static
 errno_t
-comms_handle_get
-(
- kern_ctl_ref ctlref,
- unsigned int unit,
- void *userdata, int opt,
- void *data,
- size_t *len
- )
+    comms_handle_get
+    (
+        kern_ctl_ref ctlref,
+        unsigned int unit,
+        void *userdata, int opt,
+        void *data,
+        size_t *len
+    )
 {
     int error = EINVAL;
     
@@ -220,15 +220,15 @@ comms_handle_get
 
 static
 errno_t
-comms_handle_set
-(
- kern_ctl_ref ctlref,
- unsigned int unit,
- void *userdata,
- int opt,
- void *data,
- size_t len
- )
+    comms_handle_set
+    (
+        kern_ctl_ref ctlref,
+        unsigned int unit,
+        void *userdata,
+        int opt,
+        void *data,
+        size_t len
+    )
 {
     int error = EINVAL;
     
@@ -253,12 +253,12 @@ comms_handle_set
 
 static
 errno_t
-comms_handle_connect
-(
- kern_ctl_ref ctlref,
- struct sockaddr_ctl *sac,
- void **unitinfo
- )
+    comms_handle_connect
+    (
+        kern_ctl_ref ctlref,
+        struct sockaddr_ctl *sac,
+        void **unitinfo
+    )
 {
     rpal_debug_info( "received connection request, blocking until available" );
     rpal_mutex_lock( g_client_mutex );
@@ -268,12 +268,12 @@ comms_handle_connect
 
 static
 errno_t
-comms_handle_disconnect
-(
- kern_ctl_ref ctlref,
- unsigned int unit,
- void *unitinfo
- )
+    comms_handle_disconnect
+    (
+        kern_ctl_ref ctlref,
+        unsigned int unit,
+        void *unitinfo
+    )
 {
     rpal_mutex_unlock( g_client_mutex );
     
