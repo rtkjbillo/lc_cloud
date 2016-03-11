@@ -37,6 +37,7 @@ def obfuscate( buffer, key ):
 
 
 def tarGzOf( filePath, archiveName, payloadName ):
+    os.system( 'rm -rf /tmp/%s' % ( payloadName, ) )
     os.system( 'cp -R %s /tmp/%s' % ( filePath, payloadName ) )
     tar = tarfile.open( '/tmp/%s' % ( archiveName, ), 'w:gz' )
     tar.add( '/tmp/%s' % payloadName, arcname = payloadName )
