@@ -31,6 +31,9 @@ Return Values: %s
 
 ''' % ( step, str( ret ) )
     print( msg )
+    if any( ret ):
+        print( 'Stopping execution since this step failed.' )
+        sys.exit(-1)
 
 def execInBackend( script ):
 
