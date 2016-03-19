@@ -35,43 +35,43 @@
 #define ARRAY_N_ELEM(arr)               (sizeof(arr) / sizeof((arr)[0]))
 
 void*
-rpal_memory_alloc
-(
- uint32_t size
- );
+    rpal_memory_alloc
+    (
+        uint32_t size
+    );
 
 void
-rpal_memory_free
-(
- void* ptr
- );
+    rpal_memory_free
+    (
+        void* ptr
+    );
 
 
 typedef lck_mtx_t* rMutex;
 
 rMutex
-rpal_mutex_create
-(
+    rpal_mutex_create
+    (
 
-);
-
-void
-rpal_mutex_free
-(
- rMutex mutex
- );
+    );
 
 void
-rpal_mutex_lock
-(
- rMutex mutex
- );
+    rpal_mutex_free
+    (
+        rMutex mutex
+    );
 
 void
-rpal_mutex_unlock
-(
- rMutex mutex
- );
+    rpal_mutex_lock
+    (
+        rMutex mutex
+    );
+
+void
+    rpal_mutex_unlock
+    (
+        rMutex mutex
+    );
 
 #include <kernelAcquisitionLib/common.h>
 

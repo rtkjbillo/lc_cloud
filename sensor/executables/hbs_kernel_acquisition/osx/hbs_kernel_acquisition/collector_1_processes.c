@@ -92,7 +92,18 @@ static int
     uid = kauth_getuid();
     pid = proc_selfpid();
     ppid = proc_selfppid();
-    //rpal_debug_info( "!!!!!! process start: %d/%d/%d %s", ppid, pid, uid, file_path );
+    
+    // We skip a known false positive
+    if( 0 == ppid && 1 == pid )
+    {
+        #ifdef _USE_KAUTH
+            return KAUTH_RESULT_DEFER;
+        #else
+            return 0; // Always allow
+        #endif
+    }
+    
+    rpal_debug_info( "!!!!!! process start: %d/%d/%d %s", ppid, pid, uid, file_path );
     
     rpal_mutex_lock( g_collector_1_mutex );
     
