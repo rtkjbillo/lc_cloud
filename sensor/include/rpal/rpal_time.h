@@ -22,6 +22,7 @@ limitations under the License.
 
 #define rpal_time_getGlobal()                     RPAL_API_CALL(rpal_time_getGlobal,)
 #define rpal_time_setGlobalOffset(offset)         RPAL_API_CALL(rpal_time_setGlobalOffset,(offset))
+#define rpal_time_getGlobalFromLocal(localTs)       RPAL_API_CALL(rpal_time_getGlobalFromLocal,(localTs))
 
 #define SEC_PER_HOUR                                (60*60)
 #define SEC_PER_DAY                                 (SEC_PER_HOUR * 24)

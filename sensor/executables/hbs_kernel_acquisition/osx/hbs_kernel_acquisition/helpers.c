@@ -19,6 +19,7 @@
 #include <libkern/OSMalloc.h>
 #include <mach/mach_types.h>
 #include <sys/types.h>
+#include <kern/clock.h>
 
 static OSMallocTag g_mem_tag = 0;
 
@@ -153,6 +154,20 @@ void
     {
         lck_mtx_unlock( mutex );
     }
+}
+
+uint64_t
+    rpal_time_getLocal
+    (
+
+    )
+{
+    clock_sec_t ts = 0;
+    unsigned int ms = 0;
+    
+    clock_get_calendar_microtime( &ts, &ms );
+    
+    return ts;
 }
 
 

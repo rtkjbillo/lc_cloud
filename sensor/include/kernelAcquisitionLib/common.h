@@ -27,6 +27,7 @@ limitations under the License.
 
 #define KERNEL_ACQ_OP_PING                  0
 #define KERNEL_ACQ_OP_GET_NEW_PROCESSES     1
+#define KERNEL_ACQ_OP_GET_NEW_FILE_IO       2
 
 typedef struct
 {
@@ -42,14 +43,29 @@ typedef struct
 //  Collector Specific Data Structures
 //==============================================================================
 
-// This datastructure matches the processLib processEntry datastructure.
 typedef struct
 {
     unsigned int pid;
     unsigned int ppid;
     unsigned int uid;
+    uint64_t ts;
     char path[ 251 ];
 
 } KernelAcqProcess;
+
+#define KERNEL_ACQ_FILE_ACTION_ADDED        1
+#define KERNEL_ACQ_FILE_ACTION_REMOVED      2
+#define KERNEL_ACQ_FILE_ACTION_MODIFIED     3
+#define KERNEL_ACQ_FILE_ACTION_RENAME_OLD   4
+#define KERNEL_ACQ_FILE_ACTION_RENAME_NEW   5
+typedef struct
+{
+    unsigned int action;
+    unsigned int pid;
+    unsigned int uid;
+    uint64_t ts;
+    char path[ 251 ];
+
+} KernelAcqFileIo;
 
 #endif

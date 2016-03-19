@@ -83,9 +83,11 @@ int
 //=========================================================================
 //  Dispatcher
 //=========================================================================
-static CollectorContext g_collectors[] = { _COLLECTOR_INIT( 1 ) };
+static CollectorContext g_collectors[] = { _COLLECTOR_INIT( 1 ),
+                                           _COLLECTOR_INIT( 2 ) };
 static collector_task g_tasks[] = { task_ping,
-    task_get_new_processes };
+                                    task_get_new_processes,
+                                    task_get_new_fileio };
 
 static
 int
@@ -303,6 +305,10 @@ kern_return_t hbs_kernel_acquisition_start(kmod_info_t * ki, void *d)
             rpal_debug_critical( "error initializing collector %d", i );
             error = EBADEXEC;
             break;
+        }
+        else
+        {
+            rpal_debug_info( "collector %d loaded", i );
         }
     }
     

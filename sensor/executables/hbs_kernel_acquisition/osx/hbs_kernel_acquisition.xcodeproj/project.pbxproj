@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		9C2385741C9DC20D009B00B6 /* collector_2_files.c in Sources */ = {isa = PBXBuildFile; fileRef = 9C2385731C9DC20D009B00B6 /* collector_2_files.c */; };
 		9C91E88E1C8AAFBC002C1875 /* hbs_kernel_acquisition.c in Sources */ = {isa = PBXBuildFile; fileRef = 9C91E88D1C8AAFBC002C1875 /* hbs_kernel_acquisition.c */; };
 		9C91E8961C8AB057002C1875 /* common.h in Headers */ = {isa = PBXBuildFile; fileRef = 9C91E8951C8AB057002C1875 /* common.h */; };
 		9C91E8991C8AB0AF002C1875 /* collector_1_processes.c in Sources */ = {isa = PBXBuildFile; fileRef = 9C91E8981C8AB0AF002C1875 /* collector_1_processes.c */; };
@@ -15,6 +16,7 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		9C2385731C9DC20D009B00B6 /* collector_2_files.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = collector_2_files.c; sourceTree = "<group>"; };
 		9C91E88A1C8AAFBC002C1875 /* hbs_kernel_acquisition.kext */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = hbs_kernel_acquisition.kext; sourceTree = BUILT_PRODUCTS_DIR; };
 		9C91E88D1C8AAFBC002C1875 /* hbs_kernel_acquisition.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = hbs_kernel_acquisition.c; sourceTree = "<group>"; };
 		9C91E88F1C8AAFBC002C1875 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
@@ -55,6 +57,7 @@
 		9C91E88C1C8AAFBC002C1875 /* hbs_kernel_acquisition */ = {
 			isa = PBXGroup;
 			children = (
+				9C2385731C9DC20D009B00B6 /* collector_2_files.c */,
 				9C91E8951C8AB057002C1875 /* common.h */,
 				9C91E88D1C8AAFBC002C1875 /* hbs_kernel_acquisition.c */,
 				9C91E88F1C8AAFBC002C1875 /* Info.plist */,
@@ -148,6 +151,7 @@
 			files = (
 				9C91E88E1C8AAFBC002C1875 /* hbs_kernel_acquisition.c in Sources */,
 				9C91E89C1C8AB0C4002C1875 /* helpers.c in Sources */,
+				9C2385741C9DC20D009B00B6 /* collector_2_files.c in Sources */,
 				9C91E8991C8AB0AF002C1875 /* collector_1_processes.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

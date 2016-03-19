@@ -236,3 +236,37 @@ RBOOL
 
     return isSuccess;
 }
+
+RBOOL
+    kAcq_getNewFileIo
+    (
+        KernelAcqFileIo* entries,
+        RU32* nEntries
+    )
+{
+    RBOOL isSuccess = FALSE;
+
+    RU32 error = 0;
+    KernelAcqCommand cmd = { 0 };
+    RU32 respSize = 0;
+
+    if( NULL != entries &&
+        NULL != nEntries &&
+        0 != *nEntries )
+    {
+        cmd.pArgs = NULL;
+        cmd.argsSize = 0;
+        cmd.pResult = entries;
+        cmd.resultSize = *nEntries * sizeof( *entries );
+        cmd.pSizeUsed = &respSize;
+
+        if( 0 == ( error = _krnlSendReceive( KERNEL_ACQ_OP_GET_NEW_FILE_IO, &cmd ) ) )
+        {
+            *nEntries = respSize / sizeof( *entries );
+            isSuccess = TRUE;
+        }
+    }
+
+    return isSuccess;
+}
+

@@ -33,4 +33,12 @@ RU64,
         RU64 offset
 );
 
+RPAL_DECLARE_API
+(
+RU64,
+    rpal_time_getGlobalLocal,
+        RU64 localTs
+);
+
+
 #endif

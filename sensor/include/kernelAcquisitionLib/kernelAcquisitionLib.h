@@ -52,5 +52,11 @@ RBOOL
         RU32* nEntries
     );
 
+RBOOL
+    kAcq_getNewFileIo
+    (
+        KernelAcqFileIo* entries,
+        RU32* nEntries
+    );
 
 #endif

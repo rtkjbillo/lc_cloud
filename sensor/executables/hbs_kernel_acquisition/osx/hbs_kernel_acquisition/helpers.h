@@ -73,6 +73,12 @@ void
         rMutex mutex
     );
 
+uint64_t
+    rpal_time_getLocal
+    (
+
+    );
+
 #include <kernelAcquisitionLib/common.h>
 
 #endif /* helpers_h */

@@ -168,7 +168,8 @@ static RBOOL
         RU32 ppid,
         RBOOL isStarting,
         RPCHAR optFilePath,
-        RU32 optUserId
+        RU32 optUserId,
+        RU64 optTs
     )
 {
     RBOOL isSuccess = FALSE;
@@ -187,7 +188,14 @@ static RBOOL
     {
         rSequence_addRU32( info, RP_TAGS_PROCESS_ID, pid );
         rSequence_addRU32( info, RP_TAGS_PARENT_PROCESS_ID, ppid );
-        rSequence_addTIMESTAMP( info, RP_TAGS_TIMESTAMP, rpal_time_getGlobal() );
+        if( 0 != optTs )
+        {
+            rSequence_addTIMESTAMP( info, RP_TAGS_TIMESTAMP, rpal_time_getGlobalFromLocal( optTs ) );
+        }
+        else
+        {
+            rSequence_addTIMESTAMP( info, RP_TAGS_TIMESTAMP, rpal_time_getGlobal() );
+        }
 
         if( isStarting )
         {
@@ -296,7 +304,8 @@ static RVOID
                                           currentSnapshot[ i ].ppid,
                                           TRUE,
                                           NULL,
-                                          _NO_USER_ID ) )
+                                          _NO_USER_ID,
+                                          0 ) )
                     {
                         rpal_debug_warning( "error reporting new process: %d",
                                             currentSnapshot[ i ].pid );
@@ -324,7 +333,8 @@ static RVOID
                                           previousSnapshot[ i ].ppid,
                                           FALSE,
                                           NULL,
-                                          _NO_USER_ID ) )
+                                          _NO_USER_ID,
+                                          0 ) )
                     {
                         rpal_debug_warning( "error reporting terminated process: %d",
                                             previousSnapshot[ i ].pid );
@@ -359,6 +369,7 @@ static RVOID
     KernelAcqProcess new_from_kernel[ 200 ] = { 0 };
     processEntry tracking_user[ MAX_SNAPSHOT_SIZE ] = { 0 };
     RU32 nPhase = 0;
+    RU64 ts = 0;
 
     while( !rEvent_wait( isTimeToStop, 1000 ) )
     {
@@ -377,7 +388,8 @@ static RVOID
                              new_from_kernel[ i ].ppid,
                              TRUE,
                              new_from_kernel[ i ].path,
-                             new_from_kernel[ i ].uid );
+                             new_from_kernel[ i ].uid,
+                             new_from_kernel[ i ].ts );
 
             if( nProcessEntries >= ARRAY_N_ELEM( tracking_user ) - 1 )
             {
@@ -402,7 +414,7 @@ static RVOID
         {
             if( !processLib_isPidInUse( tracking_user[ i ].pid ) )
             {
-                notifyOfProcess( tracking_user[ i ].pid, tracking_user[ i ].ppid, FALSE, NULL, _NO_USER_ID );
+                notifyOfProcess( tracking_user[ i ].pid, tracking_user[ i ].ppid, FALSE, NULL, _NO_USER_ID, 0 );
                 if( nProcessEntries != i + 1 )
                 {
                     rpal_memory_memmove( &(tracking_user[ i ]), &(tracking_user[ i + 1 ]), nProcessEntries - i + 1 );

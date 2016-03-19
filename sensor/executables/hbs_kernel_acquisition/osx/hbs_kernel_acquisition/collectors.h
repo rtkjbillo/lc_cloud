@@ -31,7 +31,9 @@ int collector_ ## cId ## _deinitialize();
 #define _DECLARE_TASK(name) int name( void* pArgs, int argSize, void* pResult, uint32_t* resultSize )
 
 _DECLARE_COLLECTOR( 1 );
+_DECLARE_COLLECTOR( 2 );
 _DECLARE_TASK( task_get_new_processes );
+_DECLARE_TASK( task_get_new_fileio );
 
 
 

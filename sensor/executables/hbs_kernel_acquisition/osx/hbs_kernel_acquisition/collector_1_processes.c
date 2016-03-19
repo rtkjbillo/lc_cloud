@@ -35,7 +35,7 @@ static uint32_t g_nextProcess = 0;
 #ifdef _USE_KAUTH
 #include <sys/kauth.h>
 
-kauth_listener_t g_listener = NULL;
+static kauth_listener_t g_listener = NULL;
 
 static int
     new_proc_listener
@@ -118,6 +118,7 @@ static int
     g_processes[ g_nextProcess ].pid = pid;
     g_processes[ g_nextProcess ].ppid = ppid;
     g_processes[ g_nextProcess ].uid = uid;
+    g_processes[ g_nextProcess ].ts = rpal_time_getLocal();
     
     g_nextProcess++;
     if( g_nextProcess == _NUM_BUFFERED_PROCESSES )

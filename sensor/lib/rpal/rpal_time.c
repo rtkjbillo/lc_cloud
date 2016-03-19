@@ -73,6 +73,17 @@ RU64,
 }
 
 
+RPAL_DEFINE_API
+(
+RU64,
+    rpal_time_getGlobalFromLocal,
+        RU64 localTs
+)
+{
+    return localTs + g_rpal_time_globalOffset;
+}
+
+
 RBOOL
     rpal_timer_init_interval
     (
