@@ -1060,7 +1060,7 @@ class HcpCli ( cmd.Cmd ):
                              help = 'name of event to start exfiling' )
         parser.add_argument( '-e', '--expire',
                              type = int,
-                             required = False,
+                             required = True,
                              dest = 'expire',
                              help = 'number of seconds before stopping exfil of event' )
         arguments = self.parse( parser, s )
@@ -1109,7 +1109,7 @@ class HcpCli ( cmd.Cmd ):
                              help = 'name of event to start treating as critical' )
         parser.add_argument( '-e', '--expire',
                              type = int,
-                             required = False,
+                             required = True,
                              dest = 'expire',
                              help = 'number of seconds before removing event from critical' )
         arguments = self.parse( parser, s )
