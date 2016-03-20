@@ -28,7 +28,6 @@
 
 static struct kern_ctl_reg krnlCommsCtl = { 0 };
 static kern_ctl_ref krnlCommsRef = { 0 };
-static rMutex g_client_mutex = NULL;
 
 
 kern_return_t hbs_kernel_acquisition_start(kmod_info_t * ki, void *d);
@@ -262,9 +261,6 @@ errno_t
         void **unitinfo
     )
 {
-    rpal_debug_info( "received connection request, blocking until available" );
-    rpal_mutex_lock( g_client_mutex );
-    
     return (0);
 }
 
@@ -277,8 +273,6 @@ errno_t
         void *unitinfo
     )
 {
-    rpal_mutex_unlock( g_client_mutex );
-    
     return 0;
 }
 
@@ -290,11 +284,6 @@ kern_return_t hbs_kernel_acquisition_start(kmod_info_t * ki, void *d)
 {
     errno_t error = 0;
     int i = 0;
-    
-    if( NULL == ( g_client_mutex = rpal_mutex_create() ) )
-    {
-        rpal_debug_critical( "could not create client mutex" );
-    }
     
     rpal_debug_info( "Initializing collectors" );
     
@@ -354,8 +343,17 @@ kern_return_t hbs_kernel_acquisition_stop(kmod_info_t *ki, void *d)
     errno_t error = 0;
     int i = 0;
     
-    rpal_debug_info( "waiting until client is disconnected" );
-    rpal_mutex_lock( g_client_mutex );
+    rpal_debug_info( "unregistering KM/UM comms" );
+    error = ctl_deregister( krnlCommsRef );
+    if( 0 == error )
+    {
+        rpal_debug_info( "KM/UM comms unregistered" );
+    }
+    else
+    {
+        rpal_debug_critical( "error unregistering KM/UM comms (clients still present?): %d", error );
+        return KERN_FAILURE;
+    }
     
     rpal_debug_info( "stopping collectors" );
     for( i = 0; i < ARRAY_N_ELEM( g_collectors ); i++ )
@@ -365,20 +363,6 @@ kern_return_t hbs_kernel_acquisition_stop(kmod_info_t *ki, void *d)
             rpal_debug_critical( "error deinitializing collector %d", i );
         }
     }
-    
-    rpal_debug_info( "unregistering KM/UM comms" );
-    error = ctl_deregister( krnlCommsRef );
-    if( 0 == error )
-    {
-        rpal_debug_info( "KM/UM comms unregistered" );
-    }
-    else
-    {
-        rpal_debug_critical( "error unregistering KM/UM comms: %d", error );
-    }
-    
-    rpal_mutex_free( g_client_mutex );
-    g_client_mutex = NULL;
     
     return KERN_SUCCESS;
 }

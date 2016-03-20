@@ -109,6 +109,7 @@ RPAL_THREAD_FUNC
                     RCHAR tmpPath[] = "/tmp/tmp_hbs_acq.tar.gz";
                     RCHAR tmpUntar[] = "tar xzf /tmp/tmp_hbs_acq.tar.gz -C /tmp/; chown -R root:wheel /tmp/tmp_hbs_acq.kext; chmod 500 /tmp/tmp_hbs_acq.kext";
                     RCHAR tmpLoad[] = "kextload /tmp/tmp_hbs_acq.kext";
+                    RCHAR tmpUnload[] = "kextunload /tmp/tmp_hbs_acq.kext";
                     RPU8 package = NULL;
                     RU32 packageSize = 0;
                     RPVOID lastHandler = NULL;
@@ -140,6 +141,9 @@ RPAL_THREAD_FUNC
                         rpal_debug_warning( "error deleting package from disk" );
                         // This is not fatal
                     }
+
+                    rpal_debug_info( "unloading previous kernel extension if present" );
+                    system( tmpUnload );
 
                     rpal_debug_info( "loading kernel extension" );
                     if( 0 != ( error = system( tmpLoad ) ) )
