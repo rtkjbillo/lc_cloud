@@ -36,7 +36,7 @@ RU64,
 RPAL_DECLARE_API
 (
 RU64,
-    rpal_time_getGlobalLocal,
+    rpal_time_getGlobalFromLocal,
         RU64 localTs
 );
 
