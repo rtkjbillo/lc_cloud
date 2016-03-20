@@ -164,7 +164,6 @@ RPVOID
 
         for( i = 0; i < nScratch; i++ )
         {
-
             if( KERNEL_ACQ_FILE_ACTION_ADDED == new_from_kernel[ i ].action )
             {
                 event = RP_TAGS_NOTIFICATION_FILE_CREATE;
