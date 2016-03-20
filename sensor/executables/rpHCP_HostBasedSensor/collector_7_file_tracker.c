@@ -144,7 +144,6 @@ RPVOID
     )
 {
     RPWCHAR fileName = NULL;
-    RU32 apiAction = 0;
     rpcm_tag event = RP_TAGS_INVALID;
     rSequence notif = 0;
     RU32 nScratch = 0;

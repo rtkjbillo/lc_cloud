@@ -369,7 +369,6 @@ static RVOID
     KernelAcqProcess new_from_kernel[ 200 ] = { 0 };
     processEntry tracking_user[ MAX_SNAPSHOT_SIZE ] = { 0 };
     RU32 nPhase = 0;
-    RU64 ts = 0;
 
     while( !rEvent_wait( isTimeToStop, 1000 ) )
     {

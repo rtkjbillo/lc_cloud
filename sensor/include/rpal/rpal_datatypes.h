@@ -17,7 +17,7 @@ limitations under the License.
 #ifndef _RPAL_DATATYPES_H
 #define _RPAL_DATATYPES_H
 
-#include <rpal_platform.h>
+#include "rpal_platform.h"
 
 /*
  *
@@ -73,9 +73,11 @@ limitations under the License.
 
 #elif defined( RPAL_PLATFORM_LINUX ) || defined( RPAL_PLATFORM_MACOSX )
     #include <stdint.h>
-    #include <stdlib.h>
-    #include <stdio.h>
-    #include <errno.h>
+    #ifndef RPAL_PLATFORM_KERNEL
+        #include <stdlib.h>
+        #include <stdio.h>
+        #include <errno.h>
+    #endif
     #include <string.h>
 
     typedef int             RBOOL;
@@ -99,8 +101,10 @@ limitations under the License.
     typedef	char		RCHAR;
     typedef char*		RPCHAR;
 
-    typedef wchar_t		RWCHAR;
-    typedef wchar_t*	RPWCHAR;
+    #ifndef RPAL_PLATFORM_KERNEL
+        typedef wchar_t		RWCHAR;
+        typedef wchar_t*	RPWCHAR;
+    #endif
 
     typedef void		RVOID;
     typedef void*		RPVOID;

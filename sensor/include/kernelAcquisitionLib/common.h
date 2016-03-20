@@ -17,6 +17,8 @@ limitations under the License.
 #ifndef _KERNEL_ACQUISITION_LIB_COMMON_H
 #define _KERNEL_ACQUISITION_LIB_COMMON_H
 
+#include <rpal/rpal_datatypes.h>
+
 #ifdef RPAL_PLATFORM_MACOSX
     #define ACQUISITION_COMMS_NAME  "com.refractionpoint.hbs.acq"
 #endif
@@ -45,11 +47,11 @@ typedef struct
 
 typedef struct
 {
-    unsigned int pid;
-    unsigned int ppid;
-    unsigned int uid;
-    uint64_t ts;
-    char path[ 251 ];
+    RU32 pid;
+    RU32 ppid;
+    RU32 uid;
+    RU64 ts;
+    RCHAR path[ 251 ];
 
 } KernelAcqProcess;
 
@@ -60,11 +62,11 @@ typedef struct
 #define KERNEL_ACQ_FILE_ACTION_RENAME_NEW   5
 typedef struct
 {
-    unsigned int action;
-    unsigned int pid;
-    unsigned int uid;
-    uint64_t ts;
-    char path[ 251 ];
+    RU32 action;
+    RU32 pid;
+    RU32 uid;
+    RU64 ts;
+    RCHAR path[ 251 ];
 
 } KernelAcqFileIo;
 

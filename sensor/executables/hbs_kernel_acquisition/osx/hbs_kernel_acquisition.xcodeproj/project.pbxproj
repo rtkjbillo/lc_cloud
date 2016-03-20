@@ -243,6 +243,11 @@
 			buildSettings = {
 				CODE_SIGN_IDENTITY = "Developer ID Application";
 				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Developer ID Application";
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+					RPAL_PLATFORM_KERNEL,
+				);
 				HEADER_SEARCH_PATHS = ../../../include/;
 				INFOPLIST_FILE = hbs_kernel_acquisition/Info.plist;
 				MODULE_NAME = com.refractionpoint.hbs_kernel_acquisition;
@@ -261,6 +266,7 @@
 			buildSettings = {
 				CODE_SIGN_IDENTITY = "Developer ID Application";
 				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Developer ID Application";
+				GCC_PREPROCESSOR_DEFINITIONS = RPAL_PLATFORM_KERNEL;
 				HEADER_SEARCH_PATHS = ../../../include/;
 				INFOPLIST_FILE = hbs_kernel_acquisition/Info.plist;
 				MODULE_NAME = com.refractionpoint.hbs_kernel_acquisition;
