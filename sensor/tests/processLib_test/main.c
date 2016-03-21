@@ -166,44 +166,6 @@ void
 }
 
 void 
-    test_servicesList
-    (
-        void
-    )
-{
-    rList svcs = NULL;
-    rSequence svc = NULL;
-    RU32 type = PROCESSLIB_SVCS;
-#if defined( RPAL_PLATFORM_WINDOWS ) || defined( RPAL_PLATFORM_LINUX )
-    RPWCHAR svcName = NULL;
-#elif defined( RPAL_PLATFORM_MACOSX )
-    RPCHAR svcName = NULL;
-#endif
-
-    svcs = processLib_getServicesList( type );
-
-    CU_ASSERT_PTR_NOT_EQUAL_FATAL( svcs, NULL );
-
-    CU_ASSERT_TRUE( rList_getSEQUENCE( svcs, RP_TAGS_SVC, &svc ) );
-
-#if defined( RPAL_PLATFORM_WINDOWS ) || defined( RPAL_PLATFORM_LINUX )
-    CU_ASSERT_TRUE( rSequence_getSTRINGW( svc, RP_TAGS_SVC_NAME, &svcName ) );
-
-    CU_ASSERT_PTR_NOT_EQUAL( svcName, NULL );
-
-    CU_ASSERT_NOT_EQUAL( rpal_string_strlenw( svcName ), 0 );
-#elif defined( RPAL_PLATFORM_MACOSX )
-    CU_ASSERT_TRUE( rSequence_getSTRINGA( svc, RP_TAGS_SVC_NAME, &svcName ) );
-
-    CU_ASSERT_PTR_NOT_EQUAL( svcName, NULL );
-
-    CU_ASSERT_NOT_EQUAL( rpal_string_strlen( svcName ), 0 );
-#endif
-
-    rSequence_free( svcs );
-}
-
-void 
     test_modules
     (
         void
@@ -350,7 +312,6 @@ int
             NULL == CU_add_test( suite, "modules", test_modules ) ||
             NULL == CU_add_test( suite, "memmap", test_memmap ) ||
             NULL == CU_add_test( suite, "handles", test_handles ) ||
-            NULL == CU_add_test( suite, "services", test_servicesList ) ||
             NULL == CU_add_test( suite, "memoryLeaks", test_memoryLeaks ) )
         {
             ret = 0;

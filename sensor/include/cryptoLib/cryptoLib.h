@@ -28,6 +28,11 @@ limitations under the License.
 #define CRYPTOLIB_HASH_SIZE                 0x20 // Sha-256
 #define CRYPTOLIB_SYM_MOD_SIZE              0x10
 
+typedef struct
+{
+    RU8 _[ CRYPTOLIB_HASH_SIZE ];
+} CryptoLib_Hash;
+
 RBOOL
     CryptoLib_init
     (
@@ -130,14 +135,14 @@ RBOOL
     (
         RPVOID buffer,
         RU32 bufferSize,
-        RU8 pHash[ CRYPTOLIB_HASH_SIZE ]
+        CryptoLib_Hash* pHash
     );
 
 RBOOL
     CryptoLib_hashFileW
     (
         RPWCHAR fileName,
-        RU8 pHash[ CRYPTOLIB_HASH_SIZE ],
+        CryptoLib_Hash* pHash,
         RBOOL isAvoidTimestamps
     );
     
@@ -145,7 +150,7 @@ RBOOL
     CryptoLib_hashFileA
     (
         RPCHAR fileName,
-        RU8 pHash[ CRYPTOLIB_HASH_SIZE ],
+        CryptoLib_Hash* pHash,
         RBOOL isAvoidTimestamps
     );
 

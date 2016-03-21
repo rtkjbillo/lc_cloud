@@ -460,8 +460,22 @@ RBOOL
             }
             else
             {
-                if( ( RINFINITE != timeout && ( 0 == ( err = pthread_cond_timedwait( &evt->hCond, &evt->hMutex, &abs_time ) ) ) ) ||
-                    ( RINFINITE == timeout && ( 0 == ( err = pthread_cond_wait( &evt->hCond, &evt->hMutex ) ) ) ) )
+                // This is extremely convoluted and unintuitive... what else did you expect since
+                // it turns out a _wait can wakeup randomly because "signals" without letting you
+                // know. So we need to wrap the entire thing in a loop and manually look for a flag.
+                while( 0 == err && !evt->isOn )
+                {
+                    if( RINFINITE != timeout )
+                    {
+                        err = pthread_cond_timedwait( &evt->hCond, &evt->hMutex, &abs_time );
+                    }
+                    else
+                    {
+                        err = pthread_cond_wait( &evt->hCond, &evt->hMutex );
+                    }
+                }
+
+                if( evt->isOn )
                 {
                     if( !evt->isManualReset )
                     {

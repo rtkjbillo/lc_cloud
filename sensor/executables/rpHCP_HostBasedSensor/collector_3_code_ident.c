@@ -28,8 +28,8 @@ limitations under the License.
 
 typedef struct
 {
-    RU8 nameHash[ CRYPTOLIB_HASH_SIZE ];
-    RU8 fileHash[ CRYPTOLIB_HASH_SIZE ];
+    CryptoLib_Hash nameHash;
+    CryptoLib_Hash fileHash;
     RU64 codeSize;
 
 } CodeIdent;
@@ -43,7 +43,7 @@ RVOID
     processCodeIdentW
     (
         RPWCHAR name,
-        RPU8 pFileHash,
+        CryptoLib_Hash* pFileHash,
         RU64 codeSize,
         rSequence originalEvent
     )
@@ -54,17 +54,18 @@ RVOID
     RBOOL isSigned = FALSE;
     RBOOL isVerifiedLocal = FALSE;
     RBOOL isVerifiedGlobal = FALSE;
+    RPWCHAR cleanPath = NULL;
     
     ident.codeSize = codeSize;
 
     if( NULL != name )
     {
-        CryptoLib_hash( name, rpal_string_strlenw( name ) * sizeof( RWCHAR ), ident.nameHash );
+        CryptoLib_hash( name, rpal_string_strlenw( name ) * sizeof( RWCHAR ), &ident.nameHash );
     }
 
     if( NULL != pFileHash )
     {
-        rpal_memory_memcpy( ident.fileHash, pFileHash, CRYPTOLIB_HASH_SIZE );
+        rpal_memory_memcpy( &ident.fileHash, pFileHash, sizeof( *pFileHash ) );
     }
 
     if( rMutex_lock( g_mutex ) )
@@ -77,16 +78,20 @@ RVOID
             {
                 hbs_markAsRelated( originalEvent, notif );
 
-                if( rSequence_addSTRINGW( notif, RP_TAGS_FILE_PATH, name ) &&
+                if( ( rSequence_addSTRINGW( notif, RP_TAGS_FILE_NAME, name ) ||
+                      rSequence_addSTRINGW( notif, RP_TAGS_DLL, name ) ||
+                      rSequence_addSTRINGW( notif, RP_TAGS_EXECUTABLE, name ) ) &&
                     rSequence_addRU32( notif, RP_TAGS_MEMORY_SIZE, (RU32)codeSize ) &&
                     rSequence_addTIMESTAMP( notif, RP_TAGS_TIMESTAMP, rpal_time_getGlobal() ) )
                 {
                     if( NULL != pFileHash )
                     {
-                        rSequence_addBUFFER( notif, RP_TAGS_HASH, pFileHash, CRYPTOLIB_HASH_SIZE );
+                        rSequence_addBUFFER( notif, RP_TAGS_HASH, (RPU8)pFileHash, sizeof( *pFileHash ) );
                     }
 
-                    if( libOs_getSignature( name,
+                    cleanPath = rpal_file_cleanw( name );
+
+                    if( libOs_getSignature( cleanPath ? cleanPath : name,
                                             &sig,
                                             ( OSLIB_SIGNCHECK_NO_NETWORK | OSLIB_SIGNCHECK_CHAIN_VERIFICATION ),
                                             &isSigned,
@@ -97,6 +102,11 @@ RVOID
                         {
                             rSequence_free( sig );
                         }
+                    }
+
+                    if( NULL != cleanPath )
+                    {
+                        rpal_memory_free( cleanPath );
                     }
 
                     notifications_publish( RP_TAGS_NOTIFICATION_CODE_IDENTITY, notif );
@@ -116,7 +126,7 @@ RVOID
     processCodeIdentA
     (
         RPCHAR name,
-        RPU8 pFileHash,
+        CryptoLib_Hash* pFileHash,
         RU64 codeSize,
         rSequence originalEvent
     )
@@ -125,17 +135,18 @@ RVOID
     rSequence notif = NULL;
     rSequence sig = NULL;
     RPWCHAR wPath = NULL;
+    RPWCHAR cleanPath = NULL;
 
     ident.codeSize = codeSize;
 
     if( NULL != name )
     {
-        CryptoLib_hash( name, rpal_string_strlen( name ) * sizeof( RCHAR ), ident.nameHash );
+        CryptoLib_hash( name, rpal_string_strlen( name ) * sizeof( RCHAR ), &ident.nameHash );
     }
 
     if( NULL != pFileHash )
     {
-        rpal_memory_memcpy( ident.fileHash, pFileHash, CRYPTOLIB_HASH_SIZE );
+        rpal_memory_memcpy( &ident.fileHash, pFileHash, sizeof( *pFileHash ) );
     }
 
     if( rMutex_lock( g_mutex ) )
@@ -148,23 +159,37 @@ RVOID
             {
                 hbs_markAsRelated( originalEvent, notif );
 
-                if( rSequence_addSTRINGA( notif, RP_TAGS_FILE_NAME, name ) &&
+                if( ( rSequence_addSTRINGA( notif, RP_TAGS_FILE_PATH, name ) ||
+                      rSequence_addSTRINGA( notif, RP_TAGS_DLL, name ) ||
+                      rSequence_addSTRINGA( notif, RP_TAGS_EXECUTABLE, name ) ) &&
                     rSequence_addRU32( notif, RP_TAGS_MEMORY_SIZE, (RU32)codeSize ) &&
                     rSequence_addTIMESTAMP( notif, RP_TAGS_TIMESTAMP, rpal_time_getGlobal() ) )
                 {
                     if( NULL != pFileHash )
                     {
-                        rSequence_addBUFFER( notif, RP_TAGS_HASH, pFileHash, CRYPTOLIB_HASH_SIZE );
+                        rSequence_addBUFFER( notif, RP_TAGS_HASH, (RPU8)pFileHash, sizeof( *pFileHash ) );
                     }
 
                     if( NULL != ( wPath = rpal_string_atow( name ) ) )
                     {
-                        if( libOs_getSignature( wPath, &sig, OSLIB_SIGNCHECK_NO_NETWORK, NULL, NULL, NULL ) )
+                        cleanPath = rpal_file_cleanw( wPath );
+
+                        if( libOs_getSignature( cleanPath ? cleanPath : wPath, 
+                                                &sig, 
+                                                OSLIB_SIGNCHECK_NO_NETWORK, 
+                                                NULL, 
+                                                NULL, 
+                                                NULL ) )
                         {
                             if( !rSequence_addSEQUENCE( notif, RP_TAGS_SIGNATURE, sig ) )
                             {
                                 rSequence_free( sig );
                             }
+                        }
+
+                        if( NULL != cleanPath )
+                        {
+                            rpal_memory_free( cleanPath );
                         }
 
                         rpal_memory_free( wPath );
@@ -192,7 +217,7 @@ RVOID
 {
     RPWCHAR nameW = NULL;
     RPCHAR nameA = NULL;
-    RU8 fileHash[ CRYPTOLIB_HASH_SIZE ] = { 0 };
+    CryptoLib_Hash fileHash = { 0 };
     RU64 size = 0;
 
     UNREFERENCED_PARAMETER( notifType );
@@ -212,13 +237,13 @@ RVOID
             else
             {
                 if( NULL != nameA &&
-                    !CryptoLib_hashFileA( nameA, fileHash, TRUE ) )
+                    !CryptoLib_hashFileA( nameA, &fileHash, TRUE ) )
                 {
                     rpal_debug_info( "unable to fetch file hash for ident" );
                 }
 
                 if( NULL != nameW &&
-                    !CryptoLib_hashFileW( nameW, fileHash, TRUE ) )
+                    !CryptoLib_hashFileW( nameW, &fileHash, TRUE ) )
                 {
                     rpal_debug_info( "unable to fetch file hash for ident" );
                 }
@@ -228,11 +253,11 @@ RVOID
 
             if( NULL != nameA )
             {
-                processCodeIdentA( nameA, fileHash, size, event );
+                processCodeIdentA( nameA, &fileHash, size, event );
             }
             else if( NULL != nameW )
             {
-                processCodeIdentW( nameW, fileHash, size, event );
+                processCodeIdentW( nameW, &fileHash, size, event );
             }
         }
     }
@@ -249,7 +274,7 @@ RVOID
 {
     RPWCHAR nameW = NULL;
     RPCHAR nameA = NULL;
-    RU8 fileHash[ CRYPTOLIB_HASH_SIZE ] = { 0 };
+    CryptoLib_Hash fileHash = { 0 };
     RU64 size = 0;
 
     UNREFERENCED_PARAMETER( notifType );
@@ -276,13 +301,13 @@ RVOID
             else
             {
                 if( NULL != nameA &&
-                    !CryptoLib_hashFileA( nameA, fileHash, TRUE ) )
+                    !CryptoLib_hashFileA( nameA, &fileHash, TRUE ) )
                 {
                     rpal_debug_info( "unable to fetch file hash for ident" );
                 }
 
                 if( NULL != nameW &&
-                    !CryptoLib_hashFileW( nameW, fileHash, TRUE ) )
+                    !CryptoLib_hashFileW( nameW, &fileHash, TRUE ) )
                 {
                     rpal_debug_info( "unable to fetch file hash for ident" );
                 }
@@ -292,11 +317,102 @@ RVOID
 
             if( NULL != nameA )
             {
-                processCodeIdentA( nameA, fileHash, size, event );
+                processCodeIdentA( nameA, &fileHash, size, event );
             }
             else if( NULL != nameW )
             {
-                processCodeIdentW( nameW, fileHash, size, event );
+                processCodeIdentW( nameW, &fileHash, size, event );
+            }
+        }
+    }
+}
+
+
+static
+RVOID
+    processHashedEvent
+    (
+        rpcm_tag notifType,
+        rSequence event
+    )
+{
+    RPWCHAR nameW = NULL;
+    RPCHAR nameA = NULL;
+    CryptoLib_Hash* pHash = NULL;
+    CryptoLib_Hash localHash = { 0 };
+    
+    UNREFERENCED_PARAMETER( notifType );
+
+    if( rpal_memory_isValid( event ) )
+    {
+        if( rSequence_getSTRINGA( event, RP_TAGS_FILE_PATH, &nameA ) ||
+            rSequence_getSTRINGW( event, RP_TAGS_FILE_PATH, &nameW ) ||
+            rSequence_getSTRINGA( event, RP_TAGS_EXECUTABLE, &nameA ) ||
+            rSequence_getSTRINGW( event, RP_TAGS_EXECUTABLE, &nameW ) ||
+            rSequence_getSTRINGA( event, RP_TAGS_DLL, &nameA ) ||
+            rSequence_getSTRINGW( event, RP_TAGS_DLL, &nameW ) )
+        {
+            rSequence_getBUFFER( event, RP_TAGS_HASH, (RPU8*)&pHash, NULL );
+            
+            if( NULL != nameA )
+            {
+                if( NULL == pHash )
+                {
+                    if( _MAX_FILE_HASH_SIZE < rpal_file_getSize( nameA, TRUE ) )
+                    {
+                        rSequence_addRU32( event, RP_TAGS_ERROR, RPAL_ERROR_FILE_TOO_LARGE );
+                    }
+                    else if( CryptoLib_hashFileA( nameA, &localHash, TRUE ) )
+                    {
+                        pHash = &localHash;
+                    }
+                }
+
+                processCodeIdentA( nameA, pHash, 0, event );
+            }
+            else if( NULL != nameW )
+            {
+                if( NULL == pHash )
+                {
+                    if( _MAX_FILE_HASH_SIZE < rpal_file_getSizew( nameW, TRUE ) )
+                    {
+                        rSequence_addRU32( event, RP_TAGS_ERROR, RPAL_ERROR_FILE_TOO_LARGE );
+                    }
+                    else if( CryptoLib_hashFileW( nameW, &localHash, TRUE ) )
+                    {
+                        pHash = &localHash;
+                    }
+                }
+
+                processCodeIdentW( nameW, pHash, 0, event );
+            }
+        }
+    }
+}
+
+static
+RVOID
+    processGenericSnapshot
+    (
+        rpcm_tag notifType,
+        rSequence event
+    )
+{
+    rList entityList = NULL;
+    rSequence entity = NULL;
+
+    UNREFERENCED_PARAMETER( notifType );
+
+    if( rpal_memory_isValid( event ) )
+    {
+        if( rSequence_getLIST( event, RP_TAGS_AUTORUNS, &entityList ) ||
+            rSequence_getLIST( event, RP_TAGS_SVCS, &entityList ) ||
+            rSequence_getLIST( event, RP_TAGS_PROCESSES, &entityList ) )
+        {
+            // Go through the elements, whatever tag
+            while( rList_getSEQUENCE( entityList, RPCM_INVALID_TAG, &entity ) )
+            {
+                processHashedEvent( notifType, entity );
             }
         }
     }
@@ -328,13 +444,28 @@ RBOOL
                 isSuccess = FALSE;
 
                 if( notifications_subscribe( RP_TAGS_NOTIFICATION_NEW_PROCESS, NULL, 0, NULL, processNewProcesses ) &&
-                    notifications_subscribe( RP_TAGS_NOTIFICATION_MODULE_LOAD, NULL, 0, NULL, processNewModule ) )
+                    notifications_subscribe( RP_TAGS_NOTIFICATION_MODULE_LOAD, NULL, 0, NULL, processNewModule ) &&
+                    notifications_subscribe( RP_TAGS_NOTIFICATION_SERVICE_CHANGE, NULL, 0, NULL, processHashedEvent ) &&
+                    notifications_subscribe( RP_TAGS_NOTIFICATION_DRIVER_CHANGE, NULL, 0, NULL, processHashedEvent ) &&
+                    notifications_subscribe( RP_TAGS_NOTIFICATION_AUTORUN_CHANGE, NULL, 0, NULL, processHashedEvent ) &&
+                    notifications_subscribe( RP_TAGS_NOTIFICATION_OS_SERVICES_REP, NULL, 0, NULL, processGenericSnapshot ) &&
+                    notifications_subscribe( RP_TAGS_NOTIFICATION_OS_DRIVERS_REP, NULL, 0, NULL, processGenericSnapshot ) &&
+                    notifications_subscribe( RP_TAGS_NOTIFICATION_OS_PROCESSES_REP, NULL, 0, NULL, processGenericSnapshot ) &&
+                    notifications_subscribe( RP_TAGS_NOTIFICATION_OS_AUTORUNS_REP, NULL, 0, NULL, processGenericSnapshot ) )
                 {
                     isSuccess = TRUE;
                 }
                 else
                 {
+                    notifications_unsubscribe( RP_TAGS_NOTIFICATION_NEW_PROCESS, NULL, processNewProcesses );
                     notifications_unsubscribe( RP_TAGS_NOTIFICATION_MODULE_LOAD, NULL, processNewModule );
+                    notifications_unsubscribe( RP_TAGS_NOTIFICATION_SERVICE_CHANGE, NULL, processHashedEvent );
+                    notifications_unsubscribe( RP_TAGS_NOTIFICATION_DRIVER_CHANGE, NULL, processHashedEvent );
+                    notifications_unsubscribe( RP_TAGS_NOTIFICATION_AUTORUN_CHANGE, NULL, processHashedEvent );
+                    notifications_unsubscribe( RP_TAGS_NOTIFICATION_OS_SERVICES_REP, NULL, processGenericSnapshot );
+                    notifications_unsubscribe( RP_TAGS_NOTIFICATION_OS_DRIVERS_REP, NULL, processGenericSnapshot );
+                    notifications_unsubscribe( RP_TAGS_NOTIFICATION_OS_PROCESSES_REP, NULL, processGenericSnapshot );
+                    notifications_unsubscribe( RP_TAGS_NOTIFICATION_OS_AUTORUNS_REP, NULL, processGenericSnapshot );
                     rpal_bloom_destroy( g_knownCode );
                     rMutex_free( g_mutex );
                     g_mutex = NULL;
@@ -365,7 +496,14 @@ RBOOL
     if( NULL != hbsState )
     {
         if( notifications_unsubscribe( RP_TAGS_NOTIFICATION_NEW_PROCESS, NULL, processNewProcesses ) &&
-            notifications_unsubscribe( RP_TAGS_NOTIFICATION_MODULE_LOAD, NULL, processNewModule ) )
+            notifications_unsubscribe( RP_TAGS_NOTIFICATION_MODULE_LOAD, NULL, processNewModule ) &&
+            notifications_unsubscribe( RP_TAGS_NOTIFICATION_SERVICE_CHANGE, NULL, processHashedEvent ) &&
+            notifications_unsubscribe( RP_TAGS_NOTIFICATION_DRIVER_CHANGE, NULL, processHashedEvent ) &&
+            notifications_unsubscribe( RP_TAGS_NOTIFICATION_AUTORUN_CHANGE, NULL, processHashedEvent ) &&
+            notifications_unsubscribe( RP_TAGS_NOTIFICATION_OS_SERVICES_REP, NULL, processGenericSnapshot ) &&
+            notifications_unsubscribe( RP_TAGS_NOTIFICATION_OS_DRIVERS_REP, NULL, processGenericSnapshot ) &&
+            notifications_unsubscribe( RP_TAGS_NOTIFICATION_OS_PROCESSES_REP, NULL, processGenericSnapshot ) &&
+            notifications_unsubscribe( RP_TAGS_NOTIFICATION_OS_AUTORUNS_REP, NULL, processGenericSnapshot ) )
         {
             isSuccess = TRUE;
         }

@@ -56,6 +56,8 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "obsLib", "..\lib\obsLib\obs
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "libyara", "..\lib\yara\windows\libyara\libyara.vcxproj", "{76C5DC28-20DA-4C90-BD42-A414C3A4BA86}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "kernelAcquisitionLib", "..\lib\kernelAcquisitionLib\kernelAcquisitionLib.vcxproj", "{4E46A8AE-AF86-48B7-A444-2B69FBB83D18}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Mixed Platforms = Debug|Mixed Platforms
@@ -342,6 +344,18 @@ Global
 		{76C5DC28-20DA-4C90-BD42-A414C3A4BA86}.Release|Win32.Build.0 = Release|Win32
 		{76C5DC28-20DA-4C90-BD42-A414C3A4BA86}.Release|x64.ActiveCfg = Release|x64
 		{76C5DC28-20DA-4C90-BD42-A414C3A4BA86}.Release|x64.Build.0 = Release|x64
+		{4E46A8AE-AF86-48B7-A444-2B69FBB83D18}.Debug|Mixed Platforms.ActiveCfg = Debug|Win32
+		{4E46A8AE-AF86-48B7-A444-2B69FBB83D18}.Debug|Mixed Platforms.Build.0 = Debug|Win32
+		{4E46A8AE-AF86-48B7-A444-2B69FBB83D18}.Debug|Win32.ActiveCfg = Debug|Win32
+		{4E46A8AE-AF86-48B7-A444-2B69FBB83D18}.Debug|Win32.Build.0 = Debug|Win32
+		{4E46A8AE-AF86-48B7-A444-2B69FBB83D18}.Debug|x64.ActiveCfg = Debug|x64
+		{4E46A8AE-AF86-48B7-A444-2B69FBB83D18}.Debug|x64.Build.0 = Debug|x64
+		{4E46A8AE-AF86-48B7-A444-2B69FBB83D18}.Release|Mixed Platforms.ActiveCfg = Release|Win32
+		{4E46A8AE-AF86-48B7-A444-2B69FBB83D18}.Release|Mixed Platforms.Build.0 = Release|Win32
+		{4E46A8AE-AF86-48B7-A444-2B69FBB83D18}.Release|Win32.ActiveCfg = Release|Win32
+		{4E46A8AE-AF86-48B7-A444-2B69FBB83D18}.Release|Win32.Build.0 = Release|Win32
+		{4E46A8AE-AF86-48B7-A444-2B69FBB83D18}.Release|x64.ActiveCfg = Release|x64
+		{4E46A8AE-AF86-48B7-A444-2B69FBB83D18}.Release|x64.Build.0 = Release|x64
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

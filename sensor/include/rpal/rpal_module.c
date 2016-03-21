@@ -104,6 +104,7 @@ RBOOL
                 RPAL_API_REF( rpal_memory_totalUsed )   = _rpal_memory_totalUsed;
                 RPAL_API_REF( rpal_time_getGlobal )     = _rpal_time_getGlobal;
                 RPAL_API_REF( rpal_time_setGlobalOffset ) = _rpal_time_setGlobalOffset;
+                RPAL_API_REF( rpal_time_getGlobalFromLocal ) = _rpal_time_getGlobalFromLocal;
                 RPAL_API_REF( rpal_handleManager_create_global ) = _rpal_handleManager_create_global;
                 RPAL_API_REF( rpal_handleManager_open_global ) = _rpal_handleManager_open_global;
                 RPAL_API_REF( rpal_handleManager_openEx_global ) = _rpal_handleManager_openEx_global;

@@ -20,11 +20,12 @@ from hcp.hcp_helpers import AgentId
 
 import os
 import sys
+import tarfile
 
 # This is the key also defined in the sensor as _HCP_DEFAULT_STATIC_STORE_KEY
 # and used with the same algorithm as obfuscationLib
 OBFUSCATION_KEY = "\xFA\x75\x01"
-STATIC_STORE_MAX_SIZE = 1024 * 10
+STATIC_STORE_MAX_SIZE = 1024 * 50
 
 def obfuscate( buffer, key ):
     obf = ''
@@ -33,6 +34,18 @@ def obfuscate( buffer, key ):
         obf = obf + chr( ( ( ord( key[ index % len( key ) ] ) ^ ( index % 255 ) ) ^ ( STATIC_STORE_MAX_SIZE % 255 ) ) ^ ord( hx ) )
         index = index + 1
     return obf
+
+
+def tarGzOf( filePath, archiveName, payloadName ):
+    os.system( 'rm -rf /tmp/%s' % ( payloadName, ) )
+    os.system( 'cp -R %s /tmp/%s' % ( filePath, payloadName ) )
+    tar = tarfile.open( '/tmp/%s' % ( archiveName, ), 'w:gz' )
+    tar.add( '/tmp/%s' % payloadName, arcname = payloadName )
+    tar.close()
+    with open( '/tmp/%s' % ( archiveName, ), 'r' ) as f:
+        val = f.read()
+    os.unlink( '/tmp/%s' % ( archiveName, ) )
+    return val
 
 if 3 != len( sys.argv ):
     print( "Usage: set_sensor_config.py configFile sensorExec" )
@@ -47,7 +60,7 @@ prevPath = os.getcwd()
 os.chdir( os.path.join( os.path.dirname( __file__ ), '..', '..' ) )
 
 r = rpcm( isDebug = True )
-rpcm_environment = { '_' : Symbols(), 'rList' : rList, 'rSequence' : rSequence, 'AgentId' : AgentId }
+rpcm_environment = { '_' : Symbols(), 'rList' : rList, 'rSequence' : rSequence, 'AgentId' : AgentId, 'tarGzOf' : tarGzOf }
 
 conf = eval( configFile.replace( '\n', '' ), rpcm_environment )
 

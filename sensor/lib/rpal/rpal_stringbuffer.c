@@ -66,6 +66,19 @@ RVOID
     }
 }
 
+RVOID
+    rpal_stringbuffer_freeWrapper
+    (
+        rString pStringBuffer
+    )
+{
+    if( rpal_memory_isValid( pStringBuffer ) )
+    {
+        rpal_blob_freeWrapperOnly( ( (_rString*)pStringBuffer )->blob );
+        rpal_memory_free( pStringBuffer );
+    }
+}
+
 RBOOL
     rpal_stringbuffer_add
     (

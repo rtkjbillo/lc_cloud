@@ -325,7 +325,7 @@ rList
                     {
                         if( !rSequence_addBUFFER( modEntry, 
                                                     RP_TAGS_HASH, 
-                                                    g_hcpContext.modules[ moduleIndex ].hash, 
+                                                    (RPU8)&( g_hcpContext.modules[ moduleIndex ].hash ),
                                                     sizeof( g_hcpContext.modules[ moduleIndex ].hash ) ) ||
                             !rSequence_addRU8( modEntry, 
                                                 RP_TAGS_HCP_MODULE_ID, 

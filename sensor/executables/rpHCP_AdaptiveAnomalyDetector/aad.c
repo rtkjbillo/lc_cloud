@@ -24,7 +24,7 @@ limitations under the License.
 
 typedef struct
 {
-    RU8 parentKey[ CRYPTOLIB_HASH_SIZE ];
+    CryptoLib_Hash parentKey;
     RTIME firstSeen;
     RTIME lastSeen;
     RU32 reserved1;
@@ -125,8 +125,8 @@ RBOOL
     RBOOL isNewAndRelevant = FALSE;
 
     aad_rel_entry* entry = NULL;
-    RU8 key[ CRYPTOLIB_HASH_SIZE ] = { 0 };
-    RU8* pKey = key;
+    CryptoLib_Hash key = { 0 };
+    CryptoLib_Hash* pKey = &key;
 
     if( rpal_memory_isValid( stash ) &&
         NULL != parentKey &&
@@ -134,7 +134,7 @@ RBOOL
     {
         rpal_btree_manual_lock( stash );
 
-        if( CryptoLib_hash( parentKey, rpal_string_strlenw( parentKey ), (RPU8)&key ) &&
+        if( CryptoLib_hash( parentKey, rpal_string_strlenw( parentKey ), &key ) &&
             rpal_btree_search( stash, &pKey, &entry, TRUE ) )
         {
             if( rpal_bloom_addIfNew( entry->childrenSeen, childKey, rpal_string_strlenw( childKey ) ) )
@@ -175,8 +175,8 @@ RBOOL
     RBOOL isNewAndRelevant = FALSE;
 
     aad_rel_entry* entry = NULL;
-    RU8 key[ CRYPTOLIB_HASH_SIZE ] = { 0 };
-    RU8* pKey = key;
+    CryptoLib_Hash key = { 0 };
+    CryptoLib_Hash* pKey = &key;
 
     if( rpal_memory_isValid( stash ) &&
         NULL != parentKey &&
@@ -184,7 +184,7 @@ RBOOL
     {
         rpal_btree_manual_lock( stash );
 
-        if( CryptoLib_hash( parentKey, rpal_string_strlenw( parentKey ), (RPU8)&key ) &&
+        if( CryptoLib_hash( parentKey, rpal_string_strlenw( parentKey ), &key ) &&
             rpal_btree_search( stash, &pKey, &entry, TRUE ) )
         {
             if( rpal_bloom_addIfNew( entry->childrenSeen, childKey, CRYPTOLIB_HASH_SIZE ) )
@@ -220,7 +220,7 @@ RBOOL
     RBOOL isNewAndRelevant = FALSE;
 
     aad_rel_entry* entry = (aad_rel_entry*)parentKey;
-    RU8 key[ CRYPTOLIB_HASH_SIZE ] = { 0 };
+    CryptoLib_Hash key = { 0 };
 
     if( rpal_memory_isValid( stash ) &&
         NULL != parentKey &&
@@ -228,10 +228,10 @@ RBOOL
     {
         rpal_btree_manual_lock( stash );
 
-        if( CryptoLib_hash( childKey, rpal_string_strlenw( childKey ), (RPU8)&key ) &&
+        if( CryptoLib_hash( childKey, rpal_string_strlenw( childKey ), &key ) &&
             rpal_btree_search( stash, &entry, &entry, TRUE ) )
         {
-            if( rpal_bloom_addIfNew( entry->childrenSeen, key, CRYPTOLIB_HASH_SIZE ) )
+            if( rpal_bloom_addIfNew( entry->childrenSeen, &key, CRYPTOLIB_HASH_SIZE ) )
             {
                 // We've never seen this relation
                 entry->lastSeen = rpal_time_getGlobal();
@@ -280,7 +280,9 @@ RBOOL
 
                 if( NULL != ( entry->childrenSeen = rpal_bloom_create( nExpected, nFPRatio ) ) )
                 {
-                    if( CryptoLib_hash( parentKey, rpal_string_strlenw( parentKey ), (RPU8)&( entry->parentKey ) ) )
+                    if( CryptoLib_hash( parentKey, 
+                                        rpal_string_strlenw( parentKey ), 
+                                        &( entry->parentKey ) ) )
                     {
                         if( !rpal_btree_search( stash, &entry, NULL, TRUE ) )
                         {
@@ -319,7 +321,7 @@ RBOOL
 {
     RBOOL isEnabled = FALSE;
 
-    RU8 hash[ CRYPTOLIB_HASH_SIZE ] = { 0 };
+    CryptoLib_Hash hash = { 0 };
 
     if( rpal_memory_isValid( stash ) &&
         NULL != parentKey )
@@ -327,11 +329,11 @@ RBOOL
         if( rpal_btree_manual_lock( stash ) )
         {
 
-            if( CryptoLib_hash( parentKey, rpal_string_strlenw( parentKey ), hash ) )
+            if( CryptoLib_hash( parentKey, rpal_string_strlenw( parentKey ), &hash ) )
             {
-                if( !rpal_btree_search( stash, hash, NULL, TRUE ) )
+                if( !rpal_btree_search( stash, &hash, NULL, TRUE ) )
                 {
-                    if( rpal_btree_add( stash, hash, TRUE ) )
+                    if( rpal_btree_add( stash, &hash, TRUE ) )
                     {
                         isEnabled = TRUE;
                     }
@@ -542,13 +544,13 @@ RBOOL
     RBOOL isEnabled = FALSE;
 
     aad_rel_entry* entry = NULL;
-    RU8 key[ CRYPTOLIB_HASH_SIZE ] = { 0 };
-    RU8* pKey = key;
+    CryptoLib_Hash key = { 0 };
+    CryptoLib_Hash* pKey = &key;
 
     if( rpal_memory_isValid( stash ) &&
         NULL != parentKey )
     {
-        if( CryptoLib_hash( parentKey, rpal_string_strlenw( parentKey ), (RPU8)key ) &&
+        if( CryptoLib_hash( parentKey, rpal_string_strlenw( parentKey ), &key ) &&
             rpal_btree_search( stash, &pKey, &entry, FALSE ) )
         {
             isEnabled = TRUE;

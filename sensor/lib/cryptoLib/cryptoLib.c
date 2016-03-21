@@ -87,7 +87,7 @@ RBOOL
 {
     RBOOL isSuccess = FALSE;
 
-    RU8 hash[ CRYPTOLIB_HASH_SIZE ] = {0};
+    CryptoLib_Hash hash = { 0 };
     mbedtls_pk_context key = { 0 };
     mbedtls_rsa_context* rsa = NULL;
     
@@ -96,7 +96,7 @@ RBOOL
         NULL != privKey &&
         NULL != pSignature )
     {
-        mbedtls_sha256( bufferToSign, bufferSize, hash, 0 );
+        mbedtls_sha256( bufferToSign, bufferSize, (RPU8)&hash, 0 );
         
         mbedtls_pk_init( &key );
 
@@ -109,7 +109,7 @@ RBOOL
                                                     &g_rng,
                                                     MBEDTLS_RSA_PRIVATE,
                                                     sizeof( hash ),
-                                                    hash,
+                                                    (RPU8)&hash,
                                                     pSignature ) )
                 {
                     isSuccess = TRUE;
@@ -135,7 +135,7 @@ RBOOL
     RBOOL isSuccess = FALSE;
 
     RU8 hash[ CRYPTOLIB_ASYM_2048_MIN_SIZE ] = { 0 };
-    RU8 actualHash[ CRYPTOLIB_HASH_SIZE ] = { 0 };
+    CryptoLib_Hash actualHash = { 0 };
     mbedtls_pk_context key = { 0 };
     mbedtls_rsa_context* rsa = NULL;
     RSIZET outLength = 0;
@@ -145,7 +145,7 @@ RBOOL
         NULL != pubKey &&
         NULL != signature )
     {
-        mbedtls_sha256( bufferToVerify, bufferSize, actualHash, 0 );
+        mbedtls_sha256( bufferToVerify, bufferSize, (RPU8)&actualHash, 0 );
         
         mbedtls_pk_init( &key );
 
@@ -162,7 +162,7 @@ RBOOL
                                                     hash,
                                                     sizeof( hash ) ) )
                 {
-                    if( rpal_memory_simpleMemcmp( hash, actualHash, sizeof( actualHash ) ) )
+                    if( rpal_memory_simpleMemcmp( hash, &actualHash, sizeof( actualHash ) ) )
                     {
                         isSuccess = TRUE;
                     }
@@ -584,7 +584,7 @@ RBOOL
     (
         RPVOID buffer,
         RU32 bufferSize,
-        RU8 pHash[ CRYPTOLIB_HASH_SIZE ]
+        CryptoLib_Hash* pHash
     )
 {
     RBOOL isSuccess = FALSE;
@@ -593,7 +593,7 @@ RBOOL
         0 != bufferSize &&
         NULL != pHash )
     {
-        mbedtls_sha256( buffer, bufferSize, pHash, 0 );
+        mbedtls_sha256( buffer, bufferSize, (RPU8)pHash, 0 );
         isSuccess = TRUE;
     }
 
@@ -605,7 +605,7 @@ RBOOL
     CryptoLib_hashFileW
     (
         RPWCHAR fileName,
-        RU8 pHash[ CRYPTOLIB_HASH_SIZE ],
+        CryptoLib_Hash* pHash,
         RBOOL isAvoidTimestamps
     )
 {
@@ -629,7 +629,7 @@ RBOOL
             {
                 mbedtls_sha256_update( &ctx, buff, read );
             }
-            mbedtls_sha256_finish( &ctx, pHash );
+            mbedtls_sha256_finish( &ctx, (RPU8)pHash );
             mbedtls_sha256_free( &ctx );
             isSuccess = TRUE;
 
@@ -644,7 +644,7 @@ RBOOL
     CryptoLib_hashFileA
     (
         RPCHAR fileName,
-        RU8 pHash[ CRYPTOLIB_HASH_SIZE ],
+        CryptoLib_Hash* pHash,
         RBOOL isAvoidTimestamps
     )
 {
