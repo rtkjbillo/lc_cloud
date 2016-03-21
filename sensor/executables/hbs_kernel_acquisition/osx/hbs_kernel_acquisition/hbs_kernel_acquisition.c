@@ -28,6 +28,7 @@
 
 static struct kern_ctl_reg krnlCommsCtl = { 0 };
 static kern_ctl_ref krnlCommsRef = { 0 };
+static int g_n_connected = 0;
 
 
 kern_return_t hbs_kernel_acquisition_start(kmod_info_t * ki, void *d);
@@ -261,6 +262,8 @@ errno_t
         void **unitinfo
     )
 {
+    g_n_connected++;
+    rpal_debug_info( "now %d clients connected", g_n_connected );
     return (0);
 }
 
@@ -273,6 +276,8 @@ errno_t
         void *unitinfo
     )
 {
+    g_n_connected--;
+    rpal_debug_info( "now %d clients connected", g_n_connected );
     return 0;
 }
 
@@ -343,7 +348,7 @@ kern_return_t hbs_kernel_acquisition_stop(kmod_info_t *ki, void *d)
     errno_t error = 0;
     int i = 0;
     
-    rpal_debug_info( "unregistering KM/UM comms" );
+    rpal_debug_info( "unregistering KM/UM comms (%d clients connected)", g_n_connected );
     error = ctl_deregister( krnlCommsRef );
     if( 0 == error )
     {
