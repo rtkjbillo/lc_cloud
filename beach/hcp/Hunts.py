@@ -67,11 +67,17 @@ class Hunt ( Actor ):
         del( self._contexts[ inv_id ] )
         return resp.isSuccess
 
-    def generateNewInv( self ):
-        inv_id = '%s/%s' % ( self.__class__.__name__, str( uuid.uuid4() ) )
+    def generateNewInv( self, inv_id = None ):
+        if inv_id is None:
+            inv_id = '%s/%s' % ( self.__class__.__name__, str( uuid.uuid4() ) )
+        else:
+            inv_id = str( inv_id )
         isSuccess = self._registerToInvData( inv_id )
         self._handleDetects( None, { 'report_id' : inv_id, 'detect' : {} } )
-        return isSuccess
+        if isSuccess:
+            return inv_id
+        else:
+            return False
 
     def postUpdatedDetect( self, context ):
         self.log( 'updating report %s with new context' % context[ 'report_id' ] )
