@@ -1,0 +1,99 @@
+---
+- hosts: beach_nodes
+  remote_user: root
+  vars:
+    limacharlie_master: 10.132.48.191
+    lc_root: /mnt/limacharlie/
+  tasks:
+    #==========================================================================
+    # Install the base Beach environment and mount the SSHFS drive.
+    #==========================================================================
+    - name: add master to host file
+      lineinfile: dest=/etc/hosts line="{{ limacharlie_master }} lc-master"
+    - name: add master to known hosts
+      lineinfile:
+        dest: /root/.ssh/known_hosts
+        create: yes
+        state: present
+        line: "{{ lookup('pipe', 'ssh-keyscan -t rsa lc-master') }} lc-master"
+    - name: install pip
+      apt: name=python-pip update_cache=yes
+    - name: install git
+      apt: name=git
+    - name: install python-dev
+      apt: name=python-dev
+    - name: install crypto
+      apt: name=python-m2crypto
+    - name: install beach
+      pip: name=beach
+    - name: add lc user
+      user: name=lc state=present
+    - name: install sshfs
+      apt: name=sshfs
+    - name: add lc user key for sshfs
+      copy: src=/home/lc/.ssh/ dest=/root/.ssh/ mode=0400
+      with_items:
+        - id_rsa.pub
+        - id_rsa
+    - name: add ssh config
+      lineinfile:
+        dest: /root/.ssh/config
+        create: yes
+        state: present
+        line: "Host lc-master\n    User lc\n    IdentityFile /root/.ssh/id_rsa"
+    - name: create root limacharlie directory
+      file: path=/mnt/limacharlie state=directory mode=0700 owner=lc
+    - name: mount the sshfs file system
+      command: sshfs -o reconnect,ServerAliveInterval=15,ServerAliveCountMax=3 lc-master:/home/lc/limacharlie/cloud/beach {{ lc_root }}
+    #==========================================================================
+    # Install some system configurations
+    #==========================================================================
+    - name: add local-lib to ldconfig
+      lineinfile:
+        dest: /etc/ld.so.conf
+        create: yes
+        state: present
+        line: "/usr/local/lib"
+    - name: reload ldconfig
+      command: ldconfig
+    - name: update max open files
+      lineinfile:
+        dest: /etc/security/limits.conf
+        create: yes
+        state: present
+        line: "* soft nofile 100000\n* hard nofile 100000\nroot soft nofile 100000\nroot hard nofile 100000"
+        
+    #==========================================================================
+    # Install the LC requirements
+    #==========================================================================
+    - name: install debconf-utils
+      apt: name=debconf-utils
+    - name: install autoconf
+      apt: name=autoconf
+    - name: install libtool
+      apt: name=libtool
+    - name: install flex
+      apt: name=flex
+    - name: install time_uuid
+      pip: name=time_uuid
+    #==========================================================================
+    # Install requirements specific to certain LC actors (not core)
+    #==========================================================================
+    - name: install python-mysql
+      apt: name=python-mysql
+    - name: install cassandra-driver
+      pip: name=cassandra-driver
+    - name: install virustotal
+      pip: name=time_uuid
+    - name: get yara repo
+      git: repo=https://github.com/refractionPOINT/yara.git dest=/tmp/yara
+    - name: compile yara
+      command: ./bootstrap.sh; ./configure --without-crypto; make; make install
+      args:
+        chdir: /tmp/yara/
+    - name: get yara-python repo
+      git: repo=https://github.com/refractionPOINT/yara-python.git dest=/tmp/yara-python
+    - name: compile yara-python
+      command: python setup.py build; python setup.py install
+      args:
+        chdir: /tmp/yara-python/
