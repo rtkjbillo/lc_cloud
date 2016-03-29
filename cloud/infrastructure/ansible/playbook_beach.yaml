@@ -4,6 +4,7 @@
   vars:
     limacharlie_master: 10.132.48.191
     lc_root: /mnt/limacharlie/
+    beach_config_file: /mnt/limacharlie/sample_cluster.yaml
   tasks:
     #==========================================================================
     # Install the base Beach environment and mount the SSHFS drive.
@@ -31,7 +32,7 @@
     - name: install sshfs
       apt: name=sshfs
     - name: add lc user key for sshfs
-      copy: src=/home/lc/.ssh/ dest=/root/.ssh/ mode=0400
+      copy: src=/home/lc/.ssh/{{ item }} dest=/root/.ssh/{{ item }} mode=0400
       with_items:
         - id_rsa.pub
         - id_rsa
@@ -40,14 +41,24 @@
         dest: /root/.ssh/config
         create: yes
         state: present
-        line: "Host lc-master\n    User lc\n    IdentityFile /root/.ssh/id_rsa"
+        line: "{{ item }}"
+      with_items:
+        - "Host lc-master"
+        - "  User lc"
+        - "  IdentityFile /root/.ssh/id_rsa"
     - name: create root limacharlie directory
       file: path=/mnt/limacharlie state=directory mode=0700 owner=lc
     - name: mount the sshfs file system
       command: sshfs -o reconnect,ServerAliveInterval=15,ServerAliveCountMax=3 lc-master:/home/lc/limacharlie/cloud/beach {{ lc_root }}
+      args:
+        creates: "{{ lc_root }}/__init__.py"
     #==========================================================================
     # Install some system configurations
     #==========================================================================
+    - name: build hosts file
+      lineinfile: dest=/etc/hosts regexp='.*{{ item }}$' line="{{ hostvars[item].ansible_default_ipv4.address }} {{item}}" state=present
+      when: hostvars[item].ansible_default_ipv4.address is defined
+      with_items: "{{ groups['all'] }}"
     - name: add local-lib to ldconfig
       lineinfile:
         dest: /etc/ld.so.conf
@@ -56,13 +67,31 @@
         line: "/usr/local/lib"
     - name: reload ldconfig
       command: ldconfig
-    - name: update max open files
+    - name: update max open files in limits
       lineinfile:
         dest: /etc/security/limits.conf
         create: yes
         state: present
-        line: "* soft nofile 100000\n* hard nofile 100000\nroot soft nofile 100000\nroot hard nofile 100000"
-        
+        line: "{{ item }}"
+      with_items:
+        - "* soft nofile 100000"
+        - "* hard nofile 100000"
+        - "root soft nofile 100000"
+        - "root hard nofile 100000"
+    - name: update max open files in common-session
+      lineinfile:
+        dest: /etc/pam.d/common-session
+        create: yes
+        state: present
+        line: "session required pam_limits.so"
+    - name: update max open files in sysctl
+      lineinfile:
+        dest: /etc/sysctl.conf
+        create: yes
+        state: present
+        line: "fs.file-max = 2097152"
+    - name: reload sysctl
+      command: sysctl -p
     #==========================================================================
     # Install the LC requirements
     #==========================================================================
@@ -80,7 +109,7 @@
     # Install requirements specific to certain LC actors (not core)
     #==========================================================================
     - name: install python-mysql
-      apt: name=python-mysql
+      apt: name=python-mysqldb
     - name: install cassandra-driver
       pip: name=cassandra-driver
     - name: install virustotal
@@ -88,12 +117,22 @@
     - name: get yara repo
       git: repo=https://github.com/refractionPOINT/yara.git dest=/tmp/yara
     - name: compile yara
-      command: ./bootstrap.sh; ./configure --without-crypto; make; make install
+      command: "{{ item }}"
+      with_items:
+        - ./bootstrap.sh
+        - ./configure --without-crypto
+        - make
+        - make install
       args:
         chdir: /tmp/yara/
+        creates: /usr/local/bin/yara
     - name: get yara-python repo
       git: repo=https://github.com/refractionPOINT/yara-python.git dest=/tmp/yara-python
     - name: compile yara-python
-      command: python setup.py build; python setup.py install
+      command: "{{ item }}"
+      with_items:
+        - python setup.py build
+        - python setup.py install
       args:
         chdir: /tmp/yara-python/
+        creates: /usr/local/lib/python2.7/dist-packages/*yara*
