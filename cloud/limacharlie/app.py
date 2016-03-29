@@ -111,18 +111,24 @@ def _x_( o, path, isWildcardDepth = False ):
         r = None
     return r
 
-def sanitizeJson( o ):
+def sanitizeJson( o, summarized = False ):
     if type( o ) is dict:
         for k, v in o.iteritems():
-            o[ k ] = sanitizeJson( v )
+            o[ k ] = sanitizeJson( v, summarized = summarized )
     elif type( o ) is list or type( o ) is tuple:
-        o = [ sanitizeJson( x ) for x in o ]
+        o = [ sanitizeJson( x, summarized = summarized ) for x in o ]
     else:
         try:
             json.dumps( o )
         except:
             o = base64.b64encode( o )
+        if summarized is not False and len( str( o ) ) > summarized:
+            o = str( o[ : summarized ] ) + '...'
+
     return o
+
+def downloadFileName( name ):
+    web.header( 'Content-Disposition', 'attachment;filename="%s"' % name )
 
 ###############################################################################
 # PAGE DECORATORS
@@ -137,6 +143,14 @@ def jsonApi( f ):
             return json.dumps( r )
         except:
             return json.dumps( { 'error' : str( r ) } )
+    return wrapped
+
+def fileDownload( f ):
+    ''' Decorator to basic exception handling on function. '''
+    @wraps( f )
+    def wrapped( *args, **kwargs ):
+        web.header( 'Content-Type', 'application/octet-stream' )
+        return f( *args, **kwargs )
     return wrapped
 
 ###############################################################################
@@ -246,7 +260,7 @@ class Timeline:
                     except:
                         richEvent = None
                 if richEvent is None:
-                    richEvent = str( eventRender.default( sanitizeJson( event[ 3 ] ) ) )
+                    richEvent = str( eventRender.default( sanitizeJson( event[ 3 ], summarized = 1024 ) ) )
 
                 info.data[ 'events' ].append( ( event[ 0 ],
                                                 event[ 1 ],
@@ -304,7 +318,7 @@ class LastEvents:
 
 class EventView:
     def GET( self ):
-        params = web.input( id = None )
+        params = web.input( id = None, summarized = 1024 )
 
         if params.id is None:
             return render.error( 'need to supply an event id' )
@@ -314,7 +328,7 @@ class EventView:
         if not info.isSuccess:
             return render.error( str( info ) )
 
-        return render.event( sanitizeJson( info.data.get( 'event', {} ) ) )
+        return render.event( sanitizeJson( info.data.get( 'event', {} ), summarized = params.summarized ) )
 
 class HostObjects:
     def GET( self ):
@@ -405,6 +419,25 @@ class HostChanges:
 
         return info.data.get( 'changes', {} )
 
+class DownloadFileInEvent:
+    @fileDownload
+    def GET( self ):
+        params = web.input( id = None )
+
+        if params.id is None:
+            raise web.HTTPError( '400 Bad Request: event id required' )
+
+        info = model.request( 'get_file_in_event', { 'id' : params.id } )
+
+        if not info.isSuccess:
+            raise web.HTTPError( '503 Service Unavailable : %s' % str( info ) )
+
+        downloadFileName( '%s__%s' % ( params.id, ( info.data[ 'path' ].replace( '/', '_' )
+                                                                       .replace( '\\', '_' )
+                                                                       .replace( '.', '_' ) ) ) )
+
+        return info.data[ 'data' ]
+
 ###############################################################################
 # BOILER PLATE
 ###############################################################################
@@ -424,7 +457,8 @@ urls = ( r'/', 'Index',
          r'/detects_data', 'JsonDetects',
          r'/detects', 'ViewDetects',
          r'/detect', 'ViewDetect',
-         r'/hostchanges', 'HostChanges' )
+         r'/hostchanges', 'HostChanges',
+         r'/downloadfileinevent', 'DownloadFileInEvent')
 
 web.config.debug = False
 app = web.application( urls, globals() )

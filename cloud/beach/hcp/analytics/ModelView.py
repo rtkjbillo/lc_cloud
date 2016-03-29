@@ -48,6 +48,7 @@ class ModelView( Actor ):
         self.handle( 'set_kv', self.set_kv )
         self.handle( 'get_kc', self.get_kv )
         self.handle( 'get_obj_loc', self.get_obj_loc )
+        self.handle( 'get_file_in_event', self.get_file_in_event )
 
     def deinit( self ):
         Host.closeDatabase()
@@ -294,3 +295,15 @@ class ModelView( Actor ):
         locs = [ _ for _ in HostObjects( objects ).locs() ]
 
         return ( True, locs )
+
+    def get_file_in_event( self, msg ):
+        event = Host.getSpecificEvent( msg.data[ 'id' ] )
+
+        event = ( event[ 0 ], FluxEvent.decode( event[ 2 ] ) )
+
+        filePath = None
+        fileData = _x_( event, '*/base.FILE_CONTENT' )
+        if fileData is not None:
+            filePath = _x_( event, '*/base.FILE_PATH' )
+
+        return ( True, { 'data' : fileData, 'path' : filePath } )
