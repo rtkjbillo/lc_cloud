@@ -7,6 +7,10 @@
     beach_config_file: /mnt/limacharlie/sample_cluster.yaml
   tasks:
     #==========================================================================
+    # Setup the firewall.
+    #==========================================================================
+    - include: tasks/firewall.yaml
+    #==========================================================================
     # Install the base Beach environment and mount the SSHFS drive.
     #==========================================================================
     - name: add master to host file
@@ -18,7 +22,7 @@
         state: present
         line: "{{ lookup('pipe', 'ssh-keyscan -t rsa lc-master') }} lc-master"
     - name: install pip
-      apt: name=python-pip update_cache=yes
+      apt: name=python-pip
     - name: install git
       apt: name=git
     - name: install python-dev
@@ -56,8 +60,8 @@
     # Install some system configurations
     #==========================================================================
     - name: build hosts file
-      lineinfile: dest=/etc/hosts regexp='.*{{ item }}$' line="{{ hostvars[item].ansible_default_ipv4.address }} {{item}}" state=present
-      when: hostvars[item].ansible_default_ipv4.address is defined
+      lineinfile: dest=/etc/hosts regexp='.*{{ item }}$' line="{{ hostvars[item].ansible_eth1.ipv4.address }} {{item}}" state=present
+      when: hostvars[item].ansible_eth1.ipv4.address is defined
       with_items: "{{ groups['all'] }}"
     - name: add local-lib to ldconfig
       lineinfile:
@@ -65,8 +69,10 @@
         create: yes
         state: present
         line: "/usr/local/lib"
+      register: ldconfig_entries
     - name: reload ldconfig
       command: ldconfig
+      when: ldconfig_entries.changed
     - name: update max open files in limits
       lineinfile:
         dest: /etc/security/limits.conf
@@ -90,8 +96,10 @@
         create: yes
         state: present
         line: "fs.file-max = 2097152"
+      register: sysctl_entries
     - name: reload sysctl
       command: sysctl -p
+      when: sysctl_entries.changed
     #==========================================================================
     # Install the LC requirements
     #==========================================================================
