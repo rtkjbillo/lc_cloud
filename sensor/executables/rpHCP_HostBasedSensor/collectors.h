@@ -96,7 +96,10 @@ DECLARE_COLLECTOR( 15 );
 DECLARE_COLLECTOR( 16 );
 DECLARE_COLLECTOR( 17 );
 
-
+//=============================================================================
+//  Higher Level Helper Data Structures
+//=============================================================================
+typedef RPVOID HbsRingBuffer;
 
 //=============================================================================
 //  Helper Functionality
@@ -114,4 +117,32 @@ RBOOL
         RU8 percent,
         RTIME timeout,
         rEvent abortEvent
+    );
+
+HbsRingBuffer
+    HbsRingBuffer_new
+    (
+        RU32 nMaxElements,
+        RU32 maxTotalSize
+    );
+
+RVOID
+    HbsRingBuffer_free
+    (
+        HbsRingBuffer hrb
+    );
+
+RBOOL
+    HbsRingBuffer_add
+    (
+        HbsRingBuffer hrb,
+        rSequence elem
+    );
+
+RBOOL
+    HbsRingBuffer_find
+    (
+        HbsRingBuffer hrb,
+        RBOOL(*compareFunction)( rSequence seq, RPVOID ref ),
+        rSequence* pFound
     );

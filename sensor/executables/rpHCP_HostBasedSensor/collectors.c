@@ -18,6 +18,17 @@ limitations under the License.
 #include <rpHostCommonPlatformLib/rTags.h>
 #include <libOs/libOs.h>
 
+#define RPAL_FILE_ID        103
+
+typedef struct
+{
+    rCollection col;
+    RU32 sizeInBuffer;
+    RU32 nMaxElements;
+    RU32 maxTotalSize;
+
+} _HbsRingBuffer;
+
 RBOOL
     hbs_markAsRelated
     (
@@ -81,4 +92,165 @@ RBOOL
     while( end > rpal_time_getLocal() );
 
     return isCpuIdle;
+}
+
+static
+RVOID
+    _freeEvt
+    (
+        rSequence evt,
+        RU32 unused
+    )
+{
+    UNREFERENCED_PARAMETER( unused );
+    rSequence_free( evt );
+}
+
+HbsRingBuffer
+    HbsRingBuffer_new
+    (
+        RU32 nMaxElements,
+        RU32 maxTotalSize
+    )
+{
+    _HbsRingBuffer* hrb = NULL;
+
+    if( NULL != ( hrb = rpal_memory_alloc( sizeof( _HbsRingBuffer ) ) ) )
+    {
+        if( rpal_collection_create( &hrb->col, _freeEvt ) )
+        {
+            hrb->sizeInBuffer = 0;
+            hrb->nMaxElements = 0;
+            hrb->maxTotalSize = 0;
+        }
+        else
+        {
+            rpal_memory_free( hrb );
+            hrb = NULL;
+        }
+    }
+
+    return (HbsRingBuffer)hrb;
+}
+
+RVOID
+    HbsRingBuffer_free
+    (
+        HbsRingBuffer hrb
+    )
+{
+    _HbsRingBuffer* pHrb = (_HbsRingBuffer*)hrb;
+    
+    if( rpal_memory_isValid( pHrb ) )
+    {
+        if( NULL != pHrb->col )
+        {
+            rpal_collection_free( pHrb->col );
+        }
+
+        rpal_memory_free( pHrb );
+    }
+}
+
+RBOOL
+    HbsRingBuffer_add
+    (
+        HbsRingBuffer hrb,
+        rSequence elem
+    )
+{
+    RBOOL isAdded = FALSE;
+    RBOOL isReadyToAdd = FALSE;
+    RU32 elemSize = 0;
+    rSequence toDelete = NULL;
+    _HbsRingBuffer* pHrb = (_HbsRingBuffer*)hrb;
+
+    if( rpal_memory_isValid( hrb ) &&
+        rpal_memory_isValid( elem ) )
+    {
+        elemSize = rSequence_getEstimateSize( elem );
+
+        isReadyToAdd = TRUE;
+
+        while( ( 0 != pHrb->maxTotalSize &&
+                 elemSize + pHrb->sizeInBuffer > pHrb->maxTotalSize ) ||
+               ( 0 != pHrb->nMaxElements &&
+                 rpal_collection_getSize( pHrb->col ) + 1 > pHrb->nMaxElements ) )
+        {
+            if( rpal_collection_remove( pHrb->col, &toDelete, NULL, NULL, NULL ) )
+            {
+                rSequence_free( toDelete );
+            }
+            else
+            {
+                isReadyToAdd = FALSE;
+                break;
+            }
+        }
+
+        if( isReadyToAdd &&
+            rpal_collection_add( pHrb->col, elem, sizeof( elem ) ) )
+        {
+            isAdded = TRUE;
+            pHrb->sizeInBuffer += rSequence_getEstimateSize( elem );
+        }
+    }
+
+    return isAdded;
+}
+
+typedef struct
+{
+    RBOOL( *compareFunction )( rSequence seq, RPVOID ref );
+    RPVOID ref;
+
+} _ShimCompareContext;
+
+static
+RBOOL
+    _shimCompareFunction
+    (
+        rSequence seq,
+        RU32 dummySize,
+        _ShimCompareContext* ctx
+    )
+{
+    RBOOL ret = FALSE;
+    UNREFERENCED_PARAMETER( dummySize );
+
+    if( NULL != seq &&
+        NULL != ctx )
+    {
+        ret = ctx->compareFunction( seq, ctx->compareFunction );
+    }
+
+    return ret;
+}
+
+RBOOL
+    HbsRingBuffer_find
+    (
+        HbsRingBuffer hrb,
+        RBOOL( *compareFunction )( rSequence seq, RPVOID ref ),
+        RPVOID ref,
+        rSequence* pFound
+    )
+{
+    RBOOL isFound = FALSE;
+    _HbsRingBuffer* pHrb = (_HbsRingBuffer*)hrb;
+    _ShimCompareContext ctx = { 0 };
+
+    if( rpal_memory_isValid( hrb ) &&
+        NULL != compareFunction &&
+        NULL != pFound )
+    {
+        ctx.compareFunction = compareFunction;
+        ctx.ref = ref;
+        if( rpal_collection_get( pHrb->col, pFound, NULL, _shimCompareFunction, &ctx ) )
+        {
+            isFound = TRUE;
+        }
+    }
+
+    return isFound;
 }

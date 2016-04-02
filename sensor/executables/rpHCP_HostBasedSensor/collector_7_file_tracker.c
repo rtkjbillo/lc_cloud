@@ -185,6 +185,9 @@ RPVOID
             {
                 fileName = rpal_string_atow( new_from_kernel[ i ].path );
 
+                rSequence_addRU32( notif, RP_TAGS_PROCESS_ID, new_from_kernel[ i ].pid );
+                rSequence_addRU32( notif, RP_TAGS_USER_ID, new_from_kernel[ i ].uid );
+
                 if( rSequence_addSTRINGW( notif, RP_TAGS_FILE_PATH, fileName ) &&
                     rSequence_addTIMESTAMP( notif,
                                             RP_TAGS_TIMESTAMP,
