@@ -201,13 +201,31 @@ RVOID
     DocSearchContext ctx = { 0 };
     RU32 hashSize = 0;
     rList foundDocs = NULL;
+    RBOOL isAAlloced = FALSE;
+    RBOOL isWAlloced = FALSE;
     UNREFERENCED_PARAMETER( notifId );
 
     if( NULL != notif )
     {
-        rSequence_getSTRINGA( notif, RP_TAGS_STRING_PATTERN, &ctx.exprA );
-        rSequence_getSTRINGW( notif, RP_TAGS_STRING_PATTERN, &ctx.exprW );
-        if( rSequence_getBUFFER( notif, RP_TAGS_HASH, (RPU8*)&ctx.pHash, &hashSize ) &&
+        if( !rSequence_getSTRINGA( notif, RP_TAGS_STRING_PATTERN, &ctx.exprA ) )
+        {
+            ctx.exprA = NULL;
+        }
+        if( !rSequence_getSTRINGW( notif, RP_TAGS_STRING_PATTERN, &ctx.exprW ) )
+        {
+            ctx.exprW = NULL;
+        }
+        if( NULL != ctx.exprA && NULL == ctx.exprW )
+        {
+            ctx.exprW = rpal_string_atow( ctx.exprA );
+            isWAlloced = TRUE;
+        }
+        if( NULL != ctx.exprW && NULL == ctx.exprA )
+        {
+            ctx.exprA = rpal_string_wtoa( ctx.exprW );
+            isAAlloced = TRUE;
+        }
+        if( !rSequence_getBUFFER( notif, RP_TAGS_HASH, (RPU8*)&ctx.pHash, &hashSize ) ||
             sizeof( *ctx.pHash ) != hashSize )
         {
             // Unexpected hash size, let's not gamble 
@@ -241,6 +259,17 @@ RVOID
         }
 
         rMutex_unlock( cacheMutex );
+
+        notifications_publish( RP_TAGS_NOTIFICATION_GET_DOCUMENT_REP, notif );
+    }
+
+    if( isAAlloced )
+    {
+        rpal_memory_free( ctx.exprA );
+    }
+    if( isWAlloced )
+    {
+        rpal_memory_free( ctx.exprW );
     }
 }
 
