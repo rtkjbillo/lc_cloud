@@ -38,3 +38,16 @@ rList().addSequence( _.hbs.CONFIGURATION,
        .addSequence( _.hbs.CONFIGURATION,
                      rSequence().addInt32( _.hbs.CONFIGURATION_ID, HbsCollectorId.OS_FORENSIC )
                                 .addTimedelta( _.base.TIMEDELTA, ( 60 * 60 * 24 * 1 ) ) )
+       .addSequence( _.hbs.CONFIGURATION,
+                     rSequence().addInt32( _.hbs.CONFIGURATION_ID, HbsCollectorId.DOC_COLLECTOR )
+                                .addList( _.base.EXTENSIONS, rList().addStringA( _base.EXTENSION, ".bat" )
+                                                                    .addStringA( _base.EXTENSION, ".js" )
+                                                                    .addStringA( _base.EXTENSION, ".ps1" )
+                                                                    .addStringA( _base.EXTENSION, ".sh" )
+                                                                    .addStringA( _base.EXTENSION, ".py" )
+                                                                    .addStringA( _base.EXTENSION, ".txt" )
+                                                                    .addStringA( _base.EXTENSION, ".pdf" )
+                                                                    .addStringA( _base.EXTENSION, ".doc" )
+                                                                    .addStringA( _base.EXTENSION, ".rtf" ) )
+                                .addList( _.base.PATTERNS, rList().addStringA( _base.STRING_PATTERN, "/tmp/" )
+                                                                  .addStringA( _base.STRING_PATTERN, "\\temp\\" ) )
