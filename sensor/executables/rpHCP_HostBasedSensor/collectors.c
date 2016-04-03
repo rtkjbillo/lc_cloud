@@ -120,8 +120,8 @@ HbsRingBuffer
         if( rpal_collection_create( &hrb->col, _freeEvt ) )
         {
             hrb->sizeInBuffer = 0;
-            hrb->nMaxElements = 0;
-            hrb->maxTotalSize = 0;
+            hrb->nMaxElements = nMaxElements;
+            hrb->maxTotalSize = maxTotalSize;
         }
         else
         {
@@ -203,6 +203,7 @@ typedef struct
 {
     RBOOL( *compareFunction )( rSequence seq, RPVOID ref );
     RPVOID ref;
+    rSequence last;
 
 } _ShimCompareContext;
 
@@ -221,7 +222,24 @@ RBOOL
     if( NULL != seq &&
         NULL != ctx )
     {
-        ret = ctx->compareFunction( seq, ctx->compareFunction );
+        // If the out value of the find contained a non-null
+        // pointer we use it as an iterator marker and will
+        // only report hits we find AFTER we've seen the marker.
+        // This means that a new call to find should always
+        // use NULL as an initial value in the pFound but also
+        // that if you use it as an iterator you cannot remove
+        // the last found value in between calls.
+        if( NULL != ctx->last )
+        {
+            if( ctx->last == seq )
+            {
+                ctx->last = NULL;
+            }
+        }
+        else
+        {
+            ret = ctx->compareFunction( seq, ctx->ref );
+        }
     }
 
     return ret;
@@ -246,6 +264,12 @@ RBOOL
     {
         ctx.compareFunction = compareFunction;
         ctx.ref = ref;
+
+        if( NULL != *pFound )
+        {
+            ctx.last = *pFound;
+        }
+
         if( rpal_collection_get( pHrb->col, pFound, NULL, _shimCompareFunction, &ctx ) )
         {
             isFound = TRUE;

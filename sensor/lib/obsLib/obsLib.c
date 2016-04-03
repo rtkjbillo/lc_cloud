@@ -18,6 +18,8 @@ limitations under the License.
 
 #define RPAL_FILE_ID    43
 
+#pragma warning( disable: 4127 ) // Disabling error on constant expressions
+
 //=============================================================================
 //  Internal Macros
 //=============================================================================
@@ -398,6 +400,150 @@ RBOOL
             else
             {
                 isSuccess = FALSE;
+            }
+        }
+    }
+
+    return isSuccess;
+}
+
+RBOOL
+    obsLib_addStringPatternA
+    (
+        HObs hObs,
+        RPCHAR strPattern,
+        RBOOL isIncludeNullEnding,
+        RBOOL isCaseInsensitive,
+        RPVOID context
+    )
+{
+    RBOOL isSuccess = FALSE;
+    RU32 patternLength = 0;
+    RPCHAR tmp = NULL;
+    RU32 strLen = 0;
+    RU32 i = 0;
+
+    if( rpal_memory_isValid( hObs ) &&
+        NULL != strPattern &&
+        0 != rpal_string_strlen( strPattern ) )
+    {
+        if( !isCaseInsensitive )
+        {
+            patternLength = rpal_string_strlen( strPattern ) * sizeof( RCHAR );
+            patternLength += ( isIncludeNullEnding ? 1 * sizeof( RCHAR ) : 0 );
+            isSuccess = obsLib_addPattern( hObs, (RPU8)strPattern, patternLength, context );
+        }
+        else
+        {
+            if( NULL != ( tmp = rpal_string_strdupa( strPattern ) ) )
+            {
+                // Iteratively generate all cases for the string.
+                rpal_string_tolowera( tmp );
+                strLen = rpal_string_strlen( tmp );
+                patternLength = strLen * sizeof( RCHAR );
+                patternLength += ( isIncludeNullEnding ? 1 * sizeof( RCHAR ) : 0 );
+
+                while( TRUE )
+                {
+                    for( i = 0; i < strLen; i++ )
+                    {
+                        if( rpal_string_charIsUpper( tmp[ i ] ) )
+                        {
+                            tmp[ i ] = rpal_string_charToLower( tmp[ i ] );
+                        }
+                        else if( rpal_string_charIsLower( tmp[ i ] ) )
+                        {
+                            tmp[ i ] = rpal_string_charToUpper( tmp[ i ] );
+                            break;
+                        }
+                    }
+
+                    // Record this combination.
+                    if( FALSE == ( isSuccess = obsLib_addPattern( hObs, (RPU8)tmp, patternLength, context ) ) )
+                    {
+                        break;
+                    }
+
+                    if( i == strLen )
+                    {
+                        // We've overflowed the string so we're done.
+                        break;
+                    }
+                }
+
+                rpal_memory_free( tmp );
+            }
+        }
+    }
+
+    return isSuccess;
+}
+
+RBOOL
+    obsLib_addStringPatternW
+    (
+        HObs hObs,
+        RPWCHAR strPattern,
+        RBOOL isIncludeNullEnding,
+        RBOOL isCaseInsensitive,
+        RPVOID context
+    )
+{
+    RBOOL isSuccess = FALSE;
+    RU32 patternLength = 0;
+    RPWCHAR tmp = NULL;
+    RU32 strLen = 0;
+    RU32 i = 0;
+
+    if( rpal_memory_isValid( hObs ) &&
+        NULL != strPattern &&
+        0 != rpal_string_strlenw( strPattern ) )
+    {
+        if( !isCaseInsensitive )
+        {
+            patternLength = rpal_string_strlenw( strPattern ) * sizeof( RWCHAR );
+            patternLength += ( isIncludeNullEnding ? 1 * sizeof( RWCHAR ) : 0 );
+            isSuccess = obsLib_addPattern( hObs, (RPU8)strPattern, patternLength, context );
+        }
+        else
+        {
+            if( NULL != ( tmp = rpal_string_strdupw( strPattern ) ) )
+            {
+                // Iteratively generate all cases for the string.
+                rpal_string_tolowerw( tmp );
+                strLen = rpal_string_strlenw( tmp );
+                patternLength = strLen * sizeof( RWCHAR );
+                patternLength += ( isIncludeNullEnding ? 1 * sizeof( RWCHAR ) : 0 );
+
+                while( TRUE )
+                {
+                    for( i = 0; i < strLen; i++ )
+                    {
+                        if( rpal_string_wcharIsUpper( tmp[ i ] ) )
+                        {
+                            tmp[ i ] = rpal_string_wcharToLower( tmp[ i ] );
+                        }
+                        else if( rpal_string_wcharIsLower( tmp[ i ] ) )
+                        {
+                            tmp[ i ] = rpal_string_wcharToUpper( tmp[ i ] );
+                            break;
+                        }
+                    }
+
+                    // Record this combination.
+                    if( FALSE == ( isSuccess = obsLib_addPattern( hObs, (RPU8)tmp, patternLength, context ) ) )
+                    {
+                        break;
+                    }
+
+                    if( i == strLen )
+                    {
+                        // We've overflowed the string so we're done.
+                        break;
+                    }
+                }
+
+                rpal_memory_free( tmp );
             }
         }
     }

@@ -28,8 +28,8 @@ limitations under the License.
 #define DOCUMENT_MAX_SIZE               (1024 * 1024 * 15)
 
 static rQueue createQueue = NULL;
-static HObs extensionMatcherA = NULL;
-static HObs extensionMatcherW = NULL;
+static HObs matcherA = NULL;
+static HObs matcherW = NULL;
 
 static HbsRingBuffer documentCache = NULL;
 static RU32 cacheMaxSize = MAX_CACHE_SIZE;
@@ -71,16 +71,19 @@ RVOID
 
     if( NULL != notif )
     {
+        obsLib_resetSearchState( matcherA );
+        obsLib_resetSearchState( matcherW );
+
         if( ( rSequence_getSTRINGA( notif, RP_TAGS_FILE_PATH, &fileA ) &&
-              obsLib_setTargetBuffer( extensionMatcherA, 
+              obsLib_setTargetBuffer( matcherA, 
                                       fileA, 
-                                      rpal_string_strlen( fileA ) + sizeof( RCHAR ) ) &&
-              obsLib_nextHit( extensionMatcherA, NULL, NULL ) ) ||
+                                      ( rpal_string_strlen( fileA ) + 1 ) * sizeof( RCHAR ) ) &&
+              obsLib_nextHit( matcherA, NULL, NULL ) ) ||
             ( rSequence_getSTRINGW( notif, RP_TAGS_FILE_PATH, &fileW ) &&
-              obsLib_setTargetBuffer( extensionMatcherW, 
+              obsLib_setTargetBuffer( matcherW, 
                                       fileW, 
-                                      rpal_string_strlenw( fileW ) + sizeof( RWCHAR ) ) &&
-              obsLib_nextHit( extensionMatcherW, NULL, NULL ) ) )
+                                      ( rpal_string_strlenw( fileW ) + 1 ) * sizeof( RWCHAR ) ) &&
+              obsLib_nextHit( matcherW, NULL, NULL ) ) )
         {
             // This means it's a file of interest.
             if( ( NULL != fileA &&
@@ -97,7 +100,8 @@ RVOID
                 // We acquired the hash, either by reading the entire file in memory
                 // which we will use for caching, or if it was too big by hashing it
                 // sequentially on disk.
-                rSequence_addBUFFER( notif, RP_TAGS_HASH, &hash, sizeof( hash ) );
+                rSequence_unTaintRead( notif );
+                rSequence_addBUFFER( notif, RP_TAGS_HASH, (RPU8)&hash, sizeof( hash ) );
                 notifications_publish( RP_TAGS_NOTIFICATION_NEW_DOCUMENT, notif );
             }
 
@@ -111,6 +115,15 @@ RVOID
                 }
 
                 rMutex_unlock( cacheMutex );
+            }
+            else
+            {
+                rSequence_free( notif );
+            }
+
+            if( NULL != fileContent )
+            {
+                rpal_memory_free( fileContent );
             }
         }
         else
@@ -163,7 +176,14 @@ RBOOL
     {
         rSequence_getSTRINGA( doc, RP_TAGS_FILE_PATH, &filePathA );
         rSequence_getSTRINGW( doc, RP_TAGS_FILE_PATH, &filePathW );
-        rSequence_getBUFFER( doc, RP_TAGS_HASH, &pHash, &hashSize );
+        rSequence_getBUFFER( doc, RP_TAGS_HASH, (RPU8*)&pHash, &hashSize );
+
+        if( ( NULL == filePathA || NULL == ctx->exprA || rpal_string_match( ctx->exprA, filePathA ) ) &&
+            ( NULL == filePathW || NULL == ctx->exprW || rpal_string_matchw( ctx->exprW, filePathW ) ) &&
+            ( NULL == pHash || NULL == ctx->pHash || 0 == rpal_memory_memcmp( pHash, ctx->pHash, hashSize ) ) )
+        {
+            isMatch = TRUE;
+        }
     }
 
     return isMatch;
@@ -177,27 +197,48 @@ RVOID
         rSequence notif
     )
 {
-    RU32 i = 0;
     rSequence tmp = NULL;
     DocSearchContext ctx = { 0 };
     RU32 hashSize = 0;
+    rList foundDocs = NULL;
     UNREFERENCED_PARAMETER( notifId );
 
     if( NULL != notif )
     {
         rSequence_getSTRINGA( notif, RP_TAGS_STRING_PATTERN, &ctx.exprA );
         rSequence_getSTRINGW( notif, RP_TAGS_STRING_PATTERN, &ctx.exprW );
-        if( rSequence_getBUFFER( notif, RP_TAGS_HASH, &ctx.pHash, &hashSize ) &&
+        if( rSequence_getBUFFER( notif, RP_TAGS_HASH, (RPU8*)&ctx.pHash, &hashSize ) &&
             sizeof( *ctx.pHash ) != hashSize )
         {
-            // Unexpected hash size, let's not gamble
+            // Unexpected hash size, let's not gamble 
             ctx.pHash = NULL;
         }
     }
 
     if( rMutex_lock( cacheMutex ) )
     {
-        
+        if( NULL != ( foundDocs = rList_new( RP_TAGS_FILE_INFO, RPCM_SEQUENCE ) ) )
+        {
+            while( HbsRingBuffer_find( documentCache, findDoc, &ctx, &tmp ) )
+            {
+                // TODO: optimize this since if we're dealing with large files
+                // we will be temporarily using large amounts of duplicate memory.
+                // We just need to do some shallow free of the datastructures
+                // somehow.
+                if( NULL != ( tmp = rSequence_duplicate( tmp ) ) )
+                {
+                    if( !rList_addSEQUENCE( foundDocs, tmp ) )
+                    {
+                        rSequence_free( tmp );
+                    }
+                }
+            }
+
+            if( !rSequence_addLIST( notif, RP_TAGS_FILES, foundDocs ) )
+            {
+                rList_free( foundDocs );
+            }
+        }
 
         rMutex_unlock( cacheMutex );
     }
@@ -221,22 +262,32 @@ RBOOL
     RBOOL isSuccess = FALSE;
 
     rList extensions = NULL;
-    RPCHAR extA = NULL;
-    RPWCHAR extW = NULL;
+    rList patterns = NULL;
+    RPCHAR strA = NULL;
+    RPCHAR tmpA = NULL;
+    RPWCHAR strW = NULL;
+    RPWCHAR tmpW = NULL;
     RU32 maxSize = 0;
+    RBOOL isCaseInsensitive = FALSE;
 
-    if( NULL != hbsState &&
-        NULL != config )
+    if( NULL != hbsState )
     {
-        if( rSequence_getLIST( config, RP_TAGS_EXTENSIONS, &extensions ) &&
-            0 != rList_getNumElements( extensions ) )
+#ifdef RPAL_PLATFORM_WINDOWS
+        // On Windows files and paths are not case sensitive.
+        isCaseInsensitive = TRUE;
+#endif
+
+        if( NULL == config ||
+            rSequence_getLIST( config, RP_TAGS_EXTENSIONS, &extensions ) ||
+            rSequence_getLIST( config, RP_TAGS_PATTERNS, &patterns ) )
         {
             if( NULL != ( cacheMutex = rMutex_create() ) &&
-                NULL != ( extensionMatcherA = obsLib_new( 0, 0 ) ) &&
-                NULL != ( extensionMatcherW = obsLib_new( 0, 0 ) ) )
+                NULL != ( matcherA = obsLib_new( 0, 0 ) ) &&
+                NULL != ( matcherW = obsLib_new( 0, 0 ) ) )
             {
                 cacheSize = 0;
-                if( rSequence_getRU32( config, RP_TAGS_MAX_SIZE, &maxSize ) )
+                if( NULL != config &&
+                    rSequence_getRU32( config, RP_TAGS_MAX_SIZE, &maxSize ) )
                 {
                     cacheMaxSize = maxSize;
                 }
@@ -247,20 +298,87 @@ RBOOL
                 
                 if( NULL != ( documentCache = HbsRingBuffer_new( 0, cacheMaxSize ) ) )
                 {
-                    while( rList_getSTRINGA( extensions, RP_TAGS_EXTENSION, &extA ) )
+                    if( NULL == config )
                     {
-                        obsLib_addPattern( extensionMatcherA,
-                            extA,
-                            rpal_string_strlen( extA ) + sizeof( RCHAR ),
-                            NULL );
+                        // As a default we'll cache all new files
+                        obsLib_addPattern( matcherA, (RPU8)"", sizeof( RCHAR ), NULL );
+                        obsLib_addPattern( matcherW, (RPU8)_WCH(""), sizeof( RWCHAR ), NULL );
                     }
-
-                    while( rList_getSTRINGW( extensions, RP_TAGS_EXTENSION, &extW ) )
+                    else
                     {
-                        obsLib_addPattern( extensionMatcherW,
-                            extW,
-                            rpal_string_strlenw( extW ) + sizeof( RWCHAR ),
-                            NULL );
+                        // If a config was provided we'll cache only certain extensions
+                        // specified.
+                        while( rList_getSTRINGA( extensions, RP_TAGS_EXTENSION, &strA ) )
+                        {
+                            if( rpal_string_expand( strA, &tmpA ) )
+                            {
+                                obsLib_addStringPatternA( matcherA, tmpA, TRUE, isCaseInsensitive, NULL );
+                                rpal_memory_free( tmpA );
+                            }
+                            if( NULL != ( strW = rpal_string_atow( strA ) ) )
+                            {
+                                if( rpal_string_expandw( strW, &tmpW ) )
+                                {
+                                    obsLib_addStringPatternW( matcherW, tmpW, TRUE, isCaseInsensitive, NULL );
+                                    rpal_memory_free( tmpW );
+                                }
+                                rpal_memory_free( strW );
+                            }
+                        }
+
+                        while( rList_getSTRINGW( extensions, RP_TAGS_EXTENSION, &strW ) )
+                        {
+                            if( rpal_string_expandw( strW, &tmpW ) )
+                            {
+                                obsLib_addStringPatternW( matcherW, tmpW, TRUE, isCaseInsensitive, NULL );
+                                rpal_memory_free( tmpW );
+                            }
+                            if( NULL != ( strA = rpal_string_wtoa( strW ) ) )
+                            {
+                                if( rpal_string_expand( strA, &tmpA ) )
+                                {
+                                    obsLib_addStringPatternA( matcherA, tmpA, TRUE, isCaseInsensitive, NULL );
+                                    rpal_memory_free( tmpA );
+                                }
+                                rpal_memory_free( strA );
+                            }
+                        }
+
+                        while( rList_getSTRINGA( patterns, RP_TAGS_STRING_PATTERN, &strA ) )
+                        {
+                            if( rpal_string_expand( strA, &tmpA ) )
+                            {
+                                obsLib_addStringPatternA( matcherA, tmpA, FALSE, isCaseInsensitive, NULL );
+                                rpal_memory_free( tmpA );
+                            }
+                            if( NULL != ( strW = rpal_string_atow( strA ) ) )
+                            {
+                                if( rpal_string_expandw( strW, &tmpW ) )
+                                {
+                                    obsLib_addStringPatternW( matcherW, tmpW, FALSE, isCaseInsensitive, NULL );
+                                    rpal_memory_free( tmpW );
+                                }
+                                rpal_memory_free( strW );
+                            }
+                        }
+
+                        while( rList_getSTRINGW( patterns, RP_TAGS_STRING_PATTERN, &strW ) )
+                        {
+                            if( rpal_string_expandw( strW, &tmpW ) )
+                            {
+                                obsLib_addStringPatternW( matcherW, tmpW, FALSE, isCaseInsensitive, NULL );
+                                rpal_memory_free( tmpW );
+                            }
+                            if( NULL != ( strA = rpal_string_wtoa( strW ) ) )
+                            {
+                                if( rpal_string_expand( strA, &tmpA ) )
+                                {
+                                    obsLib_addStringPatternA( matcherA, tmpA, FALSE, isCaseInsensitive, NULL );
+                                    rpal_memory_free( tmpA );
+                                }
+                                rpal_memory_free( strA );
+                            }
+                        }
                     }
 
                     if( rQueue_create( &createQueue, _freeEvt, 200 ) &&
@@ -280,11 +398,11 @@ RBOOL
                 rQueue_free( createQueue );
                 createQueue = NULL;
 
-                obsLib_free( extensionMatcherA );
-                obsLib_free( extensionMatcherW );
+                obsLib_free( matcherA );
+                obsLib_free( matcherW );
                 HbsRingBuffer_free( documentCache );
-                extensionMatcherA = NULL;
-                extensionMatcherW = NULL;
+                matcherA = NULL;
+                matcherW = NULL;
                 documentCache = NULL;
 
                 rMutex_free( cacheMutex );
@@ -314,11 +432,11 @@ RBOOL
         rQueue_free( createQueue );
         createQueue = NULL;
 
-        obsLib_free( extensionMatcherA );
-        obsLib_free( extensionMatcherW );
+        obsLib_free( matcherA );
+        obsLib_free( matcherW );
         HbsRingBuffer_free( documentCache );
-        extensionMatcherA = NULL;
-        extensionMatcherW = NULL;
+        matcherA = NULL;
+        matcherW = NULL;
         documentCache = NULL;
 
         rMutex_free( cacheMutex );

@@ -367,6 +367,68 @@ RBOOL
         RCHAR c
     );
 
+RBOOL
+    rpal_string_charIsAlpha
+    (
+        RCHAR c
+    );
+
+RBOOL
+    rpal_string_charIsNum
+    (
+        RCHAR c
+    );
+
+RBOOL
+    rpal_string_charIsUpper
+    (
+        RCHAR c
+    );
+
+RBOOL
+    rpal_string_charIsLower
+    (
+        RCHAR c
+    );
+
+
+RBOOL
+    rpal_string_wcharIsUpper
+    (
+        RWCHAR c
+    );
+
+RBOOL
+    rpal_string_wcharIsLower
+    (
+        RWCHAR c
+    );
+
+RCHAR
+    rpal_string_charToUpper
+    (
+        RCHAR c
+    );
+
+RCHAR
+    rpal_string_charToLower
+    (
+        RCHAR c
+    );
+
+
+RWCHAR
+    rpal_string_wcharToUpper
+    (
+        RWCHAR c
+    );
+
+RWCHAR
+    rpal_string_wcharToLower
+    (
+        RWCHAR c
+    );
+
 #include <stdio.h>
 #define rpal_string_snprintf(outStr,buffLen,format,...) snprintf((outStr),(buffLen),(format),__VA_ARGS__)
 #define rpal_string_sscanf(inStr,format,...) sscanf((inStr),(format),__VA_ARGS__)
