@@ -270,7 +270,7 @@ RBOOL
             ctx.last = *pFound;
         }
 
-        if( rpal_collection_get( pHrb->col, pFound, NULL, _shimCompareFunction, &ctx ) )
+        if( rpal_collection_get( pHrb->col, pFound, NULL, (collection_compare_func)_shimCompareFunction, &ctx ) )
         {
             isFound = TRUE;
         }

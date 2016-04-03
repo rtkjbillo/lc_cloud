@@ -88,12 +88,12 @@ RVOID
             // This means it's a file of interest.
             if( ( NULL != fileA &&
                   ( ( DOCUMENT_MAX_SIZE >= rpal_file_getSize( fileA, TRUE ) &&
-                      rpal_file_read( fileA, &fileContent, &fileSize, TRUE ) &&
+                      rpal_file_read( fileA, (RPVOID*)&fileContent, &fileSize, TRUE ) &&
                       CryptoLib_hash( fileContent, fileSize, &hash ) ) ||
                     CryptoLib_hashFileA( fileA, &hash, TRUE ) ) ) ||
                 ( NULL != fileW &&
                   ( ( DOCUMENT_MAX_SIZE >= rpal_file_getSizew( fileW, TRUE ) &&
-                      rpal_file_readw( fileW, &fileContent, &fileSize, TRUE ) &&
+                      rpal_file_readw( fileW, (RPVOID*)&fileContent, &fileSize, TRUE ) &&
                       CryptoLib_hash( fileContent, fileSize, &hash ) ) ||
                     CryptoLib_hashFileW( fileW, &hash, TRUE ) ) ) )
             {
@@ -219,7 +219,7 @@ RVOID
     {
         if( NULL != ( foundDocs = rList_new( RP_TAGS_FILE_INFO, RPCM_SEQUENCE ) ) )
         {
-            while( HbsRingBuffer_find( documentCache, findDoc, &ctx, &tmp ) )
+            while( HbsRingBuffer_find( documentCache, (HbsRingBufferCompareFunc)findDoc, &ctx, &tmp ) )
             {
                 // TODO: optimize this since if we're dealing with large files
                 // we will be temporarily using large amounts of duplicate memory.

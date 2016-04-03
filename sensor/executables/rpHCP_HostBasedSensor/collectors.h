@@ -101,6 +101,7 @@ DECLARE_COLLECTOR( 18 );
 //  Higher Level Helper Data Structures
 //=============================================================================
 typedef RPVOID HbsRingBuffer;
+typedef RBOOL(*HbsRingBufferCompareFunc)( rSequence seq, RPVOID ref );
 
 //=============================================================================
 //  Helper Functionality
@@ -144,7 +145,7 @@ RBOOL
     HbsRingBuffer_find
     (
         HbsRingBuffer hrb,
-        RBOOL(*compareFunction)( rSequence seq, RPVOID ref ),
+        HbsRingBufferCompareFunc compareFunction,
         RPVOID ref,
         rSequence* pFound
     );
