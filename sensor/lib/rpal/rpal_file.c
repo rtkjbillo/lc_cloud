@@ -447,7 +447,7 @@ RBOOL
 
                 fileSize = GetFileSize( hFile, NULL );
 
-                if( 0 != fileSize )
+                if( INVALID_FILE_SIZE != fileSize )
                 {
                     tmpFile = rpal_memory_alloc( fileSize );
 
