@@ -87,6 +87,9 @@ limitations under the License.
     typedef float           RFLOAT;
     typedef double          RDOUBLE;
 
+    typedef RWCHAR          RNATIVECHAR;
+    typedef RPWCHAR         RNATIVESTR;
+
 #elif defined( RPAL_PLATFORM_LINUX ) || defined( RPAL_PLATFORM_MACOSX )
     #include <stdint.h>
     #ifndef RPAL_PLATFORM_KERNEL
@@ -131,6 +134,9 @@ limitations under the License.
 
     typedef float           RFLOAT;
     typedef double          RDOUBLE;
+
+    typedef RCHAR           RNATIVECHAR;
+    typedef RPCHAR          RNATIVESTR;
 #endif
 
 // Common values

@@ -166,6 +166,17 @@ RBOOL
 }
 
 RBOOL
+    rSequence_addSTRINGN
+    (
+        rSequence seq,
+        rpcm_tag tag,
+        RPWCHAR string
+    )
+{
+    return rSequence_addElement( seq, tag, RPCM_STRINGN, string, sizeof( string ) );
+}
+
+RBOOL
     rSequence_addBUFFER
     (
         rSequence seq,
@@ -406,6 +417,19 @@ RBOOL
     )
 {
     rpcm_type type = RPCM_STRINGW;
+
+    return rSequence_getElement( seq, &tag, &type, pVal, NULL );
+}
+
+RBOOL
+    rSequence_getSTRINGN
+    (
+        rSequence seq,
+        rpcm_tag tag,
+        RNATIVESTR* pVal
+    )
+{
+    rpcm_type type = RPCM_STRINGN;
 
     return rSequence_getElement( seq, &tag, &type, pVal, NULL );
 }
