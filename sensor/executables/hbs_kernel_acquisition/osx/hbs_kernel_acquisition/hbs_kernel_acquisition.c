@@ -36,7 +36,7 @@ kern_return_t hbs_kernel_acquisition_stop(kmod_info_t *ki, void *d);
 
 typedef struct
 {
-    int (*initializer)();
+    int (*initializer)( void* d );
     int (*deinitializer)();
 } CollectorContext;
 
