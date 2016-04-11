@@ -261,7 +261,7 @@ VOID
 
     RU32 i = 0;
 
-    RtlInitUnicodeString( &winDeviceName, ACQUISITION_COMMS_NAME );
+    RtlInitUnicodeString( &winDeviceName, DEVICE_UM_NAME );
 
     for( i = 0; i < ARRAY_N_ELEM( g_collectors ); i++ )
     {
@@ -293,7 +293,7 @@ NTSTATUS
     UNREFERENCED_PARAMETER( RegistryPath );
 
     RtlInitUnicodeString( &ntDeviceName, DEVICE_NAME );
-    RtlInitUnicodeString( &winDeviceName, ACQUISITION_COMMS_NAME );
+    RtlInitUnicodeString( &winDeviceName, DEVICE_UM_NAME );
 
     status = IoCreateDeviceSecure( DriverObject,
                                    0,

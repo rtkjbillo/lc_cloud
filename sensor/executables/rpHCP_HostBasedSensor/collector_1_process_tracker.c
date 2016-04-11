@@ -36,8 +36,6 @@ limitations under the License.
 
 #define MAX_SNAPSHOT_SIZE 1536
 
-#define _NO_USER_ID ((RU32)(-1))
-
 typedef struct
 {
     RU32 pid;
@@ -176,11 +174,31 @@ static RBOOL
     RBOOL isSuccess = FALSE;
     rSequence info = NULL;
     rSequence parentInfo = NULL;
-    RPVOID tmpFilePath = NULL;
     RU32 tmpUid = 0;
 
-    if( !isStarting ||
-        NULL == ( info = processLib_getProcessInfo( pid, NULL ) ) )
+    // We prime the information with whatever was provided
+    // to us by the kernel acquisition. If not available
+    // we generate using the UM only way.
+    if( 0 != rpal_string_strlenn( optFilePath ) &&
+        ( NULL != info ||
+          NULL != ( info = rSequence_new() ) ) )
+    {
+        rSequence_addSTRINGN( info, RP_TAGS_FILE_PATH, optFilePath );
+    }
+
+    if( 0 != rpal_string_strlenn( optCmdLine ) &&
+        ( NULL != info ||
+          NULL != ( info = rSequence_new() ) ) )
+    {
+        rSequence_addSTRINGN( info, RP_TAGS_FILE_PATH, optCmdLine );
+    }
+
+    if( NULL != info )
+    {
+        info = processLib_getProcessInfo( pid, info );
+    }
+    else if( !isStarting ||
+             NULL == ( info = processLib_getProcessInfo( pid, NULL ) ) )
     {
         info = rSequence_new();
     }
@@ -209,24 +227,7 @@ static RBOOL
 
         if( isStarting )
         {
-            // Sometimes we're provided extra information from the kernel acquisition
-            // so we'll fill in the blanks
-            if( NULL != optFilePath &&
-                0 != rpal_string_strlenn( optFilePath ) &&
-                !rSequence_getSTRINGA( info, RP_TAGS_FILE_PATH, (RPCHAR*)&tmpFilePath ) &&
-                !rSequence_getSTRINGW( info, RP_TAGS_FILE_PATH, (RPWCHAR*)&tmpFilePath ) )
-            {
-                rSequence_addSTRINGN( info, RP_TAGS_FILE_PATH, optFilePath );
-            }
-            if( NULL != optCmdLine &&
-                0 != rpal_string_strlenn( optCmdLine ) &&
-                !rSequence_getSTRINGA( info, RP_TAGS_FILE_PATH, (RPCHAR*)&optCmdLine ) &&
-                !rSequence_getSTRINGW( info, RP_TAGS_FILE_PATH, (RPWCHAR*)&optCmdLine ) )
-            {
-                rSequence_addSTRINGN( info, RP_TAGS_COMMAND_LINE, optCmdLine );
-            }
-
-            if( _NO_USER_ID != optUserId &&
+            if( KERNEL_ACQ_NO_USER_ID != optUserId &&
                 !rSequence_getRU32( info, RP_TAGS_USER_ID, &tmpUid ) )
             {
                 rSequence_addRU32( info, RP_TAGS_USER_ID, optUserId );
@@ -314,7 +315,7 @@ static RVOID
                                           TRUE,
                                           NULL,
                                           NULL,
-                                          _NO_USER_ID,
+                                          KERNEL_ACQ_NO_USER_ID,
                                           0 ) )
                     {
                         rpal_debug_warning( "error reporting new process: %d",
@@ -344,7 +345,7 @@ static RVOID
                                           FALSE,
                                           NULL,
                                           NULL,
-                                          _NO_USER_ID,
+                                          KERNEL_ACQ_NO_USER_ID,
                                           0 ) )
                     {
                         rpal_debug_warning( "error reporting terminated process: %d",
@@ -430,7 +431,7 @@ static RVOID
                                  FALSE, 
                                  NULL, 
                                  NULL,
-                                 _NO_USER_ID, 
+                                 KERNEL_ACQ_NO_USER_ID,
                                  0 );
                 if( nProcessEntries != i + 1 )
                 {

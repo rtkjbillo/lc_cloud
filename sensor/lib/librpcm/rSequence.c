@@ -170,7 +170,7 @@ RBOOL
     (
         rSequence seq,
         rpcm_tag tag,
-        RPWCHAR string
+        RNATIVESTR string
     )
 {
     return rSequence_addElement( seq, tag, RPCM_STRINGN, string, sizeof( string ) );

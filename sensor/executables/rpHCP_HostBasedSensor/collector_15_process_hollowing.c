@@ -631,7 +631,13 @@ RPVOID
                 now = rpal_time_getGlobal();
                 if( now < timeToWait )
                 {
-                    rpal_thread_sleep( (RU32)MSEC_FROM_SEC( timeToWait - now ) );
+                    timeToWait = timeToWait - now;
+                    if( _CHECK_SEC_AFTER_PROCESS_CREATION < timeToWait )
+                    {
+                        // Sanity check
+                        timeToWait = _CHECK_SEC_AFTER_PROCESS_CREATION;
+                    }
+                    rpal_thread_sleep( (RU32)MSEC_FROM_SEC( timeToWait ) );
                 }
 
                 if( NULL != ( hollowedModules = _spotCheckProcess( isTimeToStop, pid ) ) )

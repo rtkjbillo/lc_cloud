@@ -65,6 +65,7 @@ typedef struct
 //  Collector Specific Data Structures
 //==============================================================================
 
+#define KERNEL_ACQ_NO_USER_ID               ((RU32)(-1))
 typedef struct
 {
     RU32 pid;
