@@ -198,23 +198,30 @@ RBOOL
 #elif defined( RPAL_PLATFORM_WINDOWS )
     g_is_available = FALSE;
 
-    if( NULL != ( g_km_mutex = rMutex_create() ) )
+    if( INVALID_HANDLE_VALUE == g_km_handle )
     {
-        if( INVALID_HANDLE_VALUE != ( g_km_handle = CreateFileW( LOCAL_COMMS_NAME,
-                                                                 GENERIC_READ,
-                                                                 0,
-                                                                 NULL,
-                                                                 OPEN_EXISTING,
-                                                                 FILE_ATTRIBUTE_NORMAL,
-                                                                 NULL ) ) )
+        if( NULL != ( g_km_mutex = rMutex_create() ) )
         {
-            isSuccess = TRUE;
+            if( INVALID_HANDLE_VALUE != ( g_km_handle = CreateFileW( LOCAL_COMMS_NAME,
+                                                                     GENERIC_READ,
+                                                                     0,
+                                                                     NULL,
+                                                                     OPEN_EXISTING,
+                                                                     FILE_ATTRIBUTE_NORMAL,
+                                                                     NULL ) ) )
+            {
+                isSuccess = TRUE;
+            }
+            else
+            {
+                rMutex_free( g_km_mutex );
+                g_km_mutex = NULL;
+            }
         }
-        else
-        {
-            rMutex_free( g_km_mutex );
-            g_km_mutex = NULL;
-        }
+    }
+    else
+    {
+        g_is_available = TRUE;
     }
 #endif
 
