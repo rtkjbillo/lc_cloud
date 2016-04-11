@@ -510,7 +510,7 @@ RPVOID
         {
             if( NULL != ( hollowedModules = _spotCheckProcess( isTimeToStop, proc->pid ) ) )
             {
-                if( NULL != ( processInfo = processLib_getProcessInfo( proc->pid ) ) ||
+                if( NULL != ( processInfo = processLib_getProcessInfo( proc->pid, NULL ) ) ||
                     ( NULL != ( processInfo = rSequence_new() ) &&
                       rSequence_addRU32( processInfo, RP_TAGS_PROCESS_ID, proc->pid ) ) )
                 {
@@ -569,7 +569,7 @@ RPVOID
                 {
                     if( NULL != ( hollowedModules = _spotCheckProcess( isTimeToStop, proc->pid ) ) )
                     {
-                        if( NULL != ( processInfo = processLib_getProcessInfo( proc->pid ) ) ||
+                        if( NULL != ( processInfo = processLib_getProcessInfo( proc->pid, NULL ) ) ||
                             ( NULL != ( processInfo = rSequence_new() ) &&
                             rSequence_addRU32( processInfo, RP_TAGS_PROCESS_ID, proc->pid ) ) )
                         {
@@ -674,7 +674,7 @@ RVOID
     {
         if( rSequence_getRU32( event, RP_TAGS_PROCESS_ID, &pid ) )
         {
-            if( NULL != ( process = processLib_getProcessInfo( pid ) ) ||
+            if( NULL != ( process = processLib_getProcessInfo( pid, NULL ) ) ||
                 ( NULL != ( process = rSequence_new() ) &&
                   rSequence_addRU32( process, RP_TAGS_PROCESS_ID, pid ) ) )
             {

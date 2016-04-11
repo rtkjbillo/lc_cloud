@@ -89,6 +89,7 @@ limitations under the License.
 
     typedef RWCHAR          RNATIVECHAR;
     typedef RPWCHAR         RNATIVESTR;
+    #define RNATIVE_IS_WIDE
 
 #elif defined( RPAL_PLATFORM_LINUX ) || defined( RPAL_PLATFORM_MACOSX )
     #include <stdint.h>
@@ -137,6 +138,7 @@ limitations under the License.
 
     typedef RCHAR           RNATIVECHAR;
     typedef RPCHAR          RNATIVESTR;
+    #define RNATIVE_IS_BYTE
 #endif
 
 // Common values

@@ -34,31 +34,106 @@ rMutex g_km_mutex = NULL;
     #include <sys/sys_domain.h>
 
     static int g_km_socket = (-1);
+#elif defined( RPAL_PLATFORM_WINDOWS )
+    #define LOCAL_COMMS_NAME    _WCH("\\\\.\\") ## ACQUISITION_COMMS_NAME
+    static HANDLE g_km_handle = INVALID_HANDLE_VALUE;
 #endif
 
 static RBOOL g_is_available = FALSE;
+
+static RBOOL g_platform_availability[ KERNEL_ACQ_OP_COUNT ] = { 
+#ifdef RPAL_PLATFORM_MACOSX
+    TRUE, // KERNEL_ACQ_OP_PING
+    TRUE, // KERNEL_ACQ_OP_GET_NEW_PROCESSES
+    TRUE, // KERNEL_ACQ_OP_GET_NEW_FILE_IO
+#elif defined( RPAL_PLATFORM_WINDOWS )
+    TRUE, // KERNEL_ACQ_OP_PING
+    TRUE, // KERNEL_ACQ_OP_GET_NEW_PROCESSES
+    FALSE, // KERNEL_ACQ_OP_GET_NEW_FILE_IO
+#endif
+                                                              };
 
 static
 RU32
     _krnlSendReceive
     (
-        int op,
-        KernelAcqCommand* cmd
+        RU32 op,
+        RPU8 pArgs,
+        RU32 argsSize,
+        RPU8 pResult,
+        RU32 resultSize,
+        RU32* pSizeUsed
     )
 {
     RU32 error = (RU32)(-1);
 
-    if( NULL != cmd &&
-        rMutex_lock( g_km_mutex ) )
+    // Check whether this particular function is available on
+    // this platform via kernel.
+    if( op >= KERNEL_ACQ_OP_COUNT ||
+        !g_platform_availability[ op ] )
+    {
+        return error;
+    }
+
+    if( rMutex_lock( g_km_mutex ) )
     {
 #ifdef RPAL_PLATFORM_MACOSX
+        KernelAcqCommand cmd = { 0 };
+        cmd.pArgs = pArgs;
+        cmd.argsSize = argsSize;
+        cmd.pResult = pResult;
+        cmd.resultSize = resultSize;
+        cmd.pSizeUsed = pSizeUsed;
         fd_set readset = { 0 };
         struct timeval timeout = { 0 };
         int waitVal = 0;
 
-        error = setsockopt( g_km_socket, SYSPROTO_CONTROL, op, cmd, sizeof( *cmd ) );
+        error = setsockopt( g_km_socket, SYSPROTO_CONTROL, op, cmd, sizeof( cmd ) );
+#elif defined( RPAL_PLATFORM_WINDOWS )
+        RU32 ioBufferSize = sizeof( KernelAcqCommand ) + argsSize;
+        RPU8 ioBuffer = NULL;
+        KernelAcqCommand* pCmd = NULL;
+
+        if( NULL != ( ioBuffer = rpal_memory_alloc( ioBufferSize ) ) )
+        {
+            pCmd = (KernelAcqCommand*)ioBuffer;
+            pCmd->op = op;
+            pCmd->dataOffset = sizeof( KernelAcqCommand );
+            pCmd->argsSize = argsSize;
+            if( NULL != pArgs && 0 != argsSize )
+            {
+                rpal_memory_memcpy( pCmd->data, pArgs, argsSize );
+            }
+
+            if( DeviceIoControl( g_km_handle,
+                                 (DWORD)IOCTL_EXCHANGE_DATA,
+                                 ioBuffer,
+                                 ioBufferSize,
+                                 pResult,
+                                 resultSize,
+                                 (LPDWORD)pSizeUsed,
+                                 NULL ) )
+            {
+                error = 0;
+            }
+            else
+            {
+                error = rpal_error_getLast();
+            }
+
+            rpal_memory_free( ioBuffer );
+        }
+        else
+        {
+            error = RPAL_ERROR_NOT_ENOUGH_MEMORY;
+        }
 #else
         UNREFERENCED_PARAMETER( op );
+        UNREFERENCED_PARAMETER( pArgs );
+        UNREFERENCED_PARAMETER( argsSize );
+        UNREFERENCED_PARAMETER( pResult );
+        UNREFERENCED_PARAMETER( resultSize );
+        UNREFERENCED_PARAMETER( pSizeUsed );
 #endif
 
         rMutex_unlock( g_km_mutex );
@@ -120,6 +195,27 @@ RBOOL
     {
         isSuccess = TRUE;
     }
+#elif defined( RPAL_PLATFORM_WINDOWS )
+    g_is_available = FALSE;
+
+    if( NULL != ( g_km_mutex = rMutex_create() ) )
+    {
+        if( INVALID_HANDLE_VALUE != ( g_km_handle = CreateFileW( LOCAL_COMMS_NAME,
+                                                                 GENERIC_READ,
+                                                                 0,
+                                                                 NULL,
+                                                                 OPEN_EXISTING,
+                                                                 FILE_ATTRIBUTE_NORMAL,
+                                                                 NULL ) ) )
+        {
+            isSuccess = TRUE;
+        }
+        else
+        {
+            rMutex_free( g_km_mutex );
+            g_km_mutex = NULL;
+        }
+    }
 #endif
 
     return isSuccess;
@@ -133,22 +229,28 @@ RBOOL
 {
     RBOOL isSuccess = FALSE;
 
-#ifdef RPAL_PLATFORM_MACOSX
+
     if( rMutex_lock( g_km_mutex ) )
     {
+        g_is_available = FALSE;
+
+#ifdef RPAL_PLATFORM_MACOSX
         if( (-1) != g_km_socket )
         {
             close( g_km_socket );
             g_km_socket = (-1);
             isSuccess = TRUE;
         }
-
-        g_is_available = FALSE;
-
+#elif defined( RPAL_PLATFORM_WINDOWS )
+        if( INVALID_HANDLE_VALUE != g_km_handle )
+        {
+            CloseHandle( g_km_handle );
+            g_km_handle = INVALID_HANDLE_VALUE;
+        }
+#endif
         rMutex_free( g_km_mutex );
         g_km_mutex = NULL;
     }
-#endif
 
     return isSuccess;
 }
@@ -160,7 +262,6 @@ RBOOL
     )
 {
     RBOOL isAvailable = FALSE;
-    KernelAcqCommand cmd = { 0 };
     RU32 error = 0;
 
     RU32 challenge = ACQUISITION_COMMS_CHALLENGE;
@@ -168,13 +269,12 @@ RBOOL
 
     RU32 respSize = 0;
 
-    cmd.pArgs = &challenge;
-    cmd.argsSize = sizeof( challenge );
-    cmd.pResult = &response;
-    cmd.resultSize = sizeof( response );
-    cmd.pSizeUsed = &respSize;
-
-    if( 0 == ( error = _krnlSendReceive( KERNEL_ACQ_OP_PING, &cmd ) ) &&
+    if( 0 == ( error = _krnlSendReceive( KERNEL_ACQ_OP_PING, 
+                                         (RPU8)&challenge, 
+                                         sizeof( challenge ),
+                                         (RPU8)&response,
+                                         sizeof( response ),
+                                         &respSize ) ) &&
         sizeof( RU32 ) == respSize )
     {
         if( ACQUISITION_COMMS_RESPONSE == response )
@@ -214,20 +314,18 @@ RBOOL
     RBOOL isSuccess = FALSE;
 
     RU32 error = 0;
-    KernelAcqCommand cmd = { 0 };
     RU32 respSize = 0;
 
     if( NULL != entries &&
         NULL != nEntries &&
         0 != *nEntries )
     {
-        cmd.pArgs = NULL;
-        cmd.argsSize = 0;
-        cmd.pResult = entries;
-        cmd.resultSize = *nEntries * sizeof( *entries );
-        cmd.pSizeUsed = &respSize;
-
-        if( 0 == ( error = _krnlSendReceive( KERNEL_ACQ_OP_GET_NEW_PROCESSES, &cmd ) ) )
+        if( 0 == ( error = _krnlSendReceive( KERNEL_ACQ_OP_GET_NEW_PROCESSES,
+                                             NULL,
+                                             0,
+                                             (RPU8)entries,
+                                             *nEntries * sizeof( *entries ),
+                                             &respSize ) ) )
         {
             *nEntries = respSize / sizeof( *entries );
             isSuccess = TRUE;
@@ -247,20 +345,18 @@ RBOOL
     RBOOL isSuccess = FALSE;
 
     RU32 error = 0;
-    KernelAcqCommand cmd = { 0 };
     RU32 respSize = 0;
 
     if( NULL != entries &&
         NULL != nEntries &&
         0 != *nEntries )
     {
-        cmd.pArgs = NULL;
-        cmd.argsSize = 0;
-        cmd.pResult = entries;
-        cmd.resultSize = *nEntries * sizeof( *entries );
-        cmd.pSizeUsed = &respSize;
-
-        if( 0 == ( error = _krnlSendReceive( KERNEL_ACQ_OP_GET_NEW_FILE_IO, &cmd ) ) )
+        if( 0 == ( error = _krnlSendReceive( KERNEL_ACQ_OP_GET_NEW_FILE_IO,
+                                             NULL,
+                                             0,
+                                             (RPU8)entries,
+                                             *nEntries * sizeof( *entries ),
+                                             &respSize ) ) )
         {
             *nEntries = respSize / sizeof( *entries );
             isSuccess = TRUE;

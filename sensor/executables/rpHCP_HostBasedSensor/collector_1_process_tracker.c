@@ -167,7 +167,8 @@ static RBOOL
         RU32 pid,
         RU32 ppid,
         RBOOL isStarting,
-        RPCHAR optFilePath,
+        RNATIVESTR optFilePath,
+        RNATIVESTR optCmdLine,
         RU32 optUserId,
         RU64 optTs
     )
@@ -179,7 +180,7 @@ static RBOOL
     RU32 tmpUid = 0;
 
     if( !isStarting ||
-        NULL == ( info = processLib_getProcessInfo( pid ) ) )
+        NULL == ( info = processLib_getProcessInfo( pid, NULL ) ) )
     {
         info = rSequence_new();
     }
@@ -199,7 +200,7 @@ static RBOOL
 
         if( isStarting )
         {
-            if( NULL != ( parentInfo = processLib_getProcessInfo( ppid ) ) &&
+            if( NULL != ( parentInfo = processLib_getProcessInfo( ppid, NULL ) ) &&
                 !rSequence_addSEQUENCE( info, RP_TAGS_PARENT, parentInfo ) )
             {
                 rSequence_free( parentInfo );
@@ -211,10 +212,18 @@ static RBOOL
             // Sometimes we're provided extra information from the kernel acquisition
             // so we'll fill in the blanks
             if( NULL != optFilePath &&
+                0 != rpal_string_strlenn( optFilePath ) &&
                 !rSequence_getSTRINGA( info, RP_TAGS_FILE_PATH, (RPCHAR*)&tmpFilePath ) &&
                 !rSequence_getSTRINGW( info, RP_TAGS_FILE_PATH, (RPWCHAR*)&tmpFilePath ) )
             {
-                rSequence_addSTRINGA( info, RP_TAGS_FILE_PATH, optFilePath );
+                rSequence_addSTRINGN( info, RP_TAGS_FILE_PATH, optFilePath );
+            }
+            if( NULL != optCmdLine &&
+                0 != rpal_string_strlenn( optCmdLine ) &&
+                !rSequence_getSTRINGA( info, RP_TAGS_FILE_PATH, (RPCHAR*)&optCmdLine ) &&
+                !rSequence_getSTRINGW( info, RP_TAGS_FILE_PATH, (RPWCHAR*)&optCmdLine ) )
+            {
+                rSequence_addSTRINGN( info, RP_TAGS_COMMAND_LINE, optCmdLine );
             }
 
             if( _NO_USER_ID != optUserId &&
@@ -304,6 +313,7 @@ static RVOID
                                           currentSnapshot[ i ].ppid,
                                           TRUE,
                                           NULL,
+                                          NULL,
                                           _NO_USER_ID,
                                           0 ) )
                     {
@@ -332,6 +342,7 @@ static RVOID
                     if( !notifyOfProcess( previousSnapshot[ i ].pid,
                                           previousSnapshot[ i ].ppid,
                                           FALSE,
+                                          NULL,
                                           NULL,
                                           _NO_USER_ID,
                                           0 ) )
@@ -387,6 +398,7 @@ static RVOID
                              new_from_kernel[ i ].ppid,
                              TRUE,
                              new_from_kernel[ i ].path,
+                             new_from_kernel[ i ].cmdline,
                              new_from_kernel[ i ].uid,
                              new_from_kernel[ i ].ts );
 
@@ -413,7 +425,13 @@ static RVOID
         {
             if( !processLib_isPidInUse( tracking_user[ i ].pid ) )
             {
-                notifyOfProcess( tracking_user[ i ].pid, tracking_user[ i ].ppid, FALSE, NULL, _NO_USER_ID, 0 );
+                notifyOfProcess( tracking_user[ i ].pid, 
+                                 tracking_user[ i ].ppid, 
+                                 FALSE, 
+                                 NULL, 
+                                 NULL,
+                                 _NO_USER_ID, 
+                                 0 );
                 if( nProcessEntries != i + 1 )
                 {
                     rpal_memory_memmove( &(tracking_user[ i ]), &(tracking_user[ i + 1 ]), nProcessEntries - i + 1 );

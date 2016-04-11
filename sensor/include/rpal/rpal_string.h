@@ -57,6 +57,12 @@ RU32
     );
 
 RU32
+    rpal_string_strlenn
+    (
+        RNATIVESTR str
+    );
+
+RU32
     rpal_string_strsize
     (
         RPCHAR str

@@ -111,7 +111,8 @@ int
                         cmd->pResult,
                         cmd->resultSize );
         
-        if( op >= ARRAY_N_ELEM( g_tasks ) )
+        if( op >= ARRAY_N_ELEM( g_tasks ) ||
+            NULL == g_tasks[ op ] )
         {
             rpal_debug_error( "invalid op specified: %d", op );
             error = EINVAL;

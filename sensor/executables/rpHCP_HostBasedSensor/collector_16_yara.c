@@ -181,7 +181,7 @@ int
 
             if( NULL == context->processInfo )
             {
-                context->processInfo = processLib_getProcessInfo( context->pid );
+                context->processInfo = processLib_getProcessInfo( context->pid, NULL );
             }
 
             if( NULL != context->processInfo )
@@ -676,7 +676,7 @@ RVOID
                     curProc = processes;
                     while( 0 != curProc->pid )
                     {
-                        if( NULL != ( processInfo = processLib_getProcessInfo( curProc->pid ) ) )
+                        if( NULL != ( processInfo = processLib_getProcessInfo( curProc->pid, NULL ) ) )
                         {
                             if( rSequence_getSTRINGW( processInfo, RP_TAGS_FILE_PATH, &tmpW ) ||
                                 rSequence_getSTRINGA( processInfo, RP_TAGS_FILE_PATH, &tmpA ) )

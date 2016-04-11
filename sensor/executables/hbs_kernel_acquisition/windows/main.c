@@ -20,6 +20,8 @@ limitations under the License.
 #include <kernelAcquisitionLib/common.h>
 #include "collectors.h"
 
+#define RPAL_PLATFORM_DEBUG
+
 DRIVER_INITIALIZE           DriverEntry;
 DRIVER_UNLOAD               DriverUnload;
 __drv_dispatchType( IRP_MJ_CREATE );
@@ -36,7 +38,8 @@ DRIVER_DISPATCH DispatchControl;
 #define ACCESS_SDDL     SDDL_DEVOBJ_SYS_ALL
 #endif
 
-#define DEVICE_NAME         _WCH("\\Device\\rp_hcp_hbs_acq")
+#define DEVICE_NAME         _WCH("\\Device\\") ## ACQUISITION_COMMS_NAME
+#define DEVICE_UM_NAME      _WCH("\\DosDevices\\") ## ACQUISITION_COMMS_NAME
 
 #define _COLLECTOR_INIT(cId) { collector_ ## cId ## _initialize, collector_ ## cId ## _deinitialize }
 
@@ -91,7 +94,8 @@ RBOOL
 //=========================================================================
 static CollectorContext g_collectors[] = { _COLLECTOR_INIT( 1 ) };
 static collector_task g_tasks[] = { task_ping,
-                                    task_get_new_processes };
+                                    task_get_new_processes,
+                                    NULL };
 
 
 NTSTATUS
@@ -221,6 +225,7 @@ NTSTATUS
         sizeof( KernelAcqCommand ) <= inputLength &&
         inputLength >= cmd->dataOffset )
     {
+        rpal_debug_kernel( "received request: %d", cmd->op );
         status = UserModeDispatcher( cmd->op, 
                                      inputLength - cmd->dataOffset, 
                                      &outputLength, 

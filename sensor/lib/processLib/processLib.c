@@ -137,7 +137,8 @@ RBOOL
 rSequence
     processLib_getProcessInfo
     (
-        RU32 processId
+        RU32 processId,
+        rSequence bootstrap
     )
 {
     rSequence procInfo = NULL;
@@ -177,7 +178,8 @@ rSequence
     }
 
     if( NULL != queryInfo &&
-        NULL != ( procInfo = rSequence_new() ) )
+        ( NULL != ( procInfo = bootstrap ) ||
+          NULL != ( procInfo = rSequence_new() ) ) )
     {
         pbi.PebBaseAddress = (PPEB)0x7ffdf000;
         pbi.UniqueProcessId = processId;
@@ -431,7 +433,10 @@ rSequence
 
             CloseHandle( hProcess );
 
-            if( !isFilePathAcquired && !isCommandLineAcquired && !isSecondaryInfoAcquired )
+            if( !isFilePathAcquired && 
+                !isCommandLineAcquired && 
+                !isSecondaryInfoAcquired && 
+                NULL == bootstrap )
             {
                 // If we really got NOTHING we'll just clean up to signal to the caller
                 rSequence_free( procInfo );
@@ -479,7 +484,8 @@ rSequence
     
     RU32 i = 0;
         
-    if( NULL != ( procInfo = rSequence_new() ) )
+    if( NULL != ( procInfo = bootstrap ) ||
+        NULL != ( procInfo = rSequence_new() ) )
     {
         rSequence_addRU32( procInfo, RP_TAGS_PROCESS_ID, processId );
         
@@ -621,7 +627,8 @@ rSequence
     
     if( 0 == sysctl( mib, 4, &info, &size, NULL, 0 ) && 0 < size )
     {
-        if( NULL != ( procInfo = rSequence_new() ) )
+        if( NULL != ( procInfo = bootstrap ) ||
+            NULL != ( procInfo = rSequence_new() ) )
         {
             rSequence_addRU32( procInfo, RP_TAGS_PROCESS_ID, info.kp_proc.p_pid );
             rSequence_addRU32( procInfo, RP_TAGS_PARENT_PROCESS_ID, info.kp_eproc.e_ppid );
