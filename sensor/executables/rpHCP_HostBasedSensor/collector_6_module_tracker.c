@@ -169,7 +169,7 @@ static RBOOL
     rSequence notif = NULL;
     RU32 pathLength = 0;
     RU32 i = 0;
-    RNATIVECHAR dirSep = RPAL_FILE_LOCAL_DIR_SEP[ 0 ];
+    RNATIVESTR dirSep = RPAL_FILE_LOCAL_DIR_SEP_N;
 
     if( NULL != module )
     {
@@ -187,7 +187,7 @@ static RBOOL
                 // For compatibility with user mode we extract the module name.
                 for( i = pathLength - 1; i != 0; i-- )
                 {
-                    if( dirSep == module->path[ i ] )
+                    if( dirSep[ 0 ] == module->path[ i ] )
                     {
                         i++;
                         break;

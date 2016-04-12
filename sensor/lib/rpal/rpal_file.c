@@ -971,7 +971,7 @@ RBOOL
 {
     RBOOL isIncluded = FALSE;
 
-    RWCHAR sep[] = RPAL_FILE_LOCAL_DIR_SEP;
+    RWCHAR sep[] = RPAL_FILE_LOCAL_DIR_SEP_W;
 
     RPWCHAR state1 = NULL;
     RPWCHAR state2 = NULL;
@@ -1101,7 +1101,7 @@ RVOID
     )
 {
     RU32 len = 0;
-    RWCHAR sep[] = RPAL_FILE_LOCAL_DIR_SEP;
+    RWCHAR sep[] = RPAL_FILE_LOCAL_DIR_SEP_W;
 
     if( NULL != pInfo )
     {
@@ -1138,7 +1138,7 @@ rDirCrawl
     RPWCHAR staticRoot = NULL;
     RPWCHAR tmpStr = NULL;
     RPWCHAR state = NULL;
-    RPWCHAR sep = RPAL_FILE_LOCAL_DIR_SEP;
+    RPWCHAR sep = RPAL_FILE_LOCAL_DIR_SEP_W;
     rDir hDir = NULL;
     rFileInfo info = {0};
 
@@ -1342,7 +1342,7 @@ RBOOL
 {
     RBOOL isSuccess = FALSE;
     _rDir* dir = NULL;
-    RWCHAR sep[] = RPAL_FILE_LOCAL_DIR_SEP;
+    RWCHAR sep[] = RPAL_FILE_LOCAL_DIR_SEP_W;
     RPWCHAR tmpDir = NULL;
 #if defined( RPAL_PLATFORM_LINUX ) || defined( RPAL_PLATFORM_MACOSX )
     RPCHAR asciiDir = NULL;
