@@ -466,7 +466,7 @@ static RPVOID
         // to revert to user mode
         else if( !rEvent_wait( isTimeToStop, 0 ) )
         {
-            rpal_debug_info( "running usermode acquisition preocess notification" );
+            rpal_debug_info( "running usermode acquisition process notification" );
             userModeDiff( isTimeToStop );
         }
     }

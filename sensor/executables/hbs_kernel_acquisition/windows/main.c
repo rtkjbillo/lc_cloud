@@ -42,6 +42,7 @@ DRIVER_DISPATCH DispatchControl;
 #define DEVICE_UM_NAME      _WCH("\\DosDevices\\") ## ACQUISITION_COMMS_NAME
 
 #define _COLLECTOR_INIT(cId) { collector_ ## cId ## _initialize, collector_ ## cId ## _deinitialize }
+#define _COLLECTOR_DISABLED(cId) { NULL, NULL }
 
 typedef struct
 {
@@ -92,10 +93,13 @@ RBOOL
 //=========================================================================
 //  Dispatcher
 //=========================================================================
-static CollectorContext g_collectors[] = { _COLLECTOR_INIT( 1 ) };
-static collector_task g_tasks[] = { task_ping,
-                                    task_get_new_processes,
-                                    NULL };
+static CollectorContext g_collectors[] = { _COLLECTOR_INIT( 1 ),
+                                           _COLLECTOR_DISABLED( 2 ),
+                                           _COLLECTOR_INIT( 3 ) };
+static collector_task g_tasks[ KERNEL_ACQ_OP_COUNT  ] = { task_ping,
+                                                          task_get_new_processes,
+                                                          NULL,
+                                                          task_get_new_module_loads };
 
 
 NTSTATUS
@@ -265,6 +269,8 @@ VOID
 
     for( i = 0; i < ARRAY_N_ELEM( g_collectors ); i++ )
     {
+        if( NULL == g_collectors[ i ].deinitializer ) continue;
+
         if( !g_collectors[ i ].deinitializer() )
         {
             rpal_debug_kernel( "Failed to deinitialize collector %d.", i + 1 );
@@ -325,6 +331,8 @@ NTSTATUS
 
     for( i = 0; i < ARRAY_N_ELEM( g_collectors ); i++ )
     {
+        if( NULL == g_collectors[ i ].initializer ) continue;
+
         if( !g_collectors[ i ].initializer() )
         {
             rpal_debug_kernel( "Failed to initialize collector %d.", i + 1 );
@@ -335,6 +343,13 @@ NTSTATUS
 
     if( !NT_SUCCESS( status ) )
     {
+        for( i = i - 1; i > 0; i-- )
+        {
+            if( NULL == g_collectors[ i ].deinitializer ) continue;
+
+            g_collectors[ i ].deinitializer();
+        }
+
         IoDeleteSymbolicLink( &winDeviceName );
         IoDeleteDevice( DriverObject->DeviceObject );
     }

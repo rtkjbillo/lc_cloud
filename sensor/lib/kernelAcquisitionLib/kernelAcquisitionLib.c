@@ -46,10 +46,12 @@ static RBOOL g_platform_availability[ KERNEL_ACQ_OP_COUNT ] = {
     TRUE, // KERNEL_ACQ_OP_PING
     TRUE, // KERNEL_ACQ_OP_GET_NEW_PROCESSES
     TRUE, // KERNEL_ACQ_OP_GET_NEW_FILE_IO
+    FALSE, // KERNEL_ACQ_OP_NEW_MODULE
 #elif defined( RPAL_PLATFORM_WINDOWS )
     TRUE, // KERNEL_ACQ_OP_PING
     TRUE, // KERNEL_ACQ_OP_GET_NEW_PROCESSES
     FALSE, // KERNEL_ACQ_OP_GET_NEW_FILE_IO
+    TRUE, // KERNEL_ACQ_OP_NEW_MODULE
 #endif
                                                               };
 
@@ -373,3 +375,33 @@ RBOOL
     return isSuccess;
 }
 
+RBOOL
+    kAcq_getNewModules
+    (
+        KernelAcqModule* entries,
+        RU32* nEntries
+    )
+{
+    RBOOL isSuccess = FALSE;
+
+    RU32 error = 0;
+    RU32 respSize = 0;
+
+    if( NULL != entries &&
+        NULL != nEntries &&
+        0 != *nEntries )
+    {
+        if( 0 == ( error = _krnlSendReceive( KERNEL_ACQ_OP_MODULE_LOAD,
+                                             NULL,
+                                             0,
+                                             (RPU8)entries,
+                                             *nEntries * sizeof( *entries ),
+                                             &respSize ) ) )
+        {
+            *nEntries = respSize / sizeof( *entries );
+            isSuccess = TRUE;
+        }
+    }
+
+    return isSuccess;
+}

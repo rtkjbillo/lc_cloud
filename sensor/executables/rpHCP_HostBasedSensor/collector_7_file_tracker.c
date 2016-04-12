@@ -143,7 +143,6 @@ RPVOID
         rEvent isTimeToStop
     )
 {
-    RPWCHAR fileName = NULL;
     rpcm_tag event = RP_TAGS_INVALID;
     rSequence notif = 0;
     RU32 nScratch = 0;
@@ -183,19 +182,12 @@ RPVOID
 
             if( NULL != ( notif = rSequence_new() ) )
             {
-                fileName = rpal_string_atow( new_from_kernel[ i ].path );
-
-                if( rSequence_addSTRINGW( notif, RP_TAGS_FILE_PATH, fileName ) &&
+                if( rSequence_addSTRINGN( notif, RP_TAGS_FILE_PATH, new_from_kernel[ i ].path ) &&
                     rSequence_addTIMESTAMP( notif,
                                             RP_TAGS_TIMESTAMP,
                                             rpal_time_getGlobalFromLocal( new_from_kernel[ i ].ts ) ) )
                 {
                     notifications_publish( event, notif );
-                }
-
-                if( NULL != fileName )
-                {
-                    rpal_memory_free( fileName );
                 }
 
                 rSequence_free( notif );

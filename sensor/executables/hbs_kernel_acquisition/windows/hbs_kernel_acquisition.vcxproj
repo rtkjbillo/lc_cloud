@@ -131,6 +131,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="collector_1_processes.c" />
+    <ClCompile Include="collector_3_new_modules.c" />
     <ClCompile Include="helpers.c" />
     <ClCompile Include="main.c" />
   </ItemGroup>

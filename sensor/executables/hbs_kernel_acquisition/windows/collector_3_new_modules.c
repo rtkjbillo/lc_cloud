@@ -18,14 +18,14 @@ limitations under the License.
 #include "helpers.h"
 #include <kernelAcquisitionLib/common.h>
 
-#define _NUM_BUFFERED_PROCESSES 200
+#define _NUM_BUFFERED_MODULES 200
 
-static KSPIN_LOCK g_collector_1_mutex = { 0 };
-static KernelAcqProcess g_processes[ _NUM_BUFFERED_PROCESSES ] = { 0 };
-static RU32 g_nextProcess = 0;
+static KSPIN_LOCK g_collector_3_mutex = { 0 };
+static KernelAcqModule g_modules[ _NUM_BUFFERED_MODULES ] = { 0 };
+static RU32 g_nextModule = 0;
 
 RBOOL
-    task_get_new_processes
+    task_get_new_module_loads
     (
         RPU8 pArgs,
         RU32 argsSize,
@@ -45,19 +45,19 @@ RBOOL
         NULL != resultSize &&
         0 != *resultSize )
     {
-        KeAcquireInStackQueuedSpinLock( &g_collector_1_mutex, &hMutex );
+        KeAcquireInStackQueuedSpinLock( &g_collector_3_mutex, &hMutex );
 
-        toCopy = ( *resultSize ) / sizeof( KernelAcqProcess );
+        toCopy = ( *resultSize ) / sizeof( KernelAcqModule );
 
         if( 0 != toCopy )
         {
-            toCopy = ( toCopy > g_nextProcess ? g_nextProcess : toCopy );
+            toCopy = ( toCopy > g_nextModule ? g_nextModule : toCopy );
 
-            *resultSize = toCopy * sizeof( KernelAcqProcess );
-            memcpy( pResult, g_processes, *resultSize );
+            *resultSize = toCopy * sizeof( KernelAcqModule );
+            memcpy( pResult, g_modules, *resultSize );
 
-            g_nextProcess -= toCopy;
-            memmove( g_processes, g_processes + toCopy, g_nextProcess );
+            g_nextModule -= toCopy;
+            memmove( g_modules, g_modules + toCopy, g_nextModule );
         }
 
         KeReleaseInStackQueuedSpinLock( &hMutex );
@@ -69,46 +69,46 @@ RBOOL
 }
 
 static VOID
-    CreateProcessNotifyEx
+    LoadImageNotify
     (
-        PEPROCESS Process,
+        PUNICODE_STRING FullImageName,
         HANDLE ProcessId,
-        PPS_CREATE_NOTIFY_INFO CreateInfo
+        PIMAGE_INFO ImageInfo
     )
 {
     KLOCK_QUEUE_HANDLE hMutex = { 0 };
 
-    UNREFERENCED_PARAMETER( Process );
+    KeAcquireInStackQueuedSpinLock( &g_collector_3_mutex, &hMutex );
 
-    KeAcquireInStackQueuedSpinLock( &g_collector_1_mutex, &hMutex );
 
-    
     // We're only interested in starts for now, a non-NULL CreateInfo indicates this.
-    if( NULL != CreateInfo )
-    {
-        g_processes[ g_nextProcess ].pid = (RU32)ProcessId;
-        g_processes[ g_nextProcess ].ppid = (RU32)CreateInfo->ParentProcessId;
-        g_processes[ g_nextProcess ].ts = rpal_time_getLocal();
-        g_processes[ g_nextProcess ].uid = KERNEL_ACQ_NO_USER_ID;
-        wcsncpy( g_processes[ g_nextProcess ].path, 
-                 CreateInfo->ImageFileName->Buffer, 
-                 ARRAY_N_ELEM( g_processes[ g_nextProcess ].path ) - 1 );
-        wcsncpy( g_processes[ g_nextProcess ].cmdline,
-                 CreateInfo->CommandLine->Buffer,
-                 ARRAY_N_ELEM( g_processes[ g_nextProcess ].cmdline ) - 1 );
+    g_modules[ g_nextModule ].pid = (RU32)ProcessId;
+    g_modules[ g_nextModule ].ts = rpal_time_getLocal();
 
-        g_nextProcess++;
-        if( g_nextProcess == _NUM_BUFFERED_PROCESSES )
-        {
-            g_nextProcess = 0;
-        }
+    if( NULL != FullImageName )
+    {
+        wcsncpy( g_modules[ g_nextModule ].path,
+                 FullImageName->Buffer,
+                 ARRAY_N_ELEM( g_modules[ g_nextModule ].path ) - 1 );
+    }
+
+    if( NULL != ImageInfo )
+    {
+        g_modules[ g_nextModule ].baseAddress = ImageInfo->ImageBase;
+        g_modules[ g_nextModule ].imageSize= ImageInfo->ImageSize;
+    }
+    
+    g_nextModule++;
+    if( g_nextModule == _NUM_BUFFERED_MODULES )
+    {
+        g_nextModule = 0;
     }
 
     KeReleaseInStackQueuedSpinLock( &hMutex );
 }
 
 RBOOL
-    collector_1_initialize
+    collector_3_initialize
     (
 
     )
@@ -116,9 +116,9 @@ RBOOL
     RBOOL isSuccess = FALSE;
     RU32 status = 0;
 
-    KeInitializeSpinLock( &g_collector_1_mutex );
+    KeInitializeSpinLock( &g_collector_3_mutex );
 
-    status = PsSetCreateProcessNotifyRoutineEx( CreateProcessNotifyEx, FALSE );
+    status = PsSetLoadImageNotifyRoutine( LoadImageNotify );
 
     if( NT_SUCCESS( status ) )
     {
@@ -133,15 +133,15 @@ RBOOL
 }
 
 RBOOL
-    collector_1_deinitialize
+    collector_3_deinitialize
     (
 
     )
 {
     RBOOL isSuccess = FALSE;
     RU32 status = 0;
-
-    status = PsSetCreateProcessNotifyRoutineEx( CreateProcessNotifyEx, TRUE );
+    
+    status = PsRemoveLoadImageNotifyRoutine( LoadImageNotify );
 
     if( NT_SUCCESS( status ) )
     {

@@ -30,8 +30,9 @@ typedef int( *collector_task )( RPU8 pArgs, RU32 argsSize, RPU8 pResult, RU32* r
 #define _DECLARE_TASK(name) RBOOL name( RPU8 pArgs, RU32 argSize, RPU8 pResult, RU32* resultSize )
 
 _DECLARE_COLLECTOR( 1 );
+_DECLARE_COLLECTOR( 3 );
 _DECLARE_TASK( task_get_new_processes );
-
+_DECLARE_TASK( task_get_new_module_loads );
 
 
 #endif
