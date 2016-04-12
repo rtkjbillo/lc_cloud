@@ -380,8 +380,7 @@ static RVOID
     RU32 nProcessEntries = 0;
     KernelAcqProcess new_from_kernel[ 200 ] = { 0 };
     processEntry tracking_user[ MAX_SNAPSHOT_SIZE ] = { 0 };
-    RU32 nPhase = 0;
-
+    
     while( !rEvent_wait( isTimeToStop, 1000 ) )
     {
         nScratch = ARRAY_N_ELEM( new_from_kernel );
@@ -411,15 +410,6 @@ static RVOID
             tracking_user[ nProcessEntries ].pid = new_from_kernel[ i ].pid;
             tracking_user[ nProcessEntries ].ppid = new_from_kernel[ i ].ppid;
             nProcessEntries++;
-        }
-
-        // We do garbage collection and checking of dead processes
-        // only every X sweeps from the kernel, this is to prioritize
-        // the timely processing of new processes vs dead ones
-        nPhase++;
-        if( nPhase < 10 )
-        {
-            continue;
         }
 
         for( i = 0; i < nProcessEntries; i++ )
