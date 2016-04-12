@@ -24,7 +24,7 @@ RU64
 {
     RU64 t = 0;
 
-    KeQuerySystemTime( &t );
+    KeQuerySystemTime( (PLARGE_INTEGER)&t );
 
     t = t / ( 10000000 ) - 11644473600;    // To POSIX epoch
 

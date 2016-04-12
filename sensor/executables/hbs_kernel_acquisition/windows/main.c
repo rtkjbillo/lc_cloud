@@ -41,6 +41,8 @@ DRIVER_DISPATCH DispatchControl;
 #define DEVICE_NAME         _WCH("\\Device\\") ## ACQUISITION_COMMS_NAME
 #define DEVICE_UM_NAME      _WCH("\\DosDevices\\") ## ACQUISITION_COMMS_NAME
 
+#pragma warning(disable: 4276)
+
 #define _COLLECTOR_INIT(cId) { collector_ ## cId ## _initialize, collector_ ## cId ## _deinitialize }
 #define _COLLECTOR_DISABLED(cId) { NULL, NULL }
 
