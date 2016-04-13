@@ -30,3 +30,24 @@ RU64
 
     return t;
 }
+
+RBOOL
+    _copyUnicodeStringToBuffer
+    (
+        PCUNICODE_STRING str,
+        RPWCHAR buff,
+        RU32 buffSize
+    )
+{
+    RBOOL isCopied = FALSE;
+    RU32 sizeToCopy = 0;
+
+    if( NULL != str )
+    {
+        sizeToCopy = min( str->Length, buffSize - sizeof( WCHAR ) );
+        memcpy( buff, str->Buffer, sizeToCopy );
+        buff[ sizeToCopy / sizeof( WCHAR ) ] = 0;
+    }
+
+    return isCopied;
+}

@@ -23,4 +23,7 @@ limitations under the License.
 #define ARRAY_N_ELEM(arr)               (sizeof(arr) / sizeof((arr)[0]))
 RU64 rpal_time_getLocal();
 
+#define copyUnicodeStringToBuffer(str,buff) (_copyUnicodeStringToBuffer((str),(buff),sizeof(buff)))
+RBOOL _copyUnicodeStringToBuffer( PCUNICODE_STRING str, RPWCHAR buff, RU32 buffSize );
+
 #endif

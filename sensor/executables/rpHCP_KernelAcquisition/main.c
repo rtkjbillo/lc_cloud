@@ -235,8 +235,6 @@ RPAL_THREAD_FUNC
                         isLoaded = TRUE;
                     }
 
-                    rpal_memory_free( absolutePath );
-
                     CloseServiceHandle( hService );
                     CloseServiceHandle( hScControl );
 
@@ -277,6 +275,7 @@ RPAL_THREAD_FUNC
             SC_HANDLE hScControl = NULL;
             RWCHAR driverName[] = _WCH( "HbsAcq" );
             SC_HANDLE hService = NULL;
+            SERVICE_STATUS svcStatus = { 0 };
 
             if( NULL == ( hScControl = OpenSCManagerW( NULL,
                                                        NULL,
@@ -295,6 +294,12 @@ RPAL_THREAD_FUNC
                                   rpal_error_getLast() );
                 CloseServiceHandle( hScControl );
                 break;
+            }
+
+            if( NULL != hService &&
+                !ControlService( hService, SERVICE_CONTROL_STOP, &svcStatus ) )
+            {
+                rpal_debug_error( "error stopping driver" );
             }
 
             if( NULL != hService &&

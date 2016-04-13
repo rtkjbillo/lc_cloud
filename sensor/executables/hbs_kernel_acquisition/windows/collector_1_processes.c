@@ -90,12 +90,12 @@ static VOID
         g_processes[ g_nextProcess ].ppid = (RU32)CreateInfo->ParentProcessId;
         g_processes[ g_nextProcess ].ts = rpal_time_getLocal();
         g_processes[ g_nextProcess ].uid = KERNEL_ACQ_NO_USER_ID;
-        wcsncpy( g_processes[ g_nextProcess ].path, 
-                 CreateInfo->ImageFileName->Buffer, 
-                 ARRAY_N_ELEM( g_processes[ g_nextProcess ].path ) - 1 );
-        wcsncpy( g_processes[ g_nextProcess ].cmdline,
-                 CreateInfo->CommandLine->Buffer,
-                 ARRAY_N_ELEM( g_processes[ g_nextProcess ].cmdline ) - 1 );
+
+        copyUnicodeStringToBuffer( CreateInfo->ImageFileName, 
+                                   g_processes[ g_nextProcess ].path );
+
+        copyUnicodeStringToBuffer( CreateInfo->CommandLine,
+                                   g_processes[ g_nextProcess ].cmdline );
 
         g_nextProcess++;
         if( g_nextProcess == _NUM_BUFFERED_PROCESSES )

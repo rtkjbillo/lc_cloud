@@ -231,7 +231,6 @@ NTSTATUS
         sizeof( KernelAcqCommand ) <= inputLength &&
         inputLength >= cmd->dataOffset )
     {
-        rpal_debug_kernel( "received request: %d", cmd->op );
         status = UserModeDispatcher( cmd->op, 
                                      inputLength - cmd->dataOffset, 
                                      &outputLength, 

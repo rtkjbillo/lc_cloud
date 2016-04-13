@@ -87,9 +87,7 @@ static VOID
 
     if( NULL != FullImageName )
     {
-        wcsncpy( g_modules[ g_nextModule ].path,
-                 FullImageName->Buffer,
-                 ARRAY_N_ELEM( g_modules[ g_nextModule ].path ) - 1 );
+        copyUnicodeStringToBuffer( FullImageName, g_modules[ g_nextModule ].path );
     }
 
     if( NULL != ImageInfo )
