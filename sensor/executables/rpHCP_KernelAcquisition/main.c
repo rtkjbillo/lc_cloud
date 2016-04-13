@@ -218,14 +218,21 @@ RPAL_THREAD_FUNC
 
                     if( NULL == hService )
                     {
-                        CloseServiceHandle( hScControl );
-                        rpal_debug_error( "could create driver entry: 0x%08X", 
-                                          rpal_error_getLast() );
-                        rpal_memory_free( absolutePath );
-                        break;
+                        rpal_debug_error( "could not create driver entry: 0x%08X", rpal_error_getLast() );
+                        hService = OpenServiceW( hScControl,
+                                                 driverName,
+                                                 SERVICE_ALL_ACCESS );
+                        if( NULL == hService )
+                        {
+                            CloseServiceHandle( hScControl );
+                            rpal_debug_error( "could not open driver entry: 0x%08X",
+                                              rpal_error_getLast() );
+                            break;
+                        }
                     }
 
-                    if( !StartService( hService, 0, NULL ) )
+                    if( !StartService( hService, 0, NULL ) &&
+                        ERROR_SERVICE_ALREADY_RUNNING != rpal_error_getLast() )
                     {
                         rpal_debug_error( "could not start driver: 0x%08X", 
                                           rpal_error_getLast() );
