@@ -31,6 +31,7 @@ rList().addSequence( _.hbs.CONFIGURATION,
                                                                            .addInt32( _.hbs.NOTIFICATION_ID, _.notification.SERVICE_CHANGE )
                                                                            .addInt32( _.hbs.NOTIFICATION_ID, _.notification.DRIVER_CHANGE )
                                                                            .addInt32( _.hbs.NOTIFICATION_ID, _.notification.AUTORUN_CHANGE )
+                                                                           .addInt32( _.hbs.NOTIFICATION_ID, _.notification.NEW_DOCUMENT )
                                                                            .addInt32( _.hbs.NOTIFICATION_ID, _.notification.GET_DOCUMENT_REP ) )
                                 .addList( _.hbs.CRITICAL_EVENTS, rList().addInt32( _.hbs.NOTIFICATION_ID, _.notification.HIDDEN_MODULE_DETECTED )
                                                                         .addInt32( _.hbs.NOTIFICATION_ID, _.notification.EXEC_OOB )
