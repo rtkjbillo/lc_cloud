@@ -218,6 +218,19 @@ RU32
 }
 
 RU32
+    rpal_string_strlenn
+    (
+        RNATIVESTR str
+    )
+{
+#ifdef RNATIVE_IS_WIDE
+    return rpal_string_strlenw( str );
+#else
+    return rpal_string_strlen( str );
+#endif
+}
+
+RU32
     rpal_string_strsize
     (
         RPCHAR str

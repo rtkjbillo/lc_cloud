@@ -114,7 +114,7 @@ RVOID
 
         while( NULL != entries && 0 != entries[ entryIndex ].pid )
         {
-            if( NULL != ( proc = processLib_getProcessInfo( entries[ entryIndex ].pid ) ) )
+            if( NULL != ( proc = processLib_getProcessInfo( entries[ entryIndex ].pid, NULL ) ) )
             {
                 if( NULL != ( mods = processLib_getProcessModules( entries[ entryIndex ].pid ) ) )
                 {

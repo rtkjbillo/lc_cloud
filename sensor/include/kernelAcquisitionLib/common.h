@@ -20,7 +20,15 @@ limitations under the License.
 #include <rpal/rpal_datatypes.h>
 
 #ifdef RPAL_PLATFORM_MACOSX
-    #define ACQUISITION_COMMS_NAME  "com.refractionpoint.hbs.acq"
+    #define ACQUISITION_COMMS_NAME          "com.refractionpoint.hbs.acq"
+#elif defined( RPAL_PLATFORM_WINDOWS )
+    #define ACQUISITION_COMMS_NAME          _WCH("rp_hcp_hbs_acq")
+    #define DEVICE_ID                       44223
+    #define DEVICE_FUNCTION_CODE            0x400
+    #define IOCTL_EXCHANGE_DATA             CTL_CODE( DEVICE_ID, \
+                                                      DEVICE_FUNCTION_CODE, \
+                                                      METHOD_BUFFERED, \
+                                                      FILE_READ_ACCESS )
 #endif
 
 #define ACQUISITION_COMMS_CHALLENGE         0xDEADBEEF
@@ -30,28 +38,43 @@ limitations under the License.
 #define KERNEL_ACQ_OP_PING                  0
 #define KERNEL_ACQ_OP_GET_NEW_PROCESSES     1
 #define KERNEL_ACQ_OP_GET_NEW_FILE_IO       2
+#define KERNEL_ACQ_OP_MODULE_LOAD           3
+#define KERNEL_ACQ_OP_COUNT                 4
+
+#pragma warning( disable: 4200 ) // Disabling error on zero-sized arrays
 
 typedef struct
 {
-    void* pArgs;            // Arguments
-    int argsSize;           // Size of Arguments
-    void* pResult;          // Result of op
-    int resultSize;         // Size of results
-    void* pSizeUsed;        // Size in results used
-
+#ifdef RPAL_PLATFORM_MACOSX
+    RPU8 pArgs;             // Arguments
+    RU32 argsSize;          // Size of Arguments
+    RPU8 pResult;           // Result of op
+    RU32 resultSize;        // Size of results
+    RU32* pSizeUsed;        // Size in results used
+#elif defined( RPAL_PLATFORM_WINDOWS )
+    RU32 op;
+    RU32 dataOffset;
+    RU32 argsSize;
+    RU8 data[];
+#else
+    RU32 unused;
+#endif
 } KernelAcqCommand;
+
 
 //==============================================================================
 //  Collector Specific Data Structures
 //==============================================================================
 
+#define KERNEL_ACQ_NO_USER_ID               ((RU32)(-1))
 typedef struct
 {
     RU32 pid;
     RU32 ppid;
     RU32 uid;
     RU64 ts;
-    RCHAR path[ 251 ];
+    RNATIVECHAR path[ 513 ];
+    RNATIVECHAR cmdline[ 513 ];
 
 } KernelAcqProcess;
 
@@ -66,8 +89,17 @@ typedef struct
     RU32 pid;
     RU32 uid;
     RU64 ts;
-    RCHAR path[ 251 ];
+    RNATIVECHAR path[ 513 ];
 
 } KernelAcqFileIo;
+
+typedef struct
+{
+    RU32 pid;
+    RPVOID baseAddress;
+    RU64 imageSize;
+    RU64 ts;
+    RNATIVECHAR path[ 513 ];
+} KernelAcqModule;
 
 #endif

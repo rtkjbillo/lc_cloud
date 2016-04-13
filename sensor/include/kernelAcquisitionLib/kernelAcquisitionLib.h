@@ -59,4 +59,11 @@ RBOOL
         RU32* nEntries
     );
 
+RBOOL
+    kAcq_getNewModules
+    (
+        KernelAcqModule* entries,
+        RU32* nEntries
+    );
+
 #endif

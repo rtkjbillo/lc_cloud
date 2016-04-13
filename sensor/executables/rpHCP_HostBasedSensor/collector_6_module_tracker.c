@@ -20,6 +20,8 @@ limitations under the License.
 #include <notificationsLib/notificationsLib.h>
 #include <processLib/processLib.h>
 #include <rpHostCommonPlatformLib/rTags.h>
+#include <kernelAcquisitionLib/kernelAcquisitionLib.h>
+#include <kernelAcquisitionLib/common.h>
 
 #ifdef RPAL_PLATFORM_WINDOWS
 #include <windows_undocumented.h>
@@ -28,6 +30,7 @@ limitations under the License.
 
 #define RPAL_FILE_ID         66
 
+#define MAX_SNAPSHOT_SIZE 1536
 
 typedef struct
 {
@@ -35,6 +38,8 @@ typedef struct
     RU64 baseAddr;
     RU64 size;
 } _moduleHistEntry;
+
+static RBOOL g_is_kernel_failure = FALSE;  // Kernel acquisition failed for this method
 
 static
 RS32
@@ -57,10 +62,9 @@ RS32
 
 static
 RPVOID
-    diffProcessModules
+    userModeDiff
     (
-        rEvent isTimeToStop,
-        RPVOID ctx
+        rEvent isTimeToStop
     )
 {
     rBlob previousSnapshot = NULL;
@@ -70,8 +74,6 @@ RPVOID
     processLibProcEntry* curProc = NULL;
     rList modules = NULL;
     rSequence module = NULL;
-
-    UNREFERENCED_PARAMETER( ctx );
 
     while( rpal_memory_isValid( isTimeToStop ) &&
            !rEvent_wait( isTimeToStop, 0 ) )
@@ -157,6 +159,113 @@ RPVOID
     return NULL;
 }
 
+static RBOOL
+    notifyOfKernelModule
+    (
+        KernelAcqModule* module
+    )
+{
+    RBOOL isSuccess = FALSE;
+    rSequence notif = NULL;
+    RU32 pathLength = 0;
+    RU32 i = 0;
+    RNATIVESTR dirSep = RPAL_FILE_LOCAL_DIR_SEP_N;
+
+    if( NULL != module )
+    {
+        if( NULL != ( notif = rSequence_new() ) )
+        {
+            rSequence_addTIMESTAMP( notif, RP_TAGS_TIMESTAMP, module->ts );
+            rSequence_addRU32( notif, RP_TAGS_PROCESS_ID, module->pid );
+            rSequence_addPOINTER64( notif, RP_TAGS_BASE_ADDRESS, (RU64)module->baseAddress );
+            rSequence_addRU64( notif, RP_TAGS_MEMORY_SIZE, module->imageSize );
+
+            if( 0 != ( pathLength = rpal_string_strlenn( module->path ) ) )
+            {
+                rSequence_addSTRINGN( notif, RP_TAGS_FILE_PATH, module->path );
+
+                // For compatibility with user mode we extract the module name.
+                for( i = pathLength - 1; i != 0; i-- )
+                {
+                    if( dirSep[ 0 ] == module->path[ i ] )
+                    {
+                        i++;
+                        break;
+                    }
+                }
+
+                rSequence_addSTRINGN( notif, RP_TAGS_MODULE_NAME, &( module->path[ i ] ) );
+
+                isSuccess = TRUE;
+            }
+
+            rSequence_free( notif );
+        }
+    }
+
+    return isSuccess;
+}
+
+static RVOID
+    kernelModeDiff
+    (
+        rEvent isTimeToStop
+    )
+{
+    RU32 i = 0;
+    RU32 nScratch = 0;
+    KernelAcqModule new_from_kernel[ 200 ] = { 0 };
+
+    while( !rEvent_wait( isTimeToStop, 1000 ) )
+    {
+        nScratch = ARRAY_N_ELEM( new_from_kernel );
+        rpal_memory_zero( new_from_kernel, sizeof( new_from_kernel ) );
+        if( !kAcq_getNewModules( new_from_kernel, &nScratch ) )
+        {
+            rpal_debug_warning( "kernel acquisition for new modules failed" );
+            g_is_kernel_failure = TRUE;
+            break;
+        }
+
+        for( i = 0; i < nScratch; i++ )
+        {
+            notifyOfKernelModule( &(new_from_kernel[ i ]) );
+        }
+    }
+}
+
+
+static RPVOID
+    moduleDiffThread
+    (
+        rEvent isTimeToStop,
+        RPVOID ctx
+    )
+{
+    UNREFERENCED_PARAMETER( ctx );
+
+    while( !rEvent_wait( isTimeToStop, 0 ) )
+    {
+        if( kAcq_isAvailable() &&
+            !g_is_kernel_failure )
+        {
+            // We first attempt to get new modules through
+            // the kernel mode acquisition driver
+            rpal_debug_info( "running kernel acquisition module notification" );
+            kernelModeDiff( isTimeToStop );
+        }
+        // If the kernel mode fails, or is not available, try
+        // to revert to user mode
+        else if( !rEvent_wait( isTimeToStop, 0 ) )
+        {
+            rpal_debug_info( "running usermode acquisition module notification" );
+            userModeDiff( isTimeToStop );
+        }
+    }
+
+    return NULL;
+}
+
 //=============================================================================
 // COLLECTOR INTERFACE
 //=============================================================================
@@ -177,7 +286,7 @@ RBOOL
 
     if( NULL != hbsState )
     {
-        if( rThreadPool_task( hbsState->hThreadPool, diffProcessModules, NULL ) )
+        if( rThreadPool_task( hbsState->hThreadPool, moduleDiffThread, NULL ) )
         {
             isSuccess = TRUE;
         }

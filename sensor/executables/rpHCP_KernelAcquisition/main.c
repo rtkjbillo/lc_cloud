@@ -20,6 +20,7 @@ limitations under the License.
 #include <obfuscationLib/obfuscationLib.h>
 #include <rpHostCommonPlatformLib/rTags.h>
 
+#pragma warning( disable: 4127 ) // Disabling error on constant expression in condition
 
 //=============================================================================
 //  RP HCP Module Requirements
@@ -161,6 +162,83 @@ RPAL_THREAD_FUNC
                     }
 
                 } while( FALSE );
+            #elif defined( RPAL_PLATFORM_WINDOWS )
+                do
+                {
+                    RWCHAR driverPath[] = _WCH( "%SYSTEMROOT%\\system32\\drivers\\tmp_hbs_acq.sys" );
+                    RPU8 driverBuffer = NULL;
+                    RU32 driverBufferSize = 0;
+                    SC_HANDLE hScControl = NULL;
+                    RWCHAR driverName[] = _WCH( "HbsAcq" );
+                    SC_HANDLE hService = NULL;
+                    RPWCHAR absolutePath = NULL;
+
+                    if( !rSequence_getBUFFER( config, 
+                                              RP_TAGS_BINARY, 
+                                              &driverBuffer, 
+                                              &driverBufferSize ) )
+                    {
+                        rpal_debug_error( "malformed config" );
+                        break;
+                    }
+
+                    if( !rpal_file_writew( driverPath, driverBuffer, driverBufferSize, TRUE ) )
+                    {
+                        rpal_debug_error( "could not write driver to disk" );
+                        break;
+                    }
+
+                    if( NULL == ( hScControl = OpenSCManagerW( NULL, 
+                                                               NULL, 
+                                                               SC_MANAGER_CREATE_SERVICE ) ) )
+                    {
+                        rpal_debug_error( "error opening service manager: 0x%08X", 
+                                          rpal_error_getLast() );
+                        break;
+                    }
+
+                    if( !rpal_string_expandw( driverPath, &absolutePath ) )
+                    {
+                        rpal_debug_error( "could not expand driver path" );
+                        break;
+                    }
+
+                    hService = CreateServiceW( hScControl,
+                                               driverName,
+                                               driverName,
+                                               SERVICE_ALL_ACCESS,
+                                               SERVICE_KERNEL_DRIVER,
+                                               SERVICE_DEMAND_START,
+                                               SERVICE_ERROR_IGNORE,
+                                               absolutePath,
+                                               NULL, NULL, NULL,
+                                               NULL, NULL );
+
+                    rpal_memory_free( absolutePath );
+
+                    if( NULL == hService )
+                    {
+                        CloseServiceHandle( hScControl );
+                        rpal_debug_error( "could create driver entry: 0x%08X", 
+                                          rpal_error_getLast() );
+                        rpal_memory_free( absolutePath );
+                        break;
+                    }
+
+                    if( !StartService( hService, 0, NULL ) )
+                    {
+                        rpal_debug_error( "could not start driver: 0x%08X", 
+                                          rpal_error_getLast() );
+                    }
+                    else
+                    {
+                        isLoaded = TRUE;
+                    }
+
+                    CloseServiceHandle( hService );
+                    CloseServiceHandle( hScControl );
+
+                } while( FALSE );
             #else
                 rpal_debug_warning( "no kernel acquisiton loading available for platform" );
             #endif
@@ -189,6 +267,62 @@ RPAL_THREAD_FUNC
                 break;
             }
 
+        } while( FALSE );
+    #elif defined( RPAL_PLATFORM_WINDOWS )
+        do
+        {
+            RWCHAR driverPath[] = _WCH( "%SYSTEMROOT%\\system32\\drivers\\tmp_hbs_acq.sys" );
+            SC_HANDLE hScControl = NULL;
+            RWCHAR driverName[] = _WCH( "HbsAcq" );
+            SC_HANDLE hService = NULL;
+            SERVICE_STATUS svcStatus = { 0 };
+
+            if( NULL == ( hScControl = OpenSCManagerW( NULL,
+                                                       NULL,
+                                                       SC_MANAGER_CREATE_SERVICE ) ) )
+            {
+                rpal_debug_error( "error opening service manager: 0x%08X",
+                                  rpal_error_getLast() );
+            }
+
+            if( NULL != hScControl &&
+                NULL == ( hService = OpenServiceW( hScControl, 
+                                                   driverName, 
+                                                   SERVICE_ALL_ACCESS ) ) )
+            {
+                rpal_debug_error( "error opening service: 0x%08X",
+                                  rpal_error_getLast() );
+                CloseServiceHandle( hScControl );
+                break;
+            }
+
+            if( NULL != hService &&
+                !ControlService( hService, SERVICE_CONTROL_STOP, &svcStatus ) )
+            {
+                rpal_debug_error( "error stopping driver" );
+            }
+
+            if( NULL != hService &&
+                !DeleteService( hService ) )
+            {
+                rpal_debug_error( "error deleting driver entry" );
+            }
+
+            if( NULL != hService )
+            {
+                CloseServiceHandle( hService );
+            }
+
+            if( NULL != hScControl )
+            {
+                CloseServiceHandle( hScControl );
+            }
+
+            if( !rpal_file_deletew( driverPath, FALSE ) )
+            {
+                rpal_debug_error( "error deleting driver file: 0x%08X", 
+                                  rpal_error_getLast() );
+            }
         } while( FALSE );
     #else
         rpal_debug_warning( "no kernel acquisiton unloading available for platform" );

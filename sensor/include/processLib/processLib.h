@@ -61,7 +61,8 @@ processLibProcEntry*
 rSequence
     processLib_getProcessInfo
     (
-        RU32 processId
+        RU32 processId,
+        rSequence bootstrap
     );
 
 rList

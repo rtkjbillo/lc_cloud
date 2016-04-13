@@ -268,7 +268,7 @@ RPVOID
                                     {
                                         rpal_debug_info( "found a hidden module in %d.", processId );
 
-                                        if( NULL != ( procInfo = processLib_getProcessInfo( processId ) ) )
+                                        if( NULL != ( procInfo = processLib_getProcessInfo( processId, NULL ) ) )
                                         {
                                             if( !rSequence_addSEQUENCE( region, RP_TAGS_PROCESS, procInfo ) )
                                             {

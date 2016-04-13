@@ -52,6 +52,12 @@ typedef RU8     rpcm_type;
 #define RPCM_SEQUENCE       0x81
 #define RPCM_LIST           0x82
 
+#ifdef RPAL_PLATFORM_WINDOWS
+    #define RPCM_STRINGN        RPCM_STRINGW
+#else
+    #define RPCM_STRINGN        RPCM_STRINGA
+#endif
+
 //=============================================================================
 //  API
 //=============================================================================
@@ -180,6 +186,14 @@ RBOOL
         rSequence seq,
         rpcm_tag tag,
         RPWCHAR string
+    );
+
+RBOOL
+    rSequence_addSTRINGN
+    (
+        rSequence seq,
+        rpcm_tag tag,
+        RNATIVESTR string
     );
 
 RBOOL
@@ -320,6 +334,13 @@ RBOOL
     (
         rList list,
         RPWCHAR string
+    );
+
+RBOOL
+    rList_addSTRINGN
+    (
+        rList list,
+        RNATIVESTR string
     );
 
 RBOOL
@@ -469,6 +490,14 @@ RBOOL
     );
 
 RBOOL
+    rSequence_getSTRINGN
+    (
+        rSequence seq,
+        rpcm_tag tag,
+        RNATIVESTR* pVal
+    );
+
+RBOOL
     rSequence_getBUFFER
     (
         rSequence seq,
@@ -605,6 +634,14 @@ RBOOL
         rList list,
         rpcm_tag tag,
         RPWCHAR* pVal
+    );
+
+RBOOL
+    rList_getSTRINGN
+    (
+        rList list,
+        rpcm_tag tag,
+        RNATIVESTR* pVal
     );
 
 RBOOL
