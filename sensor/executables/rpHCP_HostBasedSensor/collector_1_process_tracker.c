@@ -250,6 +250,10 @@ static RBOOL
 
         rSequence_free( info );
     }
+    else
+    {
+        rpal_debug_error( "could not allocate info on new process" );
+    }
 
     return isSuccess;
 }

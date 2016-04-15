@@ -448,7 +448,7 @@ rSequence
                 rSequence_addRU32( procInfo, RP_TAGS_PROCESS_ID, processId );
             }
         }
-        else
+        else if( NULL == bootstrap )
         {
             rSequence_free( procInfo );
             procInfo = NULL;

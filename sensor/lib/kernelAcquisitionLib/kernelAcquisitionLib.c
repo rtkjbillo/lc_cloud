@@ -198,10 +198,10 @@ RBOOL
         isSuccess = TRUE;
     }
 #elif defined( RPAL_PLATFORM_WINDOWS )
-    g_is_available = FALSE;
-
     if( INVALID_HANDLE_VALUE == g_km_handle )
     {
+        g_is_available = FALSE;
+
         if( NULL != ( g_km_mutex = rMutex_create() ) )
         {
             if( INVALID_HANDLE_VALUE != ( g_km_handle = CreateFileW( LOCAL_COMMS_NAME,
@@ -223,7 +223,7 @@ RBOOL
     }
     else
     {
-        g_is_available = TRUE;
+        isSuccess = TRUE;
     }
 #endif
 
