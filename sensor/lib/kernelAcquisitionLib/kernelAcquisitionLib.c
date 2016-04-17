@@ -212,6 +212,7 @@ RBOOL
                                                                      FILE_ATTRIBUTE_NORMAL,
                                                                      NULL ) ) )
             {
+                g_is_available = TRUE;
                 isSuccess = TRUE;
             }
             else
@@ -223,6 +224,7 @@ RBOOL
     }
     else
     {
+        g_is_available = TRUE;
         isSuccess = TRUE;
     }
 #endif
