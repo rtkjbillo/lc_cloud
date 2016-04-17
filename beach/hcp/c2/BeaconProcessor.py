@@ -45,6 +45,7 @@ class BeaconProcessor( Actor ):
                                                      parameters[ 'state_db' ][ 'password' ],
                                                      isConnectRightAway = True ) )
         self.taskBackTimeout = parameters.get( 'task_back_timeout', 2 )
+        self.deploymentKey = parameters.get( 'deployment_key', None )
         self.analytics_intake = self.getActorHandle( 'analytics/intake' )
 
     def deinit( self ):
@@ -119,6 +120,12 @@ class BeaconProcessor( Actor ):
         r.setBuffer( decompressed )
 
         headers = r.deserialise()
+
+        # Before we do any more work we verify that the sensor coming back is related
+        # to this deployment, otherwise we won't do the rest of the work...
+        if self.deploymentKey is not None:
+            if self.deploymentKey != headers.get( 'hcp.DEPLOYMENT_KEY', None ):
+                raise Exception( 'sensor does not belong to this deployment' )
 
         if 0 != len( r.dataInBuffer() ):
             tmpMessagesBuffer = r.dataInBuffer()

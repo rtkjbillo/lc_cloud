@@ -28,6 +28,11 @@ if not beach.flush():
 #    details for the mysql database
 #    used to store the low-importance
 #    data tracked at runtime.
+# deployment_key: The deployment key
+#    to enforce if needed, it helps
+#    to filter out sensors beaconing
+#    to you that are not related to
+#    your deployment.
 # _priv_key: the C2 private key.
 # task_back_timeout: the number of
 #    seconds to wait during each
@@ -41,6 +46,7 @@ print( beach.addActor( 'c2/BeaconProcessor',
                                                      'db' : 'hcp',
                                                      'user' : 'root',
                                                      'password' : 'letmein' },
+                                      'deployment_key' : 'sample_hcp_deployment_key',
                                       '_priv_key' : open( os.path.join( REPO_ROOT,
                                                                         'keys',
                                                                         'c2.priv.pem' ), 'r' ).read(),
