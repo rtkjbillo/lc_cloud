@@ -44,7 +44,7 @@ if not os.path.isdir( output_dir ):
                os.system( 'mkdir -p %s' % output_dir ) )
 
 printStep( 'Copying prebuilt binaries to output.', 
-           os.system( 'cp %s/prebuilt_binaries/* %s/' % output_dir ) )
+           os.system( 'cp %s/prebuilt_binaries/* %s/' % ( root, output_dir ) ) )
 
 
 
