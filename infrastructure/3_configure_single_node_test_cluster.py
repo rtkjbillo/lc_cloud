@@ -21,6 +21,12 @@ if os.geteuid() != 0:
     sys.exit(-1)
 
 root = os.path.join( os.path.abspath( os.path.dirname( __file__ ) ), '..', '..' )
+binaryPath = os.path.join( root, 'prebuilt_binaries' )
+if 2 == len( sys.argv ):
+    binaryPath = sys.argv[ 1 ]
+    if not os.path.isdir( binaryPath ):
+        print( "The path to the binaries is not valid: %s" % binaryPath )
+        sys.exit(-1)
 
 def printStep( step, *ret ):
     msg = '''
@@ -38,9 +44,9 @@ Return Values: %s
 def execInBackend( script ):
 
     script = 'login %s\n%s' % ( os.path.join( root,
-                                             'cloud',
-                                             'beach',
-                                             'sample_cli.conf' ),
+                                              'cloud',
+                                              'beach',
+                                              'sample_cli.conf' ),
                                 script )
 
     with open( '_tmp_script', 'w' ) as f:
@@ -58,7 +64,7 @@ def execInBackend( script ):
 printStep( 'Adding enrollment rule to the cloud to enroll all sensors into the 1.1 range.',
     execInBackend( 'hcp_addEnrollmentRule -m ff.ff.ffffffff.fff.ff -o 1 -s 1' ) )
 
-binaries = os.listdir( os.path.join( root, 'prebuilt_binaries' ) )
+binaries = os.listdir( binaryPath )
 for binary in binaries:
     if ( binary.startswith( 'hbs_' ) or binary.startswith( 'kernel_' ) ) and not binary.endswith( '.sig' ):
         printStep( 'Signing binary: %s' % binary,
