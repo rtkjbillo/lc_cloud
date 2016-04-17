@@ -78,7 +78,7 @@ RVOID
             {
                 hbs_markAsRelated( originalEvent, notif );
 
-                if( ( rSequence_addSTRINGW( notif, RP_TAGS_FILE_NAME, name ) ||
+                if( ( rSequence_addSTRINGW( notif, RP_TAGS_FILE_PATH, name ) ||
                       rSequence_addSTRINGW( notif, RP_TAGS_DLL, name ) ||
                       rSequence_addSTRINGW( notif, RP_TAGS_EXECUTABLE, name ) ) &&
                     rSequence_addRU32( notif, RP_TAGS_MEMORY_SIZE, (RU32)codeSize ) &&
@@ -347,10 +347,10 @@ RVOID
     {
         if( rSequence_getSTRINGA( event, RP_TAGS_FILE_PATH, &nameA ) ||
             rSequence_getSTRINGW( event, RP_TAGS_FILE_PATH, &nameW ) ||
-            rSequence_getSTRINGA( event, RP_TAGS_EXECUTABLE, &nameA ) ||
-            rSequence_getSTRINGW( event, RP_TAGS_EXECUTABLE, &nameW ) ||
             rSequence_getSTRINGA( event, RP_TAGS_DLL, &nameA ) ||
-            rSequence_getSTRINGW( event, RP_TAGS_DLL, &nameW ) )
+            rSequence_getSTRINGW( event, RP_TAGS_DLL, &nameW ) ||
+            rSequence_getSTRINGA( event, RP_TAGS_EXECUTABLE, &nameA ) ||
+            rSequence_getSTRINGW( event, RP_TAGS_EXECUTABLE, &nameW ) )
         {
             rSequence_getBUFFER( event, RP_TAGS_HASH, (RPU8*)&pHash, NULL );
             
