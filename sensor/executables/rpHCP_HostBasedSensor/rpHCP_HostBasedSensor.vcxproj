@@ -125,6 +125,7 @@
     <ClCompile Include="collector_16_yara.c" />
     <ClCompile Include="collector_17_os_trackers.c" />
     <ClCompile Include="collector_18_doc_cache.c" />
+    <ClCompile Include="collector_19_volume_tracker.c" />
     <ClCompile Include="collector_1_process_tracker.c" />
     <ClCompile Include="collector_2_dns_tracker.c" />
     <ClCompile Include="collector_3_code_ident.c" />

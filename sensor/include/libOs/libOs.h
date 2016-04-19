@@ -171,4 +171,16 @@ rList
         RBOOL isWithHashes
     );
 
+rList
+    libOs_getDevices
+    (
+
+    );
+
+rList
+    libOs_getVolumes
+    (
+
+    );
+
 #endif
