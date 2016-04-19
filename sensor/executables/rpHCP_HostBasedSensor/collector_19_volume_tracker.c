@@ -161,7 +161,9 @@ static RPVOID
 // COLLECTOR INTERFACE
 //=============================================================================
 
-rpcm_tag collector_19_events[] = { 0 };
+rpcm_tag collector_19_events[] = { RP_TAGS_NOTIFICATION_VOLUME_MOUNT,
+                                   RP_TAGS_NOTIFICATION_VOLUME_UNMOUNT,
+                                   0 };
 
 RBOOL
     collector_19_init
