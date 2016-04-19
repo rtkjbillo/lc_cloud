@@ -482,7 +482,10 @@ RBOOL
 #if defined( RPAL_PLATFORM_LINUX ) || defined( RPAL_PLATFORM_MACOSX )
                     errorStr = dlerror();
 #endif
-                    rpal_debug_error( "Could not manually load module %S: %s", modulePath, errorStr );
+                    rpal_debug_error( "Could not manually load module %S: %X %s", 
+                                      modulePath, 
+                                      rpal_error_getLast(), 
+                                      errorStr );
                 }
 
                 break;

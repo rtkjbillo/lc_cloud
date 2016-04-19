@@ -161,10 +161,10 @@ static RPVOID
 // COLLECTOR INTERFACE
 //=============================================================================
 
-rpcm_tag collector_18_events[] = { 0 };
+rpcm_tag collector_19_events[] = { 0 };
 
 RBOOL
-    collector_18_init
+    collector_19_init
     (
         HbsState* hbsState,
         rSequence config
@@ -176,20 +176,24 @@ RBOOL
     {
         if( NULL != config )
         {
-            rSequence_getRU32( config, RP_TAGS_TIMEDELTA, &g_diff_timeout );
+            if( !rSequence_getRU32( config, RP_TAGS_TIMEDELTA, &g_diff_timeout ) )
+            {
+                g_diff_timeout = _DIFF_TIMEOUT;
+            }
         }
 
         if( rThreadPool_task( hbsState->hThreadPool, trackerDiffThread, NULL ) )
         {
             isSuccess = TRUE;
         }
+        isSuccess = TRUE;
     }
 
     return isSuccess;
 }
 
 RBOOL
-    collector_18_cleanup
+    collector_19_cleanup
     (
         HbsState* hbsState,
         rSequence config
@@ -197,8 +201,7 @@ RBOOL
 {
     RBOOL isSuccess = FALSE;
 
-    if( NULL != hbsState &&
-        rpal_memory_isValid( config ) )
+    if( NULL != hbsState )
     {
         isSuccess = TRUE;
     }
