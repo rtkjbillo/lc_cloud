@@ -124,6 +124,7 @@
     <ClCompile Include="collector_15_process_hollowing.c" />
     <ClCompile Include="collector_16_yara.c" />
     <ClCompile Include="collector_17_os_trackers.c" />
+    <ClCompile Include="collector_18_doc_cache.c" />
     <ClCompile Include="collector_19_volume_tracker.c" />
     <ClCompile Include="collector_1_process_tracker.c" />
     <ClCompile Include="collector_2_dns_tracker.c" />
@@ -139,6 +140,9 @@
   <ItemGroup>
     <ProjectReference Include="..\..\lib\cryptoLib\cryptoLib.vcxproj">
       <Project>{533b36b9-e781-4132-baa7-33bf68de7013}</Project>
+    </ProjectReference>
+    <ProjectReference Include="..\..\lib\kernelAcquisitionLib\kernelAcquisitionLib.vcxproj">
+      <Project>{4e46a8ae-af86-48b7-a444-2b69fbb83d18}</Project>
     </ProjectReference>
     <ProjectReference Include="..\..\lib\libOs\libOs.vcxproj">
       <Project>{b344474d-101c-4eeb-ac48-40f1d5489bfd}</Project>

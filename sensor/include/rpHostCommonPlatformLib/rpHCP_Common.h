@@ -102,6 +102,8 @@ typedef union
 #define RP_HCP_PLATFORM_MINOR_LINUX_CENTOS_5        0x02
 #define RP_HCP_PLATFORM_MINOR_LINUX_CENTOS_6        0x03
 #define RP_HCP_PLATFORM_MINOR_LINUX_UBUNTU_14       0x04
+#define RP_HCP_PLATFORM_MINOR_LINUX_UBUNTU_15       0x05
+#define RP_HCP_PLATFORM_MINOR_LINUX_UBUNTU_16       0x06
 
 // Current Platform
 #ifndef RP_HCP_PLATFORM_CURRENT_ARCH
@@ -141,6 +143,7 @@ typedef RU8 RpHcp_ModuleId;
 #define RP_HCP_MODULE_ID_HBS                2
 #define RP_HCP_MODULE_ID_TEST               3
 #define RP_HCP_MODULE_ID_AAD                4
+#define RP_HCP_MODULE_ID_KERNEL_ACQ         5
 
 typedef struct
 {

@@ -42,6 +42,7 @@ typedef struct
     RPAL_API_PTR( RU32,     rpal_memory_totalUsed, );
     RPAL_API_PTR( RU64,     rpal_time_getGlobal, );
     RPAL_API_PTR( RU64,     rpal_time_setGlobalOffset, RU64 offset );
+    RPAL_API_PTR( RU64,     rpal_time_getGlobalFromLocal, RU64 localTs );
     RPAL_API_PTR( rHandle,  rpal_handleManager_create_global,   RU8 major,      RU32 minor, RPVOID val,     rpal_handleManager_cleanup_f cleanup );
     RPAL_API_PTR( RBOOL,    rpal_handleManager_open_global,     rHandle handle, RPVOID* pVal );
     RPAL_API_PTR( RBOOL,    rpal_handleManager_openEx_global,   RU8 major,      RU32 minor, RPVOID* pVal );

@@ -2,7 +2,8 @@ Import( 'env' )
 Import( 'compmap' )
 
 for subdir in [ 'rpHostCommonPlatformExe',
-                'rpHCP_HostBasedSensor' ]:
+                'rpHCP_HostBasedSensor',
+                'rpHCP_KernelAcquisition' ]:
     SConscript(
             dirs = [ subdir ],
             file = 'SConscript',

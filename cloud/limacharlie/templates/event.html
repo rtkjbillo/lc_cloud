@@ -1,9 +1,10 @@
 $def with ( event )
 $var title = 'Event'
 
-<div style="text-align:left;">
+<a style="text-align:left;">
     <h4>Event Id: $event[ 0 ]</h4>
     $if 'base.TIMESTAMP' in event[ 1 ].values()[ 0 ]:
         <h5>Time: $tsToTime( event[ 1 ].values()[ 0 ][ 'base.TIMESTAMP' ] )</h5>
-    <pre><code>$json.dumps( event[ 1 ], indent = 2 )</code></pre>
+    <a href="/downloadfileinevent?id=$event[ 0 ]">Download file in this event</a>
+    <pre style="text-align: left;"><code>$json.dumps( event[ 1 ], indent = 2 )</code></pre>
 </div>

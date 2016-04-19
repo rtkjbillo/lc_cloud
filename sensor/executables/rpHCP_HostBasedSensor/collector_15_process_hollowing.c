@@ -510,7 +510,7 @@ RPVOID
         {
             if( NULL != ( hollowedModules = _spotCheckProcess( isTimeToStop, proc->pid ) ) )
             {
-                if( NULL != ( processInfo = processLib_getProcessInfo( proc->pid ) ) ||
+                if( NULL != ( processInfo = processLib_getProcessInfo( proc->pid, NULL ) ) ||
                     ( NULL != ( processInfo = rSequence_new() ) &&
                       rSequence_addRU32( processInfo, RP_TAGS_PROCESS_ID, proc->pid ) ) )
                 {
@@ -569,7 +569,7 @@ RPVOID
                 {
                     if( NULL != ( hollowedModules = _spotCheckProcess( isTimeToStop, proc->pid ) ) )
                     {
-                        if( NULL != ( processInfo = processLib_getProcessInfo( proc->pid ) ) ||
+                        if( NULL != ( processInfo = processLib_getProcessInfo( proc->pid, NULL ) ) ||
                             ( NULL != ( processInfo = rSequence_new() ) &&
                             rSequence_addRU32( processInfo, RP_TAGS_PROCESS_ID, proc->pid ) ) )
                         {
@@ -631,7 +631,13 @@ RPVOID
                 now = rpal_time_getGlobal();
                 if( now < timeToWait )
                 {
-                    rpal_thread_sleep( (RU32)MSEC_FROM_SEC( timeToWait - now ) );
+                    timeToWait = timeToWait - now;
+                    if( _CHECK_SEC_AFTER_PROCESS_CREATION < timeToWait )
+                    {
+                        // Sanity check
+                        timeToWait = _CHECK_SEC_AFTER_PROCESS_CREATION;
+                    }
+                    rpal_thread_sleep( (RU32)MSEC_FROM_SEC( timeToWait ) );
                 }
 
                 if( NULL != ( hollowedModules = _spotCheckProcess( isTimeToStop, pid ) ) )
@@ -674,7 +680,7 @@ RVOID
     {
         if( rSequence_getRU32( event, RP_TAGS_PROCESS_ID, &pid ) )
         {
-            if( NULL != ( process = processLib_getProcessInfo( pid ) ) ||
+            if( NULL != ( process = processLib_getProcessInfo( pid, NULL ) ) ||
                 ( NULL != ( process = rSequence_new() ) &&
                   rSequence_addRU32( process, RP_TAGS_PROCESS_ID, pid ) ) )
             {

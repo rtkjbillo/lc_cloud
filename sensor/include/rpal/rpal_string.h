@@ -57,6 +57,12 @@ RU32
     );
 
 RU32
+    rpal_string_strlenn
+    (
+        RNATIVESTR str
+    );
+
+RU32
     rpal_string_strsize
     (
         RPCHAR str
@@ -365,6 +371,68 @@ RBOOL
     rpal_string_charIsAlphaNum
     (
         RCHAR c
+    );
+
+RBOOL
+    rpal_string_charIsAlpha
+    (
+        RCHAR c
+    );
+
+RBOOL
+    rpal_string_charIsNum
+    (
+        RCHAR c
+    );
+
+RBOOL
+    rpal_string_charIsUpper
+    (
+        RCHAR c
+    );
+
+RBOOL
+    rpal_string_charIsLower
+    (
+        RCHAR c
+    );
+
+
+RBOOL
+    rpal_string_wcharIsUpper
+    (
+        RWCHAR c
+    );
+
+RBOOL
+    rpal_string_wcharIsLower
+    (
+        RWCHAR c
+    );
+
+RCHAR
+    rpal_string_charToUpper
+    (
+        RCHAR c
+    );
+
+RCHAR
+    rpal_string_charToLower
+    (
+        RCHAR c
+    );
+
+
+RWCHAR
+    rpal_string_wcharToUpper
+    (
+        RWCHAR c
+    );
+
+RWCHAR
+    rpal_string_wcharToLower
+    (
+        RWCHAR c
     );
 
 #include <stdio.h>

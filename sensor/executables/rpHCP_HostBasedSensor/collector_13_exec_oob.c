@@ -267,7 +267,7 @@ RPVOID
         }
 
         if( isFound &&
-            NULL != ( notif = processLib_getProcessInfo( processId ) ) )
+            NULL != ( notif = processLib_getProcessInfo( processId, NULL ) ) )
         {
             if( !rSequence_addLIST( notif, RP_TAGS_STACK_TRACES, traces ) )
             {

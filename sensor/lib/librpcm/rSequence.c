@@ -166,6 +166,17 @@ RBOOL
 }
 
 RBOOL
+    rSequence_addSTRINGN
+    (
+        rSequence seq,
+        rpcm_tag tag,
+        RNATIVESTR string
+    )
+{
+    return rSequence_addElement( seq, tag, RPCM_STRINGN, string, sizeof( string ) );
+}
+
+RBOOL
     rSequence_addBUFFER
     (
         rSequence seq,
@@ -411,6 +422,19 @@ RBOOL
 }
 
 RBOOL
+    rSequence_getSTRINGN
+    (
+        rSequence seq,
+        rpcm_tag tag,
+        RNATIVESTR* pVal
+    )
+{
+    rpcm_type type = RPCM_STRINGN;
+
+    return rSequence_getElement( seq, &tag, &type, pVal, NULL );
+}
+
+RBOOL
     rSequence_getBUFFER
     (
         rSequence seq,
@@ -589,6 +613,12 @@ RBOOL
         {
             tmpSeq = (_rSequence*)*pSeq;
             isSuccess = set_deserialise( &tmpSeq->set, buffer, bufferSize, pBytesConsumed );
+
+            if( !isSuccess )
+            {
+                rSequence_free( *pSeq );
+                *pSeq = NULL;
+            }
         }
     }
 

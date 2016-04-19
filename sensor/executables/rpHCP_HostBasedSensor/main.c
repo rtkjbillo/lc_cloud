@@ -23,6 +23,7 @@ limitations under the License.
 #include <notificationsLib/notificationsLib.h>
 #include <cryptoLib/cryptoLib.h>
 #include <librpcm/librpcm.h>
+#include <kernelAcquisitionLib/kernelAcquisitionLib.h>
 #include "collectors.h"
 #include "keys.h"
 
@@ -69,7 +70,7 @@ HbsState g_hbs_state = { NULL,
                            ENABLED_WINDOWS_COLLECTOR( 4 ),
                            ENABLED_WINDOWS_COLLECTOR( 5 ),
                            ENABLED_COLLECTOR( 6 ),
-                           ENABLED_WINDOWS_COLLECTOR( 7 ),
+                           DISABLED_LINUX_COLLECTOR( 7 ),
                            ENABLED_COLLECTOR( 8 ),
                            ENABLED_COLLECTOR( 9 ),
                            ENABLED_COLLECTOR( 10 ),
@@ -80,7 +81,8 @@ HbsState g_hbs_state = { NULL,
                            DISABLED_OSX_COLLECTOR( 15 ),
                            ENABLED_WINDOWS_COLLECTOR( 16 ),
                            ENABLED_COLLECTOR( 17 ),
-                           ENABLED_COLLECTOR( 19 ) } };
+                           DISABLED_LINUX_COLLECTOR( 18 ),
+                           ENABLED_COLLECTOR( 19 ) } } };
 RU8* hbs_cloud_pub_key = hbs_cloud_default_pub_key;
 
 //=============================================================================
@@ -697,6 +699,36 @@ static RVOID
     }
 }
 
+static RBOOL
+    checkKernelAcquisition
+    (
+
+    )
+{
+    RBOOL isKernelInit = FALSE;
+
+    if( !kAcq_init() )
+    {
+        rpal_debug_info( "kernel acquisition not initialized" );
+    }
+    else
+    {
+        if( kAcq_ping() )
+        {
+            rpal_debug_info( "kernel acquisition available" );
+            isKernelInit = TRUE;
+        }
+        else
+        {
+            rpal_debug_info( "kernel acquisition not available" );
+            kAcq_deinit();
+        }
+    }
+
+    return isKernelInit;
+}
+
+
 //=============================================================================
 //  Entry Point
 //=============================================================================
@@ -820,6 +852,8 @@ RPAL_THREAD_FUNC
                          HBS_DEFAULT_BEACON_TIMEOUT +
                          ( rpal_rand() % HBS_DEFAULT_BEACON_TIMEOUT_FUZZ );
 
+        checkKernelAcquisition();
+
         if( NULL != ( cloudMessages = beaconHome() ) )
         {
             while( rList_getSEQUENCE( cloudMessages, RP_TAGS_MESSAGE, &msg ) )
@@ -909,6 +943,8 @@ RPAL_THREAD_FUNC
 
             newNotifications = NULL;
         }
+
+        checkKernelAcquisition();
     }
 
     // We issue one last beacon indicating we are stopping
@@ -930,6 +966,11 @@ RPAL_THREAD_FUNC
     {
         rpal_memory_free( hbs_cloud_pub_key );
         hbs_cloud_pub_key = NULL;
+    }
+
+    if( kAcq_isAvailable() )
+    {
+        kAcq_deinit();
     }
 
     return ret;

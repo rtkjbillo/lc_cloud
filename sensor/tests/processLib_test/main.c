@@ -151,7 +151,7 @@ void
 
     CU_ASSERT_NOT_EQUAL_FATAL( entries[ entryIndex ].pid, 0 );
 
-    proc = processLib_getProcessInfo( entries[ entryIndex ].pid );
+    proc = processLib_getProcessInfo( entries[ entryIndex ].pid, NULL );
 
     CU_ASSERT_PTR_NOT_EQUAL( proc, NULL );
 

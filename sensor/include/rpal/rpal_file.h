@@ -68,9 +68,13 @@ enum rFileSeek
 
 
 #ifdef RPAL_PLATFORM_WINDOWS
-    #define RPAL_FILE_LOCAL_DIR_SEP     _WCH("\\")
+    #define RPAL_FILE_LOCAL_DIR_SEP_W    _WCH("\\")
+    #define RPAL_FILE_LOCAL_DIR_SEP_A   "\\"
+    #define RPAL_FILE_LOCAL_DIR_SEP_N   RPAL_FILE_LOCAL_DIR_SEP_W
 #else
-    #define RPAL_FILE_LOCAL_DIR_SEP     { _WCH("/") }
+    #define RPAL_FILE_LOCAL_DIR_SEP_W   { _WCH("/") }
+    #define RPAL_FILE_LOCAL_DIR_SEP_A   { "/" }
+    #define RPAL_FILE_LOCAL_DIR_SEP_N   RPAL_FILE_LOCAL_DIR_SEP_A
 #endif
 
 RBOOL
@@ -318,6 +322,18 @@ RBOOL
         RU32 timeout,
         RPWCHAR* pFilePath,
         RU32* pAction
+    );
+
+RPWCHAR
+    rpal_file_cleanw
+    (
+        RPWCHAR filePath
+    );
+
+RPCHAR
+    rpal_file_cleana
+    (
+        RPCHAR filePath
     );
 
 #endif

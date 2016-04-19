@@ -206,7 +206,7 @@ RBOOL
         process = processes;
         while( 0 != process->pid )
         {
-            if( NULL != ( processInfo = processLib_getProcessInfo( process->pid ) ) )
+            if( NULL != ( processInfo = processLib_getProcessInfo( process->pid, NULL ) ) )
             {
                 if( rSequence_getSTRINGW( processInfo, RP_TAGS_FILE_PATH, &processName ) )
                 {
