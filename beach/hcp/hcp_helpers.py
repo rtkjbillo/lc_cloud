@@ -151,6 +151,7 @@ class HbsCollectorId ( object ):
     YARA = 16
     OS_TRACKER = 17
     DOC_COLLECTOR = 18
+    VOLUME_TRACKER = 18
 
     lookup = {
         0 : 'EXFIL',
