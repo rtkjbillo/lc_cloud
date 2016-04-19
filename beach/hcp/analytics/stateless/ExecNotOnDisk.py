@@ -25,7 +25,12 @@ class ExecNotOnDisk ( StatelessActor ):
         routing, event, mtd = msg.data
         detects = []
 
-        if _x_( event, '?/base.HASH' ) is None:
-            detects.append( ( event, None ) )
+        h = _x_( event, '?/base.HASH' )
+        if ( _x_( event, '?/base.EXECUTABLE' ) is not None or
+             _x_( event, '?/base.DLL' ) is not None or
+             _x_( event, '?/base.FILE_PATH' ) is not None ):
+            if h is None or h == '0000000000000000000000000000000000000000000000000000000000000000':
+                if _x_( event, '?/base.ERROR' ) is None:
+                    detects.append( ( event, None ) )
 
         return detects

@@ -27,7 +27,6 @@ from beach.actor import Actor
 rSequence = Actor.importLib( 'rpcm', 'rSequence' )
 
 
-
 import hmac, base64, struct, hashlib, time, string, random
 
 def _xm_( o, path, isWildcardDepth = False ):
@@ -129,6 +128,8 @@ class HcpModuleId( object ):
     HCP = 1
     HBS = 2
     TEST = 3
+    AAD = 4
+    KERNEL_ACQ = 5
 
 class HbsCollectorId ( object ):
     EXFIL = 0
@@ -148,6 +149,8 @@ class HbsCollectorId ( object ):
     OPERATIONS_MAN = 14
     PROCESS_HOLLOWING = 15
     YARA = 16
+    OS_TRACKER = 17
+    DOC_COLLECTOR = 18
 
     lookup = {
         0 : 'EXFIL',
@@ -166,7 +169,9 @@ class HbsCollectorId ( object ):
         13 : 'EXEC_OOB',
         14 : 'OPERATIONS_MAN',
         15 : 'PROCESS_HOLLOWING',
-        16 : 'YARA'
+        16 : 'YARA',
+        17 : 'OS_TRACKER',
+        18 : 'DOC_COLLECTOR'
     }
 
 class TwoFactorAuth(object):

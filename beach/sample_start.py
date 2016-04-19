@@ -5,12 +5,19 @@ import logging
 
 REPO_ROOT = os.path.join( os.path.dirname( os.path.abspath( __file__ ) ), '..', '..' )
 
+if os.geteuid() != 0:
+    print( 'Not currently running as root. If you meant to run this as part of the Cloud-in-a-Can you should run this with sudo.' )
+
 if 1 < len( sys.argv ):
     BEACH_CONFIG_FILE = os.path.abspath( sys.argv[ 1 ] )
 else:
     BEACH_CONFIG_FILE = os.path.join( os.path.dirname( os.path.abspath( __file__ ) ), 'sample_cluster.yaml' )
 
 beach = Beach( BEACH_CONFIG_FILE, realm = 'hcp' )
+
+if not beach.flush():
+    print( "Could not flush Beach cluster. Are you sure it is running?" )
+    sys.exit(-1)
 
 #######################################
 # BeaconProcessor

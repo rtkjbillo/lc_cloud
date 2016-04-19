@@ -21,7 +21,8 @@ _xm_ = Actor.importLib( '../../hcp_helpers', '_xm_' )
 class WinSuspExecLoc ( StatelessActor ):
     def init( self, parameters ):
         super( WinSuspExecLoc, self ).init( parameters )
-        self.slocs = { 'tasks' : re.compile( r'.*windows\\(?:(?:system32)||(?:syswow64))\\tasks\\.*', re.IGNORECASE ),
+        self.slocs = { 'tasks' : re.compile( r'.*windows\\(?:(?:system32)||(?:syswow64))\\tasks\\.*',
+                                             re.IGNORECASE ),
                        'recycler' : re.compile( r'.*recycle.*', re.IGNORECASE ),
                        'fonts' : re.compile( r'.*\\windows\\fonts\\.*', re.IGNORECASE ),
                        'help' : re.compile( r'.*\\windows\\help\\.*', re.IGNORECASE ),

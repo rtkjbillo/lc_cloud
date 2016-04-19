@@ -243,8 +243,10 @@ class rpcm( object ):
                                  'list' : self.RPCM_LIST }
     
     def _printDebug( self, msg ):
-        if self._isDebug:
+        if hasattr(self._isDebug, '__call__'):
             self._isDebug( msg )
+        elif self._isDebug:
+            print( msg )
     
     def _printTrace( self, msg ):
         if self._isTracing:
