@@ -201,6 +201,8 @@ RBOOL
 {
     RBOOL isSuccess = FALSE;
 
+    UNREFERENCED_PARAMETER( config );
+
     if( NULL != hbsState )
     {
         isSuccess = TRUE;
