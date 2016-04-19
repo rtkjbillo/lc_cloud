@@ -26,7 +26,7 @@ limitations under the License.
 
 #define RPAL_FILE_ID       102
 
-#define _DIFF_TIMEOUT       (1000*10)
+#define _DIFF_TIMEOUT       (1000*1)
 
 static RU32 g_diff_timeout = _DIFF_TIMEOUT;
 
