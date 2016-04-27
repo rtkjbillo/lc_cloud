@@ -17,7 +17,7 @@ limitations under the License.
 #include <kernelAcquisitionLib/kernelAcquisitionLib.h>
 #include <rpHostCommonPlatformLib/rTags.h>
 
-#define RPAL_FILE_ID   101
+#define RPAL_FILE_ID   105
 
 rMutex g_km_mutex = NULL;
 #define KERNEL_ACQUISITION_TIMEOUT      5

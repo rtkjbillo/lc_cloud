@@ -127,6 +127,7 @@
     <ClCompile Include="collector_18_doc_cache.c" />
     <ClCompile Include="collector_19_volume_tracker.c" />
     <ClCompile Include="collector_1_process_tracker.c" />
+    <ClCompile Include="collector_20_stateful_tracking.c" />
     <ClCompile Include="collector_2_dns_tracker.c" />
     <ClCompile Include="collector_3_code_ident.c" />
     <ClCompile Include="collector_4_network_tracker.c" />
@@ -136,6 +137,8 @@
     <ClCompile Include="collector_8_network_summary.c" />
     <ClCompile Include="collector_9_file_forensics.c" />
     <ClCompile Include="main.c" />
+    <ClCompile Include="stateful_0_recon_burst.c" />
+    <ClCompile Include="stateful_widgets.c" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\lib\cryptoLib\cryptoLib.vcxproj">
@@ -180,6 +183,8 @@
     <ClInclude Include="collectors.h" />
     <ClInclude Include="deployments.h" />
     <ClInclude Include="keys.h" />
+    <ClInclude Include="stateful_events.h" />
+    <ClInclude Include="stateful_widgets.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

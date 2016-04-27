@@ -800,7 +800,8 @@ RBOOL
     rpal_string_match
     (
         RPCHAR pattern,
-        RPCHAR str
+        RPCHAR str,
+        RBOOL isCaseSensitive
     )
 {
     // Taken and modified from:
@@ -862,7 +863,15 @@ RBOOL
         switch( state )
         {
             case Exact:
-                match = *s == *p;
+                if( !isCaseSensitive )
+                {
+                    match = ( rpal_string_charToLower( *s ) == 
+                              rpal_string_charToLower( *p ) );
+                }
+                else
+                {
+                    match = *s == *p;
+                }
                 s++;
                 p++;
                 break;
@@ -879,7 +888,7 @@ RBOOL
 
                 if( *s == *q )
                 {
-                    if( rpal_string_match( q, s ) )
+                    if( rpal_string_match( q, s, isCaseSensitive ) )
                     {
                         p++;
                     }
@@ -907,7 +916,8 @@ RBOOL
     rpal_string_matchw
     (
         RPWCHAR pattern,
-        RPWCHAR str
+        RPWCHAR str,
+        RBOOL isCaseSensitive
     )
 {
     // Taken and modified from:
@@ -985,7 +995,15 @@ RBOOL
         switch( state )
         {
             case Exact:
-                match = *s == *p;
+                if( !isCaseSensitive )
+                {
+                    match = ( rpal_string_wcharToLower( *s ) ==
+                              rpal_string_wcharToLower( *p ) );
+                }
+                else
+                {
+                    match = *s == *p;
+                }
                 s++;
                 p++;
                 break;
@@ -1002,7 +1020,7 @@ RBOOL
 
                 if( *s == *q )
                 {
-                    if( rpal_string_matchw( q, s ) )
+                    if( rpal_string_matchw( q, s, isCaseSensitive ) )
                     {
                         p++;
                     }
@@ -1023,6 +1041,21 @@ RBOOL
     {
         return match && ( *s == *p );
     }
+}
+
+RBOOL
+    rpal_string_matchn
+    (
+        RNATIVESTR pattern,
+        RNATIVESTR str,
+        RBOOL isCaseSensitive
+    )
+{
+#ifdef RNATIVE_IS_WIDE
+    return rpal_string_matchw( pattern, str, isCaseSensitive );
+#else
+    return rpal_string_match( pattern, str, isCaseSensitive );
+#endif
 }
 
 RPCHAR

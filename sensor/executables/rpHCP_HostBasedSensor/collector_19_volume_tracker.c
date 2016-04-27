@@ -24,7 +24,7 @@ limitations under the License.
 #include <cryptoLib/cryptoLib.h>
 
 
-#define RPAL_FILE_ID       102
+#define RPAL_FILE_ID       104
 
 #define _DIFF_TIMEOUT       (1000*1)
 
@@ -188,7 +188,6 @@ RBOOL
         {
             isSuccess = TRUE;
         }
-        isSuccess = TRUE;
     }
 
     return isSuccess;

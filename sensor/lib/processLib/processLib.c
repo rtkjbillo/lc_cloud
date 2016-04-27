@@ -827,7 +827,7 @@ rList
                             if( NULL == module )    
                             {
                                 // Ignore modules that are not executable
-                                if( rpal_string_match( execPattern, permissions ) )
+                                if( rpal_string_match( execPattern, permissions, TRUE ) )
                                 {
                                     if( NULL != ( module = rSequence_new() ) )
                                     {
@@ -883,8 +883,8 @@ rList
         {
             result = proc_pidinfo( processId, PROC_PIDREGIONPATHINFO, offset, &rwpi, sizeof( rwpi ) );
             if ( rwpi.prp_vip.vip_path[ 0 ] && 
-                 ( rpal_string_match( "*.dylib", rwpi.prp_vip.vip_path ) ||
-                   rpal_string_match( "*dyld_shared_cache*", rwpi.prp_vip.vip_path )
+                 ( rpal_string_match( "*.dylib", rwpi.prp_vip.vip_path, TRUE ) ||
+                   rpal_string_match( "*dyld_shared_cache*", rwpi.prp_vip.vip_path, TRUE )
                  ) )
             {
                 if( NULL != ( module = rSequence_new() ) )
@@ -1246,11 +1246,11 @@ rList
                         {
                             if( NULL != ( loc = rSequence_new() ) )
                             {
-                                if( rpal_string_match( "*p", permissions ) )
+                                if( rpal_string_match( "*p", permissions, TRUE ) )
                                 {
                                     type = PROCESSLIB_MEM_TYPE_PRIVATE;
                                 }
-                                else if( rpal_string_match( "*s", permissions ) )
+                                else if( rpal_string_match( "*s", permissions, TRUE ) )
                                 {
                                     type = PROCESSLIB_MEM_TYPE_MAPPED;
                                 }
@@ -1259,27 +1259,27 @@ rList
                                     type = PROCESSLIB_MEM_TYPE_UNKNOWN;
                                 }
                                 // Map protect permissions
-                                if ( rpal_string_match( "--x?", permissions ) )
+                                if ( rpal_string_match( "--x?", permissions, TRUE ) )
                                 {
                                     protect = PROCESSLIB_MEM_ACCESS_EXECUTE;
                                 }
-                                else if ( rpal_string_match( "r-x?", permissions ) )
+                                else if ( rpal_string_match( "r-x?", permissions, TRUE ) )
                                 {
                                     protect = PROCESSLIB_MEM_ACCESS_EXECUTE_READ;
                                 }
-                                else if ( rpal_string_match( "rwx?", permissions ) )
+                                else if ( rpal_string_match( "rwx?", permissions, TRUE ) )
                                 {
                                     protect = PROCESSLIB_MEM_ACCESS_EXECUTE_READ_WRITE;
                                 }
-                                else if ( rpal_string_match( "---?", permissions ) )
+                                else if ( rpal_string_match( "---?", permissions, TRUE ) )
                                 {
                                     protect = PROCESSLIB_MEM_ACCESS_NO_ACCESS;
                                 }
-                                else if ( rpal_string_match( "r--?", permissions ) )
+                                else if ( rpal_string_match( "r--?", permissions, TRUE ) )
                                 {
                                     protect = PROCESSLIB_MEM_ACCESS_READ_ONLY;
                                 }
-                                else if ( rpal_string_match( "rw-?", permissions ) )
+                                else if ( rpal_string_match( "rw-?", permissions, TRUE ) )
                                 {
                                     protect = PROCESSLIB_MEM_ACCESS_READ_WRITE;
                                 }

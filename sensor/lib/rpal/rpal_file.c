@@ -1004,7 +1004,7 @@ RBOOL
         while( NULL != pPattern &&
                NULL != pPath )
         {
-            if( !rpal_string_matchw( pPattern, pPath ) )
+            if( !rpal_string_matchw( pPattern, pPath, TRUE ) )
             {
                 break;
             }
@@ -1075,7 +1075,7 @@ RBOOL
                 tmpFileExp = fileExp;
                 while( NULL != *tmpFileExp )
                 {
-                    if( rpal_string_matchw( *tmpFileExp, pInfo->fileName ) )
+                    if( rpal_string_matchw( *tmpFileExp, pInfo->fileName, TRUE ) )
                     {
                         isIncluded = TRUE;
                         break;

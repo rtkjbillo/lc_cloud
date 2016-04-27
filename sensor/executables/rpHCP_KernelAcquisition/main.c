@@ -25,7 +25,7 @@ limitations under the License.
 //=============================================================================
 //  RP HCP Module Requirements
 //=============================================================================
-#define RPAL_FILE_ID 102
+#define RPAL_FILE_ID 108
 RpHcp_ModuleId g_current_Module_id = RP_HCP_MODULE_ID_KERNEL_ACQ;
 
 

@@ -316,3 +316,20 @@ RU32
 
     return size;
 }
+
+RPVOID
+    rStack_getBuffer
+    (
+        rStack stack
+    )
+{
+    RPVOID buff = NULL;
+    _prStack pStack = (_prStack)stack;
+
+    if( NULL != stack )
+    {
+        buff = rpal_blob_getBuffer( pStack->blob );
+    }
+
+    return buff;
+}

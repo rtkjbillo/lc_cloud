@@ -77,15 +77,15 @@ typedef struct
     _ElementSet set;
     rpcm_tag    elemTags;
     rpcm_type   elemTypes;
-//!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-// The fix below should be applied at the next major release of HCP and HBS
-// at the same time. Otherwise platforms with alignment issues may be problematic.
-//!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-//    RU8         unusedPadding1;
-//    RU16        unusedPadding2;
-//#if defined(RPAL_PLATFORM_64_BIT) && defined(RPAL_PLATFORM_DEBUG)
-//    RU32        unusedPadding3;
-//#endif
+    //!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    // The fix below should be applied at the next major release of HCP and HBS
+    // at the same time. Otherwise platforms with alignment issues may be problematic.
+    //!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    //    RU8         unusedPadding1;
+    //    RU16        unusedPadding2;
+    //#if defined(RPAL_PLATFORM_64_BIT) && defined(RPAL_PLATFORM_DEBUG)
+    //    RU32        unusedPadding3;
+    //#endif
     RPVOID      lastElem;
 
 } _rList;
@@ -243,7 +243,6 @@ RBOOL
         _PElementSet original,
         _PElementSet newSet
     );
-
 
 #endif
 

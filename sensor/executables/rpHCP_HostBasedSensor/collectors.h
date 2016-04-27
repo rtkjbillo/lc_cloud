@@ -36,7 +36,7 @@ typedef struct _HbsState
         RBOOL( *cleanup )( struct _HbsState* hbsState, rSequence config );
         rSequence conf;
         rpcm_tag* externalEvents;
-    } collectors[ 20 ];
+    } collectors[ 21 ];
 } HbsState;
 
 //=============================================================================
@@ -97,6 +97,7 @@ DECLARE_COLLECTOR( 16 );
 DECLARE_COLLECTOR( 17 );
 DECLARE_COLLECTOR( 18 );
 DECLARE_COLLECTOR( 19 );
+DECLARE_COLLECTOR( 20 );
 
 //=============================================================================
 //  Higher Level Helper Data Structures

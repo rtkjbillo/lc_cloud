@@ -232,7 +232,10 @@ RVOID
                 ( NULL != nameW &&
                   _MAX_FILE_HASH_SIZE < rpal_file_getSizew( nameW, TRUE ) ) )
             {
+                rSequence_unTaintRead( event );
                 rSequence_addRU32( event, RP_TAGS_ERROR, RPAL_ERROR_FILE_TOO_LARGE );
+                rSequence_getSTRINGA( event, RP_TAGS_FILE_PATH, &nameA );
+                rSequence_getSTRINGW( event, RP_TAGS_FILE_PATH, &nameW );
             }
             else
             {

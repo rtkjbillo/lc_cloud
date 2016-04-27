@@ -664,6 +664,95 @@ RPVOID
 }
 
 
+rVector
+    rpal_vector_new
+    (
+
+    )
+{
+    rVector v = NULL;
+
+    if( NULL != ( v = rpal_memory_alloc( sizeof( _rVector ) ) ) )
+    {
+        v->nElements = 0;
+        v->nAllocated = 0;
+    }
+
+    return v;
+}
+
+RVOID
+    rpal_vector_free
+    (
+        rVector vector
+    )
+{
+    if( NULL != vector )
+    {
+        rpal_memory_free( vector );
+    }
+}
+
+rVector
+    _rpal_vector_add
+    (
+        rVector vector,
+        RPVOID element
+    )
+{
+    if( NULL != vector &&
+        NULL != element )
+    {
+        if( vector->nElements <= vector->nAllocated )
+        {
+            vector = rpal_memory_realloc( vector, 
+                                          sizeof( _rVector ) +
+                                            ( ( vector->nElements + 1 ) *
+                                              sizeof( RPVOID ) ) );
+            if( NULL != vector )
+            {
+                vector->nAllocated++;
+            }
+        }
+
+        if( rpal_memory_isValid( vector ) )
+        {
+            vector->elements[ vector->nElements ] = element;
+            vector->nElements++;
+        }
+    }
+
+    return vector;
+}
+
+RBOOL
+    rpal_vector_remove
+    (
+        rVector vector,
+        RU32 index
+    )
+{
+    RBOOL isRemoved = FALSE;
+
+    if( NULL != vector &&
+        index >= 0 &&
+        index < vector->nElements )
+    {
+        if( index < vector->nElements - 1 )
+        {
+            rpal_memory_memcpy( &( vector->elements[ index ] ), 
+                                &( vector->elements[ index + 1 ] ), 
+                                sizeof( RPVOID ) * ( vector->nElements - index - 1 ) );
+        }
+        vector->nElements--;
+        vector->elements[ vector->nElements ] = NULL;
+        isRemoved = TRUE;
+    }
+
+    return isRemoved;
+}
+
+
 //=============================================================================
 // Iterators
 //=============================================================================
