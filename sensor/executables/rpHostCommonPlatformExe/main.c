@@ -105,6 +105,8 @@ RU32
     RWCHAR svcName[] = { _SERVICE_NAMEW };
     RWCHAR svcDisplay[] = { _WCH( "rp_HCP_Svc" ) };
 
+    rpal_debug_info( "installing service" );
+
     hModule = GetModuleHandleW( NULL );
     if( NULL != hModule )
     {
@@ -170,6 +172,93 @@ RU32
         rpal_debug_error( "could not get current executable handle: %d", GetLastError() );
     }
     
+    return GetLastError();
+}
+
+static
+RU32
+    uninstallService
+    (
+
+    )
+{
+    RWCHAR destPath[] = _WCH( "%SYSTEMROOT%\\system32\\rphcp.exe" );
+    SC_HANDLE hScm = NULL;
+    SC_HANDLE hSvc = NULL;
+    RWCHAR svcName[] = { _SERVICE_NAMEW };
+    SERVICE_STATUS svcStatus = { 0 };
+    RU32 nRetries = 10;
+
+    rpal_debug_info( "uninstalling service" );
+
+    if( NULL != ( hScm = OpenSCManagerA( NULL, NULL, SC_MANAGER_ALL_ACCESS ) ) )
+    {
+        if( NULL != ( hSvc = OpenServiceW( hScm, svcName, SERVICE_STOP | SERVICE_QUERY_STATUS | DELETE ) ) )
+        {
+            if( ControlService( hSvc, SERVICE_CONTROL_STOP, &svcStatus ) )
+            {
+                while( SERVICE_STOPPED != svcStatus.dwCurrentState &&
+                       0 != nRetries )
+                {
+                    rpal_debug_error( "waiting for service to stop..." );
+                    rpal_thread_sleep( 1000 );
+
+                    if( !QueryServiceStatus( hSvc, &svcStatus ) )
+                    {
+                        break;
+                    }
+
+                    nRetries--;
+                }
+
+                if( 0 == nRetries )
+                {
+                    rpal_debug_error( "timed out waiting for service to stop, moving on..." );
+                }
+                else
+                {
+                    rpal_debug_info( "service stopped" );
+                }
+            }
+            else
+            {
+                rpal_debug_error( "could not stop service: %d", GetLastError() );
+            }
+
+            if( DeleteService( hSvc ) )
+            {
+                rpal_debug_info( "service deleted" );
+            }
+            else
+            {
+                rpal_debug_error( "could not delete service: %d", GetLastError() );
+            }
+
+            CloseServiceHandle( hSvc );
+        }
+        else
+        {
+            rpal_debug_error( "could not open service: %d", GetLastError() );
+        }
+
+        CloseServiceHandle( hScm );
+    }
+    else
+    {
+        rpal_debug_error( "could not open SCM: %d", GetLastError() );
+    }
+
+    rpal_thread_sleep( MSEC_FROM_SEC( 1 ) );
+
+    if( rpal_file_deletew( destPath, FALSE ) )
+    {
+        rpal_debug_info( "service executable deleted" );
+    }
+    else
+    {
+        rpal_debug_error( "could not delete service executable: %d", GetLastError() );
+    }
+
     return GetLastError();
 }
 
@@ -328,6 +417,7 @@ RPAL_EXPORT
 #ifdef RPAL_PLATFORM_WINDOWS
                             ,
                             { 'i', "install", FALSE },
+                            { 'r', "uninstall", FALSE },
                             { 'w', "service", FALSE }
 #endif
                           };
@@ -358,6 +448,9 @@ RPAL_EXPORT
                 case 'i':
                     return installService();
                     break;
+                case 'r':
+                    return uninstallService();
+                    break;
                 case 'w':
                     asService = TRUE;
                     break;
@@ -372,6 +465,7 @@ RPAL_EXPORT
                     printf( "-m: module to be loaded manually, only available in debug builds.\n" );
 #ifdef RPAL_PLATFORM_WINDOWS
                     printf( "-i: install executable as a service.\n" );
+                    printf( "-r: uninstall executable as a service.\n" );
                     printf( "-w: executable is running as a Windows service.\n" );
 #endif
                     printf( "-h: this help.\n" );
