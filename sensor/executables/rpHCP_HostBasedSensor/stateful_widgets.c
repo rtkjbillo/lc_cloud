@@ -556,6 +556,9 @@ SAMStateVector*
     SAMStateVector* feedStates = NULL;
     RBOOL isProducing = FALSE;
     RU32 i = 0;
+    RU32 j = 0;
+    RU32 k = 0;
+    SAMState* tmpState = NULL;
 
     if( NULL != self )
     {
@@ -589,16 +592,36 @@ SAMStateVector*
             {
                 if( NULL != ( feedStates = PROPAGATE( self->widget.feeds->elements[ i ], event ) ) )
                 {
-                    isProducing = TRUE;
+                    for( j = 0; j < feedStates->states->nElements; j++ )
+                    {
+                        state = feedStates->states->elements[ j ];
+                        for( k = 0; k < state->events->nElements; k++ )
+                        {
+                            event = state->events->elements[ k ];
+                            if( EXECUTE_EVENT( self, event ) )
+                            {
+                                if( NULL == states )
+                                {
+                                    states = SAMStateVector_new();
+                                }
 
-                    if( NULL == states )
-                    {
-                        states = feedStates;
+                                if( NULL != ( tmpState = SAMState_new() ) )
+                                {
+                                    if( !SAMState_add( tmpState, event ) ||
+                                        !SAMStateVector_add( states, tmpState ) )
+                                    {
+                                        SAMState_free( tmpState );
+                                    }
+                                    else
+                                    {
+                                        isProducing = TRUE;
+                                    }
+                                }
+                            }
+                        }
                     }
-                    else
-                    {
-                        SAMStateVector_merge( states, feedStates );
-                    }
+
+                    SAMStateVector_free( feedStates );
                 }
             }
         }
@@ -786,6 +809,25 @@ RVOID
     }
 }
 
+
+SAMStateVector*
+    SAMUpdate
+    (
+        StatefulWidget widget,
+        SAMEvent* samEvent
+    )
+{
+    SAMStateVector* results = NULL;
+
+    if( NULL != widget &&
+        NULL != samEvent )
+    {
+        results = PROPAGATE( widget, samEvent );
+    }
+
+    return results;
+}
+
 //=============================================================================
 //  Common Widgets
 //=============================================================================
@@ -969,7 +1011,7 @@ typedef struct
     rpcm_type matchType;
     RPVOID matchValue;
     RU32 matchSize;
-    rpcm_tag path[ 10 ];
+    rpcm_tag* path;
 } _RpcmPathDesc;
 
 typedef struct
@@ -1040,14 +1082,14 @@ StatefulWidget
         RPVOID matchValue,
         RU32 matchSize,
         rpcm_type findType,
-        rpcm_tag firstTagToFind,
+        rpcm_tag* path,
+        StatefulWidget feed1,
         ...
     )
 {
     SAMSimpleFilterWidget* self = NULL;
     RP_VA_LIST ap = NULL;
-    rpcm_tag nextTag = 0;
-    RU32 i = 0;
+    SAMWidget* tmpFeed = NULL;
 
     if( NULL != ( self = rpal_memory_alloc( sizeof( SAMSimpleFilterWidget ) ) ) )
     {
@@ -1059,48 +1101,106 @@ StatefulWidget
         self->match_path.matchSize = matchSize;
         self->match_path.matchType = findType;
 
-        nextTag = firstTagToFind;
+        self->match_path.path = path;
 
-        RP_VA_START( ap, firstTagToFind );
-        while( RPCM_END_TAG != nextTag )
+        tmpFeed = feed1;
+
+        RP_VA_START( ap, feed1 );
+        while( NULL != tmpFeed )
         {
-            if( i >= ARRAY_N_ELEM( self->match_path.path ) - 1 )
+            if( !SAMFilterWidget_AddFeed( (SAMFilterWidget*)self, tmpFeed ) )
             {
                 SAMFilterWidgetFree( (SAMFilterWidget*)self );
                 self = NULL;
                 break;
             }
 
-            self->match_path.path[ i ] = nextTag;
-            
-            nextTag = RP_VA_ARG( ap, rpcm_tag );
-            i++;
+            tmpFeed = RP_VA_ARG( ap, SAMWidget* );
         }
         RP_VA_END( ap );
-
-        if( NULL != self )
-        {
-            self->match_path.path[ i ] = RPCM_END_TAG;
-        }
     }
 
     return self;
 }
 
-SAMStateVector*
-    SAMUpdate
+//-----------------------------------------------------------------------------
+typedef struct
+{
+    SAMFilterWidget filterWidget;
+    RTIME olderThan;
+    RTIME newerThan;
+} SAMOlderOrNewerFilterWidget;
+
+RBOOL
+    _SAMOlderOrNewerFilter_Execute
     (
-        StatefulWidget widget,
-        SAMEvent* samEvent
+        SAMOlderOrNewerFilterWidget* self,
+        SAMEvent* event
     )
 {
-    SAMStateVector* results = NULL;
+    RBOOL isMatch = FALSE;
 
-    if( NULL != widget &&
-        NULL != samEvent )
+    RTIME curTime = 0;
+    RTIME evtTime = 0;
+    
+    if( NULL != self &&
+        NULL != event )
     {
-        results = PROPAGATE( widget, samEvent );
+        if( rSequence_getTIMESTAMP( event->event, RP_TAGS_TIMESTAMP, &evtTime ) )
+        {
+            curTime = rpal_time_getGlobal();
+
+            if( ( 0 == self->olderThan ||
+                  curTime - self->olderThan >= evtTime ) &&
+                ( 0 == self->newerThan ||
+                  curTime - self->newerThan <= evtTime ) )
+            {
+                isMatch = TRUE;
+            }
+        }
     }
 
-    return results;
+    return isMatch;
 }
+
+StatefulWidget
+    SAMOlderOrNewerFilter
+    (
+        RTIME olderThan,
+        RTIME newerThan,
+        StatefulWidget feed1,
+        ...
+    )
+{
+    SAMOlderOrNewerFilterWidget* self = NULL;
+    RP_VA_LIST ap = NULL;
+    SAMWidget* tmpFeed = NULL;
+
+    if( NULL != ( self = rpal_memory_alloc( sizeof( SAMOlderOrNewerFilterWidget ) ) ) )
+    {
+        SAMFilterWidgetInit( (SAMFilterWidget*)self );
+        ( (SAMFilterWidget*)self )->executeNewEvent = ( RBOOL( *)( SAMFilterWidget*, SAMEvent* ) )_SAMOlderOrNewerFilter_Execute;
+
+        self->olderThan = olderThan;
+        self->newerThan = newerThan;
+
+        tmpFeed = feed1;
+
+        RP_VA_START( ap, feed1 );
+        while( NULL != tmpFeed )
+        {
+            if( !SAMFilterWidget_AddFeed( (SAMFilterWidget*)self, tmpFeed ) )
+            {
+                SAMFilterWidgetFree( (SAMFilterWidget*)self );
+                self = NULL;
+                break;
+            }
+
+            tmpFeed = RP_VA_ARG( ap, SAMWidget* );
+        }
+        RP_VA_END( ap );
+    }
+
+    return self;
+}
+

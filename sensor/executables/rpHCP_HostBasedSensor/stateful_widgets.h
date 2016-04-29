@@ -63,8 +63,18 @@ StatefulWidget
         RPVOID matchValue,
         RU32 matchSize,
         rpcm_type findType,
-        rpcm_tag firstTagToFind,
-        ... // RPCM_END_TAG ending list of tag path to element
+        rpcm_tag* path,
+        StatefulWidget feed1,
+        ... // NULL terminated list of feeds
+    );
+
+StatefulWidget
+    SAMOlderOrNewerFilter
+    (
+        RTIME olderThan,
+        RTIME newerThan,
+        StatefulWidget feed1,
+        ... // NULL terminated list of feeds
     );
 
 SAMStateVector*
