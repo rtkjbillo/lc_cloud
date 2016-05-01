@@ -8,12 +8,15 @@
 //  BOILERPLATE
 //=============================================================================
 #define GENERAL_EXPECTED_DELAY      (30)
+#define GENERAL_PROCESS_DELAY       (5)
 
 typedef struct _SAMWidget
 {
     RVOID( *freeFunc )( struct _SAMWidget* self );
     SAMStateVector*( *propagateNewEvent )( struct _SAMWidget* self, SAMEvent* event );
     rVector feeds;
+    SAMStateVector* lastOutput;
+    RBOOL isIdempotent;
 } SAMWidget;
 
 #define PROPAGATE(widget,event) ((SAMWidget*)(widget))->propagateNewEvent((widget),(event))
@@ -32,11 +35,48 @@ typedef struct _SAMStateWidget
     SAMStateVector*( *processStates )( struct _SAMStateWidget* self, rVector statesVector );
     RVOID( *garbageCollect )( struct _SAMStateWidget* self, rVector statesVector );
     rVector statesVector;
-    SAMStateVector* lastOutput;
 } SAMStateWidget;
 
 #define PROCESS_STATES(widget) ((SAMStateWidget*)(widget))->processStates((widget), (widget)->statesVector)
 #define GARBAGE_COLLECT(widget) ((SAMStateWidget*)(widget))->garbageCollect((widget), (widget)->statesVector)
+
+static
+RS32
+    _CmpEventTimes
+    (
+        SAMEvent* event1,
+        SAMEvent* event2
+    )
+{
+    RS32 ret = 0;
+
+    if( NULL != event1 &&
+        NULL != event2 )
+    {
+        ret = (RS32)( event1->ts - event2->ts );
+    }
+
+    return ret;
+}
+
+static
+RS32
+    _CmpEventPids
+    (
+        SAMEvent* event1,
+        SAMEvent* event2
+    )
+{
+    RS32 ret = 0;
+
+    if( NULL != event1 &&
+        NULL != event2 )
+    {
+        ret = (RS32)( event1->pid - event2->pid );
+    }
+
+    return ret;
+}
 
 static
 SAMState*
@@ -315,7 +355,9 @@ static
 rVector
     flattenStateVector
     (
-        SAMStateVector* v
+        SAMStateVector* v,
+        rVector intoExisting,
+        RBOOL isAcquireEvents
     )
 {
     rVector newV = NULL;
@@ -326,7 +368,10 @@ rVector
 
     if( NULL != v )
     {
-        if( NULL != ( newV = rpal_vector_new() ) )
+        newV = intoExisting;
+
+        if( NULL != newV ||
+            NULL != ( newV = rpal_vector_new() ) )
         {
             for( i = 0; i < v->states->nElements; i++ )
             {
@@ -334,7 +379,11 @@ rVector
                 for( j = 0; j < tmpState->events->nElements; j++ )
                 {
                     tmpEvent = tmpState->events->elements[ j ];
-                    rpal_vector_add( newV, tmpEvent );
+                    if( rpal_vector_add( newV, tmpEvent ) &&
+                        isAcquireEvents )
+                    {
+                        rRefCount_acquire( tmpEvent->ref );
+                    }
                 }
             }
         }
@@ -347,7 +396,10 @@ static
 rVector
     flattenStatesVector
     (
-        rVector v
+        rVector v,
+        RU32 startingAt,
+        rVector intoExisting,
+        RBOOL isAcquireEvents
     )
 {
     RU32 i = 0;
@@ -360,9 +412,12 @@ rVector
 
     if( NULL != v )
     {
-        if( NULL != ( newV = rpal_vector_new() ) )
+        newV = intoExisting;
+
+        if( NULL != newV ||
+            NULL != ( newV = rpal_vector_new() ) )
         {
-            for( i = 0; i < v->nElements; i++ )
+            for( i = startingAt; i < v->nElements; i++ )
             {
                 tmpVector = v->elements[ i ];
                 for( j = 0; j < tmpVector->states->nElements; j++ )
@@ -371,7 +426,11 @@ rVector
                     for( k = 0; k < tmpState->events->nElements; k++ )
                     {
                         tmpEvent = tmpState->events->elements[ k ];
-                        rpal_vector_add( newV, tmpEvent );
+                        if( rpal_vector_add( newV, tmpEvent ) &&
+                            isAcquireEvents )
+                        {
+                            rRefCount_acquire( tmpEvent->ref );
+                        }
                     }
                 }
             }
@@ -379,6 +438,59 @@ rVector
     }
 
     return newV;
+}
+
+static
+rVector
+    flatStateVectorByTime
+    (
+        SAMStateVector* v,
+        RU32 startingAt,
+        rVector currentVector
+    )
+{
+    RU32 initialN = 0;
+
+    if( NULL != v &&
+        v->isDirty )
+    {
+        if( NULL != ( v = flattenStateVector( v, currentVector, TRUE ) ) )
+        {
+            rpal_sort_array( v->states->elements,
+                             v->states->nElements,
+                             sizeof( RPVOID ),
+                             _CmpEventTimes );
+        }
+    }
+
+    return v;
+}
+
+
+static
+rVector
+    flatStateVectorByPid
+    (
+        SAMStateVector* v,
+        RU32 startingAt,
+        rVector currentVector
+    )
+{
+    RU32 initialN = 0;
+
+    if( NULL != v &&
+        v->isDirty )
+    {
+        if( NULL != ( v = flattenStateVector( v, currentVector, TRUE ) ) )
+        {
+            rpal_sort_array( v->states->elements,
+                             v->states->nElements,
+                             sizeof( RPVOID ),
+                             _CmpEventPids );
+        }
+    }
+
+    return v;
 }
 
 static
@@ -418,6 +530,7 @@ SAMEvent*
             ev->eventType = eventType;
             ev->ref = rRefCount_create( SAMEvent_free, ev, sizeof( SAMEvent ) );
             rSequence_getTIMESTAMP( event, RP_TAGS_TIMESTAMP, &ev->ts );
+            rSequence_getRU32( event, RP_TAGS_PROCESS_ID, &ev->pid );
         }
     }
 
@@ -457,8 +570,8 @@ RBOOL
         }
         else
         {
-            if( NULL != ( flat1 = flattenStateVector( lastOutput ) ) &&
-                NULL != ( flat2 = flattenStateVector( newOutput ) ) )
+            if( NULL != ( flat1 = flattenStateVector( lastOutput, NULL, FALSE ) ) &&
+                NULL != ( flat2 = flattenStateVector( newOutput, NULL, FALSE ) ) )
             {
                 rpal_sort_array( flat1,
                                  flat1->nElements,
@@ -509,6 +622,8 @@ RVOID
             rpal_vector_free( self->feeds );
         }
 
+        SAMStateVector_free( self->lastOutput );
+
         rpal_memory_free( self );
     }
 }
@@ -517,7 +632,8 @@ static
 RVOID
     SAMWidgetInit
     (
-        SAMWidget* self
+        SAMWidget* self,
+        RBOOL isIdempotent
     )
 {
     if( NULL != self )
@@ -525,6 +641,8 @@ RVOID
         self->feeds = rpal_vector_new();
         self->freeFunc = SAMWidgetFree;
         self->propagateNewEvent = NULL; // Must be defined by Filters or State
+        self->lastOutput = NULL;
+        self->isIdempotent = isIdempotent;
     }
 }
 
@@ -592,6 +710,8 @@ SAMStateVector*
             {
                 if( NULL != ( feedStates = PROPAGATE( self->widget.feeds->elements[ i ], event ) ) )
                 {
+                    // Not currently able to test if the output has changed, so we always recompute
+                    // even if the filter is idempotent.
                     for( j = 0; j < feedStates->states->nElements; j++ )
                     {
                         state = feedStates->states->elements[ j ];
@@ -641,12 +761,13 @@ static
 RVOID
     SAMFilterWidgetInit
     (
-        SAMFilterWidget* self
+        SAMFilterWidget* self,
+        RBOOL isIdempotent
     )
 {
     if( NULL != self )
     {
-        SAMWidgetInit( (SAMWidget*)self );
+        SAMWidgetInit( (SAMWidget*)self, isIdempotent );
         self->widget.propagateNewEvent = (SAMStateVector*(*)(SAMWidget*, SAMEvent*)) SAMFilterWidgetPropagate;
         self->executeNewEvent = NULL;
     }
@@ -715,30 +836,35 @@ SAMStateVector*
         {
             if( NULL != ( feedStates = PROPAGATE( self->widget.feeds->elements[ i ], event ) ) )
             {
-                isNewInput = TRUE;
-
-                SAMStateVector_merge( self->statesVector->elements[ i ], feedStates );
-            }
-        }
-
-        if( isNewInput )
-        {
-            if( NULL != ( output = PROCESS_STATES( self ) ) )
-            {
-                if( !isOutputChanged( self->lastOutput, output ) )
+                if( isOutputChanged(feedStates, self->statesVector->elements[ i ] ) )
                 {
-                    SAMStateVector_free( output );
-                    output = NULL;
+                    SAMStateVector_free( self->statesVector->elements[ i ] );
+                    self->statesVector->elements[ i ] = feedStates;
+                    isNewInput = TRUE;
                 }
                 else
                 {
-                    if( NULL != self->lastOutput )
-                    {
-                        SAMStateVector_free( self->lastOutput );
-                    }
-                    self->lastOutput = SAMStateVector_duplicate( output );
+                    SAMStateVector_free( feedStates );
                 }
             }
+        }
+
+        if( isNewInput ||
+            !self->widget.isIdempotent )
+        {
+            if( NULL != ( output = PROCESS_STATES( self ) ) )
+            {
+                if( NULL != self->widget.lastOutput )
+                {
+                    SAMStateVector_free( self->widget.lastOutput );
+                }
+                self->widget.lastOutput = SAMStateVector_duplicate( output );
+            }
+        }
+        else
+        {
+            // No new output and is idempotent so we can just reuse the previous output
+            output = self->widget.lastOutput;
         }
 
         if( NULL != self->garbageCollect )
@@ -754,12 +880,13 @@ static
 RVOID
     SAMStateWidgetInit
     (
-        SAMStateWidget* self
+        SAMStateWidget* self,
+        RBOOL isIdempotent
     )
 {
     if( NULL != self )
     {
-        SAMWidgetInit( (SAMWidget*)self );
+        SAMWidgetInit( (SAMWidget*)self, isIdempotent );
         self->widget.propagateNewEvent = (SAMStateVector*(*)(SAMWidget*, SAMEvent*))SAMStateWidgetPropagate;
         self->widget.freeFunc = (RVOID(*)(SAMWidget*))SAMStateWidgetFree;
         self->processStates = NULL;
@@ -840,25 +967,6 @@ typedef struct
     RU32 min_per_burst;
 } SAMTimeBurstWidget;
 
-static
-RS32
-    _CmpEventTimes
-    (
-        SAMEvent* event1,
-        SAMEvent* event2
-    )
-{
-    RS32 ret = 0;
-
-    if( NULL != event1 &&
-        NULL != event2 )
-    {
-        ret = (RS32)(event1->ts - event2->ts);
-    }
-
-    return ret;
-}
-
 SAMStateVector*
     _SAMTimeBurst_Process
     (
@@ -879,7 +987,7 @@ SAMStateVector*
     if( NULL != self &&
         NULL != statesVector )
     {
-        if( NULL != ( times = flattenStatesVector( statesVector ) ) )
+        if( NULL != ( times = flattenStatesVector( statesVector, 0, NULL, FALSE ) ) )
         {
             rpal_sort_array( times->elements, times->nElements, sizeof( SAMEvent* ), _CmpEventTimes );
 
@@ -980,7 +1088,7 @@ StatefulWidget
 
     if( NULL != ( self = rpal_memory_alloc( sizeof( SAMTimeBurstWidget ) ) ) )
     {
-        SAMStateWidgetInit( (SAMStateWidget*)self );
+        SAMStateWidgetInit( (SAMStateWidget*)self, TRUE );
         ((SAMStateWidget*) self)->processStates = (SAMStateVector*(*)(SAMStateWidget*, rVector))_SAMTimeBurst_Process;
         ( (SAMStateWidget*)self )->garbageCollect = (RVOID(*)(SAMStateWidget*, rVector))_SAMTimeBurst_Gc;
 
@@ -1038,9 +1146,13 @@ RBOOL
         if( 0 == event->eventType ||
             self->match_path.eventType == event->eventType )
         {
-            if( NULL != ( results = rpcm_fetchAllV( event->event,
-                                                    self->match_path.matchType,
-                                                    self->match_path.path ) ) )
+            if( NULL == self->match_path.path )
+            {
+                isMatch = TRUE;
+            }
+            else if( NULL != ( results = rpcm_fetchAllV( event->event,
+                                                         self->match_path.matchType,
+                                                         self->match_path.path ) ) )
             {
                 while( rStack_pop( results, &found ) )
                 {
@@ -1093,7 +1205,7 @@ StatefulWidget
 
     if( NULL != ( self = rpal_memory_alloc( sizeof( SAMSimpleFilterWidget ) ) ) )
     {
-        SAMFilterWidgetInit( (SAMFilterWidget*)self );
+        SAMFilterWidgetInit( (SAMFilterWidget*)self, TRUE );
         ( (SAMFilterWidget*)self )->executeNewEvent = (RBOOL(*)(SAMFilterWidget*, SAMEvent*))_SAMSimpleFilter_Execute;
 
         self->match_path.eventType = eventType;
@@ -1178,7 +1290,7 @@ StatefulWidget
 
     if( NULL != ( self = rpal_memory_alloc( sizeof( SAMOlderOrNewerFilterWidget ) ) ) )
     {
-        SAMFilterWidgetInit( (SAMFilterWidget*)self );
+        SAMFilterWidgetInit( (SAMFilterWidget*)self, FALSE );
         ( (SAMFilterWidget*)self )->executeNewEvent = ( RBOOL( *)( SAMFilterWidget*, SAMEvent* ) )_SAMOlderOrNewerFilter_Execute;
 
         self->olderThan = olderThan;
@@ -1204,3 +1316,471 @@ StatefulWidget
     return self;
 }
 
+//-----------------------------------------------------------------------------
+typedef struct
+{
+    SAMStateWidget stateWidget;
+    rVector currentProcesses;
+    rVector terminatedProcesses;
+} SAMRunningProcessesWidget;
+
+SAMStateVector*
+    _SAMRunningProcesses_Process
+    (
+        SAMRunningProcessesWidget* self,
+        rVector statesVector
+    )
+{
+    SAMStateVector* output = NULL;
+    RU32 i = 0;
+    SAMState* newState = NULL;
+    SAMEvent* newEvent = NULL;
+    SAMEvent* deadEvent = NULL;
+    RU32 nOriginalNewProcesses = 0;
+    RU32 iDead = 0;
+
+    if( NULL != self &&
+        NULL != statesVector )
+    {
+        nOriginalNewProcesses = self->currentProcesses->nElements;
+
+        if( NULL != ( self->terminatedProcesses = flattenStateVector( statesVector->elements[ 0 ], 
+                                                                      self->terminatedProcesses,
+                                                                      TRUE ) ) &&
+            NULL != ( self->currentProcesses = flattenStatesVector( statesVector, 
+                                                                    1, 
+                                                                    self->currentProcesses,
+                                                                    TRUE ) ) )
+        {
+            // Only sort current processes if there's a new one
+            if( nOriginalNewProcesses != self->currentProcesses->nElements )
+            {
+                rpal_sort_array( self->currentProcesses->elements,
+                                 self->currentProcesses->nElements,
+                                 sizeof( SAMEvent* ),
+                                 _CmpEventPids );
+            }
+
+            // Remove terminated processes
+            for( i = 0; i < self->terminatedProcesses->nElements; i++ )
+            {
+                deadEvent = self->terminatedProcesses->elements[ i ];
+                
+                if( (RU32)( -1 ) != ( iDead = rpal_binsearch_array( self->currentProcesses->elements,
+                                                                    self->currentProcesses->nElements,
+                                                                    sizeof( SAMEvent* ),
+                                                                    deadEvent,
+                                                                    _CmpEventPids ) ) )
+                {
+                    // This process is now dead, remove it.
+                    newEvent = self->currentProcesses->elements[ iDead ];
+                    rRefCount_release( newEvent, NULL );
+                    rpal_vector_remove( self->currentProcesses, iDead );
+                    // Because of the nature of SAM we know we only get one change per tick
+                    // so we can bail after that change.
+                    break;
+                }
+            }
+
+            // Produce output
+            if( NULL != ( output = SAMStateVector_new() ) )
+            {
+                if( NULL != ( newState = SAMState_new() ) &&
+                    SAMStateVector_add( output, newState ) )
+                {
+                    for( i = 0; i < self->currentProcesses->nElements; i++ )
+                    {
+                        newEvent = self->currentProcesses->elements[ i ];
+
+                        SAMState_add( newState, newEvent );
+                    }
+                }
+                else
+                {
+                    SAMState_free( newState );
+                    SAMStateVector_free( output );
+                    output = NULL;
+                }
+            }
+        }
+    }
+
+    return output;
+}
+
+RVOID
+    _SAMRunningProcesses_Gc
+    (
+        SAMRunningProcessesWidget* self,
+        rVector statesVector
+    )
+{
+    RU32 i = 0;
+    RU32 j = 0;
+    SAMStateVector* tmpVector = NULL;
+    SAMState* tmpState = NULL;
+    SAMEvent* tmpEvent = NULL;
+    RTIME curTime = rpal_time_getGlobal();
+
+    if( NULL != self &&
+        NULL != statesVector )
+    {
+        // We keep an internal list of processes so we can always collect all
+        // the normal feeds.
+        for( i = 0; i < statesVector->nElements; i++ )
+        {
+            tmpVector = statesVector->elements[ i ];
+            for( j = 0; j < tmpVector->states->nElements; j++ )
+            {
+                tmpState = tmpVector->states->elements[ j ];
+                if( SAMStateVector_removeState( tmpVector, j ) )
+                {
+                    j--;
+                }
+            }
+        }
+
+        // Next we look for old expired terminated processes.
+        for( i = 0; i < self->terminatedProcesses->nElements; i++ )
+        {
+            tmpEvent = self->terminatedProcesses->elements[ i ];
+
+            if( GENERAL_PROCESS_DELAY < curTime - tmpEvent->ts )
+            {
+                if( rpal_vector_remove( self->terminatedProcesses, i ) )
+                {
+                    i--;
+                }
+            }
+        }
+    }
+}
+
+
+static
+RVOID
+    SAMRunningProcessesFree
+    (
+        SAMRunningProcessesWidget* self
+    )
+{
+    RU32 i = 0;
+
+    if( NULL != self )
+    {
+        if( NULL != self->currentProcesses )
+        {
+            for( i = 0; i < self->currentProcesses->nElements; i++ )
+            {
+                rRefCount_release( ( (SAMEvent*)self->currentProcesses->elements[ i ] )->ref, NULL );
+            }
+
+            rpal_vector_free( self->currentProcesses );
+        }
+
+        if( NULL != self->terminatedProcesses )
+        {
+            for( i = 0; i < self->terminatedProcesses->nElements; i++ )
+            {
+                rRefCount_release( ( (SAMEvent*)self->terminatedProcesses->elements[ i ] )->ref, NULL );
+            }
+
+            rpal_vector_free( self->terminatedProcesses );
+        }
+
+        SAMStateWidgetFree( (SAMStateWidget*)self );
+    }
+}
+
+StatefulWidget
+    SAMRunningProcesses
+    (
+        StatefulWidget feed1,
+        ... // NULL terminated list of feeds
+    )
+{
+    SAMRunningProcessesWidget* self = NULL;
+    RP_VA_LIST ap = NULL;
+    SAMWidget* tmpFeed = feed1;
+    RBOOL isAtLeastOneFeedProvided = FALSE;
+    RBOOL isInitOk = FALSE;
+
+    if( NULL != ( self = rpal_memory_alloc( sizeof( SAMRunningProcessesWidget ) ) ) )
+    {
+        SAMStateWidgetInit( (SAMStateWidget*)self, TRUE );
+        ( (SAMStateWidget*)self )->processStates = ( SAMStateVector*( *)( SAMStateWidget*, rVector ) )_SAMRunningProcesses_Process;
+        ( (SAMStateWidget*)self )->garbageCollect = ( RVOID( *)( SAMStateWidget*, rVector ) )_SAMRunningProcesses_Gc;
+        ( (SAMStateWidget*)self )->widget.freeFunc = ( RVOID( *)( SAMWidget* ) )SAMRunningProcessesFree;
+
+        self->currentProcesses = rpal_vector_new();
+        self->terminatedProcesses = rpal_vector_new();
+
+        if( NULL != self->currentProcesses &&
+            NULL != self->terminatedProcesses &&
+            SAMStateWidget_AddFeed( (SAMStateWidget*)self,
+                                    SAMSimpleFilter( RP_TAGS_NOTIFICATION_TERMINATE_PROCESS, 
+                                                     NULL, 
+                                                     0, 
+                                                     0, 
+                                                     NULL, 
+                                                     NULL ) ) )
+        {
+            isInitOk = TRUE;
+
+            RP_VA_START( ap, feed1 );
+            while( NULL != tmpFeed )
+            {
+                isAtLeastOneFeedProvided = TRUE;
+
+                if( !SAMStateWidget_AddFeed( (SAMStateWidget*)self, tmpFeed ) )
+                {
+                    isInitOk = FALSE;
+                    break;
+                }
+
+                tmpFeed = RP_VA_ARG( ap, SAMWidget* );
+            }
+            RP_VA_END( ap );
+
+            if( isInitOk && 
+                !isAtLeastOneFeedProvided )
+            {
+                if( !SAMStateWidget_AddFeed( (SAMStateWidget*)self,
+                                             SAMSimpleFilter( RP_TAGS_NOTIFICATION_NEW_PROCESS,
+                                                              NULL,
+                                                              0,
+                                                              0,
+                                                              NULL,
+                                                              NULL ) ) )
+                {
+                    isInitOk = FALSE;
+                }
+            }
+        }
+    }
+
+    if( !isInitOk )
+    {
+        SAMFree( self );
+        self = NULL;
+    }
+
+    return self;
+}
+//-----------------------------------------------------------------------------
+typedef struct
+{
+    SAMStateWidget stateWidget;
+    rpcm_tag* keyPath;
+    RU32 minClusterSize;
+    RU32 maxClusterSize;
+} SAMClusterWidget;
+
+SAMStateVector*
+    _SAMCluster_Process
+    (
+        SAMClusterWidget* self,
+        rVector statesVector
+    )
+{
+    SAMStateVector* output = NULL;
+    RU32 i = 0;
+    SAMState* newState = NULL;
+    SAMEvent* newEvent = NULL;
+    SAMEvent* deadEvent = NULL;
+    RU32 nOriginalNewProcesses = 0;
+    RU32 iDead = 0;
+
+    if( NULL != self &&
+        NULL != statesVector )
+    {
+        nOriginalNewProcesses = self->currentProcesses->nElements;
+
+        if( NULL != ( self->terminatedProcesses = flattenStateVector( statesVector->elements[ 0 ],
+            self->terminatedProcesses,
+            TRUE ) ) &&
+            NULL != ( self->currentProcesses = flattenStatesVector( statesVector,
+            1,
+            self->currentProcesses,
+            TRUE ) ) )
+        {
+            // Only sort current processes if there's a new one
+            if( nOriginalNewProcesses != self->currentProcesses->nElements )
+            {
+                rpal_sort_array( self->currentProcesses->elements,
+                    self->currentProcesses->nElements,
+                    sizeof( SAMEvent* ),
+                    _CmpEventPids );
+            }
+
+            // Remove terminated processes
+            for( i = 0; i < self->terminatedProcesses->nElements; i++ )
+            {
+                deadEvent = self->terminatedProcesses->elements[ i ];
+
+                if( (RU32)( -1 ) != ( iDead = rpal_binsearch_array( self->currentProcesses->elements,
+                    self->currentProcesses->nElements,
+                    sizeof( SAMEvent* ),
+                    deadEvent,
+                    _CmpEventPids ) ) )
+                {
+                    // This process is now dead, remove it.
+                    newEvent = self->currentProcesses->elements[ iDead ];
+                    rRefCount_release( newEvent, NULL );
+                    rpal_vector_remove( self->currentProcesses, iDead );
+                    // Because of the nature of SAM we know we only get one change per tick
+                    // so we can bail after that change.
+                    break;
+                }
+            }
+
+            // Produce output
+            if( NULL != ( output = SAMStateVector_new() ) )
+            {
+                if( NULL != ( newState = SAMState_new() ) &&
+                    SAMStateVector_add( output, newState ) )
+                {
+                    for( i = 0; i < self->currentProcesses->nElements; i++ )
+                    {
+                        newEvent = self->currentProcesses->elements[ i ];
+
+                        SAMState_add( newState, newEvent );
+                    }
+                }
+                else
+                {
+                    SAMState_free( newState );
+                    SAMStateVector_free( output );
+                    output = NULL;
+                }
+            }
+        }
+    }
+
+    return output;
+}
+
+RVOID
+    _SAMCluster_Gc
+    (
+        SAMClusterWidget* self,
+        rVector statesVector
+    )
+{
+    RU32 i = 0;
+    RU32 j = 0;
+    SAMStateVector* tmpVector = NULL;
+    SAMState* tmpState = NULL;
+    SAMEvent* tmpEvent = NULL;
+    RTIME curTime = rpal_time_getGlobal();
+
+    if( NULL != self &&
+        NULL != statesVector )
+    {
+        // We keep an internal list of processes so we can always collect all
+        // the normal feeds.
+        for( i = 0; i < statesVector->nElements; i++ )
+        {
+            tmpVector = statesVector->elements[ i ];
+            for( j = 0; j < tmpVector->states->nElements; j++ )
+            {
+                tmpState = tmpVector->states->elements[ j ];
+                if( SAMStateVector_removeState( tmpVector, j ) )
+                {
+                    j--;
+                }
+            }
+        }
+
+        // Next we look for old expired terminated processes.
+        for( i = 0; i < self->terminatedProcesses->nElements; i++ )
+        {
+            tmpEvent = self->terminatedProcesses->elements[ i ];
+
+            if( GENERAL_PROCESS_DELAY < curTime - tmpEvent->ts )
+            {
+                if( rpal_vector_remove( self->terminatedProcesses, i ) )
+                {
+                    i--;
+                }
+            }
+        }
+    }
+}
+
+
+StatefulWidget
+    SAMCluster
+    (
+        StatefulWidget feed1,
+        ... // NULL terminated list of feeds
+    )
+{
+    SAMRunningProcessesWidget* self = NULL;
+    RP_VA_LIST ap = NULL;
+    SAMWidget* tmpFeed = feed1;
+    RBOOL isAtLeastOneFeedProvided = FALSE;
+    RBOOL isInitOk = FALSE;
+
+    if( NULL != ( self = rpal_memory_alloc( sizeof( SAMRunningProcessesWidget ) ) ) )
+    {
+        SAMStateWidgetInit( (SAMStateWidget*)self, TRUE );
+        ( (SAMStateWidget*)self )->processStates = ( SAMStateVector*( *)( SAMStateWidget*, rVector ) )_SAMRunningProcesses_Process;
+        ( (SAMStateWidget*)self )->garbageCollect = ( RVOID( *)( SAMStateWidget*, rVector ) )_SAMRunningProcesses_Gc;
+        ( (SAMStateWidget*)self )->widget.freeFunc = ( RVOID( *)( SAMWidget* ) )SAMRunningProcessesFree;
+
+        self->currentProcesses = rpal_vector_new();
+        self->terminatedProcesses = rpal_vector_new();
+
+        if( NULL != self->currentProcesses &&
+            NULL != self->terminatedProcesses &&
+            SAMStateWidget_AddFeed( (SAMStateWidget*)self,
+            SAMSimpleFilter( RP_TAGS_NOTIFICATION_TERMINATE_PROCESS,
+            NULL,
+            0,
+            0,
+            NULL,
+            NULL ) ) )
+        {
+            isInitOk = TRUE;
+
+            RP_VA_START( ap, feed1 );
+            while( NULL != tmpFeed )
+            {
+                isAtLeastOneFeedProvided = TRUE;
+
+                if( !SAMStateWidget_AddFeed( (SAMStateWidget*)self, tmpFeed ) )
+                {
+                    isInitOk = FALSE;
+                    break;
+                }
+
+                tmpFeed = RP_VA_ARG( ap, SAMWidget* );
+            }
+            RP_VA_END( ap );
+
+            if( isInitOk &&
+                !isAtLeastOneFeedProvided )
+            {
+                if( !SAMStateWidget_AddFeed( (SAMStateWidget*)self,
+                    SAMSimpleFilter( RP_TAGS_NOTIFICATION_NEW_PROCESS,
+                    NULL,
+                    0,
+                    0,
+                    NULL,
+                    NULL ) ) )
+                {
+                    isInitOk = FALSE;
+                }
+            }
+        }
+    }
+
+    if( !isInitOk )
+    {
+        SAMFree( self );
+        self = NULL;
+    }
+
+    return self;
+}

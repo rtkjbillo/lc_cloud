@@ -1,6 +1,6 @@
 #include "stateful_widgets.h"
 
-rpcm_tag root_file_path[] = {
+static rpcm_tag root_file_path[] = {
     RP_TAGS_FILE_PATH,
     RPCM_END_TAG
 };

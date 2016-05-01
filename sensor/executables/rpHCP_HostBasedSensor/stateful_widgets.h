@@ -29,6 +29,7 @@ typedef struct
     rSequence event;
     rRefCount ref;
     RTIME ts;
+    RU32 pid;
 
 } SAMEvent;
 
@@ -73,6 +74,13 @@ StatefulWidget
     (
         RTIME olderThan,
         RTIME newerThan,
+        StatefulWidget feed1,
+        ... // NULL terminated list of feeds
+    );
+
+StatefulWidget
+    SAMRunningProcesses
+    (
         StatefulWidget feed1,
         ... // NULL terminated list of feeds
     );
