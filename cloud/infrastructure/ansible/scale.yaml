@@ -1,0 +1,5 @@
+---
+- hosts: scale_db
+  roles:
+    - common
+    - scale
