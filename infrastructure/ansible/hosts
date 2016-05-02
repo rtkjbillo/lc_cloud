@@ -1,5 +1,9 @@
 [beach_nodes]
 beach-1
+beach-2
+
+[endpoints]
+http-1
 
 [state_db]
 state-db-1

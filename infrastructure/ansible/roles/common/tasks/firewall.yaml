@@ -4,10 +4,6 @@
   apt: name=ufw update_cache=yes
 - name: firewall allow beach-master
   ufw: rule=allow from_ip={{ limacharlie_master }} direction=in
-- name: firewall allow other beach nodes
-  ufw: rule=allow from_ip={{ hostvars[item].ansible_eth1.ipv4.address }} direction=in
-  when: hostvars[item].ansible_eth1.ipv4.address is defined
-  with_items: "{{ groups['all'] }}"
 - name: firewall allow outbound
   ufw: rule=allow to_ip=any direction=out
 - name: firewall enable

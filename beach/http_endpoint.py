@@ -19,8 +19,8 @@ import os
 import sys
 from beach.beach_api import Beach
 
-if 2 != len( sys.argv ):
-    print( "Usage: http_endpoint.py beachConfigFile" )
+if 2 > len( sys.argv ):
+    print( "Usage: http_endpoint.py beachConfigFile [port]" )
     sys.exit(-1)
 
 def handle_beacon( environment, start_response ):
@@ -58,6 +58,9 @@ def handle_beacon( environment, start_response ):
 beach = Beach( sys.argv[ 1 ], realm = 'hcp' )
 vHandle = beach.getActorHandle( 'c2/beacon', nRetries = 3, timeout = 30, ident = 'http/5bc10821-2d3f-413a-81ee-30759b9f863b' )
 
-server = wsgi.WSGIServer( ( '', 80 ), handle_beacon, spawn = 100 )
+port = 80
+if 2 < len( sys.argv ):
+    port = int( sys.argv[ 2 ] )
+server = wsgi.WSGIServer( ( '', port ), handle_beacon, spawn = 100 )
 
 server.serve_forever()
