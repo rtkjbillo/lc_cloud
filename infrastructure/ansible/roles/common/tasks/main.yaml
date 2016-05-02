@@ -1,0 +1,9 @@
+---
+- include: firewall.yaml
+- name: build hosts file
+  lineinfile: dest=/etc/hosts regexp='.*{{ item }}$' line="{{ hostvars[item]['ansible_' + iface].ipv4.address }} {{item}}" state=present
+  when: hostvars[item]['ansible_' + iface].ipv4.address is defined
+  with_items: "{{ groups['all'] }}"
+- name: add lc user
+  user: name=lc state=present
+  
