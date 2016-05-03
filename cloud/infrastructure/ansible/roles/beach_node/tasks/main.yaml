@@ -13,7 +13,7 @@
     dest: /root/.ssh/known_hosts
     create: yes
     state: present
-    line: "{{ lookup('pipe', 'ssh-keyscan -t rsa localhost') }} lc-master"
+    line: "{{ lookup('pipe', 'ssh-keyscan -t rsa lc-master') }} lc-master"
 - name: install pip
   apt: name=python-pip
 - name: install git
