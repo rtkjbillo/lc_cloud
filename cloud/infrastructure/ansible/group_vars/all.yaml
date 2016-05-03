@@ -1,6 +1,6 @@
 ---
 iface: eth1
-limacharlie_master: 10.132.48.191
+limacharlie_master: <<<STAGING NODE IP>>>
 lc_root: /mnt/limacharlie
 tmp_lc_root: /home/lc/limacharlie/
 local_lc_root: /home/lc/limacharlie/cloud/beach
