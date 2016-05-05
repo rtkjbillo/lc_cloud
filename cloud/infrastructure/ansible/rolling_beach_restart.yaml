@@ -8,6 +8,6 @@
       shell: "pkill -f '^python -m beach.hostmanager' --signal 15"
       ignore_errors: yes
     - name: start beach node
-      shell: "nohup python -m beach.hostmanager {{ beach_config_file }} --log-level {{ beach_log_level }} &"
+      shell: "nohup python -m beach.hostmanager {{ lc_root }}/{{ beach_config_file }} --log-level {{ beach_log_level }} &"
     - name: wait for beach node to be active
       shell: "sleep 10"
