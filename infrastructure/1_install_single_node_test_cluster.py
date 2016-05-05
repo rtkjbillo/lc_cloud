@@ -56,13 +56,15 @@ printStep( 'Installing Beach.',
     os.system( 'pip install beach' ) )
 
 printStep( 'Installing JRE for Cassandra (the hcp-scale-db)',
-    os.system( 'apt-get install default-jre-headless -y' ) )
+    os.system( 'add-apt-repository -y ppa:openjdk-r/ppa' ),
+    os.system( 'apt-get update' ),
+    os.system( 'apt-get install openjdk-8-jre -y' ) )
 
 printStep( 'Installing Cassandra.',
     os.system( 'echo "deb http://debian.datastax.com/community stable main" | sudo tee -a /etc/apt/sources.list.d/cassandra.sources.list' ),
     os.system( 'curl -L http://debian.datastax.com/debian/repo_key | sudo apt-key add -' ),
     os.system( 'apt-get update -y' ),
-    os.system( 'apt-get install cassandra=2.2.3 -y' ) )
+    os.system( 'apt-get install cassandra -y' ) )
 
 printStep( 'Installing MySql server (hcp-state-db).',
     os.system( 'echo mysql-server mysql-server/root_password password letmein | sudo debconf-set-selections' ),
