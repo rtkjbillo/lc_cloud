@@ -11,8 +11,11 @@
 #==========================================================================
 # Install JRE
 #==========================================================================
+- name: install jre ppa
+  apt_repository:
+    repo: "ppa:openjdk-r/ppa"
 - name: install jre
-  apt: name=default-jre-headless
+  apt: name=openjdk-8-jre  update_cache=yes
 #==========================================================================
 # Install Cassandra
 #==========================================================================
@@ -21,7 +24,7 @@
 - name: add cassandra repo key
   apt_key: url=http://debian.datastax.com/debian/repo_key state=present
 - name: install cassandra
-  apt: name=cassandra=2.2.3 update_cache=yes
+  apt: name=cassandra update_cache=yes
 #==========================================================================
 # Configure Cassandra
 #==========================================================================
