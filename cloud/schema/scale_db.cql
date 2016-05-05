@@ -33,7 +33,7 @@ CREATE TABLE obj_man
   otype int,
 
   PRIMARY KEY( id )
-) WITH CACHING = 'ALL' AND compaction = { 'class' : 'SizeTieredCompactionStrategy' } AND gc_grace_seconds = 86400;
+) WITH compaction = { 'class' : 'SizeTieredCompactionStrategy' } AND gc_grace_seconds = 86400;
 
 CREATE TABLE obj_name
 (
