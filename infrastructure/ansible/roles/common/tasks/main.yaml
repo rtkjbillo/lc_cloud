@@ -5,5 +5,5 @@
   when: hostvars[item]['ansible_' + iface].ipv4.address is defined
   with_items: "{{ groups['all'] }}"
 - name: add lc user
-  user: name=lc state=present
+  user: name=lc state=present uid=4242
   
