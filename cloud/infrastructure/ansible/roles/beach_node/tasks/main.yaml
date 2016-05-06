@@ -65,6 +65,8 @@
   pip: name=cassandra-driver
 - name: install virustotal
   pip: name=virustotal
+- name: install pexpect
+  apt: name=python-pexpect
 - name: install time_uuid
   pip: name=time_uuid
 - name: get yara repo
