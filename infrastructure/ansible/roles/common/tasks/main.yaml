@@ -6,4 +6,5 @@
   with_items: "{{ groups['all'] }}"
 - name: add lc user
   user: name=lc state=present uid=4242
-  
+- name: add lc group
+  group: name=lc state=present gid=4242
