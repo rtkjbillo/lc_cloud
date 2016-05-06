@@ -38,7 +38,7 @@
     - "  User lc"
     - "  IdentityFile /root/.ssh/id_rsa"
 - name: create root limacharlie directory
-  file: path={{ lc_root }} state=directory mode=0700 owner=lc
+  file: path={{ lc_root }} state=directory mode=0700 owner=lc group=lc
 - name: mount the sshfs file system
   command: sshfs -o reconnect,ServerAliveInterval=15,ServerAliveCountMax=3,allow_other lc-master:{{ local_lc_root }} {{ lc_root }}
   args:
