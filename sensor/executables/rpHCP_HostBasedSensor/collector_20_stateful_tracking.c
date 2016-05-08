@@ -19,19 +19,24 @@ limitations under the License.
 #include "collectors.h"
 #include <notificationsLib/notificationsLib.h>
 #include <rpHostCommonPlatformLib/rTags.h>
-#include "stateful_widgets.h"
+#include "stateful_framework.h"
 #include "stateful_events.h"
-
 
 #define RPAL_FILE_ID       106
 
 static rQueue g_events = NULL;
+static rVector g_liveMachines = NULL;
+
+static StatefulMachineDescriptor* g_statefulMachines[] =
+{
+    ENABLED_WINDOWS_STATEFUL( 0 )
+};
 
 static
 RVOID
-    _freeSamEvent
+    _freeSmEvent
     (
-        SAMEvent* evt,
+        StatefulEvent* evt,
         RU32 unused
     )
 {
@@ -39,89 +44,15 @@ RVOID
     rRefCount_release( evt->ref, NULL );
 }
 
-static
-RVOID
-    _freeEvt
-    (
-        rSequence evt,
-        RU32 unused
-    )
-{
-    UNREFERENCED_PARAMETER( unused );
-    rSequence_free( evt );
-}
-
-static RVOID
-    sendNotification
-    (
-        rpcm_tag eventType,
-        SAMStateVector* stateVector
-    )
-{
-    SAMState* state = NULL;
-    SAMEvent* event = NULL;
-    RU32 i = 0;
-    RU32 j = 0;
-    rList states = NULL;
-    rSequence wrapper = NULL;
-    rSequence notif = NULL;
-
-    if( NULL != stateVector )
-    {
-        for( i = 0; i < stateVector->states->nElements; i++ )
-        {
-            state = stateVector->states->elements[ i ];
-            if( NULL != ( notif = rSequence_new() ) )
-            {
-                if( NULL != ( states = rList_new( RP_TAGS_EVENT, RPCM_SEQUENCE ) ) )
-                {
-                    if( !rSequence_addLIST( notif, RP_TAGS_EVENTS, states ) )
-                    {
-                        rList_free( states );
-                        states = NULL;
-                        rSequence_free( notif );
-                        notif = NULL;
-                    }
-                }
-                else
-                {
-                    rSequence_free( notif );
-                    notif = NULL;
-                }
-            }
-                
-            if( NULL != notif )
-            {
-                for( j = 0; j < state->events->nElements; j++ )
-                {
-                    event = state->events->elements[ j ];
-                    if( NULL != ( wrapper = rSequence_new() ) )
-                    {
-                        if( !rSequence_addSEQUENCE( wrapper, event->eventType, rSequence_duplicate( event->event ) ) || 
-                            !rList_addSEQUENCE( states, wrapper ) )
-                        {
-                            rSequence_free( wrapper );
-                        }
-                    }
-                }
-
-                notifications_publish( eventType, notif );
-
-                rSequence_free( notif );
-            }
-        }
-    }
-}
-
 static RPVOID
-    updateSamThread
+    updateThread
     (
         rEvent isTimeToStop,
         RPVOID ctx
     )
 {
-    SAMStateVector* hits = NULL;
-    SAMEvent* event = NULL;
+    StatefulMachine* tmpMachine = NULL;
+    StatefulEvent* event = NULL;
     RU32 i = 0;
 
     UNREFERENCED_PARAMETER( ctx );
@@ -130,16 +61,38 @@ static RPVOID
     {
         if( rQueue_remove( g_events, &event, NULL, MSEC_FROM_SEC( 1 ) ) )
         {
-            for( i = 0; i < ARRAY_N_ELEM( stateful_events ); i++ )
+            // First we update currently running machines
+            for( i = 0; i < g_liveMachines->nElements; i++ )
             {
-                if( NULL != ( hits = SAMUpdate( stateful_events[ i ].instance, event ) ) )
+                if( !SMUpdate( g_liveMachines->elements[ i ], event ) )
                 {
-                    sendNotification( stateful_events[ i ].output_event, hits );
-                    SAMStateVector_free( hits );
+                    rpal_debug_info( "SM no longer required for %d", i );
+
+                    // Machine indicated it is no longer live
+                    SMFreeMachine( g_liveMachines->elements[ i ] );
+                    if( rpal_vector_remove( g_liveMachines, i ) )
+                    {
+                        i--;
+                    }
                 }
             }
 
-            _freeSamEvent( event, 0 );
+            // Then we prime any new machines
+            for( i = 0; i < ARRAY_N_ELEM( g_statefulMachines ); i++ )
+            {
+                if( NULL != ( tmpMachine = SMPrime( g_statefulMachines[ i ], event ) ) )
+                {
+                    rpal_debug_info( "new SM created for %d", i );
+
+                    // New machines get added to the pool of live machines
+                    if( !rpal_vector_add( g_liveMachines, tmpMachine ) )
+                    {
+                        SMFreeMachine( tmpMachine );
+                    }
+                }
+            }
+
+            _freeSmEvent( event, 0 );
         }
     }
 
@@ -147,21 +100,21 @@ static RPVOID
 }
 
 static RVOID
-    addNewSamEvent
+    addNewSmEvent
     (
         rpcm_tag notifType,
         rSequence event
     )
 {
-    SAMEvent* samEvent = NULL;
+    StatefulEvent* statefulEvent = NULL;
 
     if( NULL != event )
     {
-        if( NULL != ( samEvent = SAMEvent_new( notifType, event ) ) )
+        if( NULL != ( statefulEvent = SMEvent_new( notifType, event ) ) )
         {
-            if( !rQueue_add( g_events, samEvent, sizeof( samEvent ) ) )
+            if( !rQueue_add( g_events, statefulEvent, sizeof( statefulEvent ) ) )
             {
-                _freeSamEvent( samEvent, 0 );
+                _freeSmEvent( statefulEvent, 0 );
             }
         }
     }
@@ -171,7 +124,8 @@ static RVOID
 // COLLECTOR INTERFACE
 //=============================================================================
 
-rpcm_tag collector_20_events[] = { 0 };
+rpcm_tag collector_20_events[] = { STATEFUL_MACHINE_0_EVENT,
+                                   0 };
 
 RBOOL
     collector_20_init
@@ -182,34 +136,52 @@ RBOOL
 {
     RBOOL isSuccess = FALSE;
     RU32 i = 0;
+    RU32 j = 0;
     UNREFERENCED_PARAMETER( config );
 
     if( NULL != hbsState )
     {
-        for( i = 0; i < ARRAY_N_ELEM( stateful_events ); i++ )
+        if( rQueue_create( &g_events, _freeSmEvent, 200 ) )
         {
-            if( stateful_events[ i ].isEnabled )
+            if( NULL != ( g_liveMachines = rpal_vector_new() ) )
             {
-                if( NULL == ( stateful_events[ i ].instance = stateful_events[ i ].create() ) )
+                if( rThreadPool_task( hbsState->hThreadPool, updateThread, NULL ) )
                 {
-                    rpal_debug_error( "could not create stateful machine %d", i );
+                    isSuccess = TRUE;
                 }
             }
         }
 
-        if( rQueue_create( &g_events, _freeSamEvent, 200 ) )
+        if( isSuccess )
         {
-            if( notifications_subscribe( RP_TAGS_NOTIFICATION_NEW_PROCESS, NULL, 0, NULL, addNewSamEvent ) )
+            for( i = 0; i < ARRAY_N_ELEM( hbsState->collectors ); i++ )
             {
-                if( rThreadPool_task( hbsState->hThreadPool, updateSamThread, NULL ) )
+                j = 0;
+
+                while( 0 != hbsState->collectors[ i ].externalEvents[ j ] )
                 {
-                    isSuccess = TRUE;
-                }
-                else
-                {
-                    notifications_unsubscribe( RP_TAGS_NOTIFICATION_NEW_PROCESS, g_events, NULL );
+                    if( !notifications_subscribe( hbsState->collectors[ i ].externalEvents[ j ],
+                                                  NULL, 
+                                                  0, 
+                                                  NULL, 
+                                                  addNewSmEvent ) )
+                    {
+                        isSuccess = FALSE;
+                        break;
+                    }
+
+                    j++;
                 }
             }
+        }
+
+        if( !isSuccess )
+        {
+            notifications_unsubscribe( RP_TAGS_NOTIFICATION_NEW_PROCESS, NULL, addNewSmEvent );
+            rQueue_free( g_events );
+            g_events = NULL;
+            rpal_vector_free( g_liveMachines );
+            g_liveMachines = NULL;
         }
     }
 
@@ -225,27 +197,38 @@ RBOOL
 {
     RBOOL isSuccess = FALSE;
     RU32 i = 0;
+    RU32 j = 0;
 
     UNREFERENCED_PARAMETER( config );
 
     if( NULL != hbsState )
     {
-        if( notifications_unsubscribe( RP_TAGS_NOTIFICATION_NEW_PROCESS, NULL, addNewSamEvent ) )
+        for( i = 0; i < ARRAY_N_ELEM( hbsState->collectors ); i++ )
         {
-            if( rQueue_free( g_events ) )
+            j = 0;
+
+            while( 0 != hbsState->collectors[ i ].externalEvents[ j ] )
             {
-                for( i = 0; i < ARRAY_N_ELEM( stateful_events ); i++ )
+                if( !notifications_unsubscribe( hbsState->collectors[ i ].externalEvents[ j ],
+                                                NULL,
+                                                addNewSmEvent ) )
                 {
-                    if( NULL != stateful_events[ i ].instance )
-                    {
-                        SAMFree( stateful_events[ i ].instance );
-                        stateful_events[ i ].instance = NULL;
-                    }
+                    isSuccess = FALSE;
                 }
 
-                isSuccess = TRUE;
+                j++;
             }
         }
+
+        rQueue_free( g_events );
+        g_events = NULL;
+        for( i = 0; i < g_liveMachines->nElements; i++ )
+        {
+            SMFreeMachine( g_liveMachines->elements[ i ] );
+        }
+        rpal_vector_free( g_liveMachines );
+        g_liveMachines = NULL;
+        isSuccess = TRUE;
     }
 
     return isSuccess;

@@ -3,7 +3,6 @@
   <ItemGroup>
     <ClCompile Include="collectors.c" />
     <ClCompile Include="main.c" />
-    <ClCompile Include="stateful_widgets.c" />
     <ClCompile Include="collector_0_exfil.c">
       <Filter>collectors</Filter>
     </ClCompile>
@@ -70,13 +69,15 @@
     <ClCompile Include="stateful_0_recon_burst.c">
       <Filter>stateful_events</Filter>
     </ClCompile>
+    <ClCompile Include="stateful_framework.c" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\include\rpHostCommonPlatformLib\rTags.h" />
     <ClInclude Include="collectors.h" />
     <ClInclude Include="deployments.h" />
     <ClInclude Include="keys.h" />
-    <ClInclude Include="stateful_widgets.h" />
+    <ClInclude Include="stateful_events.h" />
+    <ClInclude Include="stateful_framework.h" />
   </ItemGroup>
   <ItemGroup>
     <Filter Include="collectors">
