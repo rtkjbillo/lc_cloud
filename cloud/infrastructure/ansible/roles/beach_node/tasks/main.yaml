@@ -62,7 +62,7 @@
 - name: install python-mysql
   apt: name=python-mysqldb
 - name: install cassandra-driver
-  pip: name=cassandra-driver
+  pip: name=cassandra-driver==3.2.2
 - name: install virustotal
   pip: name=virustotal
 - name: install pexpect
