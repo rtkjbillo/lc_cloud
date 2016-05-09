@@ -366,8 +366,10 @@ static RVOID
             // The Windows API is much more efficient than on Nix so we can affort
             // going faster between our diffs.
             currentTimeout = libOs_getUsageProportionalTimeout( 500 ) + 100;
-#else
+#elif defined( RPAL_PLATFORM_MACOSX )
             currentTimeout = libOs_getUsageProportionalTimeout( 800 ) + 200;
+#elif defined( RPAL_PLATFORM_LINUX )
+            currentTimeout = libOs_getUsageProportionalTimeout( 1000 ) + 500;
 #endif
         }
     }

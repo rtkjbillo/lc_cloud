@@ -2821,12 +2821,17 @@ rList
         struct statfs* fsInfo = NULL;
         if( 0 != ( nVolumes = getmntinfo( &fsInfo, MNT_NOWAIT ) ) )
         {
-            if( NULL != ( volume = rSequence_new() ) )
+            for( i = 0; i < nVolumes; i++ )
             {
-                for( i = 0; i < nVolumes; i++ )
+                if( NULL != ( volume = rSequence_new() ) )
                 {
                     rSequence_addSTRINGA( volume, RP_TAGS_VOLUME_PATH, fsInfo[ i ].f_mntonname );
                     rSequence_addSTRINGA( volume, RP_TAGS_VOLUME_NAME, fsInfo[ i ].f_mntfromname );
+
+                    if( !rList_addSEQUENCE( volumes, volume ) )
+                    {
+                        rSequence_free( volume );
+                    }
                 }
             }
         }
@@ -2843,6 +2848,11 @@ rList
                 {
                     rSequence_addSTRINGA( volume, RP_TAGS_VOLUME_PATH, fsInfo->mnt_dir );
                     rSequence_addSTRINGA( volume, RP_TAGS_VOLUME_NAME, fsInfo->mnt_fsname );
+
+                    if( !rList_addSEQUENCE( volumes, volume ) )
+                    {
+                        rSequence_free( volume );
+                    }
                 }
             }
 
