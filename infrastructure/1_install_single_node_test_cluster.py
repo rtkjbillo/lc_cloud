@@ -88,7 +88,7 @@ printStep( 'Initializing Cassandra schema.',
                                               'scale_db.cql' ), ) ) )
 
 printStep( 'Installing pip packages for various analytics components.',
-    os.system( 'pip install time_uuid cassandra-driver virustotal' ) )
+    os.system( 'pip install time_uuid cassandra-driver==3.2.2 virustotal' ) )
 
 printStep( 'Installing Yara.',
     os.system( 'git clone https://github.com/refractionPOINT/yara.git' ),
