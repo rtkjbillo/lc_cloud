@@ -272,11 +272,11 @@ static RVOID
     RBOOL isFirstSnapshots = TRUE;
     RU32 i = 0;
     RBOOL isFound = FALSE;
-    RU32 nThLoop = 0;
     RU32 nTmpElem = 0;
     RU32 nCurElem = 0;
     RU32 nPrevElem = 0;
     RU32 currentTimeout = 0;
+    LibOsThreadTimeContext timeCtx = { 0 };
 
     while( !rEvent_wait( isTimeToStop, currentTimeout ) &&
            ( !kAcq_isAvailable() ||
@@ -359,18 +359,13 @@ static RVOID
             }
         }
 
-        nThLoop++;
-        if( 0 == nThLoop % 20 )
+        if( 1 <= libOs_getCurrentThreadCpuUsage( &timeCtx ) )
         {
-#ifdef RPAL_PLATFORM_WINDOWS
-            // The Windows API is much more efficient than on Nix so we can affort
-            // going faster between our diffs.
-            currentTimeout = libOs_getUsageProportionalTimeout( 500 ) + 100;
-#elif defined( RPAL_PLATFORM_MACOSX )
-            currentTimeout = libOs_getUsageProportionalTimeout( 800 ) + 200;
-#elif defined( RPAL_PLATFORM_LINUX )
-            currentTimeout = libOs_getUsageProportionalTimeout( 1000 ) + 500;
-#endif
+            currentTimeout += 100;
+        }
+        else if( 100 < currentTimeout )
+        {
+            currentTimeout -= 100;
         }
     }
 }
