@@ -29,7 +29,7 @@ import tarfile
 # This is the key also defined in the sensor as _HCP_DEFAULT_STATIC_STORE_KEY
 # and used with the same algorithm as obfuscationLib
 OBFUSCATION_KEY = "\xFA\x75\x01"
-STATIC_STORE_MAX_SIZE = 1024 * 10
+STATIC_STORE_MAX_SIZE = 1024 * 50
 
 def obfuscate( buffer, key ):
     obf = ''

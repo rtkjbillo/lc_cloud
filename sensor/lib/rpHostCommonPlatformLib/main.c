@@ -36,7 +36,7 @@ rpHCPContext g_hcpContext = {0};
 rpHCPId g_idTemplate = {0};
 
 // Large blank buffer to be used to patch configurations post-build
-#define _HCP_DEFAULT_STATIC_STORE_SIZE                          (1024 * 10)
+#define _HCP_DEFAULT_STATIC_STORE_SIZE                          (1024 * 50)
 #define _HCP_DEFAULT_STATIC_STORE_MAGIC                         { 0xFA, 0x57, 0xF0, 0x0D }
 static RU8 g_patchedConfig[ _HCP_DEFAULT_STATIC_STORE_SIZE ] =  _HCP_DEFAULT_STATIC_STORE_MAGIC;
 #define _HCP_DEFAULT_STATIC_STORE_KEY                           { 0xFA, 0x75, 0x01 }
