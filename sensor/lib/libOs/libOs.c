@@ -1597,6 +1597,11 @@ RBOOL
                 perfProfile->lastTimeoutValue -= MIN_OF( perfProfile->timeoutIncrement,
                                                          perfProfile->lastTimeoutValue );
             }
+            
+            if( rEvent_wait( perfProfile->waitEvent, 0 ) )
+            {
+            	return TRUE;
+            }
         }
         else
         {
