@@ -1618,6 +1618,10 @@ RBOOL
                     rpal_thread_sleep( perfProfile->lastTimeoutValue );
                 }
             }
+            else
+            {
+            	isEventSignaled = rEvent_wait( perfProfile->waitEvent, 0 );
+            }
 
             perfProfile->counter++;
         }
