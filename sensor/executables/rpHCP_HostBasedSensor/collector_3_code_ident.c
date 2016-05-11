@@ -232,7 +232,14 @@ RVOID
                 ( NULL != nameW &&
                   _MAX_FILE_HASH_SIZE < rpal_file_getSizew( nameW, TRUE ) ) )
             {
+                // We already read from the event, but we will be careful.
+                rSequence_unTaintRead( event );
                 rSequence_addRU32( event, RP_TAGS_ERROR, RPAL_ERROR_FILE_TOO_LARGE );
+
+                // We need to re-get the paths in case adding the error triggered
+                // a change in the structure.
+                rSequence_getSTRINGA( event, RP_TAGS_FILE_PATH, &nameA );
+                rSequence_getSTRINGW( event, RP_TAGS_FILE_PATH, &nameW );
             }
             else
             {
