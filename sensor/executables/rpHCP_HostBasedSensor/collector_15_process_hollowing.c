@@ -44,6 +44,12 @@ limitations under the License.
 #define _MAX_CPU_WAIT                           (60)
 #define _CPU_WATERMARK                          (50)
 
+#if defined( RPAL_PLATFORM_LINUX )
+    #define _INITIAL_PROFILED_TIMEOUT           800
+#else
+    #define _INITIAL_PROFILED_TIMEOUT           0
+#endif
+
 static rQueue g_newProcessNotifications = NULL;
 
 
@@ -501,6 +507,7 @@ RPVOID
     perfProfile.targetCpuPerformance = 0;
     perfProfile.timeoutIncrement = 1;
     perfProfile.enforceOnceIn = 7;
+    perfProfile.lastTimeoutValue = _INITIAL_PROFILED_TIMEOUT;
     perfProfile.waitEvent = isTimeToStop;
 
     if( NULL != ( procs = processLib_getProcessEntries( TRUE ) ) )
@@ -561,6 +568,7 @@ RPVOID
     perfProfile.targetCpuPerformance = 0;
     perfProfile.timeoutIncrement = 1;
     perfProfile.enforceOnceIn = 7;
+    perfProfile.lastTimeoutValue = _INITIAL_PROFILED_TIMEOUT;
     perfProfile.waitEvent = isTimeToStop;
 
     while( rpal_memory_isValid( isTimeToStop ) &&
@@ -628,8 +636,9 @@ RPVOID
     UNREFERENCED_PARAMETER( ctx );
 
     perfProfile.waitEvent = isTimeToStop;
+    perfProfile.lastTimeoutValue = _INITIAL_PROFILED_TIMEOUT;
     perfProfile.targetCpuPerformance = 0;
-    perfProfile.enforceOnceIn = 100;
+    perfProfile.enforceOnceIn = 7;
     perfProfile.timeoutIncrement = 1;
 
     while( !rEvent_wait( isTimeToStop, 0 ) )
@@ -691,9 +700,10 @@ RVOID
 
     if( NULL != ( dummy = rEvent_create( TRUE ) ) )
     {
-        perfProfile.targetCpuPerformance = 10;
+        perfProfile.targetCpuPerformance = 0;
         perfProfile.timeoutIncrement = 1;
-        perfProfile.enforceOnceIn = 100;
+        perfProfile.enforceOnceIn = 7;
+        perfProfile.lastTimeoutValue = _INITIAL_PROFILED_TIMEOUT;
         perfProfile.waitEvent = dummy;
 
         if( rSequence_getRU32( event, RP_TAGS_PROCESS_ID, &pid ) )
