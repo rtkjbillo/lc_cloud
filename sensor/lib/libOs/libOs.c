@@ -1569,6 +1569,59 @@ RU8
 }
 
 RBOOL
+    libOs_timeoutWithProfile
+    (
+        LibOsPerformanceProfile* perfProfile,
+        RBOOL isEnforce
+    )
+{
+    RBOOL isEventSignaled = FALSE;
+    RU8 currentPerformance = 0;
+
+    if( NULL != perfProfile )
+    {
+        if( !isEnforce )
+        {
+            currentPerformance = libOs_getCurrentThreadCpuUsage( &perfProfile->threadTimeContext );
+            if( 0xFF == currentPerformance )
+            {
+                // Error getting times, keep going.
+            }
+            else if( currentPerformance > perfProfile->targetCpuPerformance )
+            {
+                perfProfile->lastTimeoutValue += perfProfile->timeoutIncrement;
+            }
+            else if( currentPerformance <= perfProfile->targetCpuPerformance &&
+                     perfProfile->lastTimeoutValue > 0 )
+            {
+                perfProfile->lastTimeoutValue -= MIN_OF( perfProfile->timeoutIncrement,
+                                                         perfProfile->lastTimeoutValue );
+            }
+        }
+        else
+        {
+            if( perfProfile->counter == perfProfile->enforceOnceIn )
+            {
+                perfProfile->counter = 0;
+
+                if( NULL != perfProfile->waitEvent )
+                {
+                    isEventSignaled = rEvent_wait( perfProfile->waitEvent, perfProfile->lastTimeoutValue );
+                }
+                else
+                {
+                    rpal_thread_sleep( perfProfile->lastTimeoutValue );
+                }
+            }
+
+            perfProfile->counter++;
+        }
+    }
+
+    return isEventSignaled;
+}
+
+RBOOL
     libOs_getProcessTime
     (
         RU32 processId,
@@ -1716,8 +1769,7 @@ RU8
             deltaSystem = curSystemTime - lastSystemTime;
             deltaProcess = curProcessTime - lastProcessTime;
 
-            if( 0 != deltaSystem &&
-                0 != deltaProcess )
+            if( 0 != deltaSystem )
             {
                 pr = ( (RFLOAT)deltaProcess / deltaSystem ) * 100;
                 percent = (RU8)pr;
@@ -1884,7 +1936,6 @@ static rList
                                     {
                                         // TODO: Fix in a more permanent way the issues in glibc with undocumented'
                                         // incompatibility with mis-aligned pointers in things like strlen and wcstombs.
-                                        rpal_debug_info( "found associated service exe: %ls", assExe );
                                         rSequence_addSTRINGW( svc, RP_TAGS_EXECUTABLE, assExe );
                                         rpal_memory_free( assExe );
                                     }
@@ -1893,7 +1944,6 @@ static rList
                                     {
                                         // TODO: Fix in a more permanent way the issues in glibc with undocumented'
                                         // incompatibility with mis-aligned pointers in things like strlen and wcstombs.
-                                        rpal_debug_info( "found associated service dll: %ls", assDll );
                                         rSequence_addSTRINGW( svc, RP_TAGS_DLL, assDll );
                                         rpal_memory_free( assDll );
                                     }

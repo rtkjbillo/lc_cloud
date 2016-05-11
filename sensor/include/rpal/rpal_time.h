@@ -27,6 +27,7 @@ limitations under the License.
 #define SEC_PER_HOUR                                (60*60)
 #define SEC_PER_DAY                                 (SEC_PER_HOUR * 24)
 #define MSEC_FROM_SEC(sec)                          ((sec)*1000)
+#define MICROSEC_FROM_MSEC(sec)                     ((sec)*100000)
 
 typedef struct
 {

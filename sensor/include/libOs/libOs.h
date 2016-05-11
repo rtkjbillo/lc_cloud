@@ -56,6 +56,17 @@ typedef struct
     RU64 lastThreadTime;
 } LibOsThreadTimeContext;
 
+typedef struct
+{
+    RU8 targetCpuPerformance;
+    RU32 lastTimeoutValue;
+    RU32 timeoutIncrement;
+    RU32 enforceOnceIn;
+    rEvent waitEvent;
+    RU32 counter;
+    LibOsThreadTimeContext threadTimeContext;
+} LibOsPerformanceProfile;
+
 //=============================================================================
 //  API
 //=============================================================================
@@ -151,6 +162,13 @@ RU8
     libOs_getCurrentProcessCpuUsage
     (
 
+    );
+
+RBOOL
+    libOs_timeoutWithProfile
+    (
+        LibOsPerformanceProfile* perfProfile,
+        RBOOL isEnforce
     );
 
 rList
