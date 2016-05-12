@@ -432,18 +432,9 @@ RBOOL
 	}
 
 	if( NULL != mem1 &&
-		NULL != mem2 )
+	    NULL != mem2 )
 	{
-		isEqual = TRUE;
-
-		for( i = 0; i < size; i++ )
-		{
-			if( ((RPU8)mem1)[ i ] != ((RPU8)mem2)[ i ] )
-			{
-				isEqual = FALSE;
-				break;
-			}
-		}
+		isEqual = ( 0 == memcmp( mem1, mem2, size ) );
 	}
 
 	return isEqual;
