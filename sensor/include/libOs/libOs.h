@@ -54,12 +54,16 @@ typedef struct
 {
     RU64 lastSystemTime;
     RU64 lastThreadTime;
+    RTIME lastCheckTime;
+    RU8 lastResult;
 } LibOsThreadTimeContext;
 
 typedef struct
 {
     RU8 targetCpuPerformance;
+    RU8 globalTargetCpuPerformance;
     RU32 lastTimeoutValue;
+    RU32 globalTimeoutValue;
     RU32 timeoutIncrement;
     RU32 sanityCeiling;
     RU32 enforceOnceIn;

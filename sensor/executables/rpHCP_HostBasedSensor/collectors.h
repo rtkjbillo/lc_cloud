@@ -39,6 +39,8 @@ typedef struct _HbsState
     } collectors[ 20 ];
 } HbsState;
 
+#define GLOBAL_CPU_USAGE_TARGET             1
+
 //=============================================================================
 // Collector Naming Convention
 //=============================================================================

@@ -19,6 +19,7 @@ limitations under the License.
 #include "collectors.h"
 #include <notificationsLib/notificationsLib.h>
 #include <processLib/processLib.h>
+#include <libOs/libOs.h>
 #include <rpHostCommonPlatformLib/rTags.h>
 #include <kernelAcquisitionLib/kernelAcquisitionLib.h>
 #include <kernelAcquisitionLib/common.h>
@@ -74,6 +75,14 @@ RPVOID
     processLibProcEntry* curProc = NULL;
     rList modules = NULL;
     rSequence module = NULL;
+    LibOsPerformanceProfile perfProfile = { 0 };
+
+    perfProfile.enforceOnceIn = 1;
+    perfProfile.lastTimeoutValue = 10;
+    perfProfile.sanityCeiling = MSEC_FROM_SEC( 10 );
+    perfProfile.targetCpuPerformance = 0;
+    perfProfile.globalTargetCpuPerformance = GLOBAL_CPU_USAGE_TARGET;
+    perfProfile.timeoutIncrement = 1;
 
     while( rpal_memory_isValid( isTimeToStop ) &&
            !rEvent_wait( isTimeToStop, 0 ) )
@@ -93,12 +102,16 @@ RPVOID
 #endif
                        0 != curProc->pid )
                 {
+                    libOs_timeoutWithProfile( &perfProfile, FALSE );
+
                     if( NULL != ( modules = processLib_getProcessModules( curProc->pid ) ) )
                     {
                         while( rpal_memory_isValid( isTimeToStop ) &&
-                               !rEvent_wait( isTimeToStop, 20 ) &&
+                               !rEvent_wait( isTimeToStop, 0 ) &&
                                rList_getSEQUENCE( modules, RP_TAGS_DLL, &module ) )
                         {
+                            libOs_timeoutWithProfile( &perfProfile, TRUE );
+
                             if( rSequence_getPOINTER64( module,
                                                         RP_TAGS_BASE_ADDRESS, 
                                                         &( curModule.baseAddr ) ) &&

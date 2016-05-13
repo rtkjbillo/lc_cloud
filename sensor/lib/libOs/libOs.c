@@ -1543,9 +1543,15 @@ RU8
     RU64 deltaSystem = 0;
     RU64 deltaThread = 0;
     RFLOAT pr = 0;
+    RTIME curTime = 0;
 
-    if( libOs_getSystemCPUTime( &curSystemTime ) &&
-        libOs_getThreadTime( 0, &curThreadTime ) )
+    curTime = rpal_time_getLocal();
+    if( curTime < ctx->lastCheckTime + 1 )
+    {
+        percent = ctx->lastResult;
+    }
+    else if( libOs_getSystemCPUTime( &curSystemTime ) &&
+             libOs_getThreadTime( 0, &curThreadTime ) )
     {
         if( curSystemTime >= ctx->lastSystemTime &&
             curThreadTime >= ctx->lastThreadTime )
@@ -1558,6 +1564,8 @@ RU8
             {
                 pr = ( (RFLOAT)deltaThread / deltaSystem ) * 100;
                 percent = (RU8)pr;
+                ctx->lastResult = percent;
+                ctx->lastCheckTime = curTime;
             }
         }
 
@@ -1601,6 +1609,26 @@ RVOID
                                                          perfProfile->lastTimeoutValue );
                 rpal_debug_info( "DECREMENT: %d (%d)", perfProfile->lastTimeoutValue, currentPerformance );
             }
+
+            currentPerformance = libOs_getCurrentProcessCpuUsage();
+            if( 0xFF == currentPerformance )
+            {
+                // Error getting times, keep going.
+            }
+            else if( currentPerformance > perfProfile->globalTargetCpuPerformance )
+            {
+                if( perfProfile->sanityCeiling > perfProfile->globalTimeoutValue )
+                {
+                    perfProfile->globalTimeoutValue += perfProfile->timeoutIncrement;
+                    rpal_debug_info( "GLOBAL INCREMENT: %d (%d)", perfProfile->globalTimeoutValue, currentPerformance );
+                }
+            }
+            else if( perfProfile->globalTimeoutValue > 0 )
+            {
+                perfProfile->globalTimeoutValue -= MIN_OF( perfProfile->timeoutIncrement,
+                                                           perfProfile->globalTimeoutValue );
+                rpal_debug_info( "GLOBAL DECREMENT: %d (%d)", perfProfile->globalTimeoutValue, currentPerformance );
+            }
         }
         else
         {
@@ -1608,7 +1636,7 @@ RVOID
             {
                 perfProfile->counter = 0;
 
-                rpal_thread_sleep( perfProfile->lastTimeoutValue );
+                rpal_thread_sleep( perfProfile->lastTimeoutValue + perfProfile->globalTimeoutValue );
             }
 
             perfProfile->counter++;

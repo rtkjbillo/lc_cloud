@@ -486,6 +486,7 @@ RPVOID
     LibOsPerformanceProfile perfProfile = { 0 };
 
     perfProfile.targetCpuPerformance = 0;
+    perfProfile.globalTargetCpuPerformance = GLOBAL_CPU_USAGE_TARGET;
     perfProfile.timeoutIncrement = 1;
     perfProfile.enforceOnceIn = 7;
     perfProfile.lastTimeoutValue = _INITIAL_PROFILED_TIMEOUT;
@@ -549,6 +550,7 @@ RPVOID
     LibOsPerformanceProfile perfProfile = { 0 };
 
     perfProfile.targetCpuPerformance = 0;
+    perfProfile.globalTargetCpuPerformance = GLOBAL_CPU_USAGE_TARGET;
     perfProfile.timeoutIncrement = 1;
     perfProfile.enforceOnceIn = 7;
     perfProfile.lastTimeoutValue = _INITIAL_PROFILED_TIMEOUT;
@@ -625,6 +627,7 @@ RPVOID
     perfProfile.sanityCeiling = _SANITY_CEILING;
     perfProfile.lastTimeoutValue = _INITIAL_PROFILED_TIMEOUT;
     perfProfile.targetCpuPerformance = 0;
+    perfProfile.globalTargetCpuPerformance = GLOBAL_CPU_USAGE_TARGET;
     perfProfile.enforceOnceIn = 7;
     perfProfile.timeoutIncrement = 1;
 
@@ -688,6 +691,7 @@ RVOID
     if( NULL != ( dummy = rEvent_create( TRUE ) ) )
     {
         perfProfile.targetCpuPerformance = 0;
+        perfProfile.globalTargetCpuPerformance = GLOBAL_CPU_USAGE_TARGET;
         perfProfile.timeoutIncrement = 1;
         perfProfile.enforceOnceIn = 7;
         perfProfile.lastTimeoutValue = _INITIAL_PROFILED_TIMEOUT;

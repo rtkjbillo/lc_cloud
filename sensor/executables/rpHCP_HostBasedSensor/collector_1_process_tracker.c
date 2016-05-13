@@ -281,6 +281,7 @@ static RVOID
     perfProfile.sanityCeiling = MSEC_FROM_SEC( 30 );
     perfProfile.lastTimeoutValue = 100;
     perfProfile.targetCpuPerformance = 0;
+    perfProfile.globalTargetCpuPerformance = GLOBAL_CPU_USAGE_TARGET;
     perfProfile.timeoutIncrement = 10;
 
     while( !rEvent_wait( isTimeToStop, 0 ) &&
@@ -366,7 +367,6 @@ static RVOID
             }
         }
 
-        libOs_timeoutWithProfile( &perfProfile, FALSE );
         libOs_timeoutWithProfile( &perfProfile, TRUE );
     }
 }
