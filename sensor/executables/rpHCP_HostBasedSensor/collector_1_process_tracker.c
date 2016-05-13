@@ -275,13 +275,20 @@ static RVOID
     RU32 nTmpElem = 0;
     RU32 nCurElem = 0;
     RU32 nPrevElem = 0;
-    RU32 currentTimeout = 0;
-    LibOsThreadTimeContext timeCtx = { 0 };
+    LibOsPerformanceProfile perfProfile = { 0 };
 
-    while( !rEvent_wait( isTimeToStop, currentTimeout ) &&
+    perfProfile.enforceOnceIn = 1;
+    perfProfile.sanityCeiling = MSEC_FROM_SEC( 30 );
+    perfProfile.lastTimeoutValue = 100;
+    perfProfile.targetCpuPerformance = 0;
+    perfProfile.timeoutIncrement = 10;
+
+    while( !rEvent_wait( isTimeToStop, 0 ) &&
            ( !kAcq_isAvailable() ||
              g_is_kernel_failure ) )
     {
+        libOs_timeoutWithProfile( &perfProfile, FALSE );
+
         tmpSnapshot = currentSnapshot;
         currentSnapshot = previousSnapshot;
         previousSnapshot = tmpSnapshot;
@@ -359,14 +366,8 @@ static RVOID
             }
         }
 
-        if( 1 <= libOs_getCurrentThreadCpuUsage( &timeCtx ) )
-        {
-            currentTimeout += 100;
-        }
-        else if( 100 < currentTimeout )
-        {
-            currentTimeout -= 100;
-        }
+        libOs_timeoutWithProfile( &perfProfile, FALSE );
+        libOs_timeoutWithProfile( &perfProfile, TRUE );
     }
 }
 
