@@ -1568,14 +1568,13 @@ RU8
     return percent;
 }
 
-RBOOL
+RVOID
     libOs_timeoutWithProfile
     (
         LibOsPerformanceProfile* perfProfile,
         RBOOL isEnforce
     )
 {
-    RBOOL isEventSignaled = FALSE;
     RU8 currentPerformance = 0;
 
     if( NULL != perfProfile )
@@ -1589,18 +1588,18 @@ RBOOL
             }
             else if( currentPerformance > perfProfile->targetCpuPerformance )
             {
-                perfProfile->lastTimeoutValue += perfProfile->timeoutIncrement;
+                if( perfProfile->sanityCeiling > perfProfile->lastTimeoutValue )
+                {
+                    perfProfile->lastTimeoutValue += perfProfile->timeoutIncrement;
+                    rpal_debug_info( "INCREMENT: %d (%d)", perfProfile->lastTimeoutValue, currentPerformance );
+                }
             }
             else if( currentPerformance <= perfProfile->targetCpuPerformance &&
                      perfProfile->lastTimeoutValue > 0 )
             {
                 perfProfile->lastTimeoutValue -= MIN_OF( perfProfile->timeoutIncrement,
                                                          perfProfile->lastTimeoutValue );
-            }
-            
-            if( rEvent_wait( perfProfile->waitEvent, 0 ) )
-            {
-            	return TRUE;
+                rpal_debug_info( "DECREMENT: %d (%d)", perfProfile->lastTimeoutValue, currentPerformance );
             }
         }
         else
@@ -1609,25 +1608,12 @@ RBOOL
             {
                 perfProfile->counter = 0;
 
-                if( NULL != perfProfile->waitEvent )
-                {
-                    isEventSignaled = rEvent_wait( perfProfile->waitEvent, perfProfile->lastTimeoutValue );
-                }
-                else
-                {
-                    rpal_thread_sleep( perfProfile->lastTimeoutValue );
-                }
-            }
-            else
-            {
-            	isEventSignaled = rEvent_wait( perfProfile->waitEvent, 0 );
+                rpal_thread_sleep( perfProfile->lastTimeoutValue );
             }
 
             perfProfile->counter++;
         }
     }
-
-    return isEventSignaled;
 }
 
 RBOOL

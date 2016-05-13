@@ -61,8 +61,8 @@ typedef struct
     RU8 targetCpuPerformance;
     RU32 lastTimeoutValue;
     RU32 timeoutIncrement;
+    RU32 sanityCeiling;
     RU32 enforceOnceIn;
-    rEvent waitEvent;
     RU32 counter;
     LibOsThreadTimeContext threadTimeContext;
 } LibOsPerformanceProfile;
@@ -164,7 +164,7 @@ RU8
 
     );
 
-RBOOL
+RVOID
     libOs_timeoutWithProfile
     (
         LibOsPerformanceProfile* perfProfile,

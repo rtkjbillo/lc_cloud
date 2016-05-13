@@ -419,7 +419,6 @@ RBOOL
 	)
 {
 	RBOOL isEqual = FALSE;
-	RSIZET i = 0;
 
 	if( NULL == mem1 )
 	{
