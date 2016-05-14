@@ -124,24 +124,27 @@ static RPVOID
                     }
                 }
 
-                rpal_sort_array( newVolumes,
-                                 nNewVolumes, 
-                                 sizeof( *newVolumes ), 
-                                 (rpal_ordering_func)_cmpHashes );
-
-                for( i = 0; i < nVolumes; i++ )
+                if( !rEvent_wait( isTimeToStop, 0 ) )
                 {
-                    libOs_timeoutWithProfile( &perfProfile, TRUE );
+                    rpal_sort_array( newVolumes,
+                                     nNewVolumes,
+                                     sizeof( *newVolumes ),
+                                     (rpal_ordering_func)_cmpHashes );
 
-                    if( ( -1 ) == rpal_binsearch_array( newVolumes, 
-                                                        nNewVolumes, 
-                                                        sizeof( *newVolumes ), 
-                                                        &( prevVolumes[ i ].hash ), 
-                                                        (rpal_ordering_func)_cmpHashes ) )
+                    for( i = 0; i < nVolumes; i++ )
                     {
-                        notifications_publish( RP_TAGS_NOTIFICATION_VOLUME_UNMOUNT, 
-                                               prevVolumes[ i ].volume );
-                        rpal_debug_info( "volume unmounted" );
+                        libOs_timeoutWithProfile( &perfProfile, TRUE );
+
+                        if( ( -1 ) == rpal_binsearch_array( newVolumes,
+                                                            nNewVolumes,
+                                                            sizeof( *newVolumes ),
+                                                            &( prevVolumes[ i ].hash ),
+                                                            (rpal_ordering_func)_cmpHashes ) )
+                        {
+                            notifications_publish( RP_TAGS_NOTIFICATION_VOLUME_UNMOUNT,
+                                                   prevVolumes[ i ].volume );
+                            rpal_debug_info( "volume unmounted" );
+                        }
                     }
                 }
             }
