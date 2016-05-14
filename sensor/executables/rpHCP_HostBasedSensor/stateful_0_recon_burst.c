@@ -77,6 +77,6 @@ STATE( 2, ARRAY_N_ELEM( recon_progs ) + 1, RECON_TRANSITIONS( FALSE, 3 ) );
 STATE( 3, ARRAY_N_ELEM( recon_progs ) + 1, RECON_TRANSITIONS( TRUE, 0 ) );
 
 STATEFUL_MACHINE( 0, STATEFUL_MACHINE_0_EVENT, RECON_N_PER_BURST, STATE_PTR( 0 ),
-                                                                          STATE_PTR( 1 ),
-                                                                          STATE_PTR( 2 ),
-                                                                          STATE_PTR( 3 ) );
+                                                                  STATE_PTR( 1 ),
+                                                                  STATE_PTR( 2 ),
+                                                                  STATE_PTR( 3 ) );

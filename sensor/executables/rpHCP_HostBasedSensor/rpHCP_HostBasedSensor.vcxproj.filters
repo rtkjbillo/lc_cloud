@@ -70,6 +70,9 @@
       <Filter>stateful_events</Filter>
     </ClCompile>
     <ClCompile Include="stateful_framework.c" />
+    <ClCompile Include="stateful_1_late_load.c">
+      <Filter>stateful_events</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\include\rpHostCommonPlatformLib\rTags.h" />

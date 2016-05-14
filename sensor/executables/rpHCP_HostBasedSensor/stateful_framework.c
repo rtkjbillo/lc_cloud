@@ -158,11 +158,12 @@ StatefulMachine*
         for( i = 0; i < currentState->nTransitions; i++ )
         {
             if( ( 0 == currentState->transitions[ i ].eventTypeOnly ||
-                event->eventType == currentState->transitions[ i ].eventTypeOnly ) &&
+                  event->eventType == currentState->transitions[ i ].eventTypeOnly ) &&
                 0 != currentState->transitions[ i ].destState &&
-                currentState->transitions[ i ].transition( machine, 
-                                                           event, 
-                                                           currentState->transitions[ i ].parameters ) )
+                ( NULL == currentState->transitions[ i ].transition || 
+                  currentState->transitions[ i ].transition( machine, 
+                                                             event, 
+                                                             currentState->transitions[ i ].parameters ) ) )
             {
                 if( NULL != ( machine = _newMachineFrom( desc ) ) )
                 {
@@ -217,9 +218,10 @@ RBOOL
             {
                 if( ( 0 == currentState->transitions[ i ].eventTypeOnly || 
                       event->eventType == currentState->transitions[ i ].eventTypeOnly ) &&
-                    currentState->transitions[ i ].transition( machine, 
-                                                               event, 
-                                                               currentState->transitions[ i ].parameters ) )
+                    ( NULL == currentState->transitions[ i ].transition ||
+                      currentState->transitions[ i ].transition( machine, 
+                                                                 event, 
+                                                                 currentState->transitions[ i ].parameters ) ) )
                 {
                     // This is a match
                     if( currentState->transitions[ i ].isRecordEventOnMatch )

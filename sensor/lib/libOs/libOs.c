@@ -1097,6 +1097,7 @@ RBOOL
     )
 {
     RBOOL isSucceed = FALSE;
+    RPWCHAR tmpPath = NULL;
 
     if( NULL != signature &&
         NULL != pIsSigned  &&
@@ -1104,14 +1105,17 @@ RBOOL
         NULL != pIsVerified_global &&
         NULL != ( *signature = rSequence_new() ) )
     {
-        rSequence_addSTRINGW( *signature, RP_TAGS_FILE_PATH, pwfilePath );
-        isSucceed = libOs_getFileSignature( pwfilePath, *signature, operation, pIsSigned, pIsVerified_local, pIsVerified_global );
+        rpal_string_expandw( pwfilePath, &tmpPath );
+        rSequence_addSTRINGW( *signature, RP_TAGS_FILE_PATH, tmpPath ? tmpPath : pwfilePath );
+        isSucceed = libOs_getFileSignature( tmpPath ? tmpPath : pwfilePath, *signature, operation, pIsSigned, pIsVerified_local, pIsVerified_global );
 
         if( !isSucceed && NULL != *signature )
         {
             rSequence_free( *signature );
             *signature = NULL;
         }
+
+        rpal_memory_free( tmpPath );
     }
     return isSucceed;
 }

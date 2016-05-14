@@ -29,7 +29,8 @@ static rVector g_liveMachines = NULL;
 
 static StatefulMachineDescriptor* g_statefulMachines[] =
 {
-    ENABLED_WINDOWS_STATEFUL( 0 )
+    ENABLED_WINDOWS_STATEFUL( 0 ),
+    ENABLED_STATEFUL( 1 )
 };
 
 static
@@ -125,6 +126,7 @@ static RVOID
 //=============================================================================
 
 rpcm_tag collector_20_events[] = { STATEFUL_MACHINE_0_EVENT,
+                                   STATEFUL_MACHINE_1_EVENT,
                                    0 };
 
 RBOOL
@@ -177,7 +179,22 @@ RBOOL
 
         if( !isSuccess )
         {
-            notifications_unsubscribe( RP_TAGS_NOTIFICATION_NEW_PROCESS, NULL, addNewSmEvent );
+            for( i = 0; i < ARRAY_N_ELEM( hbsState->collectors ); i++ )
+            {
+                j = 0;
+
+                while( 0 != hbsState->collectors[ i ].externalEvents[ j ] )
+                {
+                    if( !notifications_unsubscribe( hbsState->collectors[ i ].externalEvents[ j ],
+                                                    NULL,
+                                                    addNewSmEvent ) )
+                    {
+                        isSuccess = FALSE;
+                    }
+
+                    j++;
+                }
+            }
             rQueue_free( g_events );
             g_events = NULL;
             rpal_vector_free( g_liveMachines );

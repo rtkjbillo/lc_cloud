@@ -196,7 +196,11 @@ static RBOOL
 
                 rSequence_addSTRINGN( notif, RP_TAGS_MODULE_NAME, &( module->path[ i ] ) );
 
-                isSuccess = TRUE;
+                if( notifications_publish( RP_TAGS_NOTIFICATION_MODULE_LOAD,
+                                           notif ) )
+                {
+                    isSuccess = TRUE;
+                }
             }
 
             rSequence_free( notif );

@@ -55,3 +55,6 @@ limitations under the License.
 //=============================================================================
 DECLARE_STATEFUL_MACHINE( 0 );
 #define STATEFUL_MACHINE_0_EVENT    RP_TAGS_NOTIFICATION_RECON_BURST
+
+DECLARE_STATEFUL_MACHINE( 1 );
+#define STATEFUL_MACHINE_1_EVENT    RP_TAGS_NOTIFICATION_LATE_MODULE_LOAD

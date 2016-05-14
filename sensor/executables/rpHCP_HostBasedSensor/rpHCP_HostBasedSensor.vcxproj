@@ -138,6 +138,7 @@
     <ClCompile Include="collector_9_file_forensics.c" />
     <ClCompile Include="main.c" />
     <ClCompile Include="stateful_0_recon_burst.c" />
+    <ClCompile Include="stateful_1_late_load.c" />
     <ClCompile Include="stateful_framework.c" />
   </ItemGroup>
   <ItemGroup>
