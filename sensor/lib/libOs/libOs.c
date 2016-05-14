@@ -620,23 +620,39 @@ RBOOL
                         rpal_memory_zero( &(*pPackages)[ i - 1 ], sizeof( (*pPackages)[ i - 1 ] ) );
                         size = sizeof( tmp ) - sizeof( RWCHAR );
 
-                        if( ERROR_SUCCESS == RegQueryValueExW( hPackage, dName, NULL, (LPDWORD)&type, (RPU8)tmp, (LPDWORD)&size ) )
+                        if( ERROR_SUCCESS == RegQueryValueExW( hPackage, 
+                                                               dName, 
+                                                               NULL, 
+                                                               (LPDWORD)&type, 
+                                                               (RPU8)tmp, 
+                                                               (LPDWORD)&size ) )
                         {
                             if( REG_SZ == type ||
                                 REG_EXPAND_SZ == type )
                             {
                                 size = rpal_string_strlenw( tmp ) * sizeof( RWCHAR );
-                                rpal_memory_memcpy( &(*pPackages)[ i - 1 ].name, tmp, size >= sizeof( (*pPackages)[ i - 1 ].name ) ? sizeof( (*pPackages)[ i - 1 ].name ) - sizeof( RWCHAR ) : size );
+                                rpal_memory_memcpy( &(*pPackages)[ i - 1 ].name, 
+                                                    tmp, 
+                                                    size >= sizeof( (*pPackages)[ i - 1 ].name ) ? sizeof( (*pPackages)[ i - 1 ].name ) - sizeof( RWCHAR ) : size );
                             }
                         }
 
-                        if( ERROR_SUCCESS == RegQueryValueExW( hPackage, dVersion, NULL, (LPDWORD)&type, (RPU8)tmp, (LPDWORD)&size ) )
+                        size = sizeof( tmp ) - sizeof( RWCHAR );
+
+                        if( ERROR_SUCCESS == RegQueryValueExW( hPackage, 
+                                                               dVersion, 
+                                                               NULL, 
+                                                               (LPDWORD)&type, 
+                                                               (RPU8)tmp, 
+                                                               (LPDWORD)&size ) )
                         {
                             if( REG_SZ == type ||
                                 REG_EXPAND_SZ == type )
                             {
                                 size = rpal_string_strlenw( tmp );
-                                rpal_memory_memcpy( &(*pPackages)[ i - 1 ].version, tmp, size >= sizeof( (*pPackages)[ i - 1 ].version ) ? sizeof( (*pPackages)[ i - 1 ].version ) - sizeof( RWCHAR ) : size );
+                                rpal_memory_memcpy( &(*pPackages)[ i - 1 ].version, 
+                                                    tmp, 
+                                                    size >= sizeof( (*pPackages)[ i - 1 ].version ) ? sizeof( (*pPackages)[ i - 1 ].version ) - sizeof( RWCHAR ) : size );
                             }
                         }
                     }
