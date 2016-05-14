@@ -282,7 +282,7 @@ static RVOID
     perfProfile.lastTimeoutValue = 100;
     perfProfile.targetCpuPerformance = 0;
     perfProfile.globalTargetCpuPerformance = GLOBAL_CPU_USAGE_TARGET;
-    perfProfile.timeoutIncrement = 10;
+    perfProfile.timeoutIncrementPerSec = 10;
 
     while( !rEvent_wait( isTimeToStop, 0 ) &&
            ( !kAcq_isAvailable() ||

@@ -1585,30 +1585,39 @@ RVOID
     )
 {
     RU8 currentPerformance = 0;
+    RTIME currentTime = 0;
+    RU32 increment = 0;
 
     if( NULL != perfProfile )
     {
-        if( !isEnforce )
+        currentTime = rpal_time_getLocal();
+        if( 0 == perfProfile->lastUpdate ) perfProfile->lastUpdate = currentTime;
+
+        if( !isEnforce &&
+            currentTime != perfProfile->lastUpdate )
         {
+            increment = (RU32)( perfProfile->timeoutIncrementPerSec * ( currentTime - perfProfile->lastUpdate ) );
+            perfProfile->lastUpdate = currentTime;
             currentPerformance = libOs_getCurrentThreadCpuUsage( &perfProfile->threadTimeContext );
+
             if( 0xFF == currentPerformance )
             {
                 // Error getting times, keep going.
             }
             else if( currentPerformance > perfProfile->targetCpuPerformance )
             {
-                if( perfProfile->sanityCeiling > perfProfile->lastTimeoutValue )
+                if( perfProfile->sanityCeiling > increment )
                 {
-                    perfProfile->lastTimeoutValue += perfProfile->timeoutIncrement;
-                    rpal_debug_info( "INCREMENT: %d (%d)", perfProfile->lastTimeoutValue, currentPerformance );
+                    perfProfile->lastTimeoutValue += increment;
+                    //rpal_debug_info( "INCREMENT: %d (%d)", perfProfile->lastTimeoutValue, currentPerformance );
                 }
             }
             else if( currentPerformance <= perfProfile->targetCpuPerformance &&
                      perfProfile->lastTimeoutValue > 0 )
             {
-                perfProfile->lastTimeoutValue -= MIN_OF( perfProfile->timeoutIncrement,
+                perfProfile->lastTimeoutValue -= MIN_OF( increment,
                                                          perfProfile->lastTimeoutValue );
-                rpal_debug_info( "DECREMENT: %d (%d)", perfProfile->lastTimeoutValue, currentPerformance );
+                //rpal_debug_info( "DECREMENT: %d (%d)", perfProfile->lastTimeoutValue, currentPerformance );
             }
 
             currentPerformance = libOs_getCurrentProcessCpuUsage();
@@ -1620,15 +1629,15 @@ RVOID
             {
                 if( perfProfile->sanityCeiling > perfProfile->globalTimeoutValue )
                 {
-                    perfProfile->globalTimeoutValue += perfProfile->timeoutIncrement;
-                    rpal_debug_info( "GLOBAL INCREMENT: %d (%d)", perfProfile->globalTimeoutValue, currentPerformance );
+                    perfProfile->globalTimeoutValue += increment;
+                    //rpal_debug_info( "GLOBAL INCREMENT: %d (%d)", perfProfile->globalTimeoutValue, currentPerformance );
                 }
             }
             else if( perfProfile->globalTimeoutValue > 0 )
             {
-                perfProfile->globalTimeoutValue -= MIN_OF( perfProfile->timeoutIncrement,
+                perfProfile->globalTimeoutValue -= MIN_OF( increment,
                                                            perfProfile->globalTimeoutValue );
-                rpal_debug_info( "GLOBAL DECREMENT: %d (%d)", perfProfile->globalTimeoutValue, currentPerformance );
+                //rpal_debug_info( "GLOBAL DECREMENT: %d (%d)", perfProfile->globalTimeoutValue, currentPerformance );
             }
         }
         else

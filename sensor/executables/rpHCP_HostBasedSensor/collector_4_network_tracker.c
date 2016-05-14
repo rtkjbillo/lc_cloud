@@ -89,14 +89,24 @@ RPVOID
     rSequence notif = NULL;
     rSequence comp = NULL;
 
-    RU32 timeout = 100;
-    RU32 nThLoop = 0;
+    RBOOL isFirstRun = TRUE;
+
+    LibOsPerformanceProfile perfProfile = { 0 };
+
+    perfProfile.enforceOnceIn = 1;
+    perfProfile.sanityCeiling = MSEC_FROM_SEC( 30 );
+    perfProfile.lastTimeoutValue = 500;
+    perfProfile.targetCpuPerformance = 0;
+    perfProfile.globalTargetCpuPerformance = GLOBAL_CPU_USAGE_TARGET;
+    perfProfile.timeoutIncrementPerSec = 10;
 
     UNREFERENCED_PARAMETER( ctx );
 
     while( rpal_memory_isValid( isTimeToStop ) &&
            !rEvent_wait( isTimeToStop, 0 ) )
     {
+        libOs_timeoutWithProfile( &perfProfile, FALSE );
+
         if( NULL != oldTcp4Table )
         {
             rpal_memory_free( oldTcp4Table );
@@ -206,7 +216,7 @@ RPVOID
                 }
             }
         }
-        else if( 0 != nThLoop )
+        else if( !isFirstRun )
         {
             rpal_debug_warning( "could not get tcp connections table." );
         }
@@ -267,18 +277,17 @@ RPVOID
                 }
             }
         }
-        else if( 0 != nThLoop )
+        else if( !isFirstRun )
         {
             rpal_debug_warning( "could not get udp connections table." );
         }
 
-        nThLoop++;
-        if( 0 == nThLoop % 10 )
+        if( isFirstRun )
         {
-            timeout = libOs_getUsageProportionalTimeout( 1000 ) + 500;
+            isFirstRun = FALSE;
         }
 
-        rpal_thread_sleep( timeout );
+        libOs_timeoutWithProfile( &perfProfile, TRUE );
     }
 
     rpal_memory_free( currentTcp4Table );

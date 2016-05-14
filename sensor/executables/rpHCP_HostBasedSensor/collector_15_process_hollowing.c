@@ -339,6 +339,7 @@ rList
     RU32 nSamplesTotal = 0;
     RU32 tmpSamplesFound = 0;
     RU32 tmpSamplesSize = 0;
+    RTIME runTime = 0;
 
     rpal_debug_info( "spot checking process %d", pid );
 
@@ -348,6 +349,7 @@ rList
                rList_getSEQUENCE( modules, RP_TAGS_DLL, &module ) )
         {
             libOs_timeoutWithProfile( perfProfile, FALSE );
+            runTime = rpal_time_getLocal();
 
             modulePathW = NULL;
             modulePathA = NULL;
@@ -425,11 +427,12 @@ rList
                         rpal_debug_info( "could not get file information, not checking" );
                     }
 
-                    rpal_debug_info( "process hollowing check found a match %d of %d / %d : %d", 
+                    rpal_debug_info( "process hollowing check found a match %d of %d / %d : %d in %d sec", 
                                      pid,  
                                      nSamplesFound, 
                                      nSamplesTotal,
-                                     lastScratchIndex );
+                                     lastScratchIndex,
+                                     rpal_time_getLocal() - runTime );
                     
                     if( !rEvent_wait( isTimeToStop, 0 ) &&
                         (RU32)(-1) != tmpSamplesFound &&
@@ -487,7 +490,7 @@ RPVOID
 
     perfProfile.targetCpuPerformance = 0;
     perfProfile.globalTargetCpuPerformance = GLOBAL_CPU_USAGE_TARGET;
-    perfProfile.timeoutIncrement = 1;
+    perfProfile.timeoutIncrementPerSec = 1;
     perfProfile.enforceOnceIn = 7;
     perfProfile.lastTimeoutValue = _INITIAL_PROFILED_TIMEOUT;
     perfProfile.sanityCeiling = _SANITY_CEILING;
@@ -551,7 +554,7 @@ RPVOID
 
     perfProfile.targetCpuPerformance = 0;
     perfProfile.globalTargetCpuPerformance = GLOBAL_CPU_USAGE_TARGET;
-    perfProfile.timeoutIncrement = 1;
+    perfProfile.timeoutIncrementPerSec = 1;
     perfProfile.enforceOnceIn = 7;
     perfProfile.lastTimeoutValue = _INITIAL_PROFILED_TIMEOUT;
     perfProfile.sanityCeiling = _SANITY_CEILING;
@@ -629,7 +632,7 @@ RPVOID
     perfProfile.targetCpuPerformance = 0;
     perfProfile.globalTargetCpuPerformance = GLOBAL_CPU_USAGE_TARGET;
     perfProfile.enforceOnceIn = 7;
-    perfProfile.timeoutIncrement = 1;
+    perfProfile.timeoutIncrementPerSec = 1;
 
     while( !rEvent_wait( isTimeToStop, 0 ) )
     {
@@ -690,9 +693,9 @@ RVOID
 
     if( NULL != ( dummy = rEvent_create( TRUE ) ) )
     {
-        perfProfile.targetCpuPerformance = 0;
-        perfProfile.globalTargetCpuPerformance = GLOBAL_CPU_USAGE_TARGET;
-        perfProfile.timeoutIncrement = 1;
+        perfProfile.targetCpuPerformance = 10;
+        perfProfile.globalTargetCpuPerformance = GLOBAL_CPU_USAGE_TARGET_WHEN_TASKED;
+        perfProfile.timeoutIncrementPerSec = 1;
         perfProfile.enforceOnceIn = 7;
         perfProfile.lastTimeoutValue = _INITIAL_PROFILED_TIMEOUT;
         perfProfile.sanityCeiling = _SANITY_CEILING;

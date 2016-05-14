@@ -82,7 +82,7 @@ RPVOID
     perfProfile.sanityCeiling = MSEC_FROM_SEC( 10 );
     perfProfile.targetCpuPerformance = 0;
     perfProfile.globalTargetCpuPerformance = GLOBAL_CPU_USAGE_TARGET;
-    perfProfile.timeoutIncrement = 1;
+    perfProfile.timeoutIncrementPerSec = 1;
 
     while( rpal_memory_isValid( isTimeToStop ) &&
            !rEvent_wait( isTimeToStop, 0 ) )
@@ -92,6 +92,8 @@ RPVOID
             if( NULL != ( newSnapshot = rpal_blob_create( 1000 * sizeof( _moduleHistEntry ),
                                                           1000 * sizeof( _moduleHistEntry ) ) ) )
             {
+                libOs_timeoutWithProfile( &perfProfile, FALSE );
+
                 curProc = processes;
                 while( rpal_memory_isValid( isTimeToStop ) &&
 #ifdef RPAL_PLATFORM_WINDOWS
@@ -102,8 +104,6 @@ RPVOID
 #endif
                        0 != curProc->pid )
                 {
-                    libOs_timeoutWithProfile( &perfProfile, FALSE );
-
                     if( NULL != ( modules = processLib_getProcessModules( curProc->pid ) ) )
                     {
                         while( rpal_memory_isValid( isTimeToStop ) &&

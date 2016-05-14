@@ -40,6 +40,7 @@ typedef struct _HbsState
 } HbsState;
 
 #define GLOBAL_CPU_USAGE_TARGET             1
+#define GLOBAL_CPU_USAGE_TARGET_WHEN_TASKED 10
 
 //=============================================================================
 // Collector Naming Convention

@@ -19,6 +19,7 @@ limitations under the License.
 #include <rpal/rpal.h>
 #include <librpcm/librpcm.h>
 #include "collectors.h"
+#include <libOs/libOs.h>
 #include <notificationsLib/notificationsLib.h>
 #include <processLib/processLib.h>
 #include <rpHostCommonPlatformLib/rTags.h>
@@ -129,7 +130,8 @@ RPVOID
     (
         rEvent isTimeToStop,
         RU32 processId,
-        rSequence originalRequest
+        rSequence originalRequest,
+        LibOsPerformanceProfile* perfProfile
     )
 {
     rList mods = NULL;
@@ -168,6 +170,8 @@ RPVOID
                        !rEvent_wait( isTimeToStop, 0 ) &&
                        ( isPrefetched || rList_getSEQUENCE( map, RP_TAGS_MEMORY_REGION, &region ) ) )
                 {
+                    libOs_timeoutWithProfile( perfProfile, FALSE );
+
                     if( isPrefetched )
                     {
                         isPrefetched = FALSE;
@@ -285,7 +289,7 @@ RPVOID
                                         break;
                                     }
 
-                                    rpal_thread_sleep( _TIMEOUT_BETWEEN_MEM_REGIONS );
+                                    libOs_timeoutWithProfile( perfProfile, TRUE );
                                 }
                             }
                         }
@@ -315,6 +319,14 @@ RPVOID
     rSequence originalRequest = (rSequence)ctx;
     processLibProcEntry* procs = NULL;
     processLibProcEntry* proc = NULL;
+    LibOsPerformanceProfile perfProfile = { 0 };
+
+    perfProfile.enforceOnceIn = 4;
+    perfProfile.sanityCeiling = MSEC_FROM_SEC( 30 );
+    perfProfile.lastTimeoutValue = 200;
+    perfProfile.targetCpuPerformance = 0;
+    perfProfile.globalTargetCpuPerformance = GLOBAL_CPU_USAGE_TARGET;
+    perfProfile.timeoutIncrementPerSec = 50;
 
     if( NULL != ( procs = processLib_getProcessEntries( TRUE ) ) )
     {
@@ -324,7 +336,7 @@ RPVOID
             rpal_memory_isValid( isTimeToStop ) &&
             !rEvent_wait( isTimeToStop, 0 ) )
         {
-            lookForHiddenModulesIn( isTimeToStop, proc->pid, originalRequest );
+            lookForHiddenModulesIn( isTimeToStop, proc->pid, originalRequest, &perfProfile );
 
             proc++;
         }
@@ -345,8 +357,16 @@ RVOID
 {
     RU32 pid = (RU32)(-1);
     rEvent dummy = NULL;
+    LibOsPerformanceProfile perfProfile = { 0 };
 
     UNREFERENCED_PARAMETER( eventType );
+
+    perfProfile.enforceOnceIn = 4;
+    perfProfile.sanityCeiling = MSEC_FROM_SEC( 30 );
+    perfProfile.lastTimeoutValue = 100;
+    perfProfile.targetCpuPerformance = 10;
+    perfProfile.globalTargetCpuPerformance = GLOBAL_CPU_USAGE_TARGET_WHEN_TASKED;
+    perfProfile.timeoutIncrementPerSec = 50;
 
     rSequence_getRU32( event, RP_TAGS_PROCESS_ID, &pid );
     
@@ -358,7 +378,7 @@ RVOID
         }
         else
         {
-            lookForHiddenModulesIn( dummy, pid, event );
+            lookForHiddenModulesIn( dummy, pid, event, &perfProfile );
         }
 
         rEvent_free( dummy );
@@ -376,6 +396,14 @@ RPVOID
     rSequence originalRequest = (rSequence)ctx;
     processLibProcEntry* procs = NULL;
     processLibProcEntry* proc = NULL;
+    LibOsPerformanceProfile perfProfile = { 0 };
+
+    perfProfile.enforceOnceIn = 4;
+    perfProfile.sanityCeiling = MSEC_FROM_SEC( 30 );
+    perfProfile.lastTimeoutValue = 200;
+    perfProfile.targetCpuPerformance = 0;
+    perfProfile.globalTargetCpuPerformance = GLOBAL_CPU_USAGE_TARGET;
+    perfProfile.timeoutIncrementPerSec = 50;
 
     while( rpal_memory_isValid( isTimeToStop ) && 
            !rEvent_wait( isTimeToStop, 0 ) )
@@ -390,7 +418,7 @@ RPVOID
             {
                 if( hbs_whenCpuBelow( _CPU_WATERMARK, _MAX_CPU_WAIT, isTimeToStop ) )
                 {
-                    lookForHiddenModulesIn( isTimeToStop, proc->pid, originalRequest );
+                    lookForHiddenModulesIn( isTimeToStop, proc->pid, originalRequest, &perfProfile );
                 }
 
                 proc++;

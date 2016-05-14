@@ -64,10 +64,11 @@ typedef struct
     RU8 globalTargetCpuPerformance;
     RU32 lastTimeoutValue;
     RU32 globalTimeoutValue;
-    RU32 timeoutIncrement;
+    RU32 timeoutIncrementPerSec;
     RU32 sanityCeiling;
     RU32 enforceOnceIn;
     RU32 counter;
+    RTIME lastUpdate;
     LibOsThreadTimeContext threadTimeContext;
 } LibOsPerformanceProfile;
 

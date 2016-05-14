@@ -70,11 +70,21 @@ static RPVOID
     rSequence volume = NULL;
     rBlob serial = NULL;
     RU32 i = 0;
-    
+    LibOsPerformanceProfile perfProfile = { 0 };
+
     UNREFERENCED_PARAMETER( ctx );
 
-    while( !rEvent_wait( isTimeToStop, g_diff_timeout ) )
+    perfProfile.enforceOnceIn = 1;
+    perfProfile.sanityCeiling = MSEC_FROM_SEC( 10 );
+    perfProfile.lastTimeoutValue = 10;
+    perfProfile.targetCpuPerformance = 0;
+    perfProfile.globalTargetCpuPerformance = GLOBAL_CPU_USAGE_TARGET;
+    perfProfile.timeoutIncrementPerSec = 1;
+    
+    while( !rEvent_wait( isTimeToStop, 0 ) )
     {
+        libOs_timeoutWithProfile( &perfProfile, FALSE );
+
         if( NULL != ( snapshot = libOs_getVolumes() ) )
         {
             if( NULL != ( newVolumes = rpal_memory_alloc( sizeof( *newVolumes ) *
@@ -82,8 +92,11 @@ static RPVOID
             {
                 nNewVolumes = 0;
 
-                while( rList_getSEQUENCE( snapshot, RP_TAGS_VOLUME, &volume ) )
+                while( !rEvent_wait( isTimeToStop, 0 ) &&
+                       rList_getSEQUENCE( snapshot, RP_TAGS_VOLUME, &volume ) )
                 {
+                    libOs_timeoutWithProfile( &perfProfile, TRUE );
+
                     if( NULL != ( serial = rpal_blob_create( 0, 0 ) ) )
                     {
                         if( rSequence_serialise( volume, serial ) &&
@@ -118,6 +131,8 @@ static RPVOID
 
                 for( i = 0; i < nVolumes; i++ )
                 {
+                    libOs_timeoutWithProfile( &perfProfile, TRUE );
+
                     if( ( -1 ) == rpal_binsearch_array( newVolumes, 
                                                         nNewVolumes, 
                                                         sizeof( *newVolumes ), 
