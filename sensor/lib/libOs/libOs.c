@@ -2938,4 +2938,43 @@ rList
     return volumes;
 }
 
+RU32
+    libOs_getNumCpus
+    (
+
+    )
+{
+    static RU32 nCores = 0;
+
+    if( 0 != nCores )
+    {
+        return nCores;
+    }
+#ifdef RPAL_PLATFORM_WINDOWS
+    SYSTEM_INFO sysinfo;
+    GetSystemInfo( &sysinfo );
+    nCores = sysinfo.dwNumberOfProcessors;
+#elif defined( RPAL_PLATFORM_MACOSX )
+    int mib[ 4 ] = { CTL_HW, HW_AVAILCPU, 0, 0 };
+    size_t len = sizeof( nCores );
+    sysctl( mib, 2, &nCores, &len, NULL, 0 );
+    if( nCores < 1 )
+    {
+        mib[ 1 ] = HW_NCPU;
+        sysctl( mib, 2, &nCores, &len, NULL, 0 );
+
+        if( nCores < 1 )
+        {
+            nCores = 1;
+        }
+    }
+#elif defined( RPAL_PLATFORM_LINUX )
+    nCores = sysconf( _SC_NPROCESSORS_ONLN );
+#else
+    rpal_debug_not_implemented();
+#endif
+
+    return nCores;
+}
+
 /* EOF */
