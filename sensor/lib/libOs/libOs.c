@@ -1562,6 +1562,7 @@ RU8
             if( 0 != deltaSystem &&
                 0 != deltaThread )
             {
+            	deltaSystem = deltaSystem / libOs_getNumCpus();
                 pr = ( (RFLOAT)deltaThread / deltaSystem ) * 100;
                 percent = (RU8)pr;
                 ctx->lastResult = percent;
@@ -1781,9 +1782,22 @@ RU8
     RU64 deltaProcess = 0;
     static RU64 lastSystemTime;
     static RU64 lastProcessTime;
+    static RTIME lastCheckTime = 0;
+    static RU8 lastResult = 0;
     RFLOAT pr = 0;
+    RTIME curTime = 0;
 
-    if( libOs_getSystemCPUTime( &curSystemTime ) &&
+    if( 0 == lastCheckTime )
+    {
+        lastCheckTime = rpal_time_getLocal();
+    }
+
+    curTime = rpal_time_getLocal();
+    if( curTime < lastCheckTime + 3 )
+    {
+        percent = lastResult;
+    }
+    else if( libOs_getSystemCPUTime( &curSystemTime ) &&
         libOs_getProcessTime( 0, &curProcessTime ) )
     {
         if( curSystemTime >= lastSystemTime &&
@@ -1794,8 +1808,11 @@ RU8
 
             if( 0 != deltaSystem )
             {
+            	deltaSystem = deltaSystem / libOs_getNumCpus();
                 pr = ( (RFLOAT)deltaProcess / deltaSystem ) * 100;
                 percent = (RU8)pr;
+                lastResult = percent;
+                lastCheckTime = curTime;
             }
         }
 
