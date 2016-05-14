@@ -204,5 +204,11 @@ rList
     (
 
     );
+    
+RU32
+    libOs_getNumCpus
+    (
+
+    );
 
 #endif
