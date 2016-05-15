@@ -23,7 +23,7 @@ limitations under the License.
 
 #define STATEFUL_MACHINE_NAME(machineId) stateful_ ##machineId##_desc
 #define STATEFUL_MACHINE(machineId,reportEvent,nStates,...) StatefulMachineDescriptor STATEFUL_MACHINE_NAME( machineId ) = { (reportEvent), (nStates), { __VA_ARGS__ } }
-#define TRANSITION(isReportOnMatch,isRecordEventOnMatch,eventTypeOnly,destState,params,matchFunction) { isReportOnMatch, isRecordEventOnMatch, eventTypeOnly, destState, params, matchFunction }
+#define TRANSITION(isReportOnMatch,isRecordEventOnMatch,eventTypeOnly,destState,params,matchFunction) { isReportOnMatch, isRecordEventOnMatch, eventTypeOnly, destState, (RPVOID)params, (transition_eval_func)matchFunction }
 #define STATE(stateId,nTransitions,...) static StatefulState state_ ##stateId##_def = { (nTransitions), { __VA_ARGS__ } }
 
 #define STATE_PTR(stateId) &state_ ##stateId##_def
@@ -53,6 +53,8 @@ typedef struct
 
 } StatefulMachine;
 
+typedef RBOOL( *transition_eval_func )( StatefulMachine* machine, StatefulEvent* event, RPVOID parameters );
+
 typedef struct
 {
     RBOOL isReportOnMatch;
@@ -60,7 +62,7 @@ typedef struct
     rpcm_tag eventTypeOnly;
     RU32 destState;
     RPVOID parameters;
-    RBOOL( *transition )( StatefulMachine* machine, StatefulEvent* event, RPVOID parameters );
+    transition_eval_func transition;
 } StatefulTransition;
 
 typedef struct

@@ -60,7 +60,7 @@ static RPVOID
 
     while( !rEvent_wait( isTimeToStop, 0 ) )
     {
-        if( rQueue_remove( g_events, &event, NULL, MSEC_FROM_SEC( 1 ) ) )
+        if( rQueue_remove( g_events, (RPVOID*)&event, NULL, MSEC_FROM_SEC( 1 ) ) )
         {
             // First we update currently running machines
             for( i = 0; i < g_liveMachines->nElements; i++ )
@@ -143,7 +143,7 @@ RBOOL
 
     if( NULL != hbsState )
     {
-        if( rQueue_create( &g_events, _freeSmEvent, 200 ) )
+        if( rQueue_create( &g_events, (queue_free_func)_freeSmEvent, 200 ) )
         {
             if( NULL != ( g_liveMachines = rpal_vector_new() ) )
             {

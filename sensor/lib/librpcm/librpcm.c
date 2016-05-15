@@ -1807,7 +1807,7 @@ rStack
     rpcm_tag path[ RPCM_MAX_FETCH_PATH_SIZE ] = { 0 };
     RU32 i = 0;
     rpcm_tag tmpTag = 0;
-    RP_VA_LIST ap = NULL;
+    RP_VA_LIST ap;
 
     RP_VA_START( ap, fetchType );
 
@@ -1876,7 +1876,7 @@ rpcm_elem_record
     rpcm_tag path[ RPCM_MAX_FETCH_PATH_SIZE ] = { 0 };
     rpcm_tag tmpTag = 0;
     RU32 i = 0;
-    RP_VA_LIST ap = NULL;
+    RP_VA_LIST ap;
     
     RP_VA_START( ap, fetchType );
 

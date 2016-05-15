@@ -1547,9 +1547,15 @@ RU8
     RU64 deltaSystem = 0;
     RU64 deltaThread = 0;
     RFLOAT pr = 0;
+    RTIME curTime = 0;
 
-    if( libOs_getSystemCPUTime( &curSystemTime ) &&
-        libOs_getThreadTime( 0, &curThreadTime ) )
+    curTime = rpal_time_getLocal();
+    if( curTime < ctx->lastCheckTime + 1 )
+    {
+        percent = ctx->lastResult;
+    }
+    else if( libOs_getSystemCPUTime( &curSystemTime ) &&
+             libOs_getThreadTime( 0, &curThreadTime ) )
     {
         if( curSystemTime >= ctx->lastSystemTime &&
             curThreadTime >= ctx->lastThreadTime )
@@ -1560,8 +1566,11 @@ RU8
             if( 0 != deltaSystem &&
                 0 != deltaThread )
             {
+                deltaSystem = deltaSystem / libOs_getNumCpus();
                 pr = ( (RFLOAT)deltaThread / deltaSystem ) * 100;
                 percent = (RU8)pr;
+                ctx->lastResult = percent;
+                ctx->lastCheckTime = curTime;
             }
         }
 
@@ -1570,6 +1579,83 @@ RU8
     }
 
     return percent;
+}
+
+RVOID
+    libOs_timeoutWithProfile
+    (
+        LibOsPerformanceProfile* perfProfile,
+        RBOOL isEnforce
+    )
+{
+    RU8 currentPerformance = 0;
+    RTIME currentTime = 0;
+    RU32 increment = 0;
+
+    if( NULL != perfProfile )
+    {
+        currentTime = rpal_time_getLocal();
+        if( 0 == perfProfile->lastUpdate ) perfProfile->lastUpdate = currentTime;
+
+        if( !isEnforce &&
+            currentTime != perfProfile->lastUpdate )
+        {
+            increment = (RU32)( perfProfile->timeoutIncrementPerSec * ( currentTime - perfProfile->lastUpdate ) );
+            perfProfile->lastUpdate = currentTime;
+            currentPerformance = libOs_getCurrentThreadCpuUsage( &perfProfile->threadTimeContext );
+
+            if( 0xFF == currentPerformance )
+            {
+                // Error getting times, keep going.
+            }
+            else if( currentPerformance > perfProfile->targetCpuPerformance )
+            {
+                if( perfProfile->sanityCeiling > increment )
+                {
+                    perfProfile->lastTimeoutValue += increment;
+                    //rpal_debug_info( "INCREMENT: %d (%d)", perfProfile->lastTimeoutValue, currentPerformance );
+                }
+            }
+            else if( currentPerformance <= perfProfile->targetCpuPerformance &&
+                     perfProfile->lastTimeoutValue > 0 )
+            {
+                perfProfile->lastTimeoutValue -= MIN_OF( increment,
+                    perfProfile->lastTimeoutValue );
+                //rpal_debug_info( "DECREMENT: %d (%d)", perfProfile->lastTimeoutValue, currentPerformance );
+            }
+
+            currentPerformance = libOs_getCurrentProcessCpuUsage();
+            if( 0xFF == currentPerformance )
+            {
+                // Error getting times, keep going.
+            }
+            else if( currentPerformance > perfProfile->globalTargetCpuPerformance )
+            {
+                if( perfProfile->sanityCeiling > perfProfile->globalTimeoutValue )
+                {
+                    perfProfile->globalTimeoutValue += increment;
+                    //rpal_debug_info( "GLOBAL INCREMENT: %d (%d)", perfProfile->globalTimeoutValue, currentPerformance );
+                }
+            }
+            else if( perfProfile->globalTimeoutValue > 0 )
+            {
+                perfProfile->globalTimeoutValue -= MIN_OF( increment,
+                    perfProfile->globalTimeoutValue );
+                //rpal_debug_info( "GLOBAL DECREMENT: %d (%d)", perfProfile->globalTimeoutValue, currentPerformance );
+            }
+        }
+        else
+        {
+            if( perfProfile->counter == perfProfile->enforceOnceIn )
+            {
+                perfProfile->counter = 0;
+
+                rpal_thread_sleep( perfProfile->lastTimeoutValue + perfProfile->globalTimeoutValue );
+            }
+
+            perfProfile->counter++;
+        }
+    }
 }
 
 RBOOL
@@ -1709,10 +1795,23 @@ RU8
     RU64 deltaProcess = 0;
     static RU64 lastSystemTime;
     static RU64 lastProcessTime;
+    static RTIME lastCheckTime = 0;
+    static RU8 lastResult = 0;
     RFLOAT pr = 0;
+    RTIME curTime = 0;
 
-    if( libOs_getSystemCPUTime( &curSystemTime ) &&
-        libOs_getProcessTime( 0, &curProcessTime ) )
+    if( 0 == lastCheckTime )
+    {
+        lastCheckTime = rpal_time_getLocal();
+    }
+
+    curTime = rpal_time_getLocal();
+    if( curTime < lastCheckTime + 3 )
+    {
+        percent = lastResult;
+    }
+    else if( libOs_getSystemCPUTime( &curSystemTime ) &&
+             libOs_getProcessTime( 0, &curProcessTime ) )
     {
         if( curSystemTime >= lastSystemTime &&
             curProcessTime >= lastProcessTime )
@@ -1720,11 +1819,13 @@ RU8
             deltaSystem = curSystemTime - lastSystemTime;
             deltaProcess = curProcessTime - lastProcessTime;
 
-            if( 0 != deltaSystem &&
-                0 != deltaProcess )
+            if( 0 != deltaSystem )
             {
+                deltaSystem = deltaSystem / libOs_getNumCpus();
                 pr = ( (RFLOAT)deltaProcess / deltaSystem ) * 100;
                 percent = (RU8)pr;
+                lastResult = percent;
+                lastCheckTime = curTime;
             }
         }
 
@@ -1734,7 +1835,6 @@ RU8
 
     return percent;
 }
-
 
 RBOOL
     _getAssociatedExecutable

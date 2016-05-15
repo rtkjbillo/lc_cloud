@@ -122,7 +122,7 @@ StatefulEvent*
     {
         if( NULL != ( event = rpal_memory_alloc( sizeof( *event ) ) ) )
         {
-            if( NULL != ( event->ref = rRefCount_create( _freeEvent, event, sizeof( *event ) ) ) )
+            if( NULL != ( event->ref = rRefCount_create( (rRefCount_freeFunc)_freeEvent, event, sizeof( *event ) ) ) )
             {
                 event->data = rSequence_duplicate( data );
                 event->eventType = eventType;
