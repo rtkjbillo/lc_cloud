@@ -178,8 +178,8 @@ RBOOL
         rSequence_getSTRINGW( doc, RP_TAGS_FILE_PATH, &filePathW );
         rSequence_getBUFFER( doc, RP_TAGS_HASH, (RPU8*)&pHash, &hashSize );
 
-        if( ( NULL == filePathA || NULL == ctx->exprA || rpal_string_match( ctx->exprA, filePathA ) ) &&
-            ( NULL == filePathW || NULL == ctx->exprW || rpal_string_matchw( ctx->exprW, filePathW ) ) &&
+        if( ( NULL == filePathA || NULL == ctx->exprA || rpal_string_match( ctx->exprA, filePathA, FALSE ) ) &&
+            ( NULL == filePathW || NULL == ctx->exprW || rpal_string_matchw( ctx->exprW, filePathW, FALSE ) ) &&
             ( NULL == pHash || NULL == ctx->pHash || 0 == rpal_memory_memcmp( pHash, ctx->pHash, hashSize ) ) )
         {
             isMatch = TRUE;

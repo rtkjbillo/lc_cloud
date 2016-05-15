@@ -330,8 +330,8 @@ RBOOL
     if( rpal_memory_isValid( list ) )
     {
         tmpList = (_rList*)list;
-// REMOVE ME WHEN ALIGNMENT CHANGES TO privateHeader.h are effective
-#pragma warning( disable: 4366 )
+        // REMOVE ME WHEN ALIGNMENT CHANGES TO privateHeader.h are effective
+        #pragma warning( disable: 4366 )
         isSuccess = set_getElement( &tmpList->set, tag, type, pElem, pElemSize, &tmpList->lastElem, FALSE );
 
         if( !isSuccess )

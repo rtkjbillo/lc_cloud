@@ -620,39 +620,23 @@ RBOOL
                         rpal_memory_zero( &(*pPackages)[ i - 1 ], sizeof( (*pPackages)[ i - 1 ] ) );
                         size = sizeof( tmp ) - sizeof( RWCHAR );
 
-                        if( ERROR_SUCCESS == RegQueryValueExW( hPackage, 
-                                                               dName, 
-                                                               NULL, 
-                                                               (LPDWORD)&type, 
-                                                               (RPU8)tmp, 
-                                                               (LPDWORD)&size ) )
+                        if( ERROR_SUCCESS == RegQueryValueExW( hPackage, dName, NULL, (LPDWORD)&type, (RPU8)tmp, (LPDWORD)&size ) )
                         {
                             if( REG_SZ == type ||
                                 REG_EXPAND_SZ == type )
                             {
                                 size = rpal_string_strlenw( tmp ) * sizeof( RWCHAR );
-                                rpal_memory_memcpy( &(*pPackages)[ i - 1 ].name, 
-                                                    tmp, 
-                                                    size >= sizeof( (*pPackages)[ i - 1 ].name ) ? sizeof( (*pPackages)[ i - 1 ].name ) - sizeof( RWCHAR ) : size );
+                                rpal_memory_memcpy( &(*pPackages)[ i - 1 ].name, tmp, size >= sizeof( (*pPackages)[ i - 1 ].name ) ? sizeof( (*pPackages)[ i - 1 ].name ) - sizeof( RWCHAR ) : size );
                             }
                         }
 
-                        size = sizeof( tmp ) - sizeof( RWCHAR );
-
-                        if( ERROR_SUCCESS == RegQueryValueExW( hPackage, 
-                                                               dVersion, 
-                                                               NULL, 
-                                                               (LPDWORD)&type, 
-                                                               (RPU8)tmp, 
-                                                               (LPDWORD)&size ) )
+                        if( ERROR_SUCCESS == RegQueryValueExW( hPackage, dVersion, NULL, (LPDWORD)&type, (RPU8)tmp, (LPDWORD)&size ) )
                         {
                             if( REG_SZ == type ||
                                 REG_EXPAND_SZ == type )
                             {
                                 size = rpal_string_strlenw( tmp );
-                                rpal_memory_memcpy( &(*pPackages)[ i - 1 ].version, 
-                                                    tmp, 
-                                                    size >= sizeof( (*pPackages)[ i - 1 ].version ) ? sizeof( (*pPackages)[ i - 1 ].version ) - sizeof( RWCHAR ) : size );
+                                rpal_memory_memcpy( &(*pPackages)[ i - 1 ].version, tmp, size >= sizeof( (*pPackages)[ i - 1 ].version ) ? sizeof( (*pPackages)[ i - 1 ].version ) - sizeof( RWCHAR ) : size );
                             }
                         }
                     }
@@ -1113,6 +1097,7 @@ RBOOL
     )
 {
     RBOOL isSucceed = FALSE;
+    RPWCHAR tmpPath = NULL;
 
     if( NULL != signature &&
         NULL != pIsSigned  &&
@@ -1120,14 +1105,17 @@ RBOOL
         NULL != pIsVerified_global &&
         NULL != ( *signature = rSequence_new() ) )
     {
-        rSequence_addSTRINGW( *signature, RP_TAGS_FILE_PATH, pwfilePath );
-        isSucceed = libOs_getFileSignature( pwfilePath, *signature, operation, pIsSigned, pIsVerified_local, pIsVerified_global );
+        rpal_string_expandw( pwfilePath, &tmpPath );
+        rSequence_addSTRINGW( *signature, RP_TAGS_FILE_PATH, tmpPath ? tmpPath : pwfilePath );
+        isSucceed = libOs_getFileSignature( tmpPath ? tmpPath : pwfilePath, *signature, operation, pIsSigned, pIsVerified_local, pIsVerified_global );
 
         if( !isSucceed && NULL != *signature )
         {
             rSequence_free( *signature );
             *signature = NULL;
         }
+
+        rpal_memory_free( tmpPath );
     }
     return isSucceed;
 }
@@ -1559,15 +1547,9 @@ RU8
     RU64 deltaSystem = 0;
     RU64 deltaThread = 0;
     RFLOAT pr = 0;
-    RTIME curTime = 0;
 
-    curTime = rpal_time_getLocal();
-    if( curTime < ctx->lastCheckTime + 1 )
-    {
-        percent = ctx->lastResult;
-    }
-    else if( libOs_getSystemCPUTime( &curSystemTime ) &&
-             libOs_getThreadTime( 0, &curThreadTime ) )
+    if( libOs_getSystemCPUTime( &curSystemTime ) &&
+        libOs_getThreadTime( 0, &curThreadTime ) )
     {
         if( curSystemTime >= ctx->lastSystemTime &&
             curThreadTime >= ctx->lastThreadTime )
@@ -1578,11 +1560,8 @@ RU8
             if( 0 != deltaSystem &&
                 0 != deltaThread )
             {
-            	deltaSystem = deltaSystem / libOs_getNumCpus();
                 pr = ( (RFLOAT)deltaThread / deltaSystem ) * 100;
                 percent = (RU8)pr;
-                ctx->lastResult = percent;
-                ctx->lastCheckTime = curTime;
             }
         }
 
@@ -1591,83 +1570,6 @@ RU8
     }
 
     return percent;
-}
-
-RVOID
-    libOs_timeoutWithProfile
-    (
-        LibOsPerformanceProfile* perfProfile,
-        RBOOL isEnforce
-    )
-{
-    RU8 currentPerformance = 0;
-    RTIME currentTime = 0;
-    RU32 increment = 0;
-
-    if( NULL != perfProfile )
-    {
-        currentTime = rpal_time_getLocal();
-        if( 0 == perfProfile->lastUpdate ) perfProfile->lastUpdate = currentTime;
-
-        if( !isEnforce &&
-            currentTime != perfProfile->lastUpdate )
-        {
-            increment = (RU32)( perfProfile->timeoutIncrementPerSec * ( currentTime - perfProfile->lastUpdate ) );
-            perfProfile->lastUpdate = currentTime;
-            currentPerformance = libOs_getCurrentThreadCpuUsage( &perfProfile->threadTimeContext );
-
-            if( 0xFF == currentPerformance )
-            {
-                // Error getting times, keep going.
-            }
-            else if( currentPerformance > perfProfile->targetCpuPerformance )
-            {
-                if( perfProfile->sanityCeiling > increment )
-                {
-                    perfProfile->lastTimeoutValue += increment;
-                    //rpal_debug_info( "INCREMENT: %d (%d)", perfProfile->lastTimeoutValue, currentPerformance );
-                }
-            }
-            else if( currentPerformance <= perfProfile->targetCpuPerformance &&
-                     perfProfile->lastTimeoutValue > 0 )
-            {
-                perfProfile->lastTimeoutValue -= MIN_OF( increment,
-                                                         perfProfile->lastTimeoutValue );
-                //rpal_debug_info( "DECREMENT: %d (%d)", perfProfile->lastTimeoutValue, currentPerformance );
-            }
-
-            currentPerformance = libOs_getCurrentProcessCpuUsage();
-            if( 0xFF == currentPerformance )
-            {
-                // Error getting times, keep going.
-            }
-            else if( currentPerformance > perfProfile->globalTargetCpuPerformance )
-            {
-                if( perfProfile->sanityCeiling > perfProfile->globalTimeoutValue )
-                {
-                    perfProfile->globalTimeoutValue += increment;
-                    //rpal_debug_info( "GLOBAL INCREMENT: %d (%d)", perfProfile->globalTimeoutValue, currentPerformance );
-                }
-            }
-            else if( perfProfile->globalTimeoutValue > 0 )
-            {
-                perfProfile->globalTimeoutValue -= MIN_OF( increment,
-                                                           perfProfile->globalTimeoutValue );
-                //rpal_debug_info( "GLOBAL DECREMENT: %d (%d)", perfProfile->globalTimeoutValue, currentPerformance );
-            }
-        }
-        else
-        {
-            if( perfProfile->counter == perfProfile->enforceOnceIn )
-            {
-                perfProfile->counter = 0;
-
-                rpal_thread_sleep( perfProfile->lastTimeoutValue + perfProfile->globalTimeoutValue );
-            }
-
-            perfProfile->counter++;
-        }
-    }
 }
 
 RBOOL
@@ -1807,22 +1709,9 @@ RU8
     RU64 deltaProcess = 0;
     static RU64 lastSystemTime;
     static RU64 lastProcessTime;
-    static RTIME lastCheckTime = 0;
-    static RU8 lastResult = 0;
     RFLOAT pr = 0;
-    RTIME curTime = 0;
 
-    if( 0 == lastCheckTime )
-    {
-        lastCheckTime = rpal_time_getLocal();
-    }
-
-    curTime = rpal_time_getLocal();
-    if( curTime < lastCheckTime + 3 )
-    {
-        percent = lastResult;
-    }
-    else if( libOs_getSystemCPUTime( &curSystemTime ) &&
+    if( libOs_getSystemCPUTime( &curSystemTime ) &&
         libOs_getProcessTime( 0, &curProcessTime ) )
     {
         if( curSystemTime >= lastSystemTime &&
@@ -1831,13 +1720,11 @@ RU8
             deltaSystem = curSystemTime - lastSystemTime;
             deltaProcess = curProcessTime - lastProcessTime;
 
-            if( 0 != deltaSystem )
+            if( 0 != deltaSystem &&
+                0 != deltaProcess )
             {
-            	deltaSystem = deltaSystem / libOs_getNumCpus();
                 pr = ( (RFLOAT)deltaProcess / deltaSystem ) * 100;
                 percent = (RU8)pr;
-                lastResult = percent;
-                lastCheckTime = curTime;
             }
         }
 
@@ -2001,6 +1888,7 @@ static rList
                                     {
                                         // TODO: Fix in a more permanent way the issues in glibc with undocumented'
                                         // incompatibility with mis-aligned pointers in things like strlen and wcstombs.
+                                        rpal_debug_info( "found associated service exe: %ls", assExe );
                                         rSequence_addSTRINGW( svc, RP_TAGS_EXECUTABLE, assExe );
                                         rpal_memory_free( assExe );
                                     }
@@ -2009,6 +1897,7 @@ static rList
                                     {
                                         // TODO: Fix in a more permanent way the issues in glibc with undocumented'
                                         // incompatibility with mis-aligned pointers in things like strlen and wcstombs.
+                                        rpal_debug_info( "found associated service dll: %ls", assDll );
                                         rSequence_addSTRINGW( svc, RP_TAGS_DLL, assDll );
                                         rpal_memory_free( assDll );
                                     }

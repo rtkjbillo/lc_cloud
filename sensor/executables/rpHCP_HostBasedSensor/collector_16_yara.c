@@ -688,7 +688,7 @@ RVOID
 
                                 if( NULL != tmpA )
                                 {
-                                    if( rpal_string_match( procA, tmpA ) )
+                                    if( rpal_string_match( procA, tmpA, RPAL_PLATFORM_FS_CASE_SENSITIVITY ) )
                                     {
                                         matchContext.pid = curProc->pid;
                                         matchContext.processInfo = processInfo;

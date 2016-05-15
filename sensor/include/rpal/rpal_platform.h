@@ -39,6 +39,7 @@ limitations under the License.
     #endif
 
     #define RPAL_PLATFORM_LITTLE_ENDIAN
+    #define RPAL_PLATFORM_FS_CASE_SENSITIVITY   0
 #elif defined( __linux )
     #define RPAL_PLATFORM_LINUX
     
@@ -55,6 +56,7 @@ limitations under the License.
     #else
         #define RPAL_PLATFORM_BIG_ENDIAN
     #endif
+    #define RPAL_PLATFORM_FS_CASE_SENSITIVITY   1
 #elif defined( __APPLE__ )
     #include <TargetConditionals.h>
     #if TARGET_OS_IPHONE
@@ -68,6 +70,7 @@ limitations under the License.
     #elif TARGET_CPU_X86_64
         #define RPAL_PLATFORM_64_BIT
     #endif
+    #define RPAL_PLATFORM_FS_CASE_SENSITIVITY   1
 #else
     #define RPAL_PLATFORM_UNKNOWN
     #error Platform could not be detected.

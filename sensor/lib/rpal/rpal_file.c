@@ -1004,7 +1004,7 @@ RBOOL
         while( NULL != pPattern &&
                NULL != pPath )
         {
-            if( !rpal_string_matchw( pPattern, pPath ) )
+            if( !rpal_string_matchw( pPattern, pPath, TRUE ) )
             {
                 break;
             }
@@ -1075,7 +1075,7 @@ RBOOL
                 tmpFileExp = fileExp;
                 while( NULL != *tmpFileExp )
                 {
-                    if( rpal_string_matchw( *tmpFileExp, pInfo->fileName ) )
+                    if( rpal_string_matchw( *tmpFileExp, pInfo->fileName, TRUE ) )
                     {
                         isIncluded = TRUE;
                         break;
@@ -2239,6 +2239,7 @@ RPWCHAR
         RU32 i = 0;
         rString tmpPath = NULL;
         RPWCHAR tmpStr = NULL;
+        RWCHAR sysDrive[] = _WCH( "%systemdrive%" );
         RWCHAR winDir[] = _WCH( "%windir%" );
         RWCHAR uncPath[] = _WCH( "\\??\\" );
         RWCHAR sys32Dir[] = _WCH( "\\system32" );
@@ -2287,7 +2288,7 @@ RPWCHAR
                 {
                     rpal_stringbuffer_addw( tmpPath, winDir );
                 }
-                // If the entry starts with /SystemRoot, prefix it as necessary
+                // If the entry starts with \SystemRoot, prefix it as necessary
                 else if( rpal_string_startswithiw( filePath, sysRootDir ) )
                 {
                     rpal_stringbuffer_addw( tmpPath, winDir );
@@ -2297,6 +2298,10 @@ RPWCHAR
                 else if( rpal_string_startswithiw( filePath, uncPath ) )
                 {
                     filePath += rpal_string_strlenw( uncPath );
+                }
+                else if( _WCH( '\\' ) == filePath[ 0 ] )
+                {
+                    rpal_stringbuffer_addw( tmpPath, sysDrive );
                 }
 
                 rpal_stringbuffer_addw( tmpPath, filePath );

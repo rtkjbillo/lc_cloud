@@ -169,14 +169,24 @@ RBOOL
     rpal_string_match
     (
         RPCHAR pattern,
-        RPCHAR str
+        RPCHAR str,
+        RBOOL isCaseSensitive
     );
 
 RBOOL
     rpal_string_matchw
     (
         RPWCHAR pattern,
-        RPWCHAR str
+        RPWCHAR str,
+        RBOOL isCaseSensitive
+    );
+
+RBOOL
+    rpal_string_matchn
+    (
+        RNATIVESTR pattern,
+        RNATIVESTR str,
+        RBOOL isCaseSensitive
     );
     
 RPCHAR

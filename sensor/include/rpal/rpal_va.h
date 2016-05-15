@@ -20,5 +20,6 @@ limitations under the License.
 #define RP_VA_LIST va_list
 #define RP_VA_START va_start
 #define RP_VA_ARG va_arg
+#define RP_VA_END va_end
 
 #endif

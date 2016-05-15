@@ -343,6 +343,32 @@ RBOOL
     return isSuccess;
 }
 
+
+RBOOL
+    rSequence_getRawElement
+    (
+        rSequence seq,
+        rpcm_tag* tag,
+        rpcm_type* type,
+        RPVOID* pElem,
+        RU32* pElemSize
+    )
+{
+    RBOOL isSuccess = FALSE;
+
+    _rSequence* tmpSeq = NULL;
+
+    if( rpal_memory_isValid( seq ) )
+    {
+        tmpSeq = (_rSequence*)seq;
+
+        isSuccess = set_getElement( &tmpSeq->set, tag, type, pElem, pElemSize, NULL, TRUE );
+    }
+
+    return isSuccess;
+}
+
+
 RBOOL
     rSequence_getRU8
     (

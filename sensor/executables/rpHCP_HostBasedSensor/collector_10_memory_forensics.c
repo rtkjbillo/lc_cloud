@@ -118,7 +118,7 @@ RBOOL
         rList_resetIterator( searchStrings );
         while( rList_getSTRINGW( searchStrings, RP_TAGS_STRING, &strVal ) )
         {
-            if( rpal_string_matchw( strVal, str ) )
+            if( rpal_string_matchw( strVal, str, TRUE ) )
             {
                 found = TRUE;
                 break;
