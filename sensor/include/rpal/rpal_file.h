@@ -336,4 +336,10 @@ RPCHAR
         RPCHAR filePath
     );
 
+#ifdef RNATIVE_IS_WIDE
+    #define rpal_file_cleann rpal_file_cleanw
+#else
+    #define rpal_file_cleann rpal_file_cleana
+#endif
+
 #endif

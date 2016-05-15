@@ -314,10 +314,6 @@ RBOOL
         {
             isMatch = TRUE;
         }
-        else
-        {
-            rpal_debug_warning( "$$$$$$$$$$$$$$$$$ %d %d %d %d == %d", withinAtLeast, withinAtMost, newEvent, oldEvent, delta );
-        }
     }
 
     return isMatch;

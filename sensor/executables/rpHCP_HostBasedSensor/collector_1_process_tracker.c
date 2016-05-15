@@ -175,6 +175,7 @@ static RBOOL
     rSequence info = NULL;
     rSequence parentInfo = NULL;
     RU32 tmpUid = 0;
+    RPWCHAR cleanPath = NULL;
 
     // We prime the information with whatever was provided
     // to us by the kernel acquisition. If not available
@@ -183,14 +184,16 @@ static RBOOL
         ( NULL != info ||
           NULL != ( info = rSequence_new() ) ) )
     {
-        rSequence_addSTRINGN( info, RP_TAGS_FILE_PATH, optFilePath );
+        cleanPath = rpal_file_cleann( optFilePath );
+        rSequence_addSTRINGN( info, RP_TAGS_FILE_PATH, cleanPath ? cleanPath : optFilePath );
+        rpal_memory_free( cleanPath );
     }
 
     if( 0 != rpal_string_strlenn( optCmdLine ) &&
         ( NULL != info ||
           NULL != ( info = rSequence_new() ) ) )
     {
-        rSequence_addSTRINGN( info, RP_TAGS_FILE_PATH, optCmdLine );
+        rSequence_addSTRINGN( info, RP_TAGS_COMMAND_LINE, optCmdLine );
     }
 
     if( NULL != info )

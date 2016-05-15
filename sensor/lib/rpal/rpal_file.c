@@ -2223,6 +2223,54 @@ RBOOL
     return gotChange;
 }
 
+#ifdef RPAL_PLATFORM_WINDOWS
+static RBOOL
+    _driveFromDevice
+    (
+        RPWCHAR path,
+        RPWCHAR pDrive,
+        RU32* pDeviceLength
+    )
+{
+    RBOOL isFound = FALSE;
+
+    RU32 driveMask = 0;
+    RU32 i = 0;
+    RWCHAR tmpDrive[ 3 ] = { 0, _WCH( ':' ), 0 };
+    RWCHAR tmpPath[ RPAL_MAX_PATH ] = { 0 };
+
+    if( NULL != path &&
+        NULL != pDrive &&
+        NULL != pDeviceLength )
+    {
+        driveMask = GetLogicalDrives();
+        for( i = 0; i < sizeof( driveMask ) * 8; i++ )
+        {
+            if( 1 == ( driveMask & 0x00000001 ) )
+            {
+                tmpDrive[ 0 ] = (RWCHAR)( _WCH( 'A' ) + i );
+
+                if( QueryDosDeviceW( tmpDrive, tmpPath, ARRAY_N_ELEM( tmpPath ) ) )
+                {
+                    if( rpal_string_startswithiw( path, tmpPath ) )
+                    {
+                        *pDrive = tmpDrive[ 0 ];
+                        *pDeviceLength = rpal_string_strlenw( tmpPath );
+                        isFound = TRUE;
+                        break;
+                    }
+                }
+            }
+
+            driveMask >>= 1;
+        }
+    }
+
+    return isFound;
+}
+
+#endif
+
 RPWCHAR
     rpal_file_cleanw
     (
@@ -2244,11 +2292,37 @@ RPWCHAR
         RWCHAR uncPath[] = _WCH( "\\??\\" );
         RWCHAR sys32Dir[] = _WCH( "\\system32" );
         RWCHAR sysRootDir[] = _WCH( "\\systemroot" );
+        RWCHAR deviceDir[] = _WCH( "\\device\\" );
         RWCHAR defaultPath[] = _WCH( "%windir%\\system32\\" );
         RWCHAR defaultExt[] = _WCH( ".dll" );
         RWCHAR foundPath[ RPAL_MAX_PATH ] = { 0 };
+        RWCHAR tmpDrive[ 3 ] = { 0, _WCH( ':' ), 0 };
         RU32 foundLen = 0;
         RU32 preModLen = 0;
+
+        // Local caches
+        static RWCHAR currentSysDrive[ 3 ] = { 0 };
+        static RWCHAR sysDevice[ RPAL_MAX_PATH ] = { 0 };
+
+        // We cache the current system drive since it'll be used all the time.
+        if( 0 == currentSysDrive[ 0 ] )
+        {
+            if( rpal_string_expandw( sysDrive, &tmpStr ) )
+            {
+                if( 2 == rpal_string_strlenw( tmpStr ) )
+                {
+                    rpal_string_strcpyw( currentSysDrive, tmpStr );
+                }
+                rpal_memory_free( tmpStr );
+            }
+        }
+
+        // We cache the device of the system drive since it's the one most likely
+        // to be queried for.
+        if( 0 == sysDevice[ 0 ] )
+        {
+            QueryDosDeviceW( currentSysDrive, sysDevice, ARRAY_N_ELEM( sysDevice ) );
+        }
 
         len = rpal_string_strlenw( filePath );
 
@@ -2283,25 +2357,46 @@ RPWCHAR
             }
             else
             {
-                // If the entry starts with system32, prefix it as necessary
-                if( rpal_string_startswithiw( filePath, sys32Dir ) )
+                // Many paths need to be fixed, they all start with a \ so ignore
+                // the path if it doesn't.
+                if( _WCH( '\\' ) == filePath[ 0 ] )
                 {
-                    rpal_stringbuffer_addw( tmpPath, winDir );
-                }
-                // If the entry starts with \SystemRoot, prefix it as necessary
-                else if( rpal_string_startswithiw( filePath, sysRootDir ) )
-                {
-                    rpal_stringbuffer_addw( tmpPath, winDir );
-                    filePath += rpal_string_strlenw( sysRootDir );
-                }
-                // If the entry starts with \??\ we can strip the UNC prefix
-                else if( rpal_string_startswithiw( filePath, uncPath ) )
-                {
-                    filePath += rpal_string_strlenw( uncPath );
-                }
-                else if( _WCH( '\\' ) == filePath[ 0 ] )
-                {
-                    rpal_stringbuffer_addw( tmpPath, sysDrive );
+                    // If the entry starts with system32, prefix it as necessary
+                    if( rpal_string_startswithiw( filePath, sys32Dir ) )
+                    {
+                        rpal_stringbuffer_addw( tmpPath, winDir );
+                    }
+                    // If the entry starts with \SystemRoot, prefix it as necessary
+                    else if( rpal_string_startswithiw( filePath, sysRootDir ) )
+                    {
+                        rpal_stringbuffer_addw( tmpPath, winDir );
+                        filePath += rpal_string_strlenw( sysRootDir );
+                    }
+                    // If the entry starts with \??\ we can strip the UNC prefix
+                    else if( rpal_string_startswithiw( filePath, uncPath ) )
+                    {
+                        filePath += rpal_string_strlenw( uncPath );
+                    }
+                    // First check if it's the system drive
+                    else if( rpal_string_startswithiw( filePath, sysDevice ) )
+                    {
+                        rpal_stringbuffer_addw( tmpPath, currentSysDrive );
+                        filePath += rpal_string_strlenw( sysDevice );
+                    }
+                    // If the path starts at a device not cached, resolve it
+                    else if( rpal_string_startswithiw( filePath, deviceDir ) )
+                    {
+                        if( _driveFromDevice( filePath, tmpDrive, &i ) )
+                        {
+                            rpal_stringbuffer_addw( tmpPath, tmpDrive );
+                            filePath += i;
+                        }
+                    }
+                    // Sometimes it's just a path without drive, so add systemdrive
+                    else
+                    {
+                        rpal_stringbuffer_addw( tmpPath, sysDrive );
+                    }
                 }
 
                 rpal_stringbuffer_addw( tmpPath, filePath );

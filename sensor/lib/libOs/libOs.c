@@ -863,11 +863,6 @@ RBOOL
                 NULL != cryptProviderSigner->pasCertChain->pCert &&
                 NULL != cryptProviderSigner->pasCertChain->pCert->pCertInfo )
             {
-                //FileTimeToLocalFileTime(&cryptProviderSigner->pasCertChain->pCert->pCertInfo->NotBefore, &fileTime);
-                //FileTimeToSystemTime(&fileTime, &sysTime);
-
-                //_tprintf(_T("Signature Date = %.2d/%.2d/%.4d at %.2d:%2.d:%.2d\n"), sysTime.wDay, sysTime.wMonth,sysTime.wYear, sysTime.wHour,sysTime.wMinute,sysTime.wSecond);
-                
                 if( 0 != libOS_decodeCertName( X509_ASN_ENCODING,
                                                &cryptProviderSigner->pasCertChain->pCert->pCertInfo->Issuer,
                                                CERT_X500_NAME_STR,

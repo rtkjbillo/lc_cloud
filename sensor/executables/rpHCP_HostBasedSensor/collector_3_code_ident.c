@@ -54,7 +54,6 @@ RVOID
     RBOOL isSigned = FALSE;
     RBOOL isVerifiedLocal = FALSE;
     RBOOL isVerifiedGlobal = FALSE;
-    RPWCHAR cleanPath = NULL;
     
     ident.codeSize = codeSize;
 
@@ -89,9 +88,7 @@ RVOID
                         rSequence_addBUFFER( notif, RP_TAGS_HASH, (RPU8)pFileHash, sizeof( *pFileHash ) );
                     }
 
-                    cleanPath = rpal_file_cleanw( name );
-
-                    if( libOs_getSignature( cleanPath ? cleanPath : name,
+                    if( libOs_getSignature( name,
                                             &sig,
                                             ( OSLIB_SIGNCHECK_NO_NETWORK | OSLIB_SIGNCHECK_CHAIN_VERIFICATION ),
                                             &isSigned,
@@ -102,11 +99,6 @@ RVOID
                         {
                             rSequence_free( sig );
                         }
-                    }
-
-                    if( NULL != cleanPath )
-                    {
-                        rpal_memory_free( cleanPath );
                     }
 
                     notifications_publish( RP_TAGS_NOTIFICATION_CODE_IDENTITY, notif );

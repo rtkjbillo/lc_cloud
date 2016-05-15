@@ -85,7 +85,9 @@ RPVOID
     perfProfile.timeoutIncrementPerSec = 1;
 
     while( rpal_memory_isValid( isTimeToStop ) &&
-           !rEvent_wait( isTimeToStop, 0 ) )
+           !rEvent_wait( isTimeToStop, 0 ) &&
+           ( !kAcq_isAvailable() ||
+             g_is_kernel_failure ) )
     {
         if( NULL != ( processes = processLib_getProcessEntries( FALSE ) ) )
         {
@@ -183,6 +185,7 @@ static RBOOL
     RU32 pathLength = 0;
     RU32 i = 0;
     RNATIVESTR dirSep = RPAL_FILE_LOCAL_DIR_SEP_N;
+    RNATIVESTR cleanPath = NULL;
 
     if( NULL != module )
     {
@@ -195,7 +198,9 @@ static RBOOL
 
             if( 0 != ( pathLength = rpal_string_strlenn( module->path ) ) )
             {
-                rSequence_addSTRINGN( notif, RP_TAGS_FILE_PATH, module->path );
+                cleanPath = rpal_file_cleann( module->path );
+                rSequence_addSTRINGN( notif, RP_TAGS_FILE_PATH, cleanPath ? cleanPath : module->path );
+                rpal_memory_free( cleanPath );
 
                 // For compatibility with user mode we extract the module name.
                 for( i = pathLength - 1; i != 0; i-- )
