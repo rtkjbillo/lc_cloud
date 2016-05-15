@@ -140,7 +140,8 @@ RBOOL
 
     if( isAdded )
     {
-        if( !rpal_memory_isValid( ((_prBlob)blob)->pData ) )
+        if( NULL != ((_prBlob)blob)->pData &&
+            !rpal_memory_isValid( ((_prBlob)blob)->pData ) )
         {
             isAdded = FALSE;
             rpal_debug_break();

@@ -2302,7 +2302,9 @@ RPWCHAR
 
         // Local caches
         static RWCHAR currentSysDrive[ 3 ] = { 0 };
-        static RWCHAR sysDevice[ RPAL_MAX_PATH ] = { 0 };
+        static RWCHAR sysDevice[ 50 ] = { 0 };
+        static RWCHAR currentWinDir[ 50 ] = { 0 };
+        static RWCHAR currentDefaultPath[ 50 ] = { 0 };
 
         // We cache the current system drive since it'll be used all the time.
         if( 0 == currentSysDrive[ 0 ] )
@@ -2322,6 +2324,31 @@ RPWCHAR
         if( 0 == sysDevice[ 0 ] )
         {
             QueryDosDeviceW( currentSysDrive, sysDevice, ARRAY_N_ELEM( sysDevice ) );
+        }
+
+        // Resolve a few other environment variables.
+        if( 0 == currentWinDir[ 0 ] )
+        {
+            if( rpal_string_expandw( winDir, &tmpStr ) )
+            {
+                if( ARRAY_N_ELEM( currentWinDir ) > rpal_string_strlenw( tmpStr ) )
+                {
+                    rpal_string_strcpyw( currentWinDir, tmpStr );
+                }
+                rpal_memory_free( tmpStr );
+            }
+        }
+
+        if( 0 == currentDefaultPath[ 0 ] )
+        {
+            if( rpal_string_expandw( defaultPath, &tmpStr ) )
+            {
+                if( ARRAY_N_ELEM( currentDefaultPath ) > rpal_string_strlenw( tmpStr ) )
+                {
+                    rpal_string_strcpyw( currentDefaultPath, tmpStr );
+                }
+                rpal_memory_free( tmpStr );
+            }
         }
 
         len = rpal_string_strlenw( filePath );
@@ -2351,7 +2378,7 @@ RPWCHAR
                 }
                 else
                 {
-                    rpal_stringbuffer_addw( tmpPath, (RPWCHAR)defaultPath );
+                    rpal_stringbuffer_addw( tmpPath, (RPWCHAR)currentDefaultPath );
                     rpal_stringbuffer_addw( tmpPath, filePath );
                 }
             }
@@ -2364,12 +2391,12 @@ RPWCHAR
                     // If the entry starts with system32, prefix it as necessary
                     if( rpal_string_startswithiw( filePath, sys32Dir ) )
                     {
-                        rpal_stringbuffer_addw( tmpPath, winDir );
+                        rpal_stringbuffer_addw( tmpPath, currentWinDir );
                     }
                     // If the entry starts with \SystemRoot, prefix it as necessary
                     else if( rpal_string_startswithiw( filePath, sysRootDir ) )
                     {
-                        rpal_stringbuffer_addw( tmpPath, winDir );
+                        rpal_stringbuffer_addw( tmpPath, currentWinDir );
                         filePath += rpal_string_strlenw( sysRootDir );
                     }
                     // If the entry starts with \??\ we can strip the UNC prefix
@@ -2395,7 +2422,7 @@ RPWCHAR
                     // Sometimes it's just a path without drive, so add systemdrive
                     else
                     {
-                        rpal_stringbuffer_addw( tmpPath, sysDrive );
+                        rpal_stringbuffer_addw( tmpPath, currentSysDrive );
                     }
                 }
 
