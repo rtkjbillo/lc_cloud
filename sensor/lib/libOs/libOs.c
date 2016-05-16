@@ -1705,7 +1705,6 @@ RBOOL
         }
 #elif defined( RPAL_PLATFORM_MACOSX )
         kern_return_t kr;
-        task_t task;
         struct task_basic_info info = { 0 };
         mach_msg_type_number_t count = TASK_BASIC_INFO_COUNT;
 
@@ -1714,7 +1713,7 @@ RBOOL
             processId = getpid();
         }
 
-        if( KERN_SUCCESS == ( kr = task_info(task, TASK_BASIC_INFO, (task_info_t)&info, &count) ) )
+        if( KERN_SUCCESS == ( kr = task_info(mach_task_self(), TASK_BASIC_INFO, (task_info_t)&info, &count) ) )
         {
             *pTime = ( (RU64)info.user_time.seconds + (RU64)info.system_time.seconds ) * 1000000 +
                        (RU64)info.user_time.microseconds + (RU64)info.system_time.microseconds;
