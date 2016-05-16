@@ -624,10 +624,12 @@ rSequence
     rString fullcmdline = NULL;
 
     mib[ 3 ] = processId;
+
+    procInfo = bootstrap;
     
     if( 0 == sysctl( mib, 4, &info, &size, NULL, 0 ) && 0 < size )
     {
-        if( NULL != ( procInfo = bootstrap ) ||
+        if( NULL != procInfo ||
             NULL != ( procInfo = rSequence_new() ) )
         {
             rSequence_addRU32( procInfo, RP_TAGS_PROCESS_ID, info.kp_proc.p_pid );

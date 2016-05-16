@@ -175,7 +175,7 @@ static RBOOL
     rSequence info = NULL;
     rSequence parentInfo = NULL;
     RU32 tmpUid = 0;
-    RPWCHAR cleanPath = NULL;
+    RNATIVESTR cleanPath = NULL;
 
     // We prime the information with whatever was provided
     // to us by the kernel acquisition. If not available
@@ -201,7 +201,7 @@ static RBOOL
         info = processLib_getProcessInfo( pid, info );
     }
     else if( !isStarting ||
-             NULL == ( info = processLib_getProcessInfo( pid, NULL ) ) )
+             NULL == ( info = processLib_getProcessInfo( pid, info ) ) )
     {
         info = rSequence_new();
     }
