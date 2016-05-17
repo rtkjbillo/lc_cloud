@@ -53,6 +53,8 @@ RBOOL
     rSequence wrapper = NULL;
     rList events = NULL;
     rSequence event = NULL;
+    rSequence tmpEvent = NULL;
+    rpcm_tag tmpType = 0;
     RU32 i = 0;
 
     if( NULL != machine )
@@ -63,8 +65,19 @@ RBOOL
             {
                 for( i = 0; i < machine->history->nElements; i++ )
                 {
-                    event = ( (StatefulEvent*)machine->history->elements[ i ] )->data;
-                    rList_addSEQUENCE( events, rSequence_duplicate( event ) );
+                    if( NULL != ( tmpEvent = rSequence_new() ) )
+                    {
+                        event = ( (StatefulEvent*)machine->history->elements[ i ] )->data;
+                        tmpType = ( (StatefulEvent*)machine->history->elements[ i ] )->eventType;
+
+                        if( !rSequence_addSEQUENCE( tmpEvent, 
+                                                    tmpType, 
+                                                    rSequence_duplicate( event ) ) ||
+                            !rList_addSEQUENCE( events, tmpEvent ) )
+                        {
+                            rSequence_free( tmpEvent );
+                        }
+                    }
                 }
 
                 if( !rSequence_addLIST( wrapper, RP_TAGS_EVENTS, events ) )
@@ -73,6 +86,7 @@ RBOOL
                 }
                 else
                 {
+                    rSequence_addTIMESTAMP( wrapper, RP_TAGS_TIMESTAMP, rpal_time_getGlobal() );
                     isSuccess = notifications_publish( machine->desc->reportEventType, wrapper );
                 }
             }
