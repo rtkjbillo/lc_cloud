@@ -15,60 +15,53 @@ limitations under the License.
 */
 
 #include "stateful_framework.h"
+#include "stateful_helpers.h"
 #include "stateful_events.h"
 
 #define LOAD_LATE_AFTER_SEC (60)
 
-static rpcm_tag root_pid_path[] =
-{
-    RP_TAGS_PROCESS_ID,
-    RPCM_END_TAG
-};
-
-static tr_match_params terminated =
-{
+static tr_match_params matching_module = {
     RPCM_RU32,
-    root_pid_path,
-    root_pid_path,
-    { 0 },
-    FALSE,
-    0,
-    0,
-    TRUE
-};
-
-static tr_match_params matching_module =
-{
-    RPCM_RU32,
-    root_pid_path,
-    root_pid_path,
+    PATH_ROOT_PID,
+    PATH_ROOT_PID,
     { 0 },
     FALSE,
     LOAD_LATE_AFTER_SEC,
     0,
-    TRUE
+    TRUE,
+    FALSE
 };
 
 // State 0: New process starting
 STATE( 0, 1, TRANSITION( FALSE, 
-                         TRUE, 
+                         TRUE,
+                         FALSE,
                          RP_TAGS_NOTIFICATION_NEW_PROCESS, 
                          1, 
-                         NULL, 
+                         PATH_EMPTY,
                          NULL ) );
 // State 1: Modules after X time, if terminated delete (state 0)
 STATE( 1, 2, TRANSITION( FALSE,
                          FALSE,
+                         FALSE,
                          RP_TAGS_NOTIFICATION_TERMINATE_PROCESS,
                          0, // Bail without reporting
-                         &terminated,
+                         MATCHING_PID,
+                         tr_match ),
+             TRANSITION( FALSE,
+                         FALSE,
+                         FALSE,
+                         RP_TAGS_NOTIFICATION_NEW_PROCESS,
+                         0, // Bail without reporting
+                         MATCHING_PID,
                          tr_match ),
              TRANSITION( TRUE,
                          TRUE,
+                         FALSE,
                          RP_TAGS_NOTIFICATION_MODULE_LOAD,
                          0, // We only match the first late loading module so that processes 
                             // commonly loading late modules don't keep producing events
-                         &matching_module,
+                         matching_module,
                          tr_match ) );
 
 STATEFUL_MACHINE( 1, STATEFUL_MACHINE_1_EVENT, 2, STATE_PTR( 0 ),

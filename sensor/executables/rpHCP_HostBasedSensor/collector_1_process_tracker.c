@@ -239,7 +239,7 @@ static RBOOL
             if( notifications_publish( RP_TAGS_NOTIFICATION_NEW_PROCESS, info ) )
             {
                 isSuccess = TRUE;
-                rpal_debug_info( "new process starting: %d", pid );
+                rpal_debug_info( "new process starting: %d / %d", pid, ppid );
             }
         }
         else
@@ -247,7 +247,7 @@ static RBOOL
             if( notifications_publish( RP_TAGS_NOTIFICATION_TERMINATE_PROCESS, info ) )
             {
                 isSuccess = TRUE;
-                rpal_debug_info( "new process terminating: %d", pid );
+                rpal_debug_info( "new process terminating: %d / %d", pid, ppid );
             }
         }
 

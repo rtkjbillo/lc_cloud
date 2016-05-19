@@ -53,8 +53,6 @@ RBOOL
     rSequence wrapper = NULL;
     rList events = NULL;
     rSequence event = NULL;
-    rSequence tmpEvent = NULL;
-    rpcm_tag tmpType = 0;
     RU32 i = 0;
 
     if( NULL != machine )
@@ -65,19 +63,8 @@ RBOOL
             {
                 for( i = 0; i < machine->history->nElements; i++ )
                 {
-                    if( NULL != ( tmpEvent = rSequence_new() ) )
-                    {
-                        event = ( (StatefulEvent*)machine->history->elements[ i ] )->data;
-                        tmpType = ( (StatefulEvent*)machine->history->elements[ i ] )->eventType;
-
-                        if( !rSequence_addSEQUENCE( tmpEvent, 
-                                                    tmpType, 
-                                                    rSequence_duplicate( event ) ) ||
-                            !rList_addSEQUENCE( events, tmpEvent ) )
-                        {
-                            rSequence_free( tmpEvent );
-                        }
-                    }
+                    event = ( (StatefulEvent*)machine->history->elements[ i ] )->data;
+                    rList_addSEQUENCE( events, rSequence_duplicate( event ) );
                 }
 
                 if( !rSequence_addLIST( wrapper, RP_TAGS_EVENTS, events ) )
@@ -132,20 +119,37 @@ StatefulEvent*
 {
     StatefulEvent* event = NULL;
 
+    rSequence wrapper = NULL;
+
     if( NULL != data )
     {
-        if( NULL != ( event = rpal_memory_alloc( sizeof( *event ) ) ) )
+        if( NULL != ( wrapper = rSequence_new() ) )
         {
-            if( NULL != ( event->ref = rRefCount_create( (rRefCount_freeFunc)_freeEvent, event, sizeof( *event ) ) ) )
+            if( NULL != ( event = rpal_memory_alloc( sizeof( *event ) ) ) )
             {
-                event->data = rSequence_duplicate( data );
-                event->eventType = eventType;
-                rSequence_getTIMESTAMP( data, RP_TAGS_TIMESTAMP, &event->ts );
+                if( NULL != ( event->ref = rRefCount_create( (rRefCount_freeFunc)_freeEvent, event, sizeof( *event ) ) ) )
+                {
+                    if( rSequence_addSEQUENCEdup( wrapper, eventType, data ) )
+                    {
+                        event->data = wrapper;
+                        event->eventType = eventType;
+                        rSequence_getTIMESTAMP( data, RP_TAGS_TIMESTAMP, &event->ts );
+                    }
+                    else
+                    {
+                        rSequence_free( wrapper );
+                    }
+                }
+                else
+                {
+                    rpal_memory_free( event );
+                    event = NULL;
+                    rSequence_free( wrapper );
+                }
             }
             else
             {
-                rpal_memory_free( event );
-                event = NULL;
+                rSequence_free( wrapper );
             }
         }
     }
@@ -230,6 +234,11 @@ RBOOL
             currentState = (StatefulState*)( machine->desc->states[ machine->currentState ] );
             for( i = 0; i < currentState->nTransitions; i++ )
             {
+                if( i == 2 &&
+                    machine->currentState == 1 )
+                {
+                    i = i;
+                }
                 if( ( 0 == currentState->transitions[ i ].eventTypeOnly || 
                       event->eventType == currentState->transitions[ i ].eventTypeOnly ) &&
                     ( NULL == currentState->transitions[ i ].transition ||
@@ -248,6 +257,8 @@ RBOOL
                                 rRefCount_release( event->ref, NULL );
                             }
                         }
+
+                        //rpal_debug_info( "SM recorded event" );
                     }
                     if( currentState->transitions[ i ].isReportOnMatch )
                     {
@@ -256,13 +267,17 @@ RBOOL
                         rpal_debug_info( "SM generated event" );
                     }
 
-                    if( 0 == currentState->transitions[ i ].destState )
+                    if( 0 == currentState->transitions[ i ].destState ||
+                        ( currentState->transitions[ i ].isFinishOnEmptySet &&
+                          0 == machine->history->nElements ) )
                     {
                         // State 0 is a special state, it is the initial and terminal state
                         isStayAlive = FALSE;
+                        //rpal_debug_info( "SM now finishing from %d by transition %d.", machine->currentState, i );
                     }
                     else
                     {
+                        //rpal_debug_info( "SM moving from state %d to state %d by transition %d.", machine->currentState, currentState->transitions[ i ].destState, i );
                         machine->currentState = currentState->transitions[ i ].destState;
                     }
 
@@ -386,6 +401,7 @@ RBOOL
     RU32 j = 0;
     RU32 k = 0;
     StatefulEvent* tmpEvent = NULL;
+    rRefCount tmpRef = NULL;
 
     if( NULL != event &&
         NULL != parameters )
@@ -424,6 +440,12 @@ RBOOL
                                                                     elem1.size,
                                                                     elem2.value,
                                                                     elem2.size );
+                                        /*
+                                        if( 4 == elem1.size )
+                                        {
+                                            rpal_debug_info( "SM CMP %d %d %d", *(RU32*)elem1.value, *(RU32*)elem2.value, isMatch );
+                                        }
+                                        */
                                         if( isMatch )
                                         {
                                             if( 0 != parameters->withinAtLeast ||
@@ -451,7 +473,19 @@ RBOOL
                                 rStack_free( elems2, NULL );
                             }
 
-                            if( parameters->isMatchFirstEventOnly )
+                            if( isMatch &&
+                                parameters->isRemoveMatching )
+                            {
+                                tmpRef = tmpEvent->ref;
+                                if( rpal_vector_remove( machine->history, j ) )
+                                {
+                                    j--;
+                                    rRefCount_release( tmpRef, NULL );
+                                }
+                            }
+
+                            if( isMatch ||
+                                parameters->isMatchFirstEventOnly )
                             {
                                 break;
                             }
@@ -526,6 +560,17 @@ RBOOL
                     break;
                 }
 
+                if( isMatch &&
+                    parameters->isRemoveMatching )
+                {
+                    tmpRef = tmpEvent->ref;
+                    if( rpal_vector_remove( machine->history, i ) )
+                    {
+                        i--;
+                        rRefCount_release( tmpRef, NULL );
+                    }
+                }
+
                 if( parameters->isMatchFirstEventOnly )
                 {
                     break;
@@ -538,6 +583,38 @@ RBOOL
         }
     }
 
+    isMatch = parameters->isInvertMatch ? !isMatch : isMatch;
+
     return isMatch;
 }
 
+RBOOL
+    tr_and_match
+    (
+        StatefulMachine* machine,
+        StatefulEvent* event,
+        tr_and_match_params* parameters
+    )
+{
+    RBOOL isMatch = FALSE;
+
+    RU32 i = 0;
+
+    if( NULL != machine &&
+        NULL != event &&
+        NULL != parameters )
+    {
+        isMatch = TRUE;
+
+        for( i = 0; i < ARRAY_N_ELEM( parameters->params ); i++ )
+        {
+            if( !tr_match( machine, event, &(parameters->params[ i ]) ) )
+            {
+                isMatch = FALSE;
+                break;
+            }
+        }
+    }
+
+    return isMatch;
+}

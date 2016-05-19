@@ -30,7 +30,8 @@ static rVector g_liveMachines = NULL;
 static StatefulMachineDescriptor* g_statefulMachines[] =
 {
     ENABLED_WINDOWS_STATEFUL( 0 ),
-    ENABLED_STATEFUL( 1 )
+    ENABLED_STATEFUL( 1 ),
+    ENABLED_STATEFUL( 2 )
 };
 
 static
@@ -65,9 +66,11 @@ static RPVOID
             // First we update currently running machines
             for( i = 0; i < g_liveMachines->nElements; i++ )
             {
+                //rpal_debug_info( "SM begin update ( %p / %p )", g_liveMachines->elements[ i ], ((StatefulMachine*)g_liveMachines->elements[ i ])->desc );
+
                 if( !SMUpdate( g_liveMachines->elements[ i ], event ) )
                 {
-                    rpal_debug_info( "SM no longer required for %d", i );
+                    //rpal_debug_info( "SM no longer required ( %p / %p )", g_liveMachines->elements[ i ], ((StatefulMachine*)g_liveMachines->elements[ i ])->desc );
 
                     // Machine indicated it is no longer live
                     SMFreeMachine( g_liveMachines->elements[ i ] );
@@ -83,7 +86,7 @@ static RPVOID
             {
                 if( NULL != ( tmpMachine = SMPrime( g_statefulMachines[ i ], event ) ) )
                 {
-                    rpal_debug_info( "new SM created for %d", i );
+                    //rpal_debug_info( "SM created ( %p / %p )", tmpMachine, g_statefulMachines[ i ] );
 
                     // New machines get added to the pool of live machines
                     if( !rpal_vector_add( g_liveMachines, tmpMachine ) )

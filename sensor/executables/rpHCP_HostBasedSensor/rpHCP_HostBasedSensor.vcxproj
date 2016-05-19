@@ -139,7 +139,9 @@
     <ClCompile Include="main.c" />
     <ClCompile Include="stateful_0_recon_burst.c" />
     <ClCompile Include="stateful_1_late_load.c" />
+    <ClCompile Include="stateful_2_doc_exploit.c" />
     <ClCompile Include="stateful_framework.c" />
+    <ClCompile Include="stateful_helpers.c" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\lib\cryptoLib\cryptoLib.vcxproj">
@@ -186,6 +188,7 @@
     <ClInclude Include="keys.h" />
     <ClInclude Include="stateful_events.h" />
     <ClInclude Include="stateful_framework.h" />
+    <ClInclude Include="stateful_helpers.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

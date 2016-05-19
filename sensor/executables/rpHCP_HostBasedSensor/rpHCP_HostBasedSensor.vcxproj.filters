@@ -73,6 +73,10 @@
     <ClCompile Include="stateful_1_late_load.c">
       <Filter>stateful_events</Filter>
     </ClCompile>
+    <ClCompile Include="stateful_2_doc_exploit.c">
+      <Filter>stateful_events</Filter>
+    </ClCompile>
+    <ClCompile Include="stateful_helpers.c" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\include\rpHostCommonPlatformLib\rTags.h" />
@@ -81,6 +85,7 @@
     <ClInclude Include="keys.h" />
     <ClInclude Include="stateful_events.h" />
     <ClInclude Include="stateful_framework.h" />
+    <ClInclude Include="stateful_helpers.h" />
   </ItemGroup>
   <ItemGroup>
     <Filter Include="collectors">

@@ -30,6 +30,7 @@ limitations under the License.
 #define IS_WITHIN_BOUNDS(elem,elemSize,container,containerSize) (((RU64)(elem) >= (RU64)(container)) &&\
                                                                  ((RU64)(elem) + (RU64)(elemSize) <= (RU64)(container) + (RU64)(containerSize)))
 #define ARRAY_N_ELEM(arr)               (sizeof(arr) / sizeof((arr)[0]))
+#define NUMARGS(type,...)                    (sizeof((type[]){__VA_ARGS__})/sizeof(type))
 #define IF_VALID_DO(elem,doFunc)        if( (elem) ){ doFunc( (elem) ); }
 #define DO_IFF(op,bStatus)              if(bStatus){ bStatus = op; }
 #define FREE_N_NULL(ptr,freeFunc)       freeFunc((ptr));(ptr)=NULL

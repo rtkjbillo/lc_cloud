@@ -23,7 +23,7 @@ limitations under the License.
 
 #define STATEFUL_MACHINE_NAME(machineId) stateful_ ##machineId##_desc
 #define STATEFUL_MACHINE(machineId,reportEvent,nStates,...) StatefulMachineDescriptor STATEFUL_MACHINE_NAME( machineId ) = { (reportEvent), (nStates), { __VA_ARGS__ } }
-#define TRANSITION(isReportOnMatch,isRecordEventOnMatch,eventTypeOnly,destState,params,matchFunction) { isReportOnMatch, isRecordEventOnMatch, eventTypeOnly, destState, (RPVOID)params, (transition_eval_func)matchFunction }
+#define TRANSITION(isReportOnMatch,isRecordEventOnMatch,isFinishOnEmptySet,eventTypeOnly,destState,params,matchFunction) { (isReportOnMatch), (isRecordEventOnMatch), (isFinishOnEmptySet), (eventTypeOnly), (destState), (&(params)), ((transition_eval_func)matchFunction) }
 #define STATE(stateId,nTransitions,...) static StatefulState state_ ##stateId##_def = { (nTransitions), { __VA_ARGS__ } }
 
 #define STATE_PTR(stateId) &state_ ##stateId##_def
@@ -59,6 +59,7 @@ typedef struct
 {
     RBOOL isReportOnMatch;
     RBOOL isRecordEventOnMatch;
+    RBOOL isFinishOnEmptySet;
     rpcm_tag eventTypeOnly;
     RU32 destState;
     RPVOID parameters;
@@ -115,6 +116,8 @@ typedef struct
     RTIME withinAtLeast;
     RTIME withinAtMost;
     RBOOL isMatchFirstEventOnly;
+    RBOOL isRemoveMatching;
+    RBOOL isInvertMatch;
 } tr_match_params;
 
 RBOOL
@@ -123,6 +126,19 @@ RBOOL
         StatefulMachine* machine, 
         StatefulEvent* event,
         tr_match_params* parameters
+    );
+
+typedef struct
+{
+    tr_match_params params[ 2 ];
+} tr_and_match_params;
+
+RBOOL
+    tr_and_match
+    (
+        StatefulMachine* machine,
+        StatefulEvent* event,
+        tr_and_match_params* parameters
     );
 
 

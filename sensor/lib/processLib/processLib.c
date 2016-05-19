@@ -75,7 +75,7 @@ RBOOL
             if( !GetExitCodeProcess( hProcess, (LPDWORD)&exitCode ) ||
                 STILL_ACTIVE == exitCode )
             {
-                if( WAIT_OBJECT_0 == WaitForSingleObject( hProcess, 0 ) )
+                if( WAIT_TIMEOUT == WaitForSingleObject( hProcess, 0 ) )
                 {
                     isInUse = TRUE;
                 }
