@@ -1934,6 +1934,7 @@ static rList
     rSequence svc = NULL;
     RPWCHAR assExe = NULL;
     RPWCHAR assDll = NULL;
+    RPWCHAR cleanPath = NULL;
 
     if( NULL != ( svcs = rList_new( RP_TAGS_SVC, RPCM_SEQUENCE ) ) )
     {
@@ -1980,20 +1981,26 @@ static rList
                                 {
                                     if( NULL != assExe )
                                     {
+                                        cleanPath = rpal_file_cleanw( assExe );
+
                                         // TODO: Fix in a more permanent way the issues in glibc with undocumented'
                                         // incompatibility with mis-aligned pointers in things like strlen and wcstombs.
-                                        rpal_debug_info( "found associated service exe: %ls", assExe );
-                                        rSequence_addSTRINGW( svc, RP_TAGS_EXECUTABLE, assExe );
+                                        //rpal_debug_info( "found associated service exe: %ls", assExe );
+                                        rSequence_addSTRINGW( svc, RP_TAGS_EXECUTABLE, cleanPath ? cleanPath : assExe );
                                         rpal_memory_free( assExe );
+                                        rpal_memory_free( cleanPath );
                                     }
 
                                     if( NULL != assDll )
                                     {
+                                        cleanPath = rpal_file_cleanw( assDll );
+
                                         // TODO: Fix in a more permanent way the issues in glibc with undocumented'
                                         // incompatibility with mis-aligned pointers in things like strlen and wcstombs.
-                                        rpal_debug_info( "found associated service dll: %ls", assDll );
-                                        rSequence_addSTRINGW( svc, RP_TAGS_DLL, assDll );
+                                        //rpal_debug_info( "found associated service dll: %ls", assDll );
+                                        rSequence_addSTRINGW( svc, RP_TAGS_DLL, cleanPath ? cleanPath : assDll );
                                         rpal_memory_free( assDll );
+                                        rpal_memory_free( cleanPath );
                                     }
                                 }
 
