@@ -1941,14 +1941,14 @@ static rList
         if( NULL != ( hSvc = OpenSCManager( NULL, NULL, SC_MANAGER_ENUMERATE_SERVICE ) ) )
         {
             if( !EnumServicesStatusExW( hSvc,
-                SC_ENUM_PROCESS_INFO,
-                dwServiceType,
-                SERVICE_STATE_ALL,
-                NULL, 0,
-                (LPDWORD)&dwBytesNeeded,
-                (LPDWORD)&dwServicesReturned,
-                (LPDWORD)&dwResumedHandle,
-                NULL ) &&
+                                        SC_ENUM_PROCESS_INFO,
+                                        dwServiceType,
+                                        SERVICE_STATE_ALL,
+                                        NULL, 0,
+                                        (LPDWORD)&dwBytesNeeded,
+                                        (LPDWORD)&dwServicesReturned,
+                                        (LPDWORD)&dwResumedHandle,
+                                        NULL ) &&
                 GetLastError() == ERROR_MORE_DATA )
             {
                 // now allocate memory for the structure...
@@ -2030,25 +2030,179 @@ RBOOL
     _thorough_file_hashW
     (
         RPWCHAR filePath,
+        RPWCHAR* pEffectivePath,
         CryptoLib_Hash* pHash
     )
 {
     RBOOL isHashed = FALSE;
 
+    RPWCHAR dupPath = NULL;
     RPWCHAR cleanPath = NULL;
+    RU32 i = 0;
+    rString tmpString = NULL;
+    RPWCHAR tmpPath = NULL;
+    RU32 tmpLen = 0;
+    RPWCHAR pPattern = NULL;
+    RWCHAR sysDir[] = _WCH( "%WINDIR%\\system32\\" );
+    RWCHAR winDir[] = _WCH( "%WINDIR%\\" );
+    RWCHAR extPattern[] = _WCH( ".exe " );
+    RU32 originalLength = 0;
+    RWCHAR defaultExt[] = _WCH( ".dll" );
+    RWCHAR defaultExt2[] = _WCH( "exe" );
 
     if( NULL != filePath &&
         NULL != pHash )
     {
-        if( NULL != ( cleanPath = rpal_file_cleanw( filePath ) ) )
+        if( CryptoLib_hashFileW( filePath, pHash, TRUE ) )
         {
-            if( CryptoLib_hashFileW( cleanPath, pHash, TRUE ) )
+            isHashed = TRUE;
+        }
+
+#ifdef RPAL_PLATFORM_WINDOWS
+        do
+        {
+            if( NULL == ( dupPath = rpal_string_strdupw( filePath ) ) )
             {
-                isHashed = TRUE;
+                break;
             }
 
-            rpal_memory_free( cleanPath );
-        }
+            cleanPath = dupPath;
+
+            // Step 1: Is this a quoted path?
+            if( _WCH( '"' ) == cleanPath[ 0 ] )
+            {
+                // Skip the first quote.
+                cleanPath++;
+
+                // Find the closing quote and terminate the string there.
+                while( 0 != cleanPath[ i ] &&
+                       _WCH( '"' ) != cleanPath[ i ] )
+                {
+                    i++;
+                }
+                cleanPath[ i ] = 0;
+
+                if( CryptoLib_hashFileW( cleanPath, pHash, TRUE ) )
+                {
+                    isHashed = TRUE;
+                    if( NULL != pEffectivePath )
+                    {
+                        *pEffectivePath = rpal_string_strdupw( cleanPath );
+                    }
+                    break;
+                }
+            }
+
+            // Next check for an executable with args lile ...some.exe /somearg
+            if( NULL != ( pPattern = rpal_string_stristrw( cleanPath, extPattern ) ) )
+            {
+                pPattern += ARRAY_N_ELEM( extPattern ) - 2;
+                *pPattern = 0;
+
+                if( CryptoLib_hashFileW( cleanPath, pHash, TRUE ) )
+                {
+                    isHashed = TRUE;
+                    if( NULL != pEffectivePath )
+                    {
+                        *pEffectivePath = rpal_string_strdupw( cleanPath );
+                    }
+                    break;
+                }
+            }
+
+            // If this is not an absolute path, try the default system paths
+            if( !rpal_string_stristrw( cleanPath, _WCH( "\\" ) ) )
+            {
+                if( NULL != ( tmpString = rpal_stringbuffer_new( 0, 0, TRUE ) ) )
+                {
+                    if( rpal_stringbuffer_addw( tmpString, sysDir ) &&
+                        rpal_stringbuffer_addw( tmpString, cleanPath ) )
+                    {
+                        if( CryptoLib_hashFileW( rpal_stringbuffer_getStringw( tmpString ), pHash, TRUE ) )
+                        {
+                            isHashed = TRUE;
+                        }
+                        else
+                        {
+                            originalLength = rpal_string_strlenw( cleanPath );
+
+                            // If there is no file extension, try the default ones
+                            if( _WCH( '.' ) != cleanPath[ originalLength - 4 ] )
+                            {
+                                if( rpal_stringbuffer_addw( tmpString, defaultExt ) )
+                                {
+                                    if( CryptoLib_hashFileW( rpal_stringbuffer_getStringw( tmpString ), pHash, TRUE ) )
+                                    {
+                                        isHashed = TRUE;
+                                    }
+                                    else
+                                    {
+                                        if( NULL != ( tmpPath = rpal_stringbuffer_getStringw( tmpString ) ) )
+                                        {
+                                            tmpLen = rpal_string_strlenw( tmpPath );
+                                            rpal_memory_memcpy( &( tmpPath[ tmpLen - 3 ] ), 
+                                                                defaultExt2, 
+                                                                sizeof( defaultExt2 ) - sizeof( RWCHAR ) );
+                                            if( CryptoLib_hashFileW( rpal_stringbuffer_getStringw( tmpString ), pHash, TRUE ) )
+                                            {
+                                                isHashed = TRUE;
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    if( isHashed &&
+                        NULL != pEffectivePath )
+                    {
+                        *pEffectivePath = rpal_string_strdupw( rpal_stringbuffer_getStringw( tmpString ) );
+                    }
+
+                    rpal_stringbuffer_free( tmpString );
+                }
+
+                if( NULL != ( tmpString = rpal_stringbuffer_new( 0, 0, TRUE ) ) )
+                {
+                    if( !isHashed &&
+                        rpal_stringbuffer_addw( tmpString, winDir ) &&
+                        rpal_stringbuffer_addw( tmpString, cleanPath ) )
+                    {
+                        if( CryptoLib_hashFileW( rpal_stringbuffer_getStringw( tmpString ), pHash, TRUE ) )
+                        {
+                            isHashed = TRUE;
+                        }
+                        else
+                        {
+                            // If there is no file extension, try the default ones
+                            if( _WCH( '.' ) != cleanPath[ originalLength - 4 ] )
+                            {
+                                if( rpal_stringbuffer_addw( tmpString, defaultExt ) )
+                                {
+                                    if( CryptoLib_hashFileW( rpal_stringbuffer_getStringw( tmpString ), pHash, TRUE ) )
+                                    {
+                                        isHashed = TRUE;
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    if( isHashed &&
+                        NULL != pEffectivePath )
+                    {
+                        *pEffectivePath = rpal_string_strdupw( rpal_stringbuffer_getStringw( tmpString ) );
+                    }
+                }
+
+                rpal_stringbuffer_free( tmpString );
+            }
+
+        } while( FALSE );
+
+        rpal_memory_free( dupPath );
+#endif
     }
 
     return isHashed;
@@ -2059,15 +2213,27 @@ RBOOL
     _thorough_file_hashA
     (
         RPCHAR filePath,
+        RPCHAR* pEffectivePath,
         CryptoLib_Hash* pHash
     )
 {
     RBOOL isSuccess = FALSE;
     RPWCHAR tmpW = NULL;
+    RPWCHAR effectivePath = NULL;
 
     if( NULL != ( tmpW = rpal_string_atow( filePath ) ) )
     {
-        isSuccess = _thorough_file_hashW( tmpW, pHash );
+        isSuccess = _thorough_file_hashW( tmpW, pEffectivePath ? &effectivePath : NULL, pHash );
+
+        if( NULL != effectivePath )
+        {
+            if( NULL != pEffectivePath )
+            {
+                *pEffectivePath = rpal_string_wtoa( effectivePath );
+            }
+
+            rpal_memory_free( effectivePath );
+        }
 
         rpal_memory_free( tmpW );
     }
@@ -2088,6 +2254,8 @@ RVOID
     RPCHAR entryDllA = NULL;
     RPCHAR entryExeA = NULL;
     CryptoLib_Hash hash = { 0 };
+    RPWCHAR effectiveW = NULL;
+    RPCHAR effectiveA = NULL;
 
     while( rList_getSEQUENCE( svcList, RP_TAGS_SVC, &svcEntry ) )
     {
@@ -2095,6 +2263,8 @@ RVOID
         entryDllW = NULL;
         entryExeA = NULL;
         entryDllA = NULL;
+        effectiveW = NULL;
+        effectiveA = NULL;
 
         if( !rSequence_getSTRINGW( svcEntry, RP_TAGS_EXECUTABLE, &entryExeW ) )
         {
@@ -2111,21 +2281,28 @@ RVOID
         if( ( NULL == entryDllW && NULL == entryDllA ) &&
             ( NULL != entryExeW || NULL != entryExeA ) )
         {
-            if( ( NULL != entryExeW && _thorough_file_hashW( entryExeW, &hash ) ) ||
-                ( NULL != entryExeA && _thorough_file_hashA( entryExeA, &hash ) ) )
+            if( ( NULL != entryExeW && _thorough_file_hashW( entryExeW, &effectiveW, &hash ) ) ||
+                ( NULL != entryExeA && _thorough_file_hashA( entryExeA, &effectiveA, &hash ) ) )
             {
                 rSequence_addBUFFER( svcEntry, RP_TAGS_HASH, (RPU8)&hash, sizeof( hash ) );
+                rSequence_addSTRINGW( svcEntry, RP_TAGS_FILE_PATH, effectiveW );
+                rSequence_addSTRINGA( svcEntry, RP_TAGS_FILE_PATH, effectiveA );
             }
         }
         else if( NULL != entryDllW ||
                  NULL != entryDllA )
         {
-            if( ( NULL != entryDllW && _thorough_file_hashW( entryDllW, &hash ) ) ||
-                ( NULL != entryDllA && _thorough_file_hashA( entryDllA, &hash ) ) )
+            if( ( NULL != entryDllW && _thorough_file_hashW( entryDllW, &effectiveW, &hash ) ) ||
+                ( NULL != entryDllA && _thorough_file_hashA( entryDllA, &effectiveA, &hash ) ) )
             {
                 rSequence_addBUFFER( svcEntry, RP_TAGS_HASH, (RPU8)&hash, sizeof( hash ) );
+                rSequence_addSTRINGW( svcEntry, RP_TAGS_FILE_PATH, effectiveW );
+                rSequence_addSTRINGA( svcEntry, RP_TAGS_FILE_PATH, effectiveA );
             }
         }
+
+        rpal_memory_free( effectiveW );
+        rpal_memory_free( effectiveA );
     }
 }
 
@@ -2334,8 +2511,8 @@ RVOID
         {
             rSequence_unTaintRead( autoEntry );
 
-            if( ( NULL != entryExeW && _thorough_file_hashW( entryExeW, &hash ) ) ||
-                ( NULL != entryExeA && _thorough_file_hashA( entryExeA, &hash ) ) )
+            if( ( NULL != entryExeW && _thorough_file_hashW( entryExeW, NULL, &hash ) ) ||
+                ( NULL != entryExeA && _thorough_file_hashA( entryExeA, NULL, &hash ) ) )
             {
                 rSequence_addBUFFER( autoEntry, RP_TAGS_HASH, (RPU8)&hash, sizeof( hash ) );
             }
@@ -2368,6 +2545,13 @@ RBOOL
         REG_EXPAND_SZ == type ) &&
         0 != size )
     {
+        // Short circuit empty string.
+        if( sizeof( RWCHAR ) == size &&
+            0 == *(RPWCHAR)value )
+        {
+            return TRUE;
+        }
+
         *(RPWCHAR)( value + size ) = 0;
 
         // We remove any NULL characters in the string as it's a technique used by some malware.
@@ -2424,6 +2608,13 @@ RBOOL
     }
     else if( REG_MULTI_SZ == type )
     {
+        // Short circuit empty string.
+        if( sizeof( RWCHAR ) == size &&
+            0 == *(RPWCHAR)value )
+        {
+            return TRUE;
+        }
+
         tmp = (RPWCHAR)value;
         while( (RPU8)tmp < ( (RPU8)value + size ) &&
             (RPU8)( tmp + rpal_string_strlenw( tmp ) ) <= ( (RPU8)value + size ) )

@@ -24,6 +24,7 @@ limitations under the License.
 
 #define RPAL_FILE_ID        77
 
+#define _FULL_SNAPSHOT_DEFAULT_DELTA        (60*60*24)
 
 static
 RVOID
@@ -202,7 +203,7 @@ RPVOID
     if( NULL != ( dummy = rSequence_new() ) )
     {
         rpal_debug_info( "beginning full os snapshots run" );
-        while( !rEvent_wait( isTimeToStop, MSEC_FROM_SEC( 60 ) ) &&
+        while( !rEvent_wait( isTimeToStop, MSEC_FROM_SEC( 10 ) ) &&
                rpal_memory_isValid( isTimeToStop ) &&
                i < ARRAY_N_ELEM( events ) )
         {
@@ -266,7 +267,7 @@ RBOOL
     )
 {
     RBOOL isSuccess = FALSE;
-    RU64 timeDelta = 0;
+    RU64 timeDelta = _FULL_SNAPSHOT_DEFAULT_DELTA;
 
     UNREFERENCED_PARAMETER( config );
 
@@ -280,13 +281,17 @@ RBOOL
         {
             isSuccess = TRUE;
 
-            if( rpal_memory_isValid( config ) &&
-                rSequence_getTIMEDELTA( config, RP_TAGS_TIMEDELTA, &timeDelta ) )
+            if( rpal_memory_isValid( config ) )
             {
-                if( !rThreadPool_scheduleRecurring( hbsState->hThreadPool, timeDelta, allOsSnapshots, NULL, TRUE ) )
+                if( !rSequence_getTIMEDELTA( config, RP_TAGS_TIMEDELTA, &timeDelta ) )
                 {
-                    isSuccess = FALSE;
+                    timeDelta = _FULL_SNAPSHOT_DEFAULT_DELTA;
                 }
+            }
+
+            if( !rThreadPool_scheduleRecurring( hbsState->hThreadPool, timeDelta, allOsSnapshots, NULL, TRUE ) )
+            {
+                isSuccess = FALSE;
             }
         }
         else

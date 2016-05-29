@@ -31,7 +31,7 @@ static StatefulMachineDescriptor* g_statefulMachines[] =
 {
     ENABLED_WINDOWS_STATEFUL( 0 ),
     ENABLED_STATEFUL( 1 ),
-    ENABLED_STATEFUL( 2 )
+    ENABLED_WINDOWS_STATEFUL( 2 )
 };
 
 static

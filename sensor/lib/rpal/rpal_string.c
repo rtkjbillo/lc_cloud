@@ -666,6 +666,11 @@ RPWCHAR
             tmpNeedle = rpal_string_toupperw( tmpNeedle );
 
             out = rpal_string_strstrw( tmpHaystack, tmpNeedle );
+
+            if( NULL != out )
+            {
+                out = haystack + ( out - tmpHaystack );
+            }
         }
 
         if( NULL != tmpHaystack )

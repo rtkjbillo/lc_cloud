@@ -2291,14 +2291,11 @@ RPWCHAR
         RWCHAR winDir[] = _WCH( "%windir%" );
         RWCHAR uncPath[] = _WCH( "\\??\\" );
         RWCHAR sys32Dir[] = _WCH( "\\system32" );
+        RWCHAR sys32Prefix[] = _WCH( "system32\\" );
         RWCHAR sysRootDir[] = _WCH( "\\systemroot" );
         RWCHAR deviceDir[] = _WCH( "\\device\\" );
         RWCHAR defaultPath[] = _WCH( "%windir%\\system32\\" );
-        RWCHAR defaultExt[] = _WCH( ".dll" );
-        RWCHAR foundPath[ RPAL_MAX_PATH ] = { 0 };
         RWCHAR tmpDrive[ 3 ] = { 0, _WCH( ':' ), 0 };
-        RU32 foundLen = 0;
-        RU32 preModLen = 0;
 
         // Local caches
         static RWCHAR currentSysDrive[ 3 ] = { 0 };
@@ -2368,21 +2365,7 @@ RPWCHAR
                 }
             }
 
-            if( !isFullPath )
-            {
-                foundLen = SearchPathW( NULL, filePath, defaultExt, ARRAY_N_ELEM( foundPath ), foundPath, NULL );
-                if( 0 != foundLen && ARRAY_N_ELEM( foundPath ) > foundLen )
-                {
-                    rpal_stringbuffer_addw( tmpPath, foundPath );
-                    rpal_memory_zero( foundPath, sizeof( foundPath ) );
-                }
-                else
-                {
-                    rpal_stringbuffer_addw( tmpPath, (RPWCHAR)currentDefaultPath );
-                    rpal_stringbuffer_addw( tmpPath, filePath );
-                }
-            }
-            else
+            if( isFullPath )
             {
                 // Many paths need to be fixed, they all start with a \ so ignore
                 // the path if it doesn't.
@@ -2425,61 +2408,16 @@ RPWCHAR
                         rpal_stringbuffer_addw( tmpPath, currentSysDrive );
                     }
                 }
+                else if( rpal_string_startswithiw( filePath, sys32Prefix ) )
+                {
+                    rpal_stringbuffer_addw( tmpPath, currentWinDir );
+                    rpal_stringbuffer_addw( tmpPath, _WCH( "\\" ) );
+                }
 
                 rpal_stringbuffer_addw( tmpPath, filePath );
             }
 
             tmpStr = rpal_stringbuffer_getStringw( tmpPath );
-            len = rpal_string_strlenw( tmpStr );
-
-            // Sometimes we deal with lists with commas, strip them
-            for( i = 0; i < len; i++ )
-            {
-                if( _WCH( ',' ) == tmpStr[ i ] )
-                {
-                    tmpStr[ i ] = 0;
-                }
-            }
-
-            // We remove any trailing white spaces
-            rpal_string_trimw( tmpStr, _WCH( " \t" ) );
-
-            // If this is a quoted path we will move past the first quote
-            // and null-terminate at the next quote
-            len = rpal_string_strlenw( tmpStr );
-            preModLen = len;
-            if( _WCH( '"' ) == tmpStr[ 0 ] )
-            {
-                tmpStr++;
-                len--;
-                for( i = 0; i < len; i++ )
-                {
-                    if( _WCH( '"' ) == tmpStr[ i ] )
-                    {
-                        tmpStr[ i ] = 0;
-                        len = rpal_string_strlenw( tmpStr );
-                        break;
-                    }
-                }
-            }
-
-            // Sometimes extensions are missing, default to dll
-            if( 4 > len ||
-                _WCH( '.' ) != tmpStr[ len - 4 ] )
-            {
-                rpal_stringbuffer_addw( tmpPath, (RPWCHAR)&defaultExt );
-                tmpStr = rpal_stringbuffer_getStringw( tmpPath );
-
-                if( len < preModLen )
-                {
-                    // The string has been shortened, so its actual end does not correspond to
-                    // that of the buffer. Thus, we reconcatenate the default extension to its
-                    // actual end, comfortable in the knowledge that there is enough room
-                    // allocated for it (because of the prior appending to the buffer).
-                    rpal_string_strcatw( tmpStr, (RPWCHAR)defaultExt );
-                }
-            }
-
             clean = rpal_string_strdupw( tmpStr );
             rpal_stringbuffer_free( tmpPath );
         }

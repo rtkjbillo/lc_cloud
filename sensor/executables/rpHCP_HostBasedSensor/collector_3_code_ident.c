@@ -230,8 +230,11 @@ RVOID
 
                 // We need to re-get the paths in case adding the error triggered
                 // a change in the structure.
-                rSequence_getSTRINGA( event, RP_TAGS_FILE_PATH, &nameA );
-                rSequence_getSTRINGW( event, RP_TAGS_FILE_PATH, &nameW );
+                if( rSequence_getSTRINGA( event, RP_TAGS_FILE_PATH, &nameA ) ||
+                    rSequence_getSTRINGW( event, RP_TAGS_FILE_PATH, &nameW ) )
+                {
+                    // Find the name again with shortcircuit
+                }
             }
             else
             {
@@ -294,8 +297,11 @@ RVOID
 
                 // We need to re-get the paths in case adding the error triggered
                 // a change in the structure.
-                rSequence_getSTRINGA( event, RP_TAGS_FILE_PATH, &nameA );
-                rSequence_getSTRINGW( event, RP_TAGS_FILE_PATH, &nameW );
+                if( rSequence_getSTRINGA( event, RP_TAGS_FILE_PATH, &nameA ) ||
+                    rSequence_getSTRINGW( event, RP_TAGS_FILE_PATH, &nameW ) )
+                {
+                    // Find the name again with shortcircuit
+                }
             }
             else
             {
@@ -359,7 +365,15 @@ RVOID
                 {
                     if( _MAX_FILE_HASH_SIZE < rpal_file_getSize( nameA, TRUE ) )
                     {
+                        rSequence_unTaintRead( event );
                         rSequence_addRU32( event, RP_TAGS_ERROR, RPAL_ERROR_FILE_TOO_LARGE );
+
+                        if( rSequence_getSTRINGA( event, RP_TAGS_FILE_PATH, &nameA ) ||
+                            rSequence_getSTRINGA( event, RP_TAGS_DLL, &nameA ) ||
+                            rSequence_getSTRINGA( event, RP_TAGS_EXECUTABLE, &nameA ) )
+                        {
+                            // Find the name again with shortcircuit
+                        }
                     }
                     else if( CryptoLib_hashFileA( nameA, &localHash, TRUE ) )
                     {
@@ -375,7 +389,15 @@ RVOID
                 {
                     if( _MAX_FILE_HASH_SIZE < rpal_file_getSizew( nameW, TRUE ) )
                     {
+                        rSequence_unTaintRead( event );
                         rSequence_addRU32( event, RP_TAGS_ERROR, RPAL_ERROR_FILE_TOO_LARGE );
+
+                        if( rSequence_getSTRINGW( event, RP_TAGS_FILE_PATH, &nameW ) ||
+                            rSequence_getSTRINGW( event, RP_TAGS_DLL, &nameW ) ||
+                            rSequence_getSTRINGW( event, RP_TAGS_EXECUTABLE, &nameW ) )
+                        {
+                            // Find the name again with shortcircuit
+                        }
                     }
                     else if( CryptoLib_hashFileW( nameW, &localHash, TRUE ) )
                     {
