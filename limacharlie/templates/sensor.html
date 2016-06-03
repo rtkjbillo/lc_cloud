@@ -234,6 +234,7 @@ $var title = sensor_id
                           after : from_time
                      }).done(function(data){add_to_timeline(data);})
                                                             .fail(function(){add_to_timeline([]);});
+        future.error(function(jqXHR, textStatus, errorThrown){jQuery('#timeline').parent().after(jQuery('<div>').html('<center><h1><div style="color:red;">ERROR: ' + errorThrown + '</div></h1></center>'))});
 
         $if before is None:
             future.always(function(){setTimeout( do_refresh_timeline, 5000 );});
