@@ -216,7 +216,7 @@ class SensorState:
 class Timeline:
     @jsonApi
     def GET( self ):
-        params = web.input( sensor_id = None, after = None, before = None, max_size = '4096', rich = 'false' )
+        params = web.input( sensor_id = None, after = None, before = None, max_size = '4096', rich = 'false', max_time = None )
 
         if params.sensor_id is None:
             raise web.HTTPError( '400 Bad Request: sensor id required' )
@@ -226,7 +226,20 @@ class Timeline:
 
         start_time = int( params.after )
         max_size = int( params.max_size )
+        max_time = 60 * 60 * 4
+        if params.max_time is not None and '' != params.max_time:
+            max_time = int( params.max_time )
+        end_time = None
+        if params.before is not None and '' != params.before:
+            end_time = int( params.before )
         rich = True if params.rich == 'true' else False
+
+        if 0 != start_time:
+            effective_end_time = int( time.time() )
+            if end_time is not None:
+                effective_end_time = end_time
+            if max_time < ( effective_end_time - start_time ):
+                raise web.HTTPError( '400 Bad Request: maximum time lapse: %d - %d > %d' % ( effective_end_time, start_time, max_time ) )
 
         if 0 == start_time:
             start_time = int( time.time() ) - 5
@@ -238,8 +251,8 @@ class Timeline:
         if not rich:
             req[ 'max_size' ] = max_size
 
-        if params.before is not None and '' != params.before:
-            req[ 'before' ] = int( params.before )
+        if end_time is not None:
+            req[ 'before' ] = end_time
 
         info = model.request( 'get_timeline', req )
 
