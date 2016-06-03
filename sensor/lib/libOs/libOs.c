@@ -2127,7 +2127,8 @@ RBOOL
                             originalLength = rpal_string_strlenw( cleanPath );
 
                             // If there is no file extension, try the default ones
-                            if( _WCH( '.' ) != cleanPath[ originalLength - 4 ] )
+                            if( 4 > originalLength ||
+                                _WCH( '.' ) != cleanPath[ originalLength - 4 ] )
                             {
                                 if( rpal_stringbuffer_addw( tmpString, defaultExt ) )
                                 {
@@ -2176,7 +2177,8 @@ RBOOL
                         else
                         {
                             // If there is no file extension, try the default ones
-                            if( _WCH( '.' ) != cleanPath[ originalLength - 4 ] )
+                            if( 4 > originalLength ||
+                                _WCH( '.' ) != cleanPath[ originalLength - 4 ] )
                             {
                                 if( rpal_stringbuffer_addw( tmpString, defaultExt ) )
                                 {
