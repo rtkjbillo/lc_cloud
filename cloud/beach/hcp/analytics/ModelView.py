@@ -194,9 +194,11 @@ class ModelView( Actor ):
     def get_event( self, msg ):
         event = Host.getSpecificEvent( msg.data[ 'id' ] )
 
-        event = ( event[ 0 ], FluxEvent.decode( event[ 2 ] ) )
-
-        return ( True, { 'event' : event } )
+        if event is not None:
+            event = ( event[ 0 ], FluxEvent.decode( event[ 2 ] ) )
+            return ( True, { 'event' : event } )
+        else:
+            return ( False, 'event not found' )
 
     def list_sensors( self, msg ):
         sensors = self.admin.hcp_getAgentStates()
