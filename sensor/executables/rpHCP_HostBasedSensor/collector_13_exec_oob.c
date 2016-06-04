@@ -383,6 +383,51 @@ RVOID
     }
 }
 
+
+static
+RVOID
+    scan_late_for_exec_oob
+    (
+        rpcm_tag eventType,
+        rSequence event
+    )
+{
+    rList statefulEvents = NULL;
+    rSequence statefulEvent = NULL;
+    RU32 pid = (RU32)( -1 );
+    LibOsPerformanceProfile perfProfile = { 0 };
+    rEvent dummy = NULL;
+
+    UNREFERENCED_PARAMETER( eventType );
+
+    perfProfile.enforceOnceIn = 1;
+    perfProfile.sanityCeiling = MSEC_FROM_SEC( 60 );
+    perfProfile.lastTimeoutValue = MSEC_FROM_SEC( 2 );
+    perfProfile.targetCpuPerformance = 10;
+    perfProfile.globalTargetCpuPerformance = GLOBAL_CPU_USAGE_TARGET_WHEN_TASKED;
+    perfProfile.timeoutIncrementPerSec = 100;
+
+    if( rSequence_getLIST( event, RP_TAGS_EVENTS, &statefulEvents ) )
+    {
+        while( rList_getSEQUENCE( statefulEvents, RP_TAGS_INVALID, &statefulEvent ) )
+        {
+            if( rSequence_getRU32( statefulEvent, RP_TAGS_PROCESS_ID, &pid ) )
+            {
+                break;
+            }
+        }
+    }
+    
+    if( (RU32)(-1) != pid &&
+        NULL != ( dummy = rEvent_create( TRUE ) ) )
+    {
+        lookForExecOobIn( dummy, pid, event, &perfProfile );
+
+        rEvent_free( dummy );
+    }
+}
+
+
 static
 RPVOID
     lookForExecOobConstantly
@@ -455,13 +500,19 @@ RBOOL
                                          0,
                                          NULL,
                                          scan_for_exec_oob ) &&
-                rThreadPool_task( hbsState->hThreadPool, lookForExecOobConstantly, NULL) )
+                notifications_subscribe( RP_TAGS_NOTIFICATION_LATE_MODULE_LOAD,
+                                         NULL,
+                                         0,
+                                         NULL,
+                                         scan_late_for_exec_oob ) &&
+                rThreadPool_task( hbsState->hThreadPool, lookForExecOobConstantly, NULL ) )
             {
                 isSuccess = TRUE;
             }
             else
             {
                 notifications_unsubscribe( RP_TAGS_NOTIFICATION_EXEC_OOB_REQ, NULL, scan_for_exec_oob );
+                notifications_unsubscribe( RP_TAGS_NOTIFICATION_LATE_MODULE_LOAD, NULL, scan_late_for_exec_oob );
                 rMutex_free( g_oob_exec_mutex );
             }
         }
@@ -484,6 +535,7 @@ RBOOL
     if( NULL != hbsState )
     {
         notifications_unsubscribe( RP_TAGS_NOTIFICATION_EXEC_OOB_REQ, NULL, scan_for_exec_oob );
+        notifications_unsubscribe( RP_TAGS_NOTIFICATION_LATE_MODULE_LOAD, NULL, scan_late_for_exec_oob );
         rMutex_free( g_oob_exec_mutex );
 
         isSuccess = TRUE;
