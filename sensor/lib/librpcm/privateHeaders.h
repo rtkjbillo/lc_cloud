@@ -60,9 +60,7 @@ typedef struct
     RU32        nElements;
     rpcm_tag    tag;
     rBlob       blob;
-#ifdef RPAL_PLATFORM_DEBUG
     RBOOL       isReadTainted;
-#endif
 
 } _ElementSet, *_PElementSet;
 

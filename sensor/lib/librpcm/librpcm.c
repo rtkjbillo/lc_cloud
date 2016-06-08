@@ -342,9 +342,8 @@ RBOOL
         set->nElements = 0;
         set->tag = RPCM_INVALID_TAG;
         set->blob = rpal_blob_create_from( 0, 0, from );
-#ifdef RPAL_PLATFORM_DEBUG
         set->isReadTainted = FALSE;
-#endif
+
         if( rpal_memory_isValid( set->blob ) )
         {
             isInit = TRUE;
@@ -457,12 +456,11 @@ RBOOL
 
         if( isElemSimple( &header ) )
         {
-#ifdef RPAL_PLATFORM_DEBUG
             if( set->isReadTainted )
             {
                 rpal_debug_critical( "ADD operation of an RPCM structure that was READ from before. This is potentially invalidating previously acquired pointers." );
             }
-#endif
+
             simpleHeader.commonHeader = header;
             
             if( rpal_blob_add( set->blob, &simpleHeader, sizeof( simpleHeader ) ) )
@@ -497,12 +495,11 @@ RBOOL
         }
         else if( isElemVariable( &header ) )
         {
-#ifdef RPAL_PLATFORM_DEBUG
             if( set->isReadTainted )
             {
                 rpal_debug_critical( "ADD operation of an RPCM structure that was READ from before. This is potentially invalidating previously acquired pointers." );
             }
-#endif
+
             varHeader.commonHeader = header;
 
             switch( type )
@@ -642,9 +639,7 @@ RBOOL
                                 // I want the raw pointer
                                 *(RPVOID*)pElem = simpleElem->data;
 
-#ifdef RPAL_PLATFORM_DEBUG
                                 set->isReadTainted = TRUE;
-#endif
                             }
 
                             if( NULL != pAfterThis )
@@ -672,9 +667,8 @@ RBOOL
                             if( NULL != pElem )
                             {
                                 *(RPCHAR*)pElem = (RPCHAR)varElem->data;
-#ifdef RPAL_PLATFORM_DEBUG
+
                                 set->isReadTainted = TRUE;
-#endif
                             }
 
                             if( NULL != pAfterThis )
@@ -1043,6 +1037,8 @@ RBOOL
         }
         else
         {
+            set->isReadTainted = FALSE;
+
             if( NULL != pBytesConsumed )
             {
                 *pBytesConsumed = (RU32)((RPU8)header - buffer);
@@ -1629,11 +1625,7 @@ RVOID
         rSequence seq
     )
 {
-#ifdef RPAL_PLATFORM_DEBUG
     ((_rSequence*)seq)->set.isReadTainted = FALSE;
-#else
-    UNREFERENCED_PARAMETER( seq );
-#endif
     return;
 }
 
@@ -1643,11 +1635,7 @@ RVOID
         rList list
     )
 {
-#ifdef RPAL_PLATFORM_DEBUG
     ((_rList*)list)->set.isReadTainted = FALSE;
-#else
-    UNREFERENCED_PARAMETER( list );
-#endif
     return;
 }
 
