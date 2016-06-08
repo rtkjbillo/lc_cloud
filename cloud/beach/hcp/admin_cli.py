@@ -800,7 +800,7 @@ class HcpCli ( cmd.Cmd ):
                              help = 'optional maximum depth of the listing, defaults to a single level' )
         arguments = self.parse( parser, s )
         if arguments is not None:
-            self._executeHbsTasking( self.tags.hbs.NOTIFICATION_DIR_LIST_REQ,
+            self._executeHbsTasking( self.tags.notification.DIR_LIST_REQ,
                                      rSequence().addStringW( self.tags.base.FILE_PATH, arguments.fileExp )
                                                 .addStringW( self.tags.base.DIRECTORY_PATH, arguments.rootDir )
                                                 .addInt32( self.tags.base.DIRECTORY_LIST_DEPTH, arguments.depth ),
