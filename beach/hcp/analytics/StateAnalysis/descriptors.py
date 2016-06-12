@@ -12,14 +12,17 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from beach.actor import Actor
 StateMachineDescriptor = Actor.importLib( './', 'StateMachineDescriptor' )
 State = Actor.importLib( './', 'State' )
 StateTransition = Actor.importLib( './', 'StateTransition' )
-ProcessNamed = Actor.importLib( './transitions', 'ProcessNamed' )
+NewProcessNamed = Actor.importLib( './transitions', 'NewProcessNamed' )
 HistoryOlderThan = Actor.importLib( './transitions', 'HistoryOlderThan' )
 RunningPidReset = Actor.importLib( './transitions', 'RunningPidReset' )
 AlwaysReturn = Actor.importLib( './transitions', 'AlwaysReturn' )
 EventOfType = Actor.importLib( './transitions', 'EventOfType' )
+ParentProcessInHistory = Actor.importLib( './transitions', 'ParentProcessInHistory' )
+NotParentProcessInHistory = Actor.importLib( './transitions', 'NotParentProcessInHistory' )
 
 def ProcessBurst( name, procRegExp, nPerBurst, withinSeconds ):
 	states = []
@@ -60,7 +63,7 @@ def EventBurst( name, eventType, nPerBurst, withinSeconds ):
 		states.append( State( StateTransition( isRecordOnMatch = True, 
 									           isReportOnMatch = False if i < nPerBurst else True,
 		        							   toState = i if i < nPerBurst else 0, 
-			        		  				   evalFunc = EventOfType( procRegExp ) ), 
+			        		  				   evalFunc = EventOfType( eventType ) ), 
 			        		  StateTransition( toState = 0, 
 			        		   			       evalFunc = HistoryOlderThan( withinSeconds ) ) ) )
 	return StateMachineDescriptor( name, *states )

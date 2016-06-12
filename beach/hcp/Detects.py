@@ -16,7 +16,7 @@ from beach.actor import Actor
 import hashlib
 from sets import Set
 import time
-SAMLoadWidgets = Actor.importLib( 'analytics/StateAnalysis', 'StateMachine' )
+StateMachine = Actor.importLib( 'analytics/StateAnalysis', 'StateMachine' )
 CreateOnAccess = Actor.importLib( 'hcp_helpers', 'CreateOnAccess' )
 
 def GenerateDetectReport( agentid, msgIds, cat, detect ):
@@ -83,8 +83,6 @@ class StatefulActor ( Actor ):
         self._machine_ttl = parameters.get( 'machine_ttl', ( 60 * 60 * 24 * 30 ) )
         if not hasattr( self, 'initMachines' ):
             raise Exception( 'Stateful Actor has no "initMachines" function' )
-        if not hasattr( self, 'processDetects' ):
-            raise Exception( 'Stateful Actor has no "processDetects" function' )
 
         self._machines = []
         self.initMachines( parameters )

@@ -72,7 +72,7 @@ def RunningPidReset():
 def AlwaysReturn( bValue ):
 	def _alwaysReturn( history, event ):
 		return bValue
-	return _alwaysMatch
+	return _alwaysReturn
 
 def EventOfType( eventType ):
 	def _eventOfType( history, event ):

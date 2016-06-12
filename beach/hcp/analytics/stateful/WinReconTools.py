@@ -21,7 +21,7 @@ class WinReconTools ( StatefulActor ):
         self.shardingKey = 'agentid'
 
         reconBurst = ProcessBurst( name = 'windows_recon_burst', 
-        						   procRegExp = r'.*(/|\\\)((ipconfig)|(arp)|(route)|(ping)|(traceroute)|(nslookup)|(netstat)|(wmic)|(net\d?)|(whoami)|(systeminfo))\.exe',
+        						   procRegExp = r'.*(/|\\)((ipconfig)|(arp)|(route)|(ping)|(traceroute)|(nslookup)|(netstat)|(wmic)|(net\d?)|(whoami)|(systeminfo))\.exe',
         						   nPerBurst = 3,
         						   withinSeconds = 5 )
         

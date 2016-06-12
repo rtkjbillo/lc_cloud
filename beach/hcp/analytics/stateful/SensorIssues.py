@@ -22,7 +22,7 @@ class SensorIssues ( StatefulActor ):
         self.shardingKey = 'agentid'
 
         #TODO: vary the logic for other platforms and ensure it's the right executable name.
-        hcpProcesses = r'.*(/|\\\)((rphcp)|(hcp_.+))\.exe'
+        hcpProcesses = r'.*(/|\\)((rphcp)|(hcp_.+))\.exe'
         anyApps = r'.*'
         
         hcpSpawningProcesses = ProcessDescendant( name = 'hcp_spawns_anything',

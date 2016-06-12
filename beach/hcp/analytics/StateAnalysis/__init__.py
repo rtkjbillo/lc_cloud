@@ -20,11 +20,11 @@ class StateEvent ( object ):
 
 class StateTransition ( object ):
     def __init__( self,
+                  toState, 
+                  evalFunc,
                   isReportOnMatch = False, 
                   isRecordOnMatch = False, 
-                  isKillOnEmptyHistory = False, 
-                  toState, 
-                  evalFunc ):
+                  isKillOnEmptyHistory = False ):
         self.isReportOnMatch = isReportOnMatch
         self.isRecordOnMatch = isRecordOnMatch
         self.isKillOnEmptyHistory = isKillOnEmptyHistory
@@ -33,11 +33,11 @@ class StateTransition ( object ):
 
 class State ( object ):
     def __init__( self, *transitions ):
-        self.transitions = *transitions
+        self.transitions = transitions
 
 class StateMachineDescriptor ( object ):
     def __init__( self, detectName, *states ):
-        self.states = *states
+        self.states = states
         self.detectName = detectName
 
 class _StateMachineContext( object ):
@@ -55,7 +55,7 @@ class _StateMachineContext( object ):
             if transition.evalFunc( self._history, event ):
                 if transition.isRecordOnMatch:
                     self._history.append( event )
-                if transition.isReportOnMatch
+                if transition.isReportOnMatch:
                     reportType = self._descriptor.reportEventType
                     reportContent = self._history
                 if ( 0 == transition.toState or 
