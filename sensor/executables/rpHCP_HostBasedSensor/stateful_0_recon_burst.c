@@ -22,6 +22,7 @@ limitations under the License.
 #define RECON_N_PER_BURST   (4)
 
 static tr_match_params recon_tools[] = {
+#ifdef RPAL_PLATFORM_WINDOWS
     EXECUTABLE_MATCHES( "*\\ipconfig.exe" ),
     EXECUTABLE_MATCHES( "*\\netstat.exe" ),
     EXECUTABLE_MATCHES( "*\\ping.exe" ),
@@ -34,12 +35,21 @@ static tr_match_params recon_tools[] = {
     EXECUTABLE_MATCHES( "*\\net?.exe" ),
     EXECUTABLE_MATCHES( "*\\whoami.exe" ),
     EXECUTABLE_MATCHES( "*\\systeminfo.exe" )
+#else
+    EXECUTABLE_MATCHES( "*/ifconfig" ),
+    EXECUTABLE_MATCHES( "*/nslookup" ),
+    EXECUTABLE_MATCHES( "*/whoami" ),
+    EXECUTABLE_MATCHES( "*/ps" ),
+    EXECUTABLE_MATCHES( "*/traceroute" ),
+    EXECUTABLE_MATCHES( "*/netstat" )
+#endif
 };
 
 static tr_match_params expired = { 
     0, NULL, NULL, { 0 }, FALSE, RECONS_IN_SEC, 0, TRUE, FALSE
 };
 
+#ifdef RPAL_PLATFORM_WINDOWS
 #define RECON_TRANSITIONS(isFinal,toState) \
     TRANSITION( isFinal, TRUE, FALSE, RP_TAGS_NOTIFICATION_NEW_PROCESS, toState, recon_tools[ 0 ], tr_match ), \
     TRANSITION( isFinal, TRUE, FALSE, RP_TAGS_NOTIFICATION_NEW_PROCESS, toState, recon_tools[ 1 ], tr_match ), \
@@ -54,6 +64,16 @@ static tr_match_params expired = {
     TRANSITION( isFinal, TRUE, FALSE, RP_TAGS_NOTIFICATION_NEW_PROCESS, toState, recon_tools[ 10 ], tr_match ), \
     TRANSITION( isFinal, TRUE, FALSE, RP_TAGS_NOTIFICATION_NEW_PROCESS, toState, recon_tools[ 11 ], tr_match ), \
     TRANSITION( FALSE, FALSE, FALSE, 0, 0, expired, tr_match )
+#else
+#define RECON_TRANSITIONS(isFinal,toState) \
+    TRANSITION( isFinal, TRUE, FALSE, RP_TAGS_NOTIFICATION_NEW_PROCESS, toState, recon_tools[ 0 ], tr_match ), \
+    TRANSITION( isFinal, TRUE, FALSE, RP_TAGS_NOTIFICATION_NEW_PROCESS, toState, recon_tools[ 1 ], tr_match ), \
+    TRANSITION( isFinal, TRUE, FALSE, RP_TAGS_NOTIFICATION_NEW_PROCESS, toState, recon_tools[ 2 ], tr_match ), \
+    TRANSITION( isFinal, TRUE, FALSE, RP_TAGS_NOTIFICATION_NEW_PROCESS, toState, recon_tools[ 3 ], tr_match ), \
+    TRANSITION( isFinal, TRUE, FALSE, RP_TAGS_NOTIFICATION_NEW_PROCESS, toState, recon_tools[ 4 ], tr_match ), \
+    TRANSITION( isFinal, TRUE, FALSE, RP_TAGS_NOTIFICATION_NEW_PROCESS, toState, recon_tools[ 5 ], tr_match ), \
+    TRANSITION( FALSE, FALSE, FALSE, 0, 0, expired, tr_match )
+#endif
 
 
 

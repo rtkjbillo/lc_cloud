@@ -81,7 +81,6 @@ RBOOL
         StatefulEvent* event
     );
 
-
 StatefulMachine*
     SMPrime
     (

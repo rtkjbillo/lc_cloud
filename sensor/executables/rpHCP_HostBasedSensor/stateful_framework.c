@@ -234,11 +234,6 @@ RBOOL
             currentState = (StatefulState*)( machine->desc->states[ machine->currentState ] );
             for( i = 0; i < currentState->nTransitions; i++ )
             {
-                if( i == 2 &&
-                    machine->currentState == 1 )
-                {
-                    i = i;
-                }
                 if( ( 0 == currentState->transitions[ i ].eventTypeOnly || 
                       event->eventType == currentState->transitions[ i ].eventTypeOnly ) &&
                     ( NULL == currentState->transitions[ i ].transition ||
