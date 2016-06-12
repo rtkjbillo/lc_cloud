@@ -13,20 +13,16 @@
 # limitations under the License.
 
 from beach.actor import Actor
-ObjectTypes = Actor.importLib( '../../ObjectsDb', 'ObjectTypes' )
+ProcessBurst = Actor.importLib( '../../analytics/StateAnalysis/descriptors', 'ProcessBurst' )
 StatefulActor = Actor.importLib( '../../Detects', 'StatefulActor' )
 
 class MacReconTools ( StatefulActor ):
     def initMachines( self, parameters ):
         self.shardingKey = 'agentid'
-        self.machines = {
-            'sensor_restarting' :
-'''
-SAMTimeBurst( parameters = { 'within' : 10, 'min_burst' : 4 } )
-    .feed_from( SAMSelector( parameters = {
-        'event/notification.NEW_PROCESS/base.FILE_PATH' : r'.*/((ifconfig)|(arp)|(route)|(ping)|(traceroute)|(nslookup)|(netstat)|(wget)|(curl))' } ) )
-'''
-        }
 
-    def processDetects( self, detects ):
-        return detects
+        reconBurst = ProcessBurst( name = 'mac_recon_burst', 
+        						   procRegExp = r'.*/((ifconfig)|(arp)|(route)|(ping)|(traceroute)|(nslookup)|(netstat)|(wget)|(curl))',
+        						   nPerBurst = 3,
+        						   withinSeconds = 5 )
+        
+        self.addStateMachineDescriptor( reconBurst )

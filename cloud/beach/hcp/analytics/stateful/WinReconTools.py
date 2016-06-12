@@ -13,20 +13,16 @@
 # limitations under the License.
 
 from beach.actor import Actor
-ObjectTypes = Actor.importLib( '../../ObjectsDb', 'ObjectTypes' )
+ProcessBurst = Actor.importLib( '../../analytics/StateAnalysis/descriptors', 'ProcessBurst' )
 StatefulActor = Actor.importLib( '../../Detects', 'StatefulActor' )
 
 class WinReconTools ( StatefulActor ):
     def initMachines( self, parameters ):
         self.shardingKey = 'agentid'
-        self.machines = {
-            'sensor_restarting' :
-'''
-SAMTimeBurst( parameters = { 'within' : 10, 'min_burst' : 3 } )
-    .feed_from( SAMSelector( parameters = {
-        'event/notification.NEW_PROCESS/base.FILE_PATH' : r'.*(/|\\\)((ipconfig)|(arp)|(route)|(ping)|(traceroute)|(nslookup)|(netstat)|(wmic)|(net\d?)|(whoami)|(systeminfo))\.exe' } ) )
-'''
-        }
 
-    def processDetects( self, detects ):
-        return detects
+        reconBurst = ProcessBurst( name = 'windows_recon_burst', 
+        						   procRegExp = r'.*(/|\\\)((ipconfig)|(arp)|(route)|(ping)|(traceroute)|(nslookup)|(netstat)|(wmic)|(net\d?)|(whoami)|(systeminfo))\.exe',
+        						   nPerBurst = 3,
+        						   withinSeconds = 5 )
+        
+        self.addStateMachineDescriptor( reconBurst )
