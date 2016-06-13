@@ -26,18 +26,16 @@ NotParentProcessInHistory = Actor.importLib( './transitions', 'NotParentProcessI
 
 def ProcessBurst( name, procRegExp, nPerBurst, withinSeconds ):
 	states = []
-	for i in xrange( 1, nPerBurst ):
+	for i in xrange( 0, nPerBurst ):
 		states.append( State( StateTransition( isRecordOnMatch = True, 
-									           isReportOnMatch = False if i < nPerBurst else True,
-		        							   toState = i if i < nPerBurst else 0, 
+									           isReportOnMatch = False if i < nPerBurst - 1 else True,
+		        							   toState = i + 1 if i < nPerBurst - 1 else 0, 
 			        		  				   evalFunc = NewProcessNamed( procRegExp ) ), 
 			        		  StateTransition( toState = 0, 
 			        		   			       evalFunc = HistoryOlderThan( withinSeconds ) ) ) )
 	return StateMachineDescriptor( name, *states )
 
 def ProcessDescendant( name, parentRegExp, childRegExp, isDirectOnly ):
-	states = []
-
 	parentState = State( StateTransition( isRecordOnMatch = True,
 										  toState = 1,
 										  evalFunc = NewProcessNamed( parentRegExp ) ) )
@@ -55,7 +53,7 @@ def ProcessDescendant( name, parentRegExp, childRegExp, isDirectOnly ):
 							 	              toState = 1,
 							                  evalFunc = AlwaysReturn( not isDirectOnly ) ) )
 
-	return StateMachineDescriptor( name, *states )
+	return StateMachineDescriptor( name, parentState, descendantState )
 
 def EventBurst( name, eventType, nPerBurst, withinSeconds ):
 	states = []

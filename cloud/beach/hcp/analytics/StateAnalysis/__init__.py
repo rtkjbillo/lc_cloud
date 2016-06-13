@@ -56,7 +56,7 @@ class _StateMachineContext( object ):
                 if transition.isRecordOnMatch:
                     self._history.append( event )
                 if transition.isReportOnMatch:
-                    reportType = self._descriptor.reportEventType
+                    reportType = self._descriptor.detectName
                     reportContent = self._history
                 if ( 0 == transition.toState or 
                      ( transition.isKillOnEmptyHistory and 0 == len( self._history ) ) ):
@@ -75,7 +75,7 @@ class StateMachine ( object ):
         newMachine = None
         state = self._descriptor.states[ 0 ]
         for transition in state.transitions:
-            if 0 != transition.toState and transition.evalFunc( [], event ):
+            if 0 != transition.toState and transition.evalFunc( [], newEvent ):
                 newMachine = _StateMachineContext( self._descriptor )
                 newMachine.update( newEvent )
                 break

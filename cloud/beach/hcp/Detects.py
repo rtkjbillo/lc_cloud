@@ -17,6 +17,7 @@ import hashlib
 from sets import Set
 import time
 StateMachine = Actor.importLib( 'analytics/StateAnalysis', 'StateMachine' )
+StateEvent = Actor.importLib( 'analytics/StateAnalysis', 'StateEvent' )
 CreateOnAccess = Actor.importLib( 'hcp_helpers', 'CreateOnAccess' )
 
 def GenerateDetectReport( agentid, msgIds, cat, detect ):
@@ -144,12 +145,12 @@ class StatefulActor ( Actor ):
             self._machine_activity[ machine ] = time.time()
             reportType, reportContent, isStayAlive = machine.update( newEvent )
             if reportType is not None and reportContent is not None:
-                if hasattr( self, reportContent ):
+                if hasattr( self, 'processDetect' ):
                     reportContent = self.processDetect( reportContent )
                 report = GenerateDetectReport( tuple( Set( [ e.routing[ 'agentid' ] for e in reportContent ] ) ),
                                                tuple( Set( [ e.routing[ 'event_id' ] for e in reportContent ] ) ),
                                                reportType,
-                                               reportContent )
+                                               [ x.event for x in reportContent ] )
                 self._reporting.shoot( 'report', report )
                 self._detects.setdefault( reportType,
                                           self.getActorHandle( 'analytics/detects/%s' % reportType ) ).broadcast( 'detect', report )
