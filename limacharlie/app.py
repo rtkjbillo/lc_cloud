@@ -445,6 +445,9 @@ class DownloadFileInEvent:
         if not info.isSuccess:
             raise web.HTTPError( '503 Service Unavailable : %s' % str( info ) )
 
+        if 'path' not in info.data or 'data' not in info.data:
+            return render.error( 'no file path or content found in event' )
+
         downloadFileName( '%s__%s' % ( params.id, ( info.data[ 'path' ].replace( '/', '_' )
                                                                        .replace( '\\', '_' )
                                                                        .replace( '.', '_' ) ) ) )
