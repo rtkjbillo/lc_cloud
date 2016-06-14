@@ -143,7 +143,9 @@ class StatefulActor ( Actor ):
         # First we update currently running machines
         for machine in currentShard:
             self._machine_activity[ machine ] = time.time()
+            #self.log( "MACHINE: %s %d" % ( machine._descriptor.detectName, machine._currentState ) )
             reportType, reportContent, isStayAlive = machine.update( newEvent )
+            #self.log( "TO MACHINE: %s %d" % ( machine._descriptor.detectName, machine._currentState ) )
             if reportType is not None and reportContent is not None:
                 if hasattr( self, 'processDetect' ):
                     reportContent = self.processDetect( reportContent )
@@ -162,6 +164,7 @@ class StatefulActor ( Actor ):
         for machine in self._machines:
             newMachine = machine.prime( newEvent )
             if newMachine is not None:
+                #self.log( "MACHINE PRIMED: %s %d" % ( newMachine._descriptor.detectName, newMachine._currentState ) )
                 currentShard.append( newMachine )
                 self._machine_activity[ newMachine ] = time.time()
 
