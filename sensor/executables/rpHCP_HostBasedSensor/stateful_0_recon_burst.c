@@ -77,10 +77,10 @@ static tr_match_params expired = {
 
 
 
-STATE( 0, 13, RECON_TRANSITIONS( FALSE, 1 ) );
-STATE( 1, 13, RECON_TRANSITIONS( FALSE, 2 ) );
-STATE( 2, 13, RECON_TRANSITIONS( FALSE, 3 ) );
-STATE( 3, 13, RECON_TRANSITIONS( TRUE, 0 ) );
+STATE( 0, ARRAY_N_ELEM( recon_tools ) + 1, RECON_TRANSITIONS( FALSE, 1 ) );
+STATE( 1, ARRAY_N_ELEM( recon_tools ) + 1, RECON_TRANSITIONS( FALSE, 2 ) );
+STATE( 2, ARRAY_N_ELEM( recon_tools ) + 1, RECON_TRANSITIONS( FALSE, 3 ) );
+STATE( 3, ARRAY_N_ELEM( recon_tools ) + 1, RECON_TRANSITIONS( TRUE, 0 ) );
 
 STATEFUL_MACHINE( 0, STATEFUL_MACHINE_0_EVENT, RECON_N_PER_BURST, STATE_PTR( 0 ),
                                                                   STATE_PTR( 1 ),
