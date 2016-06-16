@@ -25,43 +25,44 @@ ParentProcessInHistory = Actor.importLib( './transitions', 'ParentProcessInHisto
 NotParentProcessInHistory = Actor.importLib( './transitions', 'NotParentProcessInHistory' )
 
 def ProcessBurst( name, procRegExp, nPerBurst, withinSeconds ):
-	states = []
-	for i in xrange( 0, nPerBurst ):
-		states.append( State( StateTransition( isRecordOnMatch = True, 
-									           isReportOnMatch = False if i < nPerBurst - 1 else True,
-		        							   toState = i + 1 if i < nPerBurst - 1 else 0, 
-			        		  				   evalFunc = NewProcessNamed( procRegExp ) ), 
-			        		  StateTransition( toState = 0, 
-			        		   			       evalFunc = HistoryOlderThan( withinSeconds ) ) ) )
-	return StateMachineDescriptor( name, *states )
+    states = []
+    for i in xrange( 0, nPerBurst ):
+        states.append( State( StateTransition( isRecordOnMatch = True, 
+                                               isReportOnMatch = False if i < nPerBurst - 1 else True,
+                                               toState = i + 1 if i < nPerBurst - 1 else 0, 
+                                                 evalFunc = NewProcessNamed( procRegExp ) ), 
+                              StateTransition( toState = 0, 
+                                                  evalFunc = HistoryOlderThan( withinSeconds ) ) ) )
+    return StateMachineDescriptor( name, *states )
 
 def ProcessDescendant( name, parentRegExp, childRegExp, isDirectOnly ):
-	parentState = State( StateTransition( isRecordOnMatch = True,
-										  toState = 1,
-										  evalFunc = NewProcessNamed( parentRegExp ) ) )
-	descendantState = State( StateTransition( toState = 1,
-							                  evalFunc = RunningPidReset() ),
-							 StateTransition( toState = 1,
-							                  evalFunc = NotParentProcessInHistory() ),
-							 # Anything below is point is a descendant since the previous 
-							 # transition matches on non-descendants.
-							 StateTransition( isRecordOnMatch = True,
-							 				  isReportOnMatch = True,
-							 	              toState = 0,
-							                  evalFunc = NewProcessNamed( childRegExp ) ),
-							 StateTransition( isRecordOnMatch = True,
-							 	              toState = 1,
-							                  evalFunc = AlwaysReturn( not isDirectOnly ) ) )
+    parentState = State( StateTransition( isRecordOnMatch = True,
+                                          toState = 1,
+                                          evalFunc = NewProcessNamed( parentRegExp ) ) )
+    descendantState = State( StateTransition( toState = 1,
+                                              isKillOnEmptyHistory = True,
+                                              evalFunc = RunningPidReset() ),
+                             StateTransition( toState = 1,
+                                              evalFunc = NotParentProcessInHistory() ),
+                             # Anything below is point is a descendant since the previous 
+                             # transition matches on non-descendants.
+                             StateTransition( isRecordOnMatch = True,
+                                               isReportOnMatch = True,
+                                               toState = 0,
+                                              evalFunc = NewProcessNamed( childRegExp ) ),
+                             StateTransition( isRecordOnMatch = True,
+                                               toState = 1,
+                                              evalFunc = AlwaysReturn( not isDirectOnly ) ) )
 
-	return StateMachineDescriptor( name, parentState, descendantState )
+    return StateMachineDescriptor( name, parentState, descendantState )
 
 def EventBurst( name, eventType, nPerBurst, withinSeconds ):
-	states = []
-	for i in xrange( 1, nPerBurst ):
-		states.append( State( StateTransition( isRecordOnMatch = True, 
-									           isReportOnMatch = False if i < nPerBurst else True,
-		        							   toState = i if i < nPerBurst else 0, 
-			        		  				   evalFunc = EventOfType( eventType ) ), 
-			        		  StateTransition( toState = 0, 
-			        		   			       evalFunc = HistoryOlderThan( withinSeconds ) ) ) )
-	return StateMachineDescriptor( name, *states )
+    states = []
+    for i in xrange( 1, nPerBurst ):
+        states.append( State( StateTransition( isRecordOnMatch = True, 
+                                               isReportOnMatch = False if i < nPerBurst else True,
+                                               toState = i if i < nPerBurst else 0, 
+                                                 evalFunc = EventOfType( eventType ) ), 
+                              StateTransition( toState = 0, 
+                                                  evalFunc = HistoryOlderThan( withinSeconds ) ) ) )
+    return StateMachineDescriptor( name, *states )
