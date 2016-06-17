@@ -36,6 +36,28 @@ limitations under the License.
 // YARA Required Shims
 //=============================================================================
 static
+RVOID
+    reportError
+    (
+        rSequence originalRequest,
+        RU32 errorCode,
+        RPCHAR errorStr
+    )
+{
+    rSequence event = NULL;
+
+    if( NULL != ( event = rSequence_new() ) )
+    {
+        hbs_markAsRelated( originalRequest, event );
+        rSequence_addRU32( event, RP_TAGS_ERROR, errorCode );
+        rSequence_addSTRINGA( event, RP_TAGS_ERROR_MESSAGE, errorStr ? errorStr : "" );
+        rSequence_addTIMESTAMP( event, RP_TAGS_TIMESTAMP, rpal_time_getGlobal() );
+        notifications_publish( RP_TAGS_NOTIFICATION_YARA_DETECTION, event );
+        rSequence_free( event );
+    }
+}
+
+static
 size_t
     _yara_stream_read
     (
@@ -178,6 +200,8 @@ int
             rSequence_addRU32( event, RP_TAGS_PROCESS_ID, context->pid );
             rSequence_addPOINTER64( event, RP_TAGS_BASE_ADDRESS, context->regionBase );
             rSequence_addRU64( event, RP_TAGS_MEMORY_SIZE, context->regionSize );
+
+            hbs_markAsRelated( context->fileInfo, event );
 
             if( NULL == context->processInfo )
             {
@@ -761,7 +785,15 @@ RVOID
 
             yr_rules_destroy( rules );
         }
+        else
+        {
+            rpal_debug_warning( "no rules in yara scan request" );
+            reportError( event, RPAL_ERROR_NOT_SUPPORTED, "yara rules do not parse" );
+        }
     }
+
+    rpal_debug_info( "finished on demand yara scan" );
+    reportError( event, scanError, "done" );
 
     yr_finalize_thread();
 }

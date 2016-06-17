@@ -281,7 +281,7 @@ static RVOID
     LibOsPerformanceProfile perfProfile = { 0 };
 
     perfProfile.enforceOnceIn = 1;
-    perfProfile.sanityCeiling = MSEC_FROM_SEC( 30 );
+    perfProfile.sanityCeiling = MSEC_FROM_SEC( 10 );
     perfProfile.lastTimeoutValue = 100;
     perfProfile.targetCpuPerformance = 0;
     perfProfile.globalTargetCpuPerformance = GLOBAL_CPU_USAGE_TARGET;

@@ -322,7 +322,7 @@ RPVOID
     LibOsPerformanceProfile perfProfile = { 0 };
 
     perfProfile.enforceOnceIn = 4;
-    perfProfile.sanityCeiling = MSEC_FROM_SEC( 30 );
+    perfProfile.sanityCeiling = MSEC_FROM_SEC( 20 );
     perfProfile.lastTimeoutValue = 200;
     perfProfile.targetCpuPerformance = 0;
     perfProfile.globalTargetCpuPerformance = GLOBAL_CPU_USAGE_TARGET;
@@ -362,7 +362,7 @@ RVOID
     UNREFERENCED_PARAMETER( eventType );
 
     perfProfile.enforceOnceIn = 4;
-    perfProfile.sanityCeiling = MSEC_FROM_SEC( 30 );
+    perfProfile.sanityCeiling = MSEC_FROM_SEC( 20 );
     perfProfile.lastTimeoutValue = 100;
     perfProfile.targetCpuPerformance = 10;
     perfProfile.globalTargetCpuPerformance = GLOBAL_CPU_USAGE_TARGET_WHEN_TASKED;
@@ -399,7 +399,7 @@ RPVOID
     LibOsPerformanceProfile perfProfile = { 0 };
 
     perfProfile.enforceOnceIn = 4;
-    perfProfile.sanityCeiling = MSEC_FROM_SEC( 30 );
+    perfProfile.sanityCeiling = MSEC_FROM_SEC( 20 );
     perfProfile.lastTimeoutValue = 200;
     perfProfile.targetCpuPerformance = 0;
     perfProfile.globalTargetCpuPerformance = GLOBAL_CPU_USAGE_TARGET;
