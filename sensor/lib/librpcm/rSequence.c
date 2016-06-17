@@ -166,6 +166,17 @@ RBOOL
 }
 
 RBOOL
+    rSequence_addSTRINGN
+    (
+        rSequence seq,
+        rpcm_tag tag,
+        RNATIVESTR string
+    )
+{
+    return rSequence_addElement( seq, tag, RPCM_STRINGN, string, sizeof( string ) );
+}
+
+RBOOL
     rSequence_addBUFFER
     (
         rSequence seq,
@@ -332,6 +343,32 @@ RBOOL
     return isSuccess;
 }
 
+
+RBOOL
+    rSequence_getRawElement
+    (
+        rSequence seq,
+        rpcm_tag* tag,
+        rpcm_type* type,
+        RPVOID* pElem,
+        RU32* pElemSize
+    )
+{
+    RBOOL isSuccess = FALSE;
+
+    _rSequence* tmpSeq = NULL;
+
+    if( rpal_memory_isValid( seq ) )
+    {
+        tmpSeq = (_rSequence*)seq;
+
+        isSuccess = set_getElement( &tmpSeq->set, tag, type, pElem, pElemSize, NULL, TRUE );
+    }
+
+    return isSuccess;
+}
+
+
 RBOOL
     rSequence_getRU8
     (
@@ -406,6 +443,19 @@ RBOOL
     )
 {
     rpcm_type type = RPCM_STRINGW;
+
+    return rSequence_getElement( seq, &tag, &type, pVal, NULL );
+}
+
+RBOOL
+    rSequence_getSTRINGN
+    (
+        rSequence seq,
+        rpcm_tag tag,
+        RNATIVESTR* pVal
+    )
+{
+    rpcm_type type = RPCM_STRINGN;
 
     return rSequence_getElement( seq, &tag, &type, pVal, NULL );
 }

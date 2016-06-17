@@ -173,6 +173,16 @@ RBOOL
 }
 
 RBOOL
+    rList_addSTRINGN
+    (
+        rList list,
+        RNATIVESTR string
+    )
+{
+    return rList_addElement( list, RPCM_STRINGN, string, sizeof( string ) );
+}
+
+RBOOL
     rList_addBUFFER
     (
         rList list,
@@ -320,8 +330,8 @@ RBOOL
     if( rpal_memory_isValid( list ) )
     {
         tmpList = (_rList*)list;
-// REMOVE ME WHEN ALIGNMENT CHANGES TO privateHeader.h are effective
-#pragma warning( disable: 4366 )
+        // REMOVE ME WHEN ALIGNMENT CHANGES TO privateHeader.h are effective
+        #pragma warning( disable: 4366 )
         isSuccess = set_getElement( &tmpList->set, tag, type, pElem, pElemSize, &tmpList->lastElem, FALSE );
 
         if( !isSuccess )
@@ -412,6 +422,20 @@ RBOOL
     )
 {
     rpcm_type type = RPCM_STRINGW;
+    rpcm_tag ltag = tag;
+
+    return rList_getElement( list, &ltag, &type, pVal, NULL );
+}
+
+RBOOL
+    rList_getSTRINGN
+    (
+        rList list,
+        rpcm_tag tag,
+        RNATIVESTR* pVal
+    )
+{
+    rpcm_type type = RPCM_STRINGN;
     rpcm_tag ltag = tag;
 
     return rList_getElement( list, &ltag, &type, pVal, NULL );

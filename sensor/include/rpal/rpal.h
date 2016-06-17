@@ -30,9 +30,13 @@ limitations under the License.
 #define IS_WITHIN_BOUNDS(elem,elemSize,container,containerSize) (((RU64)(elem) >= (RU64)(container)) &&\
                                                                  ((RU64)(elem) + (RU64)(elemSize) <= (RU64)(container) + (RU64)(containerSize)))
 #define ARRAY_N_ELEM(arr)               (sizeof(arr) / sizeof((arr)[0]))
+#define NUMARGS(type,...)                    (sizeof((type[]){__VA_ARGS__})/sizeof(type))
 #define IF_VALID_DO(elem,doFunc)        if( (elem) ){ doFunc( (elem) ); }
 #define DO_IFF(op,bStatus)              if(bStatus){ bStatus = op; }
 #define FREE_N_NULL(ptr,freeFunc)       freeFunc((ptr));(ptr)=NULL
+
+#define MIN_OF(a,b)     ( (a) > (b) ? (b) : (a) )
+#define MAX_OF(a,b)     ( (a) > (b) ? (a) : (b) )
 
 #define FORCE_LINK_THIS(x) int force_link_##x = 0;
 #define FORCE_LINK_THAT(x) { extern int force_link_##x; force_link_##x = 1; }

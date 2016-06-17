@@ -25,24 +25,40 @@ limitations under the License.
  *
  */
 #ifdef RPAL_PLATFORM_WINDOWS
-    #define  _WIN32_WINNT 0x0500
-    #include <windows.h>
-    #include <windows_undocumented.h>
+    #ifndef _WIN32_WINNT
+        #define  _WIN32_WINNT 0x0500
+    #endif
+    #ifdef RPAL_PLATFORM_KERNEL
+        #include <ntddk.h>
+    #else
+        #include <windows.h>
+        #include <windows_undocumented.h>
+    #endif
     #include <string.h>
     #include <stdlib.h>
     #include <stdio.h>
     #ifndef RPAL_PLATFORM_WINDOWS_32
         #include <varargs.h>
     #endif
-    typedef BOOL		RBOOL;
-    typedef BOOL*		RPBOOL;
 
-    typedef BYTE		RU8;
-    typedef BYTE*		RPU8;
+    #ifdef RPAL_PLATFORM_KERNEL
+        typedef int             RBOOL;
+        typedef int*            RPBOOL;
+        typedef UCHAR	        RU8;
+        typedef UCHAR*          RPU8;
+        typedef USHORT		    RU16;
+        typedef USHORT*		    RPU16;
+    #else
+        typedef BOOL		RBOOL;
+        typedef BOOL*		RPBOOL;
+        
+        typedef BYTE		RU8;
+        typedef BYTE*		RPU8;
 
-    typedef WORD		RU16;
-    typedef WORD*		RPU16;
-
+        typedef WORD		RU16;
+        typedef WORD*		RPU16;
+    #endif
+    
     typedef UINT32		RU32;
     typedef UINT32*		RPU32;
 
@@ -70,6 +86,11 @@ limitations under the License.
 
     typedef float           RFLOAT;
     typedef double          RDOUBLE;
+
+    typedef RWCHAR          RNATIVECHAR;
+    typedef RPWCHAR         RNATIVESTR;
+    #define RNATIVE_LITERAL(str) _WCH(str)
+    #define RNATIVE_IS_WIDE
 
 #elif defined( RPAL_PLATFORM_LINUX ) || defined( RPAL_PLATFORM_MACOSX )
     #include <stdint.h>
@@ -115,6 +136,11 @@ limitations under the License.
 
     typedef float           RFLOAT;
     typedef double          RDOUBLE;
+
+    typedef RCHAR           RNATIVECHAR;
+    typedef RPCHAR          RNATIVESTR;
+    #define RNATIVE_LITERAL(str) str
+    #define RNATIVE_IS_BYTE
 #endif
 
 // Common values

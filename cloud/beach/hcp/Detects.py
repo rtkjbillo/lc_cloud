@@ -16,7 +16,8 @@ from beach.actor import Actor
 import hashlib
 from sets import Set
 import time
-SAMLoadWidgets = Actor.importLib( 'analytics/StateAnalysis', 'SAMLoadWidgets' )
+StateMachine = Actor.importLib( 'analytics/StateAnalysis', 'StateMachine' )
+StateEvent = Actor.importLib( 'analytics/StateAnalysis', 'StateEvent' )
 CreateOnAccess = Actor.importLib( 'hcp_helpers', 'CreateOnAccess' )
 
 def GenerateDetectReport( agentid, msgIds, cat, detect ):
@@ -80,16 +81,13 @@ class StatefulActor ( Actor ):
     def init( self, parameters ):
         self._compiled_machines = {}
         self._machine_activity = {}
-        self._machine_ttl = parameters.get( 'machine_ttl', ( 60 * 60 * 24 * 7 ) )
+        self._machine_ttl = parameters.get( 'machine_ttl', ( 60 * 60 * 24 * 30 ) )
         if not hasattr( self, 'initMachines' ):
             raise Exception( 'Stateful Actor has no "initMachines" function' )
-        if not hasattr( self, 'processDetects' ):
-            raise Exception( 'Stateful Actor has no "processDetects" function' )
 
+        self._machines = []
         self.initMachines( parameters )
 
-        if not hasattr( self, 'machines' ):
-            raise Exception( 'Stateful Actor has no associated detection machines' )
         if not hasattr( self, 'shardingKey' ):
             raise Exception( 'Stateful Actor has no associated shardingKey (or None)' )
 
@@ -100,11 +98,15 @@ class StatefulActor ( Actor ):
 
         self.schedule( 60 * 60, self._garbageCollectOldMachines )
 
+    def addStateMachineDescriptor( self, desc ):
+        self._machines.append( StateMachine( desc ) )
+
     def _garbageCollectOldMachines( self ):
-        for shard in self._machine_activity.keys():
-            if self._machine_activity[ shard ] < time.time() - self._machine_ttl:
-                del( self._machine_activity[ shard ] )
-                del( self._compiled_machines[ shard ] )
+        for shard in self._compiled_machines.keys():
+            for machine in self._compiled_machines[ shard ]:
+                if self._machine_activity[ machine ] < time.time() - self._machine_ttl:
+                    del( self._machine_activity[ machine ] )
+                    self._compiled_machines[ shard ].remove( machine )
 
     def task( self, dest, cmdsAndArgs, expiry = None, inv_id = None ):
         '''Send a task manually to a sensor
@@ -130,34 +132,44 @@ class StatefulActor ( Actor ):
     def _process( self, msg ):
         routing, event, mtd = msg.data
 
+        newEvent = StateEvent( routing, event, mtd )
+
         shard = None
         if self.shardingKey is not None:
             shard = routing.get( self.shardingKey, None )
 
-        if shard not in self._compiled_machines:
-            self.log( 'creating new state machine' )
-            self._compiled_machines[ shard ] = {}
-            for mName, m in self.machines.iteritems():
-                self._compiled_machines[ shard ][ mName ] = eval( '(%s)' % m, SAMLoadWidgets(), { 'self' : self } )
+        currentShard = self._compiled_machines.setdefault( shard, [] )
 
-        actual_machines = self._compiled_machines[ shard ]
-        self._machine_activity[ shard ] = time.time()
+        # First we update currently running machines
+        for machine in currentShard:
+            self._machine_activity[ machine ] = time.time()
+            #self.log( "MACHINE: %s %d" % ( machine._descriptor.detectName, machine._currentState ) )
+            reportType, reportContent, isStayAlive = machine.update( newEvent )
+            #self.log( "TO MACHINE: %s %d" % ( machine._descriptor.detectName, machine._currentState ) )
+            if reportType is not None and reportContent is not None:
+                if hasattr( self, 'processDetect' ):
+                    reportContent = self.processDetect( reportContent )
+                report = GenerateDetectReport( tuple( Set( [ e.routing[ 'agentid' ] for e in reportContent ] ) ),
+                                               tuple( Set( [ e.routing[ 'event_id' ] for e in reportContent ] ) ),
+                                               reportType,
+                                               [ x.event for x in reportContent ] )
+                self._reporting.shoot( 'report', report )
+                self._detects.setdefault( reportType,
+                                          self.getActorHandle( 'analytics/detects/%s' % reportType ) ).broadcast( 'detect', report )
+            if not isStayAlive:
+                del( self._machine_activity[ machine ] )
+                currentShard.remove( machine )
 
-        machineEvent = { 'event' : event, 'routing' : routing }
+        # Next we prime new machines
+        for machine in self._machines:
+            newMachine = machine.prime( newEvent )
+            if newMachine is not None:
+                #self.log( "MACHINE PRIMED: %s %d" % ( newMachine._descriptor.detectName, newMachine._currentState ) )
+                currentShard.append( newMachine )
+                self._machine_activity[ newMachine ] = time.time()
 
-        for mName, m in actual_machines.iteritems():
-            cat = '%s/%s' % ( self.__class__.__name__, mName )
-            detects = m._execute( machineEvent )
-            if detects is not None and 0 != len( detects ):
-                detects = self.processDetects( detects )
-                for detect in detects:
-                    report = GenerateDetectReport( tuple( Set( [ e[ 'routing' ][ 'agentid' ] for e in detect ] ) ),
-                                                   tuple( Set( [ e[ 'routing' ][ 'event_id' ] for e in detect ] ) ),
-                                                   cat,
-                                                   detect )
-                    self._reporting.shoot( 'report', report )
-                    self._detects.setdefault( cat,
-                                              self.getActorHandle( 'analytics/detects/%s' % cat ) ).broadcast( 'detect',
-                                                                                                               report )
+        # Clean up unused shards
+        if 0 == len( currentShard ):
+            del( self._compiled_machines[ shard ] )
 
         return ( True, )

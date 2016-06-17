@@ -5,7 +5,7 @@
   </PropertyGroup>
   <PropertyGroup>
     <_ProjectFileVersion>10.0.30319.1</_ProjectFileVersion>
-    <OutDir>$(SolutionDir)..\bin\$(PlatformName)\$(Configuration)\</OutDir>
+    <OutDir>$(SolutionDir)..\bin\windows\$(PlatformName)\$(Configuration)\</OutDir>
   </PropertyGroup>
   <ItemGroup>
     <BuildMacro Include="DDK">

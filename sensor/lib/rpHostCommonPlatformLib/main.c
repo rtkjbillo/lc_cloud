@@ -36,7 +36,7 @@ rpHCPContext g_hcpContext = {0};
 rpHCPId g_idTemplate = {0};
 
 // Large blank buffer to be used to patch configurations post-build
-#define _HCP_DEFAULT_STATIC_STORE_SIZE                          (1024 * 10)
+#define _HCP_DEFAULT_STATIC_STORE_SIZE                          (1024 * 50)
 #define _HCP_DEFAULT_STATIC_STORE_MAGIC                         { 0xFA, 0x57, 0xF0, 0x0D }
 static RU8 g_patchedConfig[ _HCP_DEFAULT_STATIC_STORE_SIZE ] =  _HCP_DEFAULT_STATIC_STORE_MAGIC;
 #define _HCP_DEFAULT_STATIC_STORE_KEY                           { 0xFA, 0x75, 0x01 }
@@ -287,6 +287,12 @@ RBOOL
                     rpal_debug_info( "loading root public key from static config" );
                 }
 
+                if( rSequence_getSTRINGA( staticConfig, RP_TAGS_HCP_DEPLOYMENT_KEY, &tmpStr ) )
+                {
+                    g_hcpContext.deploymentKey = rpal_string_strdupa( tmpStr );
+                    rpal_debug_info( "loading deployment key from static config" );
+                }
+
                 rSequence_free( staticConfig );
             }
 
@@ -482,7 +488,10 @@ RBOOL
 #if defined( RPAL_PLATFORM_LINUX ) || defined( RPAL_PLATFORM_MACOSX )
                     errorStr = dlerror();
 #endif
-                    rpal_debug_error( "Could not manually load module %S: %s", modulePath, errorStr );
+                    rpal_debug_error( "Could not manually load module %S: %X %s", 
+                                      modulePath, 
+                                      rpal_error_getLast(), 
+                                      errorStr );
                 }
 
                 break;

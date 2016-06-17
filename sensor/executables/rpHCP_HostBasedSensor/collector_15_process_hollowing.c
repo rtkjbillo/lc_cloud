@@ -23,6 +23,7 @@ limitations under the License.
 #include <notificationsLib/notificationsLib.h>
 #include <rpHostCommonPlatformLib/rTags.h>
 #include <processLib/processLib.h>
+#include <libOs/libOs.h>
 #include <obsLib/obsLib.h>
 
 #define _SCRATCH_SIZE                   (1024*1024)
@@ -42,6 +43,9 @@ limitations under the License.
 #define _TIMEOUT_BETWEEN_CONSTANT_PROCESSS      (30*1000)
 #define _MAX_CPU_WAIT                           (60)
 #define _CPU_WATERMARK                          (50)
+
+#define _INITIAL_PROFILED_TIMEOUT               0
+#define _SANITY_CEILING                         MSEC_FROM_SEC( 2 )
 
 static rQueue g_newProcessNotifications = NULL;
 
@@ -151,7 +155,8 @@ HObs
     (
         RPWCHAR modulePath,
         RU32* pLastScratch,
-        rEvent isTimeToStop
+        rEvent isTimeToStop,
+        LibOsPerformanceProfile* perfProfile
     )
 {
     HObs sample = NULL;
@@ -166,7 +171,8 @@ HObs
     RPU8 sampleNumber = 0;
     rBloom stringsSeen = NULL;
     RU64 readOffset = 0;
-    RU32 nThString = 0;
+
+    UNREFERENCED_PARAMETER( isTimeToStop );
 
     if( NULL != modulePath &&
         NULL != pLastScratch )
@@ -198,7 +204,7 @@ HObs
                                    ( start + _MIN_SAMPLE_STR_LEN ) < ( scratch + read ) &&
                                    _MAX_DISK_SAMPLE_SIZE >= PTR_TO_NUMBER( sampleNumber ) )
                             {
-                                nThString++;
+                                libOs_timeoutWithProfile( perfProfile, TRUE );
 
                                 isUnicode = FALSE;
 
@@ -214,17 +220,6 @@ HObs
                                                              start,
                                                              longestLength ) )
                                     {
-                                        /*
-                                        if( isUnicode )
-                                        {
-                                        rpal_debug_info( "adding U: %ls", start );
-                                        }
-                                        else
-                                        {
-                                        rpal_debug_info( "adding: %s", start );
-                                        }
-                                        */
-
                                         if( obsLib_addPattern( sample,
                                                                start,
                                                                longestLength,
@@ -233,27 +228,9 @@ HObs
                                             sampleNumber++;
                                         }
                                     }
-                                    else
-                                    {
-                                        /*
-                                        if( isUnicode )
-                                        {
-                                        rpal_debug_info( "duplicate U: %ls", start );
-                                        }
-                                        else
-                                        {
-                                        rpal_debug_info( "duplicate: %s", start );
-                                        }
-                                        */
-                                    }
                                 }
 
                                 start += toSkip;
-
-                                if( 0 == ( nThString % 20 ) )
-                                {
-                                    rEvent_wait( isTimeToStop, 1 );
-                                }
                             }
                         }
                     }
@@ -279,7 +256,8 @@ RU32
         RU32 pid,
         RPVOID moduleBase,
         RU64 moduleSize,
-        rEvent isTimeToStop
+        rEvent isTimeToStop,
+        LibOsPerformanceProfile* perfProfile
     )
 {
     RPU8 pMem = NULL;
@@ -287,6 +265,8 @@ RU32
     RPU8 sampleNumber = 0;
     RU32 nSamples = 0;
     RU32 nSamplesFound = (RU32)(-1);
+
+    UNREFERENCED_PARAMETER( isTimeToStop );
 
     if( NULL != sample &&
         0 != pid &&
@@ -305,16 +285,13 @@ RU32
                     while( !rEvent_wait( isTimeToStop, 0 ) &&
                            obsLib_nextHit( sample, (RPVOID*)&sampleNumber, NULL ) )
                     {
+                        libOs_timeoutWithProfile( perfProfile, TRUE );
+
                         if( sampleNumber < (RPU8)NUMBER_TO_PTR( nSamples ) &&
                             0 == sampleList[ (RU32)PTR_TO_NUMBER( sampleNumber ) ] )
                         {
                             sampleList[ (RU32)PTR_TO_NUMBER( sampleNumber ) ] = 1;
                             nSamplesFound++;
-                        }
-
-                        if( _LARGE_PATTERNS < nSamples )
-                        {
-                            rpal_thread_sleep( _TIMEOUT_BETWEEN_MATCHES_LARGE_PATTERNS );
                         }
                     }
                 }
@@ -342,7 +319,8 @@ rList
     _spotCheckProcess
     (
         rEvent isTimeToStop,
-        RU32 pid
+        RU32 pid,
+        LibOsPerformanceProfile* perfProfile
     )
 {
     rList hollowedModules = NULL;
@@ -361,14 +339,18 @@ rList
     RU32 nSamplesTotal = 0;
     RU32 tmpSamplesFound = 0;
     RU32 tmpSamplesSize = 0;
+    RTIME runTime = 0;
 
     rpal_debug_info( "spot checking process %d", pid );
 
     if( NULL != ( modules = processLib_getProcessModules( pid ) ) )
     {
-        while( !rEvent_wait( isTimeToStop, _TIMEOUT_BETWEEN_MODULES ) &&
+        while( !rEvent_wait( isTimeToStop, 0 ) &&
                rList_getSEQUENCE( modules, RP_TAGS_DLL, &module ) )
         {
+            libOs_timeoutWithProfile( perfProfile, FALSE );
+            runTime = rpal_time_getLocal();
+
             modulePathW = NULL;
             modulePathA = NULL;
             lastScratchIndex = 0;
@@ -397,10 +379,13 @@ rList
                         tmpSamplesFound = (RU32)( -1 );
 
                         while( !rEvent_wait( isTimeToStop, 0 ) &&
-                            NULL != ( diskSample = _getModuleDiskStringSample( modulePathW,
-                                                                               &lastScratchIndex,
-                                                                               isTimeToStop ) ) )
+                               NULL != ( diskSample = _getModuleDiskStringSample( modulePathW,
+                                                                                  &lastScratchIndex,
+                                                                                  isTimeToStop,
+                                                                                  perfProfile ) ) )
                         {
+                            libOs_timeoutWithProfile( perfProfile, TRUE );
+
                             tmpSamplesSize = obsLib_getNumPatterns( diskSample );
 
                             if( 0 != tmpSamplesSize )
@@ -409,7 +394,8 @@ rList
                                                                                pid,
                                                                                NUMBER_TO_PTR( moduleBase ),
                                                                                moduleSize,
-                                                                               isTimeToStop );
+                                                                               isTimeToStop,
+                                                                               perfProfile );
                                 obsLib_free( diskSample );
 
                                 if( (RU32)( -1 ) == tmpSamplesFound )
@@ -441,11 +427,12 @@ rList
                         rpal_debug_info( "could not get file information, not checking" );
                     }
 
-                    rpal_debug_info( "process hollowing check found a match %d of %d / %d : %d", 
+                    rpal_debug_info( "process hollowing check found a match %d of %d / %d : %d in %d sec", 
                                      pid,  
                                      nSamplesFound, 
                                      nSamplesTotal,
-                                     lastScratchIndex );
+                                     lastScratchIndex,
+                                     rpal_time_getLocal() - runTime );
                     
                     if( !rEvent_wait( isTimeToStop, 0 ) &&
                         (RU32)(-1) != tmpSamplesFound &&
@@ -499,18 +486,28 @@ RPVOID
     processLibProcEntry* proc = NULL;
     rList hollowedModules = NULL;
     rSequence processInfo = NULL;
+    LibOsPerformanceProfile perfProfile = { 0 };
+
+    perfProfile.targetCpuPerformance = 0;
+    perfProfile.globalTargetCpuPerformance = GLOBAL_CPU_USAGE_TARGET;
+    perfProfile.timeoutIncrementPerSec = 1;
+    perfProfile.enforceOnceIn = 7;
+    perfProfile.lastTimeoutValue = _INITIAL_PROFILED_TIMEOUT;
+    perfProfile.sanityCeiling = _SANITY_CEILING;
 
     if( NULL != ( procs = processLib_getProcessEntries( TRUE ) ) )
     {
         proc = procs;
 
-        while( 0 != proc->pid &&
-            rpal_memory_isValid( isTimeToStop ) &&
-            !rEvent_wait( isTimeToStop, MSEC_FROM_SEC( 5 ) ) )
+        while( !rEvent_wait( isTimeToStop, 0 ) &&
+               0 != proc->pid &&
+               rpal_memory_isValid( isTimeToStop ) )
         {
-            if( NULL != ( hollowedModules = _spotCheckProcess( isTimeToStop, proc->pid ) ) )
+            libOs_timeoutWithProfile( &perfProfile, TRUE );
+
+            if( NULL != ( hollowedModules = _spotCheckProcess( isTimeToStop, proc->pid, &perfProfile ) ) )
             {
-                if( NULL != ( processInfo = processLib_getProcessInfo( proc->pid ) ) ||
+                if( NULL != ( processInfo = processLib_getProcessInfo( proc->pid, NULL ) ) ||
                     ( NULL != ( processInfo = rSequence_new() ) &&
                       rSequence_addRU32( processInfo, RP_TAGS_PROCESS_ID, proc->pid ) ) )
                 {
@@ -553,43 +550,52 @@ RPVOID
     processLibProcEntry* proc = NULL;
     rList hollowedModules = NULL;
     rSequence processInfo = NULL;
+    LibOsPerformanceProfile perfProfile = { 0 };
+
+    perfProfile.targetCpuPerformance = 0;
+    perfProfile.globalTargetCpuPerformance = GLOBAL_CPU_USAGE_TARGET;
+    perfProfile.timeoutIncrementPerSec = 1;
+    perfProfile.enforceOnceIn = 7;
+    perfProfile.lastTimeoutValue = _INITIAL_PROFILED_TIMEOUT;
+    perfProfile.sanityCeiling = _SANITY_CEILING;
 
     while( rpal_memory_isValid( isTimeToStop ) &&
-        !rEvent_wait( isTimeToStop, 0 ) )
+           !rEvent_wait( isTimeToStop, 0 ) )
     {
+        libOs_timeoutWithProfile( &perfProfile, TRUE );
+
         if( NULL != ( procs = processLib_getProcessEntries( TRUE ) ) )
         {
             proc = procs;
 
             while( 0 != proc->pid &&
-                rpal_memory_isValid( isTimeToStop ) &&
-                !rEvent_wait( isTimeToStop, _TIMEOUT_BETWEEN_CONSTANT_PROCESSS ) )
+                   rpal_memory_isValid( isTimeToStop ) &&
+                   !rEvent_wait( isTimeToStop, 0 ) )
             {
-                if( hbs_whenCpuBelow( _CPU_WATERMARK, _MAX_CPU_WAIT, isTimeToStop ) )
-                {
-                    if( NULL != ( hollowedModules = _spotCheckProcess( isTimeToStop, proc->pid ) ) )
-                    {
-                        if( NULL != ( processInfo = processLib_getProcessInfo( proc->pid ) ) ||
-                            ( NULL != ( processInfo = rSequence_new() ) &&
-                            rSequence_addRU32( processInfo, RP_TAGS_PROCESS_ID, proc->pid ) ) )
-                        {
-                            if( !rSequence_addLIST( processInfo, RP_TAGS_MODULES, hollowedModules ) )
-                            {
-                                rList_free( hollowedModules );
-                            }
-                            else
-                            {
-                                hbs_markAsRelated( originalRequest, processInfo );
-                                notifications_publish( RP_TAGS_NOTIFICATION_MODULE_MEM_DISK_MISMATCH, 
-                                                       processInfo );
-                            }
+                libOs_timeoutWithProfile( &perfProfile, TRUE );
 
-                            rSequence_free( processInfo );
-                        }
-                        else
+                if( NULL != ( hollowedModules = _spotCheckProcess( isTimeToStop, proc->pid, &perfProfile ) ) )
+                {
+                    if( NULL != ( processInfo = processLib_getProcessInfo( proc->pid, NULL ) ) ||
+                        ( NULL != ( processInfo = rSequence_new() ) &&
+                        rSequence_addRU32( processInfo, RP_TAGS_PROCESS_ID, proc->pid ) ) )
+                    {
+                        if( !rSequence_addLIST( processInfo, RP_TAGS_MODULES, hollowedModules ) )
                         {
                             rList_free( hollowedModules );
                         }
+                        else
+                        {
+                            hbs_markAsRelated( originalRequest, processInfo );
+                            notifications_publish( RP_TAGS_NOTIFICATION_MODULE_MEM_DISK_MISMATCH, 
+                                                    processInfo );
+                        }
+
+                        rSequence_free( processInfo );
+                    }
+                    else
+                    {
+                        rList_free( hollowedModules );
                     }
                 }
 
@@ -617,8 +623,16 @@ RPVOID
     RTIME now = 0;
     rSequence newProcess = NULL;
     rList hollowedModules = NULL;
+    LibOsPerformanceProfile perfProfile = { 0 };
 
     UNREFERENCED_PARAMETER( ctx );
+
+    perfProfile.sanityCeiling = _SANITY_CEILING;
+    perfProfile.lastTimeoutValue = _INITIAL_PROFILED_TIMEOUT;
+    perfProfile.targetCpuPerformance = 0;
+    perfProfile.globalTargetCpuPerformance = GLOBAL_CPU_USAGE_TARGET;
+    perfProfile.enforceOnceIn = 7;
+    perfProfile.timeoutIncrementPerSec = 1;
 
     while( !rEvent_wait( isTimeToStop, 0 ) )
     {
@@ -631,10 +645,16 @@ RPVOID
                 now = rpal_time_getGlobal();
                 if( now < timeToWait )
                 {
-                    rpal_thread_sleep( (RU32)MSEC_FROM_SEC( timeToWait - now ) );
+                    timeToWait = timeToWait - now;
+                    if( _CHECK_SEC_AFTER_PROCESS_CREATION < timeToWait )
+                    {
+                        // Sanity check
+                        timeToWait = _CHECK_SEC_AFTER_PROCESS_CREATION;
+                    }
+                    rpal_thread_sleep( (RU32)MSEC_FROM_SEC( timeToWait ) );
                 }
 
-                if( NULL != ( hollowedModules = _spotCheckProcess( isTimeToStop, pid ) ) )
+                if( NULL != ( hollowedModules = _spotCheckProcess( isTimeToStop, pid, &perfProfile ) ) )
                 {
                     if( !rSequence_addLIST( newProcess, RP_TAGS_MODULES, hollowedModules ) )
                     {
@@ -667,18 +687,26 @@ RVOID
     rEvent dummy = NULL;
     rList hollowedModules = NULL;
     rSequence process = NULL;
+    LibOsPerformanceProfile perfProfile = { 0 };
 
     UNREFERENCED_PARAMETER( eventType );
 
     if( NULL != ( dummy = rEvent_create( TRUE ) ) )
     {
+        perfProfile.targetCpuPerformance = 10;
+        perfProfile.globalTargetCpuPerformance = GLOBAL_CPU_USAGE_TARGET_WHEN_TASKED;
+        perfProfile.timeoutIncrementPerSec = 1;
+        perfProfile.enforceOnceIn = 7;
+        perfProfile.lastTimeoutValue = _INITIAL_PROFILED_TIMEOUT;
+        perfProfile.sanityCeiling = _SANITY_CEILING;
+
         if( rSequence_getRU32( event, RP_TAGS_PROCESS_ID, &pid ) )
         {
-            if( NULL != ( process = processLib_getProcessInfo( pid ) ) ||
+            if( NULL != ( process = processLib_getProcessInfo( pid, NULL ) ) ||
                 ( NULL != ( process = rSequence_new() ) &&
                   rSequence_addRU32( process, RP_TAGS_PROCESS_ID, pid ) ) )
             {
-                if( NULL != ( hollowedModules = _spotCheckProcess( dummy, pid ) ) )
+                if( NULL != ( hollowedModules = _spotCheckProcess( dummy, pid, &perfProfile ) ) )
                 {
                     if( !rSequence_addLIST( process, RP_TAGS_MODULES, hollowedModules ) )
                     {

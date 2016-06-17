@@ -73,8 +73,6 @@ RPVOID
         RPVOID ctx
     )
 {
-    RU32 nThLoop = 0;
-    RU32 currentTimeout = 0;
     rSequence notif = NULL;
     rBlob snapCur = NULL;
     rBlob snapPrev = NULL;
@@ -84,16 +82,26 @@ RPVOID
     RU32 i = 0;
     RU32 j = 0;
     RBOOL isNew = FALSE;
+    LibOsPerformanceProfile perfProfile = { 0 };
     
 #ifdef RPAL_PLATFORM_WINDOWS
     PDNSCACHEENTRY pDnsEntry = NULL;
     PDNSCACHEENTRY pPrevDnsEntry = NULL;
 #endif
 
+    perfProfile.enforceOnceIn = 1;
+    perfProfile.sanityCeiling = MSEC_FROM_SEC( 10 );
+    perfProfile.lastTimeoutValue = 100;
+    perfProfile.targetCpuPerformance = 0;
+    perfProfile.globalTargetCpuPerformance = GLOBAL_CPU_USAGE_TARGET;
+    perfProfile.timeoutIncrementPerSec = 1;
+
     UNREFERENCED_PARAMETER( ctx );
 
-    while( !rEvent_wait( isTimeToStop, currentTimeout ) )
+    while( !rEvent_wait( isTimeToStop, 0 ) )
     {
+        libOs_timeoutWithProfile( &perfProfile, FALSE );
+
         if( NULL != ( snapCur = rpal_blob_create( 0, 10 * sizeof( rec ) ) ) )
         {
 #ifdef RPAL_PLATFORM_WINDOWS
@@ -165,13 +173,7 @@ RPVOID
         snapPrev = snapCur;
         snapCur = NULL;
 
-        nThLoop++;
-        if( 0 == nThLoop % 20 )
-        {
-            currentTimeout = libOs_getUsageProportionalTimeout( MSEC_FROM_SEC( 10 ) ) + MSEC_FROM_SEC( 5 );
-        }
-
-        rpal_thread_sleep( currentTimeout );
+        libOs_timeoutWithProfile( &perfProfile, TRUE );
     }
 
     if( NULL != snapPrev )

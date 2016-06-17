@@ -218,6 +218,19 @@ RU32
 }
 
 RU32
+    rpal_string_strlenn
+    (
+        RNATIVESTR str
+    )
+{
+#ifdef RNATIVE_IS_WIDE
+    return rpal_string_strlenw( str );
+#else
+    return rpal_string_strlen( str );
+#endif
+}
+
+RU32
     rpal_string_strsize
     (
         RPCHAR str
@@ -653,6 +666,11 @@ RPWCHAR
             tmpNeedle = rpal_string_toupperw( tmpNeedle );
 
             out = rpal_string_strstrw( tmpHaystack, tmpNeedle );
+
+            if( NULL != out )
+            {
+                out = haystack + ( out - tmpHaystack );
+            }
         }
 
         if( NULL != tmpHaystack )
@@ -787,7 +805,8 @@ RBOOL
     rpal_string_match
     (
         RPCHAR pattern,
-        RPCHAR str
+        RPCHAR str,
+        RBOOL isCaseSensitive
     )
 {
     // Taken and modified from:
@@ -849,7 +868,15 @@ RBOOL
         switch( state )
         {
             case Exact:
-                match = *s == *p;
+                if( !isCaseSensitive )
+                {
+                    match = ( rpal_string_charToLower( *s ) == 
+                              rpal_string_charToLower( *p ) );
+                }
+                else
+                {
+                    match = *s == *p;
+                }
                 s++;
                 p++;
                 break;
@@ -866,7 +893,7 @@ RBOOL
 
                 if( *s == *q )
                 {
-                    if( rpal_string_match( q, s ) )
+                    if( rpal_string_match( q, s, isCaseSensitive ) )
                     {
                         p++;
                     }
@@ -894,7 +921,8 @@ RBOOL
     rpal_string_matchw
     (
         RPWCHAR pattern,
-        RPWCHAR str
+        RPWCHAR str,
+        RBOOL isCaseSensitive
     )
 {
     // Taken and modified from:
@@ -972,7 +1000,15 @@ RBOOL
         switch( state )
         {
             case Exact:
-                match = *s == *p;
+                if( !isCaseSensitive )
+                {
+                    match = ( rpal_string_wcharToLower( *s ) ==
+                              rpal_string_wcharToLower( *p ) );
+                }
+                else
+                {
+                    match = *s == *p;
+                }
                 s++;
                 p++;
                 break;
@@ -989,7 +1025,7 @@ RBOOL
 
                 if( *s == *q )
                 {
-                    if( rpal_string_matchw( q, s ) )
+                    if( rpal_string_matchw( q, s, isCaseSensitive ) )
                     {
                         p++;
                     }
@@ -1010,6 +1046,21 @@ RBOOL
     {
         return match && ( *s == *p );
     }
+}
+
+RBOOL
+    rpal_string_matchn
+    (
+        RNATIVESTR pattern,
+        RNATIVESTR str,
+        RBOOL isCaseSensitive
+    )
+{
+#ifdef RNATIVE_IS_WIDE
+    return rpal_string_matchw( pattern, str, isCaseSensitive );
+#else
+    return rpal_string_match( pattern, str, isCaseSensitive );
+#endif
 }
 
 RPCHAR
@@ -1765,4 +1816,133 @@ RBOOL
     }
 
     return isAlphaNum;
+}
+
+RBOOL
+    rpal_string_charIsAlpha
+    (
+        RCHAR c
+    )
+{
+    RBOOL isAlpha = FALSE;
+    
+    if( ( 0x41 <= c && 0x5A >= c ) ||
+        ( 0x61 <= c && 0x7A >= c ) )
+    {
+        isAlpha = TRUE;
+    }
+
+    return isAlpha;
+}
+
+RBOOL
+    rpal_string_charIsNum
+    (
+        RCHAR c
+    )
+{
+    RBOOL isNum = FALSE;
+
+    if( ( 0x30 <= c && 0x39 >= c ) )
+    {
+        isNum = TRUE;
+    }
+
+    return isNum;
+}
+
+RBOOL
+    rpal_string_charIsUpper
+    (
+        RCHAR c
+    )
+{
+    RBOOL isUpper = FALSE;
+
+    if( ( 0x41 <= c && 0x5A >= c ) )
+    {
+        isUpper = TRUE;
+    }
+
+    return isUpper;
+}
+
+
+RBOOL
+    rpal_string_charIsLower
+    (
+        RCHAR c
+    )
+{
+    RBOOL isLower = FALSE;
+
+    if( ( 0x61 <= c && 0x7A >= c ) )
+    {
+        isLower = TRUE;
+    }
+
+    return isLower;
+}
+
+RBOOL
+    rpal_string_wcharIsUpper
+    (
+        RWCHAR c
+    )
+{
+    RBOOL isUpper = FALSE;
+
+    isUpper = iswupper( c );
+
+    return isUpper;
+}
+
+
+RBOOL
+    rpal_string_wcharIsLower
+    (
+        RWCHAR c
+    )
+{
+    RBOOL isLower = FALSE;
+
+    isLower = iswlower( c );
+
+    return isLower;
+}
+
+RCHAR
+    rpal_string_charToUpper
+    (
+        RCHAR c
+    )
+{
+    return (RCHAR)toupper( c );
+}
+
+RCHAR
+    rpal_string_charToLower
+    (
+        RCHAR c
+    )
+{
+    return (RCHAR)tolower( c );
+}
+
+RWCHAR
+    rpal_string_wcharToUpper
+    (
+        RWCHAR c
+    )
+{
+    return (RWCHAR)towupper( c );
+}
+
+RWCHAR
+    rpal_string_wcharToLower
+    (
+        RWCHAR c
+    )
+{
+    return (RWCHAR)towlower( c );
 }

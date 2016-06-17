@@ -447,7 +447,7 @@ RBOOL
 
                 fileSize = GetFileSize( hFile, NULL );
 
-                if( 0 != fileSize )
+                if( INVALID_FILE_SIZE != fileSize )
                 {
                     tmpFile = rpal_memory_alloc( fileSize );
 
@@ -971,7 +971,7 @@ RBOOL
 {
     RBOOL isIncluded = FALSE;
 
-    RWCHAR sep[] = RPAL_FILE_LOCAL_DIR_SEP;
+    RWCHAR sep[] = RPAL_FILE_LOCAL_DIR_SEP_W;
 
     RPWCHAR state1 = NULL;
     RPWCHAR state2 = NULL;
@@ -1004,7 +1004,7 @@ RBOOL
         while( NULL != pPattern &&
                NULL != pPath )
         {
-            if( !rpal_string_matchw( pPattern, pPath ) )
+            if( !rpal_string_matchw( pPattern, pPath, TRUE ) )
             {
                 break;
             }
@@ -1075,7 +1075,7 @@ RBOOL
                 tmpFileExp = fileExp;
                 while( NULL != *tmpFileExp )
                 {
-                    if( rpal_string_matchw( *tmpFileExp, pInfo->fileName ) )
+                    if( rpal_string_matchw( *tmpFileExp, pInfo->fileName, TRUE ) )
                     {
                         isIncluded = TRUE;
                         break;
@@ -1101,7 +1101,7 @@ RVOID
     )
 {
     RU32 len = 0;
-    RWCHAR sep[] = RPAL_FILE_LOCAL_DIR_SEP;
+    RWCHAR sep[] = RPAL_FILE_LOCAL_DIR_SEP_W;
 
     if( NULL != pInfo )
     {
@@ -1138,7 +1138,7 @@ rDirCrawl
     RPWCHAR staticRoot = NULL;
     RPWCHAR tmpStr = NULL;
     RPWCHAR state = NULL;
-    RPWCHAR sep = RPAL_FILE_LOCAL_DIR_SEP;
+    RPWCHAR sep = RPAL_FILE_LOCAL_DIR_SEP_W;
     rDir hDir = NULL;
     rFileInfo info = {0};
 
@@ -1342,7 +1342,7 @@ RBOOL
 {
     RBOOL isSuccess = FALSE;
     _rDir* dir = NULL;
-    RWCHAR sep[] = RPAL_FILE_LOCAL_DIR_SEP;
+    RWCHAR sep[] = RPAL_FILE_LOCAL_DIR_SEP_W;
     RPWCHAR tmpDir = NULL;
 #if defined( RPAL_PLATFORM_LINUX ) || defined( RPAL_PLATFORM_MACOSX )
     RPCHAR asciiDir = NULL;
@@ -2223,6 +2223,54 @@ RBOOL
     return gotChange;
 }
 
+#ifdef RPAL_PLATFORM_WINDOWS
+static RBOOL
+    _driveFromDevice
+    (
+        RPWCHAR path,
+        RPWCHAR pDrive,
+        RU32* pDeviceLength
+    )
+{
+    RBOOL isFound = FALSE;
+
+    RU32 driveMask = 0;
+    RU32 i = 0;
+    RWCHAR tmpDrive[ 3 ] = { 0, _WCH( ':' ), 0 };
+    RWCHAR tmpPath[ RPAL_MAX_PATH ] = { 0 };
+
+    if( NULL != path &&
+        NULL != pDrive &&
+        NULL != pDeviceLength )
+    {
+        driveMask = GetLogicalDrives();
+        for( i = 0; i < sizeof( driveMask ) * 8; i++ )
+        {
+            if( 1 == ( driveMask & 0x00000001 ) )
+            {
+                tmpDrive[ 0 ] = (RWCHAR)( _WCH( 'A' ) + i );
+
+                if( QueryDosDeviceW( tmpDrive, tmpPath, ARRAY_N_ELEM( tmpPath ) ) )
+                {
+                    if( rpal_string_startswithiw( path, tmpPath ) )
+                    {
+                        *pDrive = tmpDrive[ 0 ];
+                        *pDeviceLength = rpal_string_strlenw( tmpPath );
+                        isFound = TRUE;
+                        break;
+                    }
+                }
+            }
+
+            driveMask >>= 1;
+        }
+    }
+
+    return isFound;
+}
+
+#endif
+
 RPWCHAR
     rpal_file_cleanw
     (
@@ -2239,15 +2287,66 @@ RPWCHAR
         RU32 i = 0;
         rString tmpPath = NULL;
         RPWCHAR tmpStr = NULL;
+        RWCHAR sysDrive[] = _WCH( "%systemdrive%" );
         RWCHAR winDir[] = _WCH( "%windir%" );
         RWCHAR uncPath[] = _WCH( "\\??\\" );
         RWCHAR sys32Dir[] = _WCH( "\\system32" );
+        RWCHAR sys32Prefix[] = _WCH( "system32\\" );
         RWCHAR sysRootDir[] = _WCH( "\\systemroot" );
+        RWCHAR deviceDir[] = _WCH( "\\device\\" );
         RWCHAR defaultPath[] = _WCH( "%windir%\\system32\\" );
-        RWCHAR defaultExt[] = _WCH( ".dll" );
-        RWCHAR foundPath[ RPAL_MAX_PATH ] = { 0 };
-        RU32 foundLen = 0;
-        RU32 preModLen = 0;
+        RWCHAR tmpDrive[ 3 ] = { 0, _WCH( ':' ), 0 };
+
+        // Local caches
+        static RWCHAR currentSysDrive[ 3 ] = { 0 };
+        static RWCHAR sysDevice[ 50 ] = { 0 };
+        static RWCHAR currentWinDir[ 50 ] = { 0 };
+        static RWCHAR currentDefaultPath[ 50 ] = { 0 };
+
+        // We cache the current system drive since it'll be used all the time.
+        if( 0 == currentSysDrive[ 0 ] )
+        {
+            if( rpal_string_expandw( sysDrive, &tmpStr ) )
+            {
+                if( 2 == rpal_string_strlenw( tmpStr ) )
+                {
+                    rpal_string_strcpyw( currentSysDrive, tmpStr );
+                }
+                rpal_memory_free( tmpStr );
+            }
+        }
+
+        // We cache the device of the system drive since it's the one most likely
+        // to be queried for.
+        if( 0 == sysDevice[ 0 ] )
+        {
+            QueryDosDeviceW( currentSysDrive, sysDevice, ARRAY_N_ELEM( sysDevice ) );
+        }
+
+        // Resolve a few other environment variables.
+        if( 0 == currentWinDir[ 0 ] )
+        {
+            if( rpal_string_expandw( winDir, &tmpStr ) )
+            {
+                if( ARRAY_N_ELEM( currentWinDir ) > rpal_string_strlenw( tmpStr ) )
+                {
+                    rpal_string_strcpyw( currentWinDir, tmpStr );
+                }
+                rpal_memory_free( tmpStr );
+            }
+        }
+
+        if( 0 == currentDefaultPath[ 0 ] )
+        {
+            if( rpal_string_expandw( defaultPath, &tmpStr ) )
+            {
+                if( ARRAY_N_ELEM( currentDefaultPath ) > rpal_string_strlenw( tmpStr ) )
+                {
+                    rpal_string_strcpyw( currentDefaultPath, tmpStr );
+                }
+                rpal_memory_free( tmpStr );
+            }
+        }
 
         len = rpal_string_strlenw( filePath );
 
@@ -2266,93 +2365,59 @@ RPWCHAR
                 }
             }
 
-            if( !isFullPath )
+            if( isFullPath )
             {
-                foundLen = SearchPathW( NULL, filePath, defaultExt, ARRAY_N_ELEM( foundPath ), foundPath, NULL );
-                if( 0 != foundLen && ARRAY_N_ELEM( foundPath ) > foundLen )
+                // Many paths need to be fixed, they all start with a \ so ignore
+                // the path if it doesn't.
+                if( _WCH( '\\' ) == filePath[ 0 ] )
                 {
-                    rpal_stringbuffer_addw( tmpPath, foundPath );
-                    rpal_memory_zero( foundPath, sizeof( foundPath ) );
+                    // If the entry starts with system32, prefix it as necessary
+                    if( rpal_string_startswithiw( filePath, sys32Dir ) )
+                    {
+                        rpal_stringbuffer_addw( tmpPath, currentWinDir );
+                    }
+                    // If the entry starts with \SystemRoot, prefix it as necessary
+                    else if( rpal_string_startswithiw( filePath, sysRootDir ) )
+                    {
+                        rpal_stringbuffer_addw( tmpPath, currentWinDir );
+                        filePath += rpal_string_strlenw( sysRootDir );
+                    }
+                    // If the entry starts with \??\ we can strip the UNC prefix
+                    else if( rpal_string_startswithiw( filePath, uncPath ) )
+                    {
+                        filePath += rpal_string_strlenw( uncPath );
+                    }
+                    // First check if it's the system drive
+                    else if( rpal_string_startswithiw( filePath, sysDevice ) )
+                    {
+                        rpal_stringbuffer_addw( tmpPath, currentSysDrive );
+                        filePath += rpal_string_strlenw( sysDevice );
+                    }
+                    // If the path starts at a device not cached, resolve it
+                    else if( rpal_string_startswithiw( filePath, deviceDir ) )
+                    {
+                        if( _driveFromDevice( filePath, tmpDrive, &i ) )
+                        {
+                            rpal_stringbuffer_addw( tmpPath, tmpDrive );
+                            filePath += i;
+                        }
+                    }
+                    // Sometimes it's just a path without drive, so add systemdrive
+                    else
+                    {
+                        rpal_stringbuffer_addw( tmpPath, currentSysDrive );
+                    }
                 }
-                else
+                else if( rpal_string_startswithiw( filePath, sys32Prefix ) )
                 {
-                    rpal_stringbuffer_addw( tmpPath, (RPWCHAR)defaultPath );
-                    rpal_stringbuffer_addw( tmpPath, filePath );
-                }
-            }
-            else
-            {
-                // If the entry starts with system32, prefix it as necessary
-                if( rpal_string_startswithiw( filePath, sys32Dir ) )
-                {
-                    rpal_stringbuffer_addw( tmpPath, winDir );
-                }
-                // If the entry starts with /SystemRoot, prefix it as necessary
-                else if( rpal_string_startswithiw( filePath, sysRootDir ) )
-                {
-                    rpal_stringbuffer_addw( tmpPath, winDir );
-                    filePath += rpal_string_strlenw( sysRootDir );
-                }
-                // If the entry starts with \??\ we can strip the UNC prefix
-                else if( rpal_string_startswithiw( filePath, uncPath ) )
-                {
-                    filePath += rpal_string_strlenw( uncPath );
+                    rpal_stringbuffer_addw( tmpPath, currentWinDir );
+                    rpal_stringbuffer_addw( tmpPath, _WCH( "\\" ) );
                 }
 
                 rpal_stringbuffer_addw( tmpPath, filePath );
             }
 
             tmpStr = rpal_stringbuffer_getStringw( tmpPath );
-            len = rpal_string_strlenw( tmpStr );
-
-            // Sometimes we deal with lists with commas, strip them
-            for( i = 0; i < len; i++ )
-            {
-                if( _WCH( ',' ) == tmpStr[ i ] )
-                {
-                    tmpStr[ i ] = 0;
-                }
-            }
-
-            // We remove any trailing white spaces
-            rpal_string_trimw( tmpStr, _WCH( " \t" ) );
-
-            // If this is a quoted path we will move past the first quote
-            // and null-terminate at the next quote
-            len = rpal_string_strlenw( tmpStr );
-            preModLen = len;
-            if( _WCH( '"' ) == tmpStr[ 0 ] )
-            {
-                tmpStr++;
-                len--;
-                for( i = 0; i < len; i++ )
-                {
-                    if( _WCH( '"' ) == tmpStr[ i ] )
-                    {
-                        tmpStr[ i ] = 0;
-                        len = rpal_string_strlenw( tmpStr );
-                        break;
-                    }
-                }
-            }
-
-            // Sometimes extensions are missing, default to dll
-            if( 4 > len ||
-                _WCH( '.' ) != tmpStr[ len - 4 ] )
-            {
-                rpal_stringbuffer_addw( tmpPath, (RPWCHAR)&defaultExt );
-                tmpStr = rpal_stringbuffer_getStringw( tmpPath );
-
-                if( len < preModLen )
-                {
-                    // The string has been shortened, so its actual end does not correspond to
-                    // that of the buffer. Thus, we reconcatenate the default extension to its
-                    // actual end, comfortable in the knowledge that there is enough room
-                    // allocated for it (because of the prior appending to the buffer).
-                    rpal_string_strcatw( tmpStr, (RPWCHAR)defaultExt );
-                }
-            }
-
             clean = rpal_string_strdupw( tmpStr );
             rpal_stringbuffer_free( tmpPath );
         }

@@ -205,6 +205,12 @@ rString
                         rSequence_addBUFFER( hdrSeq, RP_TAGS_HCP_ENROLLMENT_TOKEN, g_hcpContext.enrollmentToken, g_hcpContext.enrollmentTokenSize );
                     }
 
+                    if( NULL != g_hcpContext.deploymentKey &&
+                        0 != g_hcpContext.deploymentKey )
+                    {
+                        rSequence_addSTRINGA( hdrSeq, RP_TAGS_HCP_DEPLOYMENT_KEY, g_hcpContext.deploymentKey );
+                    }
+
                     if( NULL != payload )
                     {
                         blob = rpal_blob_create( 0, 0 );

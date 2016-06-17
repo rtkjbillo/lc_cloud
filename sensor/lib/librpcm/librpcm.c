@@ -27,6 +27,7 @@ limitations under the License.
 //  Private Macros
 //=============================================================================
 #define RPCM_IPV6_SIZE  16
+#define RPCM_MAX_FETCH_PATH_SIZE    10
 
 //=============================================================================
 //  Private Prototypes
@@ -341,9 +342,8 @@ RBOOL
         set->nElements = 0;
         set->tag = RPCM_INVALID_TAG;
         set->blob = rpal_blob_create_from( 0, 0, from );
-#ifdef RPAL_PLATFORM_DEBUG
         set->isReadTainted = FALSE;
-#endif
+
         if( rpal_memory_isValid( set->blob ) )
         {
             isInit = TRUE;
@@ -456,12 +456,11 @@ RBOOL
 
         if( isElemSimple( &header ) )
         {
-#ifdef RPAL_PLATFORM_DEBUG
             if( set->isReadTainted )
             {
                 rpal_debug_critical( "ADD operation of an RPCM structure that was READ from before. This is potentially invalidating previously acquired pointers." );
             }
-#endif
+
             simpleHeader.commonHeader = header;
             
             if( rpal_blob_add( set->blob, &simpleHeader, sizeof( simpleHeader ) ) )
@@ -496,12 +495,11 @@ RBOOL
         }
         else if( isElemVariable( &header ) )
         {
-#ifdef RPAL_PLATFORM_DEBUG
             if( set->isReadTainted )
             {
                 rpal_debug_critical( "ADD operation of an RPCM structure that was READ from before. This is potentially invalidating previously acquired pointers." );
             }
-#endif
+
             varHeader.commonHeader = header;
 
             switch( type )
@@ -641,9 +639,7 @@ RBOOL
                                 // I want the raw pointer
                                 *(RPVOID*)pElem = simpleElem->data;
 
-#ifdef RPAL_PLATFORM_DEBUG
                                 set->isReadTainted = TRUE;
-#endif
                             }
 
                             if( NULL != pAfterThis )
@@ -671,9 +667,8 @@ RBOOL
                             if( NULL != pElem )
                             {
                                 *(RPCHAR*)pElem = (RPCHAR)varElem->data;
-#ifdef RPAL_PLATFORM_DEBUG
+
                                 set->isReadTainted = TRUE;
-#endif
                             }
 
                             if( NULL != pAfterThis )
@@ -1042,6 +1037,8 @@ RBOOL
         }
         else
         {
+            set->isReadTainted = FALSE;
+
             if( NULL != pBytesConsumed )
             {
                 *pBytesConsumed = (RU32)((RPU8)header - buffer);
@@ -1628,11 +1625,7 @@ RVOID
         rSequence seq
     )
 {
-#ifdef RPAL_PLATFORM_DEBUG
     ((_rSequence*)seq)->set.isReadTainted = FALSE;
-#else
-    UNREFERENCED_PARAMETER( seq );
-#endif
     return;
 }
 
@@ -1642,11 +1635,7 @@ RVOID
         rList list
     )
 {
-#ifdef RPAL_PLATFORM_DEBUG
     ((_rList*)list)->set.isReadTainted = FALSE;
-#else
-    UNREFERENCED_PARAMETER( list );
-#endif
     return;
 }
 
@@ -1666,4 +1655,238 @@ RU32
     )
 {
     return set_getEstimateSize( &( (_rList*)list )->set );
+}
+
+RBOOL
+    set_fetch
+    (
+        _PElementSet set,
+        rpcm_tag* path,
+        rpcm_type fetchType,
+        rStack result,
+        RBOOL isReturnFirst,
+        RBOOL isWildcarded
+    )
+{
+    RBOOL isSuccess = FALSE;
+    RBOOL isEndpoint = FALSE;
+    rpcm_tag searchTag = 0;
+    rpcm_type searchType = 0;
+    rpcm_tag curTag = 0;
+    rpcm_type curType = 0;
+    RPVOID tmpElem = NULL;
+    RU32 tmpSize = 0;
+    rpcm_elem_record record = { 0 };
+    RPVOID lastHit = NULL;
+    rpcm_tag* nextPath = NULL;
+
+    if( NULL != set &&
+        NULL != path &&
+        NULL != result )
+    {
+        if( RPCM_END_TAG == path[ 1 ] )
+        {
+            isEndpoint = TRUE;
+        }
+
+        searchTag = path[ 0 ];
+        searchType = RPCM_INVALID_TAG;
+        
+        if( RPCM_ANY_ONE_TAG == searchTag )
+        {
+            searchTag = RPCM_INVALID_TAG;
+            isWildcarded = FALSE;
+        }
+        else if( RPCM_ANY_NUMBER_TAGS == searchTag )
+        {
+            searchTag = RPCM_INVALID_TAG;
+            isWildcarded = TRUE;
+        }
+
+        curTag = searchTag;
+        curType = searchType;
+
+        while( set_getElement( set, &curTag, &curType, &tmpElem, &tmpSize, &lastHit, TRUE ) &&
+               ( !isReturnFirst || 0 ==  rStack_getSize( result ) ) )
+        {
+            isSuccess = FALSE;
+
+            if( isEndpoint )
+            {
+                record.tag = curTag;
+                record.type = curType;
+                record.size = tmpSize;
+                record.value = tmpElem;
+
+                if( fetchType == curType &&
+                    rStack_push( result, &record ) )
+                {
+                    isSuccess = TRUE;
+                }
+            }
+            else if( RPCM_COMPLEX_TYPES < curType )
+            {
+                if( curTag == path[ 0 ] ||
+                    RPCM_ANY_ONE_TAG == path[ 0 ] ||
+                    RPCM_ANY_NUMBER_TAGS == path[ 0 ] )
+                {
+                    nextPath = path + 1;
+                }
+
+                if( set_fetch( tmpElem, 
+                               nextPath, 
+                               fetchType, 
+                               result, 
+                               isReturnFirst, 
+                               isWildcarded ) )
+                {
+                    isSuccess = TRUE;
+                }
+            }
+            else
+            {
+                // Not an endpoint but tag is not a complex type, doesn't make sense.
+            }
+
+            if( !isSuccess )
+            {
+                break;
+            }
+
+            curTag = searchTag;
+            curType = searchType;
+        }
+    }
+
+    return isSuccess;
+}
+
+rStack
+    rpcm_fetchAllV
+    (
+        RPVOID seqOrList,
+        rpcm_type fetchType,
+        rpcm_tag* path
+    )
+{
+    rStack result = NULL;
+    
+    if( NULL != ( result = rStack_new( sizeof( rpcm_elem_record ) ) ) )
+    {
+        if( !set_fetch( seqOrList, path, fetchType, result, FALSE, FALSE ) )
+        {
+            rStack_free( result, NULL );
+            result = NULL;
+        }
+    }
+
+    return result;
+}
+
+rStack
+    rpcm_fetchAll
+    (
+        RPVOID seqOrList,
+        rpcm_type fetchType,
+        ...
+    )
+{
+    rStack result = NULL;
+    rpcm_tag path[ RPCM_MAX_FETCH_PATH_SIZE ] = { 0 };
+    RU32 i = 0;
+    rpcm_tag tmpTag = 0;
+    RP_VA_LIST ap;
+
+    RP_VA_START( ap, fetchType );
+
+    while( RPCM_END_TAG != ( tmpTag = RP_VA_ARG( ap, rpcm_tag ) ) )
+    {
+        if( ARRAY_N_ELEM( path ) - 1 == i )
+        {
+            i = 0;
+            break;
+        }
+
+        path[ i ] = tmpTag;
+        i++;
+    }
+    
+    RP_VA_END( ap );
+
+    if( 0 != i )
+    {
+        path[ i ] = RPCM_END_TAG;
+        result = rpcm_fetchAllV( seqOrList, fetchType, path );
+    }
+    
+    return result;
+}
+
+rpcm_elem_record
+    rpcm_fetchOneV
+    (
+        RPVOID seqOrList,
+        rpcm_type fetchType,
+        rpcm_tag* path
+    )
+{
+    rStack result = NULL;
+    rpcm_elem_record resElem = { 0 };
+    
+    if( NULL != ( result = rStack_new( sizeof( rpcm_elem_record ) ) ) )
+    {
+        if( set_fetch( seqOrList, path, fetchType, result, TRUE, FALSE ) )
+        {
+            if( 0 != rStack_getSize( result ) )
+            {
+                if( !rStack_atIndex( result, 0, &resElem ) )
+                {
+                    rpal_memory_zero( &resElem, sizeof( resElem ) );
+                }
+            }
+        }
+
+        rStack_free( result, NULL );
+    }
+
+    return resElem;
+}
+
+rpcm_elem_record
+    rpcm_fetchOne
+    (
+        RPVOID seqOrList,
+        rpcm_type fetchType,
+        ...
+    )
+{
+    rpcm_elem_record resElem = { 0 };
+    rpcm_tag path[ RPCM_MAX_FETCH_PATH_SIZE ] = { 0 };
+    rpcm_tag tmpTag = 0;
+    RU32 i = 0;
+    RP_VA_LIST ap;
+    
+    RP_VA_START( ap, fetchType );
+
+    while( RPCM_END_TAG != ( tmpTag = RP_VA_ARG( ap, rpcm_tag ) ) )
+    {
+        if( ARRAY_N_ELEM( path ) - 1 == i )
+        {
+            i = 0;
+            break;
+        }
+
+        path[ i ] = tmpTag;
+        i++;
+    }
+
+    RP_VA_END( ap );
+
+    if( 0 != i )
+    {
+        path[ i ] = RPCM_END_TAG;
+        resElem = rpcm_fetchOneV( seqOrList, fetchType, path );
+    }
+
+    return resElem;
 }

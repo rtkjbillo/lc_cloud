@@ -36,8 +36,6 @@ limitations under the License.
 
 #define MAX_SNAPSHOT_SIZE 1536
 
-#define _NO_USER_ID ((RU32)(-1))
-
 typedef struct
 {
     RU32 pid;
@@ -167,7 +165,8 @@ static RBOOL
         RU32 pid,
         RU32 ppid,
         RBOOL isStarting,
-        RPCHAR optFilePath,
+        RNATIVESTR optFilePath,
+        RNATIVESTR optCmdLine,
         RU32 optUserId,
         RU64 optTs
     )
@@ -175,11 +174,34 @@ static RBOOL
     RBOOL isSuccess = FALSE;
     rSequence info = NULL;
     rSequence parentInfo = NULL;
-    RPVOID tmpFilePath = NULL;
     RU32 tmpUid = 0;
+    RNATIVESTR cleanPath = NULL;
 
-    if( !isStarting ||
-        NULL == ( info = processLib_getProcessInfo( pid ) ) )
+    // We prime the information with whatever was provided
+    // to us by the kernel acquisition. If not available
+    // we generate using the UM only way.
+    if( 0 != rpal_string_strlenn( optFilePath ) &&
+        ( NULL != info ||
+          NULL != ( info = rSequence_new() ) ) )
+    {
+        cleanPath = rpal_file_cleann( optFilePath );
+        rSequence_addSTRINGN( info, RP_TAGS_FILE_PATH, cleanPath ? cleanPath : optFilePath );
+        rpal_memory_free( cleanPath );
+    }
+
+    if( 0 != rpal_string_strlenn( optCmdLine ) &&
+        ( NULL != info ||
+          NULL != ( info = rSequence_new() ) ) )
+    {
+        rSequence_addSTRINGN( info, RP_TAGS_COMMAND_LINE, optCmdLine );
+    }
+
+    if( NULL != info )
+    {
+        info = processLib_getProcessInfo( pid, info );
+    }
+    else if( !isStarting ||
+             NULL == ( info = processLib_getProcessInfo( pid, info ) ) )
     {
         info = rSequence_new();
     }
@@ -199,7 +221,7 @@ static RBOOL
 
         if( isStarting )
         {
-            if( NULL != ( parentInfo = processLib_getProcessInfo( ppid ) ) &&
+            if( NULL != ( parentInfo = processLib_getProcessInfo( ppid, NULL ) ) &&
                 !rSequence_addSEQUENCE( info, RP_TAGS_PARENT, parentInfo ) )
             {
                 rSequence_free( parentInfo );
@@ -208,16 +230,7 @@ static RBOOL
 
         if( isStarting )
         {
-            // Sometimes we're provided extra information from the kernel acquisition
-            // so we'll fill in the blanks
-            if( NULL != optFilePath &&
-                !rSequence_getSTRINGA( info, RP_TAGS_FILE_PATH, (RPCHAR*)&tmpFilePath ) &&
-                !rSequence_getSTRINGW( info, RP_TAGS_FILE_PATH, (RPWCHAR*)&tmpFilePath ) )
-            {
-                rSequence_addSTRINGA( info, RP_TAGS_FILE_PATH, optFilePath );
-            }
-
-            if( _NO_USER_ID != optUserId &&
+            if( KERNEL_ACQ_NO_USER_ID != optUserId &&
                 !rSequence_getRU32( info, RP_TAGS_USER_ID, &tmpUid ) )
             {
                 rSequence_addRU32( info, RP_TAGS_USER_ID, optUserId );
@@ -226,7 +239,7 @@ static RBOOL
             if( notifications_publish( RP_TAGS_NOTIFICATION_NEW_PROCESS, info ) )
             {
                 isSuccess = TRUE;
-                rpal_debug_info( "new process starting: %d", pid );
+                rpal_debug_info( "new process starting: %d / %d", pid, ppid );
             }
         }
         else
@@ -234,11 +247,15 @@ static RBOOL
             if( notifications_publish( RP_TAGS_NOTIFICATION_TERMINATE_PROCESS, info ) )
             {
                 isSuccess = TRUE;
-                rpal_debug_info( "new process terminating: %d", pid );
+                rpal_debug_info( "new process terminating: %d / %d", pid, ppid );
             }
         }
 
         rSequence_free( info );
+    }
+    else
+    {
+        rpal_debug_error( "could not allocate info on new process" );
     }
 
     return isSuccess;
@@ -258,16 +275,24 @@ static RVOID
     RBOOL isFirstSnapshots = TRUE;
     RU32 i = 0;
     RBOOL isFound = FALSE;
-    RU32 nThLoop = 0;
     RU32 nTmpElem = 0;
     RU32 nCurElem = 0;
     RU32 nPrevElem = 0;
-    RU32 currentTimeout = 0;
+    LibOsPerformanceProfile perfProfile = { 0 };
 
-    while( !rEvent_wait( isTimeToStop, currentTimeout ) &&
+    perfProfile.enforceOnceIn = 1;
+    perfProfile.sanityCeiling = MSEC_FROM_SEC( 10 );
+    perfProfile.lastTimeoutValue = 100;
+    perfProfile.targetCpuPerformance = 0;
+    perfProfile.globalTargetCpuPerformance = GLOBAL_CPU_USAGE_TARGET;
+    perfProfile.timeoutIncrementPerSec = 10;
+
+    while( !rEvent_wait( isTimeToStop, 0 ) &&
            ( !kAcq_isAvailable() ||
              g_is_kernel_failure ) )
     {
+        libOs_timeoutWithProfile( &perfProfile, FALSE );
+
         tmpSnapshot = currentSnapshot;
         currentSnapshot = previousSnapshot;
         previousSnapshot = tmpSnapshot;
@@ -304,7 +329,8 @@ static RVOID
                                           currentSnapshot[ i ].ppid,
                                           TRUE,
                                           NULL,
-                                          _NO_USER_ID,
+                                          NULL,
+                                          KERNEL_ACQ_NO_USER_ID,
                                           0 ) )
                     {
                         rpal_debug_warning( "error reporting new process: %d",
@@ -333,7 +359,8 @@ static RVOID
                                           previousSnapshot[ i ].ppid,
                                           FALSE,
                                           NULL,
-                                          _NO_USER_ID,
+                                          NULL,
+                                          KERNEL_ACQ_NO_USER_ID,
                                           0 ) )
                     {
                         rpal_debug_warning( "error reporting terminated process: %d",
@@ -343,17 +370,7 @@ static RVOID
             }
         }
 
-        nThLoop++;
-        if( 0 == nThLoop % 20 )
-        {
-#ifdef RPAL_PLATFORM_WINDOWS
-            // The Windows API is much more efficient than on Nix so we can affort
-            // going faster between our diffs.
-            currentTimeout = libOs_getUsageProportionalTimeout( 500 ) + 100;
-#else
-            currentTimeout = libOs_getUsageProportionalTimeout( 800 ) + 200;
-#endif
-        }
+        libOs_timeoutWithProfile( &perfProfile, TRUE );
     }
 }
 
@@ -368,8 +385,7 @@ static RVOID
     RU32 nProcessEntries = 0;
     KernelAcqProcess new_from_kernel[ 200 ] = { 0 };
     processEntry tracking_user[ MAX_SNAPSHOT_SIZE ] = { 0 };
-    RU32 nPhase = 0;
-
+    
     while( !rEvent_wait( isTimeToStop, 1000 ) )
     {
         nScratch = ARRAY_N_ELEM( new_from_kernel );
@@ -387,6 +403,7 @@ static RVOID
                              new_from_kernel[ i ].ppid,
                              TRUE,
                              new_from_kernel[ i ].path,
+                             new_from_kernel[ i ].cmdline,
                              new_from_kernel[ i ].uid,
                              new_from_kernel[ i ].ts );
 
@@ -400,20 +417,17 @@ static RVOID
             nProcessEntries++;
         }
 
-        // We do garbage collection and checking of dead processes
-        // only every X sweeps from the kernel, this is to prioritize
-        // the timely processing of new processes vs dead ones
-        nPhase++;
-        if( nPhase < 10 )
-        {
-            continue;
-        }
-
         for( i = 0; i < nProcessEntries; i++ )
         {
             if( !processLib_isPidInUse( tracking_user[ i ].pid ) )
             {
-                notifyOfProcess( tracking_user[ i ].pid, tracking_user[ i ].ppid, FALSE, NULL, _NO_USER_ID, 0 );
+                notifyOfProcess( tracking_user[ i ].pid, 
+                                 tracking_user[ i ].ppid, 
+                                 FALSE, 
+                                 NULL, 
+                                 NULL,
+                                 KERNEL_ACQ_NO_USER_ID,
+                                 0 );
                 if( nProcessEntries != i + 1 )
                 {
                     rpal_memory_memmove( &(tracking_user[ i ]), &(tracking_user[ i + 1 ]), nProcessEntries - i + 1 );
@@ -447,7 +461,7 @@ static RPVOID
         // to revert to user mode
         else if( !rEvent_wait( isTimeToStop, 0 ) )
         {
-            rpal_debug_info( "running usermode acquisition preocess notification" );
+            rpal_debug_info( "running usermode acquisition process notification" );
             userModeDiff( isTimeToStop );
         }
     }

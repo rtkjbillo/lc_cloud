@@ -75,7 +75,7 @@ RBOOL
             if( !GetExitCodeProcess( hProcess, (LPDWORD)&exitCode ) ||
                 STILL_ACTIVE == exitCode )
             {
-                if( WAIT_OBJECT_0 == WaitForSingleObject( hProcess, 0 ) )
+                if( WAIT_TIMEOUT == WaitForSingleObject( hProcess, 0 ) )
                 {
                     isInUse = TRUE;
                 }
@@ -137,7 +137,8 @@ RBOOL
 rSequence
     processLib_getProcessInfo
     (
-        RU32 processId
+        RU32 processId,
+        rSequence bootstrap
     )
 {
     rSequence procInfo = NULL;
@@ -177,7 +178,8 @@ rSequence
     }
 
     if( NULL != queryInfo &&
-        NULL != ( procInfo = rSequence_new() ) )
+        ( NULL != ( procInfo = bootstrap ) ||
+          NULL != ( procInfo = rSequence_new() ) ) )
     {
         pbi.PebBaseAddress = (PPEB)0x7ffdf000;
         pbi.UniqueProcessId = processId;
@@ -431,7 +433,10 @@ rSequence
 
             CloseHandle( hProcess );
 
-            if( !isFilePathAcquired && !isCommandLineAcquired && !isSecondaryInfoAcquired )
+            if( !isFilePathAcquired && 
+                !isCommandLineAcquired && 
+                !isSecondaryInfoAcquired && 
+                NULL == bootstrap )
             {
                 // If we really got NOTHING we'll just clean up to signal to the caller
                 rSequence_free( procInfo );
@@ -443,7 +448,7 @@ rSequence
                 rSequence_addRU32( procInfo, RP_TAGS_PROCESS_ID, processId );
             }
         }
-        else
+        else if( NULL == bootstrap )
         {
             rSequence_free( procInfo );
             procInfo = NULL;
@@ -479,7 +484,8 @@ rSequence
     
     RU32 i = 0;
         
-    if( NULL != ( procInfo = rSequence_new() ) )
+    if( NULL != ( procInfo = bootstrap ) ||
+        NULL != ( procInfo = rSequence_new() ) )
     {
         rSequence_addRU32( procInfo, RP_TAGS_PROCESS_ID, processId );
         
@@ -618,10 +624,13 @@ rSequence
     rString fullcmdline = NULL;
 
     mib[ 3 ] = processId;
+
+    procInfo = bootstrap;
     
     if( 0 == sysctl( mib, 4, &info, &size, NULL, 0 ) && 0 < size )
     {
-        if( NULL != ( procInfo = rSequence_new() ) )
+        if( NULL != procInfo ||
+            NULL != ( procInfo = rSequence_new() ) )
         {
             rSequence_addRU32( procInfo, RP_TAGS_PROCESS_ID, info.kp_proc.p_pid );
             rSequence_addRU32( procInfo, RP_TAGS_PARENT_PROCESS_ID, info.kp_eproc.e_ppid );
@@ -820,7 +829,7 @@ rList
                             if( NULL == module )    
                             {
                                 // Ignore modules that are not executable
-                                if( rpal_string_match( execPattern, permissions ) )
+                                if( rpal_string_match( execPattern, permissions, TRUE ) )
                                 {
                                     if( NULL != ( module = rSequence_new() ) )
                                     {
@@ -876,8 +885,8 @@ rList
         {
             result = proc_pidinfo( processId, PROC_PIDREGIONPATHINFO, offset, &rwpi, sizeof( rwpi ) );
             if ( rwpi.prp_vip.vip_path[ 0 ] && 
-                 ( rpal_string_match( "*.dylib", rwpi.prp_vip.vip_path ) ||
-                   rpal_string_match( "*dyld_shared_cache*", rwpi.prp_vip.vip_path )
+                 ( rpal_string_match( "*.dylib", rwpi.prp_vip.vip_path, TRUE ) ||
+                   rpal_string_match( "*dyld_shared_cache*", rwpi.prp_vip.vip_path, TRUE )
                  ) )
             {
                 if( NULL != ( module = rSequence_new() ) )
@@ -1239,11 +1248,11 @@ rList
                         {
                             if( NULL != ( loc = rSequence_new() ) )
                             {
-                                if( rpal_string_match( "*p", permissions ) )
+                                if( rpal_string_match( "*p", permissions, TRUE ) )
                                 {
                                     type = PROCESSLIB_MEM_TYPE_PRIVATE;
                                 }
-                                else if( rpal_string_match( "*s", permissions ) )
+                                else if( rpal_string_match( "*s", permissions, TRUE ) )
                                 {
                                     type = PROCESSLIB_MEM_TYPE_MAPPED;
                                 }
@@ -1252,27 +1261,27 @@ rList
                                     type = PROCESSLIB_MEM_TYPE_UNKNOWN;
                                 }
                                 // Map protect permissions
-                                if ( rpal_string_match( "--x?", permissions ) )
+                                if ( rpal_string_match( "--x?", permissions, TRUE ) )
                                 {
                                     protect = PROCESSLIB_MEM_ACCESS_EXECUTE;
                                 }
-                                else if ( rpal_string_match( "r-x?", permissions ) )
+                                else if ( rpal_string_match( "r-x?", permissions, TRUE ) )
                                 {
                                     protect = PROCESSLIB_MEM_ACCESS_EXECUTE_READ;
                                 }
-                                else if ( rpal_string_match( "rwx?", permissions ) )
+                                else if ( rpal_string_match( "rwx?", permissions, TRUE ) )
                                 {
                                     protect = PROCESSLIB_MEM_ACCESS_EXECUTE_READ_WRITE;
                                 }
-                                else if ( rpal_string_match( "---?", permissions ) )
+                                else if ( rpal_string_match( "---?", permissions, TRUE ) )
                                 {
                                     protect = PROCESSLIB_MEM_ACCESS_NO_ACCESS;
                                 }
-                                else if ( rpal_string_match( "r--?", permissions ) )
+                                else if ( rpal_string_match( "r--?", permissions, TRUE ) )
                                 {
                                     protect = PROCESSLIB_MEM_ACCESS_READ_ONLY;
                                 }
-                                else if ( rpal_string_match( "rw-?", permissions ) )
+                                else if ( rpal_string_match( "rw-?", permissions, TRUE ) )
                                 {
                                     protect = PROCESSLIB_MEM_ACCESS_READ_WRITE;
                                 }

@@ -19,7 +19,7 @@
     </ProjectConfiguration>
   </ItemGroup>
   <PropertyGroup Label="Globals">
-    <ProjectGuid>{4BC4C448-6B12-4194-8A4A-9019CDD0EDF3}</ProjectGuid>
+    <ProjectGuid>{BF08E3B3-99AF-4E11-BB8E-FEDABB7BA668}</ProjectGuid>
     <RootNamespace>rpHCP_KernelAcquisition</RootNamespace>
     <Keyword>Win32Proj</Keyword>
   </PropertyGroup>
@@ -105,6 +105,9 @@
     <ClCompile Include="main.c" />
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="..\..\lib\obfuscationLib\obfuscationLib.vcxproj">
+      <Project>{53e5cf95-eaba-412b-82c4-39632419171f}</Project>
+    </ProjectReference>
     <ProjectReference Include="..\..\lib\rpal\rpal.vcxproj">
       <Project>{c8461925-62d7-49ff-a7c7-6cb5f73fa441}</Project>
     </ProjectReference>

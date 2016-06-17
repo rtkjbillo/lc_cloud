@@ -149,6 +149,9 @@ class HbsCollectorId ( object ):
     OPERATIONS_MAN = 14
     PROCESS_HOLLOWING = 15
     YARA = 16
+    OS_TRACKER = 17
+    DOC_COLLECTOR = 18
+    VOLUME_TRACKER = 18
 
     lookup = {
         0 : 'EXFIL',
@@ -167,7 +170,9 @@ class HbsCollectorId ( object ):
         13 : 'EXEC_OOB',
         14 : 'OPERATIONS_MAN',
         15 : 'PROCESS_HOLLOWING',
-        16 : 'YARA'
+        16 : 'YARA',
+        17 : 'OS_TRACKER',
+        18 : 'DOC_COLLECTOR'
     }
 
 class TwoFactorAuth(object):

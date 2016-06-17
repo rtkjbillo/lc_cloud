@@ -12,13 +12,17 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import os
+import sys
+sys.path.append( os.path.join( os.path.dirname( os.path.abspath( __file__ ) ), '..', '..', 'cloud', 'beach' ) )
+os.chdir( os.path.join( os.path.dirname( os.path.abspath( __file__ ) ), '..', '..' ) )
+
 from hcp.rpcm import rpcm
 from hcp.rpcm import rSequence
 from hcp.rpcm import rList
 from hcp.Symbols import Symbols
 from hcp.hcp_helpers import AgentId
 
-import os
 import sys
 import tarfile
 

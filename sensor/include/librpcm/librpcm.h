@@ -28,10 +28,21 @@ typedef RPVOID  rIterator;
 typedef RU32    rpcm_tag;
 typedef RU8     rpcm_type;
 
+typedef struct
+{
+    rpcm_tag tag;
+    rpcm_type type;
+    RU32 size;
+    RPVOID value;
+} rpcm_elem_record;
+
 //=============================================================================
 //  Types
 //=============================================================================
-#define RPCM_INVALID_TAG    0x00000000
+#define RPCM_INVALID_TAG        0x00000000
+#define RPCM_ANY_ONE_TAG        0xFFFFFFFF
+#define RPCM_ANY_NUMBER_TAGS    0xFFFFFFFE
+#define RPCM_END_TAG            0xFFFFFFFD
 #define RPCM_INVALID_TYPE   0x00
 #define RPCM_RU8            0x01
 #define RPCM_RU16           0x02
@@ -51,6 +62,12 @@ typedef RU8     rpcm_type;
 #define RPCM_COMPLEX_TYPES  0x80
 #define RPCM_SEQUENCE       0x81
 #define RPCM_LIST           0x82
+
+#ifdef RPAL_PLATFORM_WINDOWS
+    #define RPCM_STRINGN        RPCM_STRINGW
+#else
+    #define RPCM_STRINGN        RPCM_STRINGA
+#endif
 
 //=============================================================================
 //  API
@@ -180,6 +197,14 @@ RBOOL
         rSequence seq,
         rpcm_tag tag,
         RPWCHAR string
+    );
+
+RBOOL
+    rSequence_addSTRINGN
+    (
+        rSequence seq,
+        rpcm_tag tag,
+        RNATIVESTR string
     );
 
 RBOOL
@@ -323,6 +348,13 @@ RBOOL
     );
 
 RBOOL
+    rList_addSTRINGN
+    (
+        rList list,
+        RNATIVESTR string
+    );
+
+RBOOL
     rList_addBUFFER
     (
         rList list,
@@ -413,6 +445,16 @@ RBOOL
     );
 
 RBOOL
+    rSequence_getRawElement
+    (
+        rSequence seq,
+        rpcm_tag* tag,
+        rpcm_type* type,
+        RPVOID* pElem,
+        RU32* elemSize
+    );
+
+RBOOL
     rSequence_getRU8
     (
         rSequence seq,
@@ -466,6 +508,14 @@ RBOOL
         rSequence seq,
         rpcm_tag tag,
         RPWCHAR* pVal
+    );
+
+RBOOL
+    rSequence_getSTRINGN
+    (
+        rSequence seq,
+        rpcm_tag tag,
+        RNATIVESTR* pVal
     );
 
 RBOOL
@@ -605,6 +655,14 @@ RBOOL
         rList list,
         rpcm_tag tag,
         RPWCHAR* pVal
+    );
+
+RBOOL
+    rList_getSTRINGN
+    (
+        rList list,
+        rpcm_tag tag,
+        RNATIVESTR* pVal
     );
 
 RBOOL
@@ -813,6 +871,39 @@ RU32
     rList_getEstimateSize
     (
         rList list
+    );
+
+
+rStack
+    rpcm_fetchAllV
+    (
+        RPVOID seqOrList,
+        rpcm_type fetchType,
+        rpcm_tag* path
+    );
+
+rpcm_elem_record
+    rpcm_fetchOneV
+    (
+        RPVOID seqOrList,
+        rpcm_type fetchType,
+        rpcm_tag* path
+    );
+
+rStack
+    rpcm_fetchAll
+    (
+        RPVOID seqOrList,
+        rpcm_type fetchType,
+        ...
+    );
+
+rpcm_elem_record
+    rpcm_fetchOne
+    (
+        RPVOID seqOrList,
+        rpcm_type fetchType,
+        ...
     );
 
 #endif

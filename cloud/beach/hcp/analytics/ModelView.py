@@ -194,9 +194,11 @@ class ModelView( Actor ):
     def get_event( self, msg ):
         event = Host.getSpecificEvent( msg.data[ 'id' ] )
 
-        event = ( event[ 0 ], FluxEvent.decode( event[ 2 ] ) )
-
-        return ( True, { 'event' : event } )
+        if event is not None:
+            event = ( event[ 0 ], FluxEvent.decode( event[ 2 ] ) )
+            return ( True, { 'event' : event } )
+        else:
+            return ( False, 'event not found' )
 
     def list_sensors( self, msg ):
         sensors = self.admin.hcp_getAgentStates()
@@ -299,11 +301,14 @@ class ModelView( Actor ):
     def get_file_in_event( self, msg ):
         event = Host.getSpecificEvent( msg.data[ 'id' ] )
 
-        event = ( event[ 0 ], FluxEvent.decode( event[ 2 ] ) )
+        if event is not None:
+            event = ( event[ 0 ], FluxEvent.decode( event[ 2 ] ) )
 
-        filePath = None
-        fileData = _x_( event, '*/base.FILE_CONTENT' )
-        if fileData is not None:
-            filePath = _x_( event, '*/base.FILE_PATH' )
+            filePath = None
+            fileData = _x_( event, '*/base.FILE_CONTENT' )
+            if fileData is not None:
+                filePath = _x_( event, '*/base.FILE_PATH' )
 
-        return ( True, { 'data' : fileData, 'path' : filePath } )
+            return ( True, { 'data' : fileData, 'path' : filePath } )
+        else:
+            return ( True, {} )

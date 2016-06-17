@@ -79,4 +79,10 @@ RU32
         rStack stack
     );
 
+RPVOID
+    rStack_getBuffer
+    (
+        rStack stack
+    );
+
 #endif

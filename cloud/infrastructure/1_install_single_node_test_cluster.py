@@ -61,8 +61,14 @@ printStep( 'Installing JRE for Cassandra (the hcp-scale-db)',
 printStep( 'Installing Cassandra.',
     os.system( 'echo "deb http://debian.datastax.com/community stable main" | sudo tee -a /etc/apt/sources.list.d/cassandra.sources.list' ),
     os.system( 'curl -L http://debian.datastax.com/debian/repo_key | sudo apt-key add -' ),
-    os.system( 'apt-get update -y' ),
-    os.system( 'apt-get install cassandra=2.2.3 -y' ) )
+    os.system( 'apt-get update -y' ) )
+
+# Ignoring errors here because of a bug in the Ubuntu package.
+os.system( 'apt-get install cassandra=2.2.3 -y' )
+
+printStep( 'Starting Cassandra after hotfix.',
+           os.system( """sed -i 's/"$JVM_PATCH_VERSION" \\\< "25"/$JVM_PATCH_VERSION -lt 25/g' /etc/cassandra/cassandra-env.sh""" ),
+           os.system( 'service cassandra start' ) )
 
 printStep( 'Installing MySql server (hcp-state-db).',
     os.system( 'echo mysql-server mysql-server/root_password password letmein | sudo debconf-set-selections' ),
@@ -86,7 +92,7 @@ printStep( 'Initializing Cassandra schema.',
                                               'scale_db.cql' ), ) ) )
 
 printStep( 'Installing pip packages for various analytics components.',
-    os.system( 'pip install time_uuid cassandra-driver virustotal' ) )
+    os.system( 'pip install time_uuid cassandra-driver==3.2.2 virustotal' ) )
 
 printStep( 'Installing Yara.',
     os.system( 'git clone https://github.com/refractionPOINT/yara.git' ),

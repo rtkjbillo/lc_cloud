@@ -36,11 +36,12 @@ kern_return_t hbs_kernel_acquisition_stop(kmod_info_t *ki, void *d);
 
 typedef struct
 {
-    int (*initializer)();
+    int (*initializer)( void* d );
     int (*deinitializer)();
 } CollectorContext;
 
 #define _COLLECTOR_INIT(cId) { collector_ ## cId ## _initialize, collector_ ## cId ## _deinitialize }
+#define _COLLECTOR_DISABLED(cId) { NULL, NULL }
 
 //=========================================================================
 //  Built-in Tasks
@@ -84,10 +85,12 @@ int
 //  Dispatcher
 //=========================================================================
 static CollectorContext g_collectors[] = { _COLLECTOR_INIT( 1 ),
-                                           _COLLECTOR_INIT( 2 ) };
-static collector_task g_tasks[] = { task_ping,
-                                    task_get_new_processes,
-                                    task_get_new_fileio };
+                                           _COLLECTOR_INIT( 2 ),
+                                           _COLLECTOR_DISABLED( 3 ) };
+static collector_task g_tasks[ KERNEL_ACQ_OP_COUNT ] = { task_ping,
+                                                         task_get_new_processes,
+                                                         task_get_new_fileio,
+                                                         NULL };
 
 static
 int
@@ -111,7 +114,8 @@ int
                         cmd->pResult,
                         cmd->resultSize );
         
-        if( op >= ARRAY_N_ELEM( g_tasks ) )
+        if( op >= ARRAY_N_ELEM( g_tasks ) ||
+            NULL == g_tasks[ op ] )
         {
             rpal_debug_error( "invalid op specified: %d", op );
             error = EINVAL;
@@ -294,6 +298,8 @@ kern_return_t hbs_kernel_acquisition_start(kmod_info_t * ki, void *d)
     
     for( i = 0; i < ARRAY_N_ELEM( g_collectors ); i++ )
     {
+        if( NULL == g_collectors[ i ].initializer ) continue;
+
         if( !g_collectors[ i ].initializer( d ) )
         {
             rpal_debug_critical( "error initializing collector %d", i );
@@ -310,6 +316,8 @@ kern_return_t hbs_kernel_acquisition_start(kmod_info_t * ki, void *d)
     {
         for( i = i - 1; i > 0; i-- )
         {
+            if( NULL == g_collectors[ i ].deinitializer ) continue;
+
             g_collectors[ i ].deinitializer();
         }
     }
@@ -363,6 +371,8 @@ kern_return_t hbs_kernel_acquisition_stop(kmod_info_t *ki, void *d)
     rpal_debug_info( "stopping collectors" );
     for( i = 0; i < ARRAY_N_ELEM( g_collectors ); i++ )
     {
+        if( NULL == g_collectors[ i ].deinitializer ) continue;
+
         if( !g_collectors[ i ].deinitializer() )
         {
             rpal_debug_critical( "error deinitializing collector %d", i );

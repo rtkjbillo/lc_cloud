@@ -329,26 +329,26 @@ void test_strmatch(void)
     RPWCHAR test6 = _WCH("this?escaped\\pattern");
     RPWCHAR test7 = _WCH("this1escapedpattern");
 
-    CU_ASSERT_FALSE( rpal_string_matchw( pattern1, test1 ) );
-    CU_ASSERT_FALSE( rpal_string_matchw( pattern1, test2 ) );
-    CU_ASSERT_TRUE( rpal_string_matchw( pattern1, test3 ) );
-    CU_ASSERT_FALSE( rpal_string_matchw( pattern1, test4 ) );
-    CU_ASSERT_FALSE( rpal_string_matchw( pattern1, test5 ) );
+    CU_ASSERT_FALSE( rpal_string_matchw( pattern1, test1, TRUE ) );
+    CU_ASSERT_FALSE( rpal_string_matchw( pattern1, test2, TRUE ) );
+    CU_ASSERT_TRUE( rpal_string_matchw( pattern1, test3, TRUE ) );
+    CU_ASSERT_FALSE( rpal_string_matchw( pattern1, test4, TRUE ) );
+    CU_ASSERT_FALSE( rpal_string_matchw( pattern1, test5, TRUE ) );
 
-    CU_ASSERT_FALSE( rpal_string_matchw( pattern2, test1 ) );
-    CU_ASSERT_FALSE( rpal_string_matchw( pattern2, test2 ) );
-    CU_ASSERT_TRUE( rpal_string_matchw( pattern2, test3 ) );
-    CU_ASSERT_TRUE( rpal_string_matchw( pattern2, test4 ) );
-    CU_ASSERT_FALSE( rpal_string_matchw( pattern2, test5 ) );
+    CU_ASSERT_FALSE( rpal_string_matchw( pattern2, test1, TRUE ) );
+    CU_ASSERT_FALSE( rpal_string_matchw( pattern2, test2, TRUE ) );
+    CU_ASSERT_TRUE( rpal_string_matchw( pattern2, test3, TRUE ) );
+    CU_ASSERT_TRUE( rpal_string_matchw( pattern2, test4, TRUE ) );
+    CU_ASSERT_FALSE( rpal_string_matchw( pattern2, test5, TRUE ) );
 
-    CU_ASSERT_FALSE( rpal_string_matchw( pattern3, test1 ) );
-    CU_ASSERT_TRUE( rpal_string_matchw( pattern3, test2 ) );
-    CU_ASSERT_TRUE( rpal_string_matchw( pattern3, test3 ) );
-    CU_ASSERT_TRUE( rpal_string_matchw( pattern3, test4 ) );
-    CU_ASSERT_FALSE( rpal_string_matchw( pattern3, test5 ) );
+    CU_ASSERT_FALSE( rpal_string_matchw( pattern3, test1, TRUE ) );
+    CU_ASSERT_TRUE( rpal_string_matchw( pattern3, test2, TRUE ) );
+    CU_ASSERT_TRUE( rpal_string_matchw( pattern3, test3, TRUE ) );
+    CU_ASSERT_TRUE( rpal_string_matchw( pattern3, test4, TRUE ) );
+    CU_ASSERT_FALSE( rpal_string_matchw( pattern3, test5, TRUE ) );
 
-    CU_ASSERT_TRUE( rpal_string_matchw( pattern4, test6 ) );
-    CU_ASSERT_FALSE( rpal_string_matchw( pattern4, test7 ) );
+    CU_ASSERT_TRUE( rpal_string_matchw( pattern4, test6, TRUE ) );
+    CU_ASSERT_FALSE( rpal_string_matchw( pattern4, test7, TRUE ) );
 }
 
 void test_dir(void)

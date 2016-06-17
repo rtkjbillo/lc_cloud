@@ -19,12 +19,13 @@ limitations under the License.
 #include <rpal/rpal.h>
 #include <librpcm/librpcm.h>
 #include "collectors.h"
+#include <libOs/libOs.h>
 #include <notificationsLib/notificationsLib.h>
 #include <processLib/processLib.h>
 #include <rpHostCommonPlatformLib/rTags.h>
 
 #define _TIMEOUT_BETWEEN_THREAD             (5*1000)
-#define _TIMEOUT_BETWEEN_CONSTANT_PROCESSS  (0*1000)
+#define _TIMEOUT_BETWEEN_CONSTANT_PROCESSS  (5*1000)
 #define _MAX_CPU_WAIT                       (60)
 #define _CPU_WATERMARK                      (50)
 
@@ -165,7 +166,8 @@ RPVOID
     (
         rEvent isTimeToStop,
         RU32 processId,
-        rSequence originalRequest
+        rSequence originalRequest,
+        LibOsPerformanceProfile* perfProfile
     )
 {
     rList mods = NULL;
@@ -183,6 +185,7 @@ RPVOID
     RU32 curThreadId = 0;
     RU32 curProcId = 0;
     RBOOL isJITPresent = FALSE;
+    RTIME runTime = 0;
 
     curProcId = processLib_getCurrentPid();
     curThreadId = processLib_getCurrentThreadId();
@@ -197,6 +200,8 @@ RPVOID
         return NULL;
     }
 
+    runTime = rpal_time_getLocal();
+
     isJITPresent = isJITPresentInProcess( processId );
 
     rpal_debug_info( "looking for execution out of bounds in process %d.", processId );
@@ -206,9 +211,11 @@ RPVOID
     {
         if( NULL != ( threads = processLib_getThreads( processId ) ) )
         {
-            while( !rEvent_wait( isTimeToStop, _TIMEOUT_BETWEEN_THREAD ) &&
-                    rList_getRU32( threads, RP_TAGS_THREAD_ID, &threadId ) )
+            while( !rEvent_wait( isTimeToStop, 0 ) &&
+                   rList_getRU32( threads, RP_TAGS_THREAD_ID, &threadId ) )
             {
+                libOs_timeoutWithProfile( perfProfile, FALSE );
+
                 // We get the modules for every thread right before getting the
                 // stack trace to limit time difference between both snapshots.
                 if( NULL != ( mods = processLib_getProcessModules( processId ) ) )
@@ -220,15 +227,15 @@ RPVOID
                                                                              FALSE ) ) )
                         {
                             while( !rEvent_wait( isTimeToStop, 0 ) &&
-                                rList_getSEQUENCE( stackTrace, RP_TAGS_STACK_TRACE_FRAME, &frame ) )
+                                   rList_getSEQUENCE( stackTrace, RP_TAGS_STACK_TRACE_FRAME, &frame ) )
                             {
                                 if( rSequence_getRU64( frame, RP_TAGS_STACK_TRACE_FRAME_PC, &pc ) &&
                                     0 != pc &&
                                     !isMemInModule( pc, memRanges, nRanges ) )
                                 {
                                     rpal_debug_info( "covert execution detected in pid %d at 0x%016llX.",
-                                        processId,
-                                        pc );
+                                                     processId,
+                                                     pc );
 
                                     // Note that we are not decorating the stack trace with symbols
                                     // anywhere as the Microsoft code contains memory leaks. The API
@@ -240,8 +247,8 @@ RPVOID
                                                                RP_TAGS_THREAD_ID, 
                                                                threadId ) &&
                                             rSequence_addLISTdup( taggedTrace,
-                                            RP_TAGS_STACK_TRACE_FRAMES,
-                                            stackTrace ) )
+                                                                  RP_TAGS_STACK_TRACE_FRAMES,
+                                                                  stackTrace ) )
                                         {
                                             rList_addSEQUENCEdup( traces, taggedTrace );
                                             isFound = TRUE;
@@ -261,13 +268,17 @@ RPVOID
 
                     rList_free( mods );
                 }
+
+                libOs_timeoutWithProfile( perfProfile, TRUE );
             }
 
             rList_free( threads );
         }
 
+        rpal_debug_info( "finished scanning for exec oob in %d sec", rpal_time_getLocal() - runTime );
+
         if( isFound &&
-            NULL != ( notif = processLib_getProcessInfo( processId ) ) )
+            NULL != ( notif = processLib_getProcessInfo( processId, NULL ) ) )
         {
             if( !rSequence_addLIST( notif, RP_TAGS_STACK_TRACES, traces ) )
             {
@@ -307,16 +318,24 @@ RPVOID
     rSequence originalRequest = (rSequence)ctx;
     processLibProcEntry* procs = NULL;
     processLibProcEntry* proc = NULL;
+    LibOsPerformanceProfile perfProfile = { 0 };
+
+    perfProfile.enforceOnceIn = 1;
+    perfProfile.sanityCeiling = MSEC_FROM_SEC( 30 );
+    perfProfile.lastTimeoutValue = MSEC_FROM_SEC( 5 );
+    perfProfile.targetCpuPerformance = 0;
+    perfProfile.globalTargetCpuPerformance = GLOBAL_CPU_USAGE_TARGET;
+    perfProfile.timeoutIncrementPerSec = 100;
 
     if( NULL != ( procs = processLib_getProcessEntries( TRUE ) ) )
     {
         proc = procs;
 
         while( 0 != proc->pid &&
-            rpal_memory_isValid( isTimeToStop ) &&
-            !rEvent_wait( isTimeToStop, MSEC_FROM_SEC( 5 ) ) )
+               rpal_memory_isValid( isTimeToStop ) &&
+               !rEvent_wait( isTimeToStop, MSEC_FROM_SEC( 5 ) ) )
         {
-            lookForExecOobIn( isTimeToStop, proc->pid, originalRequest );
+            lookForExecOobIn( isTimeToStop, proc->pid, originalRequest, &perfProfile );
             proc++;
         }
 
@@ -336,8 +355,16 @@ RVOID
 {
     RU32 pid = (RU32)( -1 );
     rEvent dummy = NULL;
+    LibOsPerformanceProfile perfProfile = { 0 };
 
     UNREFERENCED_PARAMETER( eventType );
+
+    perfProfile.enforceOnceIn = 1;
+    perfProfile.sanityCeiling = MSEC_FROM_SEC( 30 );
+    perfProfile.lastTimeoutValue = MSEC_FROM_SEC( 2 );
+    perfProfile.targetCpuPerformance = 10;
+    perfProfile.globalTargetCpuPerformance = GLOBAL_CPU_USAGE_TARGET_WHEN_TASKED;
+    perfProfile.timeoutIncrementPerSec = 100;
 
     rSequence_getRU32( event, RP_TAGS_PROCESS_ID, &pid );
 
@@ -349,12 +376,57 @@ RVOID
         }
         else
         {
-            lookForExecOobIn( dummy, pid, event );
+            lookForExecOobIn( dummy, pid, event, &perfProfile );
         }
 
         rEvent_free( dummy );
     }
 }
+
+
+static
+RVOID
+    scan_late_for_exec_oob
+    (
+        rpcm_tag eventType,
+        rSequence event
+    )
+{
+    rList statefulEvents = NULL;
+    rSequence statefulEvent = NULL;
+    RU32 pid = (RU32)( -1 );
+    LibOsPerformanceProfile perfProfile = { 0 };
+    rEvent dummy = NULL;
+
+    UNREFERENCED_PARAMETER( eventType );
+
+    perfProfile.enforceOnceIn = 1;
+    perfProfile.sanityCeiling = MSEC_FROM_SEC( 30 );
+    perfProfile.lastTimeoutValue = MSEC_FROM_SEC( 2 );
+    perfProfile.targetCpuPerformance = 10;
+    perfProfile.globalTargetCpuPerformance = GLOBAL_CPU_USAGE_TARGET_WHEN_TASKED;
+    perfProfile.timeoutIncrementPerSec = 100;
+
+    if( rSequence_getLIST( event, RP_TAGS_EVENTS, &statefulEvents ) )
+    {
+        while( rList_getSEQUENCE( statefulEvents, RP_TAGS_INVALID, &statefulEvent ) )
+        {
+            if( rSequence_getRU32( statefulEvent, RP_TAGS_PROCESS_ID, &pid ) )
+            {
+                break;
+            }
+        }
+    }
+    
+    if( (RU32)(-1) != pid &&
+        NULL != ( dummy = rEvent_create( TRUE ) ) )
+    {
+        lookForExecOobIn( dummy, pid, event, &perfProfile );
+
+        rEvent_free( dummy );
+    }
+}
+
 
 static
 RPVOID
@@ -367,6 +439,14 @@ RPVOID
     rSequence originalRequest = (rSequence)ctx;
     processLibProcEntry* procs = NULL;
     processLibProcEntry* proc = NULL;
+    LibOsPerformanceProfile perfProfile = { 0 };
+
+    perfProfile.enforceOnceIn = 1;
+    perfProfile.sanityCeiling = MSEC_FROM_SEC( 30 );
+    perfProfile.lastTimeoutValue = MSEC_FROM_SEC( 1 );
+    perfProfile.targetCpuPerformance = 0;
+    perfProfile.globalTargetCpuPerformance = GLOBAL_CPU_USAGE_TARGET;
+    perfProfile.timeoutIncrementPerSec = 100;
 
     while( rpal_memory_isValid( isTimeToStop ) &&
            !rEvent_wait( isTimeToStop, 0 ) )
@@ -379,10 +459,9 @@ RPVOID
                    rpal_memory_isValid( isTimeToStop ) &&
                    !rEvent_wait( isTimeToStop, _TIMEOUT_BETWEEN_CONSTANT_PROCESSS ) )
             {
-                if( hbs_whenCpuBelow( _CPU_WATERMARK, _MAX_CPU_WAIT, isTimeToStop ) )
-                {
-                    lookForExecOobIn( isTimeToStop, proc->pid, originalRequest );
-                }
+                lookForExecOobIn( isTimeToStop, proc->pid, originalRequest, &perfProfile );
+
+                libOs_timeoutWithProfile( &perfProfile, TRUE );
 
                 proc++;
             }
@@ -421,13 +500,19 @@ RBOOL
                                          0,
                                          NULL,
                                          scan_for_exec_oob ) &&
-                rThreadPool_task( hbsState->hThreadPool, lookForExecOobConstantly, NULL) )
+                notifications_subscribe( RP_TAGS_NOTIFICATION_LATE_MODULE_LOAD,
+                                         NULL,
+                                         0,
+                                         NULL,
+                                         scan_late_for_exec_oob ) &&
+                rThreadPool_task( hbsState->hThreadPool, lookForExecOobConstantly, NULL ) )
             {
                 isSuccess = TRUE;
             }
             else
             {
                 notifications_unsubscribe( RP_TAGS_NOTIFICATION_EXEC_OOB_REQ, NULL, scan_for_exec_oob );
+                notifications_unsubscribe( RP_TAGS_NOTIFICATION_LATE_MODULE_LOAD, NULL, scan_late_for_exec_oob );
                 rMutex_free( g_oob_exec_mutex );
             }
         }
@@ -450,6 +535,7 @@ RBOOL
     if( NULL != hbsState )
     {
         notifications_unsubscribe( RP_TAGS_NOTIFICATION_EXEC_OOB_REQ, NULL, scan_for_exec_oob );
+        notifications_unsubscribe( RP_TAGS_NOTIFICATION_LATE_MODULE_LOAD, NULL, scan_late_for_exec_oob );
         rMutex_free( g_oob_exec_mutex );
 
         isSuccess = TRUE;

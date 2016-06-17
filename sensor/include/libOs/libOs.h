@@ -54,7 +54,23 @@ typedef struct
 {
     RU64 lastSystemTime;
     RU64 lastThreadTime;
+    RTIME lastCheckTime;
+    RU8 lastResult;
 } LibOsThreadTimeContext;
+
+typedef struct
+{
+    RU8 targetCpuPerformance;
+    RU8 globalTargetCpuPerformance;
+    RU32 lastTimeoutValue;
+    RU32 globalTimeoutValue;
+    RU32 timeoutIncrementPerSec;
+    RU32 sanityCeiling;
+    RU32 enforceOnceIn;
+    RU32 counter;
+    RTIME lastUpdate;
+    LibOsThreadTimeContext threadTimeContext;
+} LibOsPerformanceProfile;
 
 //=============================================================================
 //  API
@@ -153,6 +169,13 @@ RU8
 
     );
 
+RVOID
+    libOs_timeoutWithProfile
+    (
+        LibOsPerformanceProfile* perfProfile,
+        RBOOL isEnforce
+    );
+
 rList
     libOs_getServices
     (
@@ -169,6 +192,24 @@ rList
     libOs_getAutoruns
     (
         RBOOL isWithHashes
+    );
+
+rList
+    libOs_getDevices
+    (
+
+    );
+
+rList
+    libOs_getVolumes
+    (
+
+    );
+    
+RU32
+    libOs_getNumCpus
+    (
+
     );
 
 #endif

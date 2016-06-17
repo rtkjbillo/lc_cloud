@@ -32,6 +32,14 @@ typedef RVOID (*collection_free_func)( RPVOID buffer, RU32 bufferSize );
 typedef RPVOID rCircularBuffer;
 typedef RVOID( *circularbuffer_free_func )( RPVOID elem );
 
+typedef struct
+{
+    RU32 nElements;
+    RU32 nAllocated;
+    RPVOID elements[0];
+
+} _rVector, *rVector;
+
 //=============================================================================
 //  PUBLIC API
 //=============================================================================
@@ -141,6 +149,35 @@ RPVOID
     rpal_circularbuffer_last
     (
         rCircularBuffer cb
+    );
+
+
+rVector
+    rpal_vector_new
+    (
+
+    );
+
+RVOID
+    rpal_vector_free
+    (
+        rVector vector
+    );
+
+rVector
+    _rpal_vector_add
+    (
+        rVector vector,
+        RPVOID element
+    );
+
+#define rpal_vector_add(vector,element)     (NULL != ((vector) = _rpal_vector_add((vector), (element))))
+
+RBOOL
+    rpal_vector_remove
+    (
+        rVector vector,
+        RU32 index
     );
 
 //=============================================================================

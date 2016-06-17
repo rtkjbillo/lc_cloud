@@ -13,29 +13,27 @@
 # limitations under the License.
 
 from beach.actor import Actor
-ObjectTypes = Actor.importLib( '../../ObjectsDb', 'ObjectTypes' )
+ProcessDescendant = Actor.importLib( '../../analytics/StateAnalysis/descriptors', 'ProcessDescendant' )
+EventBurst = Actor.importLib( '../../analytics/StateAnalysis/descriptors', 'EventBurst' )
 StatefulActor = Actor.importLib( '../../Detects', 'StatefulActor' )
 
 class SensorIssues ( StatefulActor ):
     def initMachines( self, parameters ):
         self.shardingKey = 'agentid'
-        self.machines = {
-            'sensor_spawning_processes' :
-'''
-SAMProcessDescendants( parameters = { 'is_direct_only' : True } )
-    .feed_parents( SAMSelector( parameters = {
-        'event/notification.NEW_PROCESS/base.FILE_PATH' : r'.*(/|\\\)hcp(\.exe)?' } ) )
-    .feed_descendants( SAMSelector( parameters = {
-        'event/notification.NEW_PROCESS' : None } ) )
-''',
 
-            'sensor_restarting' :
-'''
-SAMTimeBurst( parameters = { 'within' : 60, 'min_burst' : 3 } )
-    .feed_from( SAMSelector( parameters = {
-        'event/notification.STARTING_UP' : None } ) )
-'''
-        }
+        #TODO: vary the logic for other platforms and ensure it's the right executable name.
+        hcpProcesses = r'.*(/|\\)((rphcp)|(hcp_.+))\.exe'
+        anyApps = r'.*'
+        
+        hcpSpawningProcesses = ProcessDescendant( name = 'hcp_spawns_anything',
+                                                  parentRegExp = hcpProcesses,
+                                                  childRegExp = anyApps,
+                                                  isDirectOnly = True )
 
-    def processDetects( self, detects ):
-        return detects
+        hcpFrequentRestart = EventBurst( name = 'hcp_frequent_restart',
+                                         eventType = 'notification.STARTING_UP',
+                                         nPerBurst = 3,
+                                         withinSeconds = 60 )
+
+        self.addStateMachineDescriptor( hcpSpawningProcesses )
+        self.addStateMachineDescriptor( hcpFrequentRestart )

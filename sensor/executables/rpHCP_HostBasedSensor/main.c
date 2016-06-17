@@ -46,7 +46,7 @@ RpHcp_ModuleId g_current_Module_id = 2;
 #define HBS_EXFIL_QUEUE_MAX_SIZE                (1024*1024*10)
 
 // Large blank buffer to be used to patch configurations post-build
-#define _HCP_DEFAULT_STATIC_STORE_SIZE                          (1024 * 10)
+#define _HCP_DEFAULT_STATIC_STORE_SIZE                          (1024 * 50)
 #define _HCP_DEFAULT_STATIC_STORE_MAGIC                         { 0xFA, 0x57, 0xF0, 0x0D }
 static RU8 g_patchedConfig[ _HCP_DEFAULT_STATIC_STORE_SIZE ] = _HCP_DEFAULT_STATIC_STORE_MAGIC;
 #define _HCP_DEFAULT_STATIC_STORE_KEY                           { 0xFA, 0x75, 0x01 }
@@ -79,8 +79,11 @@ HbsState g_hbs_state = { NULL,
                            ENABLED_WINDOWS_COLLECTOR( 13 ),
                            ENABLED_COLLECTOR( 14 ),
                            DISABLED_OSX_COLLECTOR( 15 ),
-                           ENABLED_WINDOWS_COLLECTOR( 16 ),
-                           ENABLED_COLLECTOR( 17 ) } };
+                           ENABLED_COLLECTOR( 16 ),
+                           ENABLED_COLLECTOR( 17 ),
+                           DISABLED_LINUX_COLLECTOR( 18 ),
+                           ENABLED_COLLECTOR( 19 ),
+                           ENABLED_COLLECTOR( 20 ) } };
 RU8* hbs_cloud_pub_key = hbs_cloud_default_pub_key;
 
 //=============================================================================

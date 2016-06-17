@@ -106,7 +106,7 @@ static RU32 RPAL_THREAD_FUNC
 
                 processInfo = NULL;
 
-                if( NULL != ( processInfo = processLib_getProcessInfo( curProcessEntry->pid ) ) &&
+                if( NULL != ( processInfo = processLib_getProcessInfo( curProcessEntry->pid, NULL ) ) &&
                     rSequence_getSTRINGW( processInfo, RP_TAGS_FILE_PATH, &processPath ) )
                 {
                     rpal_string_tolowerw( processPath );

@@ -22,6 +22,8 @@ limitations under the License.
 
 #define  RPAL_FILE_ID           68
 
+#define SUMMARY_N_NET_CONNECTIONS   (10)
+
 
 typedef struct
 {
@@ -49,6 +51,8 @@ RVOID
     {
         rSequence_free( p->proc );
         rList_free( p->net );
+        p->proc = NULL;
+        p->net = NULL;
     }
 }
 
@@ -150,7 +154,7 @@ RPVOID
     UNREFERENCED_PARAMETER( ctx );
 
     while( rpal_memory_isValid( isTimeToStop ) &&
-        !rEvent_wait( isTimeToStop, 0 ) )
+           !rEvent_wait( isTimeToStop, 0 ) )
     {
         if( !isNewEventProcessed )
         {
@@ -230,7 +234,7 @@ RPVOID
                             rSequence_free( netEvt );
                         }
 
-                        if( 10 < rList_getNumElements( activity.net ) )
+                        if( SUMMARY_N_NET_CONNECTIONS <= rList_getNumElements( activity.net ) )
                         {
                             rpal_debug_info( "process reached max summary size, publish" );
                             _summarize( &activity );
@@ -259,8 +263,8 @@ RPVOID
             }
         }
         while( rpal_memory_isValid( isTimeToStop ) &&
-            !rEvent_wait( isTimeToStop, 0 ) &&
-            rQueue_remove( termQueue, &termEvt, NULL, 0 ) )
+               !rEvent_wait( isTimeToStop, 0 ) &&
+               rQueue_remove( termQueue, &termEvt, NULL, 0 ) )
         {
             if( rSequence_getRU32( termEvt, RP_TAGS_PROCESS_ID, &termPid ) )
             {

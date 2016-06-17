@@ -36,6 +36,28 @@ limitations under the License.
 // YARA Required Shims
 //=============================================================================
 static
+RVOID
+    reportError
+    (
+        rSequence originalRequest,
+        RU32 errorCode,
+        RPCHAR errorStr
+    )
+{
+    rSequence event = NULL;
+
+    if( NULL != ( event = rSequence_new() ) )
+    {
+        hbs_markAsRelated( originalRequest, event );
+        rSequence_addRU32( event, RP_TAGS_ERROR, errorCode );
+        rSequence_addSTRINGA( event, RP_TAGS_ERROR_MESSAGE, errorStr ? errorStr : "" );
+        rSequence_addTIMESTAMP( event, RP_TAGS_TIMESTAMP, rpal_time_getGlobal() );
+        notifications_publish( RP_TAGS_NOTIFICATION_YARA_DETECTION, event );
+        rSequence_free( event );
+    }
+}
+
+static
 size_t
     _yara_stream_read
     (
@@ -179,9 +201,11 @@ int
             rSequence_addPOINTER64( event, RP_TAGS_BASE_ADDRESS, context->regionBase );
             rSequence_addRU64( event, RP_TAGS_MEMORY_SIZE, context->regionSize );
 
+            hbs_markAsRelated( context->fileInfo, event );
+
             if( NULL == context->processInfo )
             {
-                context->processInfo = processLib_getProcessInfo( context->pid );
+                context->processInfo = processLib_getProcessInfo( context->pid, NULL );
             }
 
             if( NULL != context->processInfo )
@@ -234,6 +258,8 @@ RU32
     // First pass is to scan known modules
     if( NULL != ( modules = processLib_getProcessModules( pid ) ) )
     {
+        rpal_debug_info( "scanning process %d module memory with yara", pid );
+
         // We also generate an optimized list of module ranges for later
         if( NULL != ( memRanges = rpal_memory_alloc( sizeof( _MemRange ) *
                                                      rList_getNumElements( modules ) ) ) )
@@ -260,7 +286,7 @@ RU32
                     {
                         rpal_debug_info( "yara scanning module region of size 0x%lx", memSize );
 
-                        if( NULL == rules ||
+                        if( NULL != rules ||
                             rMutex_lock( g_global_rules_mutex ) )
                         {
                             if( ERROR_SUCCESS != ( scanError = yr_rules_scan_mem( NULL == rules ? g_global_rules : rules,
@@ -286,6 +312,8 @@ RU32
                         }
 
                         rpal_memory_free( buffer );
+
+                        rpal_debug_info( "finished region" );
                     }
                 }
             }
@@ -305,6 +333,8 @@ RU32
     // Second pass is to go through executable non-module areas
     if( NULL != ( memoryMap = processLib_getProcessMemoryMap( pid ) ) )
     {
+        rpal_debug_info( "scanning process %d non-module memory with yara", pid );
+
         while( ( NULL == isTimeToStop || !rEvent_wait(isTimeToStop, MSEC_FROM_SEC( 5 ) ) ) &&
                rList_getSEQUENCE( memoryMap, RP_TAGS_MEMORY_REGION, &memoryRegion ) )
         {
@@ -338,7 +368,7 @@ RU32
                 {
                     rpal_debug_info( "yara scanning memory region of size 0x%lx", memSize );
 
-                    if( NULL == rules ||
+                    if( NULL != rules ||
                         rMutex_lock( g_global_rules_mutex ) )
                     {
                         if( ERROR_SUCCESS != ( scanError = yr_rules_scan_mem( NULL == rules ? g_global_rules : rules,
@@ -524,6 +554,7 @@ RPVOID
                 {
                     if( NULL != g_global_rules )
                     {
+                        rpal_debug_info( "scanning continuous file with yara" );
                         if( ERROR_SUCCESS != ( scanError = yr_rules_scan_file( g_global_rules,
                                                                                strA,
                                                                                SCAN_FLAGS_FAST_MODE,
@@ -655,6 +686,7 @@ RVOID
 
             if( NULL != fileA )
             {
+                rpal_debug_info( "scanning file with yara" );
                 matchContext.fileInfo = event;
 
                 // Scan this file
@@ -676,7 +708,7 @@ RVOID
                     curProc = processes;
                     while( 0 != curProc->pid )
                     {
-                        if( NULL != ( processInfo = processLib_getProcessInfo( curProc->pid ) ) )
+                        if( NULL != ( processInfo = processLib_getProcessInfo( curProc->pid, NULL ) ) )
                         {
                             if( rSequence_getSTRINGW( processInfo, RP_TAGS_FILE_PATH, &tmpW ) ||
                                 rSequence_getSTRINGA( processInfo, RP_TAGS_FILE_PATH, &tmpA ) )
@@ -688,7 +720,7 @@ RVOID
 
                                 if( NULL != tmpA )
                                 {
-                                    if( rpal_string_match( procA, tmpA ) )
+                                    if( rpal_string_match( procA, tmpA, RPAL_PLATFORM_FS_CASE_SENSITIVITY ) )
                                     {
                                         matchContext.pid = curProc->pid;
                                         matchContext.processInfo = processInfo;
@@ -761,7 +793,15 @@ RVOID
 
             yr_rules_destroy( rules );
         }
+        else
+        {
+            rpal_debug_warning( "no rules in yara scan request" );
+            reportError( event, RPAL_ERROR_NOT_SUPPORTED, "yara rules do not parse" );
+        }
     }
+
+    rpal_debug_info( "finished on demand yara scan" );
+    reportError( event, scanError, "done" );
 
     yr_finalize_thread();
 }

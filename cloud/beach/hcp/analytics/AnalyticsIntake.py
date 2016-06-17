@@ -34,18 +34,18 @@ class AnalyticsIntake( Actor ):
 
     def _addObj( self, mtd, o, oType ):
         if type( o ) is not int:
-            if o is None or 0 == len( o ) or 600 < len( o ):
+            if o is None or 0 == len( o ) or 1024 < len( o ):
                 self.log( 'unexpected obj len: %s, rest of mtd: %s' % ( o, str( mtd ) ) )
                 return
         mtd[ 'obj' ].setdefault( oType, Set() ).add( o )
 
     def _addRel( self, mtd, parent, parentType, child, childType ):
         if type( parent ) is not int:
-            if parent is None or 0 == len( parent ) or 600 < len( parent ):
+            if parent is None or 0 == len( parent ) or 1024 < len( parent ):
                 self.log( 'unexpected obj len: %s, rest of mtd: %s' % ( parent, str( mtd ) ) )
                 return
         if type( child ) is not int:
-            if child is None or 0 == len( child ) or 600 < len( parent ):
+            if child is None or 0 == len( child ) or 1024 < len( parent ):
                 self.log( 'unexpected obj len: %s, rest of mtd: %s' % ( child, str( mtd ) ) )
                 return
         mtd[ 'rel' ].setdefault( ( parentType, childType ), Set() ).add( ( parent, child ) )
@@ -91,6 +91,7 @@ class AnalyticsIntake( Actor ):
         exe = svcRoot.get( 'base.EXECUTABLE', None )
         dll = svcRoot.get( 'base.DLL', None )
         h = svcRoot.get( 'base.HASH', None )
+        filePath = svcRoot.get( 'base.FILE_PATH', None )
 
         mainMod = exe
         if dll is not None:
@@ -104,9 +105,14 @@ class AnalyticsIntake( Actor ):
         if svcname is not None and displayname is not None:
             self._addRel( mtd, svcname, ObjectTypes.SERVICE_NAME, displayname, ObjectTypes.SERVICE_NAME )
 
-        self._addObj( mtd, mainMod, ObjectTypes.FILE_PATH )
-        self._addRel( mtd, svcname, ObjectTypes.SERVICE_NAME, mainMod, ObjectTypes.FILE_PATH )
-        if h is not None:
+        if mainMod is not None:
+            self._addObj( mtd, mainMod, ObjectTypes.FILE_PATH )
+            self._addRel( mtd, svcname, ObjectTypes.SERVICE_NAME, mainMod, ObjectTypes.FILE_PATH )
+
+        if filePath is not None:
+            self._addObj( mtd, filePath, ObjectTypes.FILE_HASH )
+            self._addRel( mtd, svcname, ObjectTypes.SERVICE_NAME, filePath, ObjectTypes.FILE_HASH )
+        elif h is not None:
             self._addObj( mtd, h, ObjectTypes.FILE_HASH )
             self._addRel( mtd, svcname, ObjectTypes.SERVICE_NAME, h, ObjectTypes.FILE_HASH )
 

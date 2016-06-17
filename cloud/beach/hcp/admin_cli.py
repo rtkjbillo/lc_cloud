@@ -571,17 +571,23 @@ class HcpCli ( cmd.Cmd ):
                              dest = 'binary' )
         parser.add_argument( '-s', '--signature',
                              type = argparse.FileType( 'r' ),
-                             required = True,
+                             required = False,
                              help = 'path to file containing signature of the module',
+                             default = None,
                              dest = 'signature' )
         parser.add_argument( '-d', '--description',
                              type = str,
-                             required = True,
+                             required = False,
                              help = 'description of the module',
+                             default = None,
                              dest = 'description' )
         arguments = self.parse( parser, s )
 
         if arguments is not None:
+            if arguments.signature is None:
+                arguments.signature = open( '%s.sig' % arguments.binary.name, 'r' )
+            if arguments.description is None:
+                arguments.description = os.path.basename( arguments.binary.name )
             arguments.binary = arguments.binary.read()
             arguments.signature = arguments.signature.read()
             self.execAndPrintResponse( self.be.hcp_addModule, arguments )
@@ -794,7 +800,7 @@ class HcpCli ( cmd.Cmd ):
                              help = 'optional maximum depth of the listing, defaults to a single level' )
         arguments = self.parse( parser, s )
         if arguments is not None:
-            self._executeHbsTasking( self.tags.hbs.NOTIFICATION_DIR_LIST_REQ,
+            self._executeHbsTasking( self.tags.notification.DIR_LIST_REQ,
                                      rSequence().addStringW( self.tags.base.FILE_PATH, arguments.fileExp )
                                                 .addStringW( self.tags.base.DIRECTORY_PATH, arguments.rootDir )
                                                 .addInt32( self.tags.base.DIRECTORY_LIST_DEPTH, arguments.depth ),
@@ -1253,6 +1259,31 @@ class HcpCli ( cmd.Cmd ):
             elif arguments.proc is not None:
                 req.addStringW( self.tags.base.PROCESS, arguments.proc )
             self._executeHbsTasking( self.tags.notification.YARA_SCAN,
+                                     req,
+                                     arguments )
+
+    @report_errors
+    def do_doc_cache_get( self, s ):
+        '''Retrieve a document from the cache in sensor.'''
+
+        parser = self.getParser( 'doc_cache_get', True )
+        parser.add_argument( '-f', '--file_pattern',
+                             required = False,
+                             type = str,
+                             help = 'a pattern to match on the file path and name of the document, simple wildcards ? and * are supported' )
+        parser.add_argument( '-s', '--hash',
+                             type = str,
+                             required = False,
+                             help = 'hash of the document to get',
+                             dest = 'hashStr' )
+        arguments = self.parse( parser, s )
+        if arguments is not None:
+            req = rSequence()
+            if arguments.file_pattern is not None:
+                req.addStringA( self.tags.base.STRING_PATTERN, arguments.file_pattern )
+            if arguments.hashStr is not None:
+                req.addBuffer( self.tags.base.HASH, arguments.hashStr.decode( 'hex' ) )
+            self._executeHbsTasking( self.tags.notification.GET_DOCUMENT_REQ,
                                      req,
                                      arguments )
 
