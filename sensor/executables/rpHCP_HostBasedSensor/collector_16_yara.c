@@ -258,6 +258,8 @@ RU32
     // First pass is to scan known modules
     if( NULL != ( modules = processLib_getProcessModules( pid ) ) )
     {
+        rpal_debug_info( "scanning process %d module memory with yara", pid );
+
         // We also generate an optimized list of module ranges for later
         if( NULL != ( memRanges = rpal_memory_alloc( sizeof( _MemRange ) *
                                                      rList_getNumElements( modules ) ) ) )
@@ -284,7 +286,7 @@ RU32
                     {
                         rpal_debug_info( "yara scanning module region of size 0x%lx", memSize );
 
-                        if( NULL == rules ||
+                        if( NULL != rules ||
                             rMutex_lock( g_global_rules_mutex ) )
                         {
                             if( ERROR_SUCCESS != ( scanError = yr_rules_scan_mem( NULL == rules ? g_global_rules : rules,
@@ -310,6 +312,8 @@ RU32
                         }
 
                         rpal_memory_free( buffer );
+
+                        rpal_debug_info( "finished region" );
                     }
                 }
             }
@@ -329,6 +333,8 @@ RU32
     // Second pass is to go through executable non-module areas
     if( NULL != ( memoryMap = processLib_getProcessMemoryMap( pid ) ) )
     {
+        rpal_debug_info( "scanning process %d non-module memory with yara", pid );
+
         while( ( NULL == isTimeToStop || !rEvent_wait(isTimeToStop, MSEC_FROM_SEC( 5 ) ) ) &&
                rList_getSEQUENCE( memoryMap, RP_TAGS_MEMORY_REGION, &memoryRegion ) )
         {
@@ -362,7 +368,7 @@ RU32
                 {
                     rpal_debug_info( "yara scanning memory region of size 0x%lx", memSize );
 
-                    if( NULL == rules ||
+                    if( NULL != rules ||
                         rMutex_lock( g_global_rules_mutex ) )
                     {
                         if( ERROR_SUCCESS != ( scanError = yr_rules_scan_mem( NULL == rules ? g_global_rules : rules,
@@ -548,6 +554,7 @@ RPVOID
                 {
                     if( NULL != g_global_rules )
                     {
+                        rpal_debug_info( "scanning continuous file with yara" );
                         if( ERROR_SUCCESS != ( scanError = yr_rules_scan_file( g_global_rules,
                                                                                strA,
                                                                                SCAN_FLAGS_FAST_MODE,
@@ -679,6 +686,7 @@ RVOID
 
             if( NULL != fileA )
             {
+                rpal_debug_info( "scanning file with yara" );
                 matchContext.fileInfo = event;
 
                 // Scan this file
