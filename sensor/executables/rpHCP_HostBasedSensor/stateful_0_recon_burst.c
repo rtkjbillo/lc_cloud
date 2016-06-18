@@ -18,7 +18,7 @@ limitations under the License.
 #include "stateful_helpers.h"
 #include "stateful_events.h"
 
-#define RECONS_IN_SEC       (5)
+#define RECONS_IN_SEC       (MSEC_FROM_SEC(5))
 #define RECON_N_PER_BURST   (4)
 
 static tr_match_params recon_tools[] = {
