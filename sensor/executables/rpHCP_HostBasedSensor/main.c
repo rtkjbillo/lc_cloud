@@ -482,7 +482,7 @@ static RVOID
         {
             if( rSequence_addSEQUENCE( wrapper, RP_TAGS_NOTIFICATION_STARTING_UP, startupEvent ) )
             {
-                if( !rSequence_addTIMESTAMP( startupEvent, RP_TAGS_TIMESTAMP, rpal_time_getGlobal() ) ||
+                if( !hbs_timestampEvent( startupEvent, 0 ) ||
                     !rQueue_add( g_hbs_state.outQueue, wrapper, 0 ) )
                 {
                     rSequence_free( wrapper );
@@ -517,7 +517,7 @@ static RVOID
         {
             if( rSequence_addSEQUENCE( wrapper, RP_TAGS_NOTIFICATION_SHUTTING_DOWN, shutdownEvent ) )
             {
-                if( rSequence_addTIMESTAMP( shutdownEvent, RP_TAGS_TIMESTAMP, rpal_time_getGlobal() ) &&
+                if( hbs_timestampEvent( shutdownEvent, 0 ) &&
                     rQueue_add( g_hbs_state.outQueue, wrapper, 0 ) )
                 {
                     if( NULL != ( cloudMessages = beaconHome() ) )
@@ -632,7 +632,7 @@ static RVOID
                 rSequence_getSEQUENCE( cloudEvent, RP_TAGS_HBS_NOTIFICATION, &(cloudEventStub->event) ) )
             {
                 rSequence_getTIMESTAMP( cloudEvent, RP_TAGS_EXPIRY, &expiry );
-                rSequence_addTIMESTAMP( cloudEvent, RP_TAGS_TIMESTAMP, rpal_time_getGlobal() );
+                hbs_timestampEvent( cloudEvent, 0 );
 
                 tmpId = rpHcpI_seqToHcpId( targetId );
 

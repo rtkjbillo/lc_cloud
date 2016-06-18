@@ -210,14 +210,7 @@ static RBOOL
     {
         rSequence_addRU32( info, RP_TAGS_PROCESS_ID, pid );
         rSequence_addRU32( info, RP_TAGS_PARENT_PROCESS_ID, ppid );
-        if( 0 != optTs )
-        {
-            rSequence_addTIMESTAMP( info, RP_TAGS_TIMESTAMP, rpal_time_getGlobalFromLocal( optTs ) );
-        }
-        else
-        {
-            rSequence_addTIMESTAMP( info, RP_TAGS_TIMESTAMP, rpal_time_getGlobal() );
-        }
+        hbs_timestampEvent( info, optTs );
 
         if( isStarting )
         {

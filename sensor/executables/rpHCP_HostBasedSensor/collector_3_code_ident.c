@@ -81,7 +81,7 @@ RVOID
                       rSequence_addSTRINGW( notif, RP_TAGS_DLL, name ) ||
                       rSequence_addSTRINGW( notif, RP_TAGS_EXECUTABLE, name ) ) &&
                     rSequence_addRU32( notif, RP_TAGS_MEMORY_SIZE, (RU32)codeSize ) &&
-                    rSequence_addTIMESTAMP( notif, RP_TAGS_TIMESTAMP, rpal_time_getGlobal() ) )
+                    hbs_timestampEvent( notif, 0 ) )
                 {
                     if( NULL != pFileHash )
                     {
@@ -155,7 +155,7 @@ RVOID
                       rSequence_addSTRINGA( notif, RP_TAGS_DLL, name ) ||
                       rSequence_addSTRINGA( notif, RP_TAGS_EXECUTABLE, name ) ) &&
                     rSequence_addRU32( notif, RP_TAGS_MEMORY_SIZE, (RU32)codeSize ) &&
-                    rSequence_addTIMESTAMP( notif, RP_TAGS_TIMESTAMP, rpal_time_getGlobal() ) )
+                    hbs_timestampEvent( notif, 0 ) )
                 {
                     if( NULL != pFileHash )
                     {

@@ -108,7 +108,7 @@ static RVOID
                                                     &hash,
                                                     (rpal_ordering_func)_cmpHashes ) )
                 {
-                    rSequence_addTIMESTAMP( elem, RP_TAGS_TIMESTAMP, rpal_time_getGlobal() );
+                    hbs_timestampEvent( elem, 0 );
                     notifications_publish( notifTag, elem );
                 }
             }

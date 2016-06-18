@@ -84,7 +84,7 @@ RVOID
             rSequence_addRU32( event, RP_TAGS_ERROR, rpal_error_getLast() );
         }
 
-        rSequence_addTIMESTAMP( event, RP_TAGS_TIMESTAMP, rpal_time_getGlobal() );
+        hbs_timestampEvent( event, 0 );
         notifications_publish( RP_TAGS_NOTIFICATION_OS_DRIVERS_REP, event );
     }
 }
@@ -107,7 +107,7 @@ RVOID
     UNREFERENCED_PARAMETER( eventType );
 
     if( rpal_memory_isValid( event ) &&
-        rSequence_addTIMESTAMP( event, RP_TAGS_TIMESTAMP, rpal_time_getGlobal() ) &&
+        hbs_timestampEvent( event, 0 ) &&
         NULL != ( procList = rList_new( RP_TAGS_PROCESS, RPCM_SEQUENCE ) ) &&
         rSequence_addLIST( event, RP_TAGS_PROCESSES, procList ) )
     {
@@ -174,7 +174,7 @@ RVOID
                     autoruns = NULL;
                 }
 
-                rSequence_addTIMESTAMP( event, RP_TAGS_TIMESTAMP, rpal_time_getGlobal() );
+                hbs_timestampEvent( event, 0 );
 
                 notifications_publish( RP_TAGS_NOTIFICATION_OS_AUTORUNS_REP, event );
             }
@@ -242,7 +242,7 @@ RVOID
                 rSequence_addRU32( event, RP_TAGS_ERROR, rpal_error_getLast() );
             }
 
-            rSequence_addTIMESTAMP( event, RP_TAGS_TIMESTAMP, rpal_time_getGlobal() );
+            hbs_timestampEvent( event, 0 );
             notifications_publish( RP_TAGS_NOTIFICATION_OS_KILL_PROCESS_REP, event );
         }
     }

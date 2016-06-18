@@ -119,6 +119,13 @@ RBOOL
     );
 
 RBOOL
+    hbs_timestampEvent
+    (
+        rSequence event,
+        RTIME optOriginal
+    );
+
+RBOOL
     hbs_whenCpuBelow
     (
         RU8 percent,

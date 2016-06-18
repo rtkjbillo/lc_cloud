@@ -131,9 +131,7 @@ RPVOID
                                                                 &curModule, 
                                                                 (rpal_ordering_func)_cmpModule ) )
                                 {
-                                    rSequence_addTIMESTAMP( module,
-                                                            RP_TAGS_TIMESTAMP,
-                                                            rpal_time_getGlobal() );
+                                    hbs_timestampEvent( module, 0 );
                                     notifications_publish( RP_TAGS_NOTIFICATION_MODULE_LOAD,
                                                            module );
                                 }
@@ -191,7 +189,7 @@ static RBOOL
     {
         if( NULL != ( notif = rSequence_new() ) )
         {
-            rSequence_addTIMESTAMP( notif, RP_TAGS_TIMESTAMP, module->ts );
+            hbs_timestampEvent( notif, module->ts );
             rSequence_addRU32( notif, RP_TAGS_PROCESS_ID, module->pid );
             rSequence_addPOINTER64( notif, RP_TAGS_BASE_ADDRESS, (RU64)module->baseAddress );
             rSequence_addRU64( notif, RP_TAGS_MEMORY_SIZE, module->imageSize );

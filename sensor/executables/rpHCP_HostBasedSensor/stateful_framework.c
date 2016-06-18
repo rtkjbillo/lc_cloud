@@ -18,6 +18,7 @@ limitations under the License.
 #include <rpal/rpal.h>
 #include <notificationsLib/notificationsLib.h>
 #include <rpHostCommonPlatformLib/rTags.h>
+#include "collectors.h"
 
 #define RPAL_FILE_ID        107
 
@@ -73,7 +74,7 @@ RBOOL
                 }
                 else
                 {
-                    rSequence_addTIMESTAMP( wrapper, RP_TAGS_TIMESTAMP, rpal_time_getGlobal() );
+                    hbs_timestampEvent( wrapper, 0 );
                     isSuccess = notifications_publish( machine->desc->reportEventType, wrapper );
                 }
             }

@@ -58,6 +58,33 @@ RBOOL
 }
 
 RBOOL
+    hbs_timestampEvent
+    (
+        rSequence event,
+        RTIME optOriginal
+    )
+{
+    RBOOL isTimestamped = FALSE;
+    RTIME ts = 0;
+
+    if( NULL != event )
+    {
+        if( 0 != optOriginal )
+        {
+            ts = optOriginal;
+        }
+        else
+        {
+            ts = rpal_time_getGlobalPreciseTime();
+        }
+
+        isTimestamped = rSequence_addTIMESTAMP( event, RP_TAGS_TIMESTAMP, ts );
+    }
+
+    return isTimestamped;
+}
+
+RBOOL
     hbs_whenCpuBelow
     (
         RU8 percent,

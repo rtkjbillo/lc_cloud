@@ -161,9 +161,7 @@ RPVOID
                             rSequence_addRU32( notif, 
                                                RP_TAGS_PROCESS_ID, 
                                                currentTcp4Table->rows[ i ].pid ) &&
-                            rSequence_addTIMESTAMP( notif, 
-                                                    RP_TAGS_TIMESTAMP, 
-                                                    rpal_time_getGlobal() ) )
+                            hbs_timestampEvent( notif, 0 ) )
                         {
                             if( NULL != ( comp = rSequence_new() ) )
                             {
@@ -257,9 +255,7 @@ RPVOID
                             !rSequence_addRU32( notif, 
                                                 RP_TAGS_PROCESS_ID, 
                                                 currentUdpTable->rows[ i ].pid ) ||
-                            !rSequence_addTIMESTAMP( notif, 
-                                                     RP_TAGS_TIMESTAMP, 
-                                                     rpal_time_getGlobal() ) )
+                            !hbs_timestampEvent( notif, 0 ) )
                         {
                             notif = NULL;
                         }
