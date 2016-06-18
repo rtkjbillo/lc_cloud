@@ -42,8 +42,8 @@ from functools import wraps
 ###############################################################################
 # CORE HELPER FUNCTIONS
 ###############################################################################
-def tsToTime( ts ):
-    return datetime.datetime.fromtimestamp( int( ts ) ).strftime( '%Y-%m-%d %H:%M:%S' )
+def msTsToTime( ts ):
+    return datetime.datetime.fromtimestamp( float( ts ) / 1000 ).strftime( '%Y-%m-%d %H:%M:%S.%f' )
 
 def timeToTs( timeStr ):
     return time.mktime( datetime.datetime.strptime( timeStr, '%Y-%m-%d %H:%M:%S' ).timetuple() )
@@ -483,13 +483,13 @@ web.config.debug = False
 app = web.application( urls, globals() )
 
 render = web.template.render( 'templates', base = 'base', globals = { 'json' : json,
-                                                                      'tsToTime' : tsToTime,
+                                                                      'msTsToTime' : msTsToTime,
                                                                       '_x_' : _x_,
                                                                       '_xm_' : _xm_,
                                                                       'hex' : hex,
                                                                       'sanitize' : sanitizeJson } )
 eventRender = web.template.render( 'templates/custom_events', globals = { 'json' : json,
-                                                                          'tsToTime' : tsToTime,
+                                                                          'msTsToTime' : msTsToTime,
                                                                           '_x_' : _x_,
                                                                           '_xm_' : _xm_,
                                                                           'hex' : hex,
