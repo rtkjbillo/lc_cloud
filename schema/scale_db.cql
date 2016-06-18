@@ -7,7 +7,7 @@ CREATE TABLE events(
   event varchar,
   agentid varchar,
   PRIMARY KEY( eventid )
-) WITH compaction = { 'class' : 'DateTieredCompactionStrategy', 'timestamp_resolution' : 'SECONDS' } AND gc_grace_seconds = 86400;
+) WITH compaction = { 'class' : 'DateTieredCompactionStrategy' } AND gc_grace_seconds = 86400;
 
 CREATE TABLE timeline(
   agentid varchar,
@@ -15,7 +15,7 @@ CREATE TABLE timeline(
   eventtype varchar,
   eventid varchar,
   PRIMARY KEY( agentid, ts )
-) WITH compaction = { 'class' : 'DateTieredCompactionStrategy', 'timestamp_resolution' : 'SECONDS' } AND gc_grace_seconds = 86400;
+) WITH compaction = { 'class' : 'DateTieredCompactionStrategy' } AND gc_grace_seconds = 86400;
 
 CREATE TABLE timeline_by_type(
   agentid varchar,
@@ -23,7 +23,7 @@ CREATE TABLE timeline_by_type(
   eventtype varchar,
   eventid varchar,
   PRIMARY KEY( agentid, eventtype, ts )
-) WITH compaction = { 'class' : 'DateTieredCompactionStrategy', 'timestamp_resolution' : 'SECONDS' } AND gc_grace_seconds = 86400;
+) WITH compaction = { 'class' : 'DateTieredCompactionStrategy' } AND gc_grace_seconds = 86400;
 
 CREATE TABLE obj_man
 (
@@ -131,7 +131,7 @@ CREATE TABLE reports
   detect varchar,
 
   PRIMARY KEY( repid )
-) WITH compaction = { 'class' : 'DateTieredCompactionStrategy', 'timestamp_resolution' : 'SECONDS' } AND gc_grace_seconds = 86400;
+) WITH compaction = { 'class' : 'DateTieredCompactionStrategy' } AND gc_grace_seconds = 86400;
 
 CREATE TABLE report_timeline
 (
@@ -140,7 +140,7 @@ CREATE TABLE report_timeline
   repid varchar,
 
   PRIMARY KEY( d, ts )
-) WITH compaction = { 'class' : 'DateTieredCompactionStrategy', 'timestamp_resolution' : 'SECONDS' } AND gc_grace_seconds = 86400;
+) WITH compaction = { 'class' : 'DateTieredCompactionStrategy' } AND gc_grace_seconds = 86400;
 
 CREATE TABLE keyvalue
 (
@@ -150,5 +150,5 @@ CREATE TABLE keyvalue
   v varchar,
 
   PRIMARY KEY( k, c )
-) WITH compaction = { 'class' : 'DateTieredCompactionStrategy', 'timestamp_resolution' : 'SECONDS' } AND gc_grace_seconds = 86400;
+) WITH compaction = { 'class' : 'DateTieredCompactionStrategy' } AND gc_grace_seconds = 86400;
 

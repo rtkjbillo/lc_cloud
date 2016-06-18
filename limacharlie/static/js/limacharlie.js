@@ -1,10 +1,20 @@
 
+function pad2( s )
+{
+    return ('0' + s).slice(-2);
+}
+
+function pad3( s )
+{
+    return ('00' + s).slice(-3);
+}
+
 function ts_to_time( ts )
 {
     // Create a new JavaScript Date object based on the timestamp
     // multiplied by 1000 so that the argument is in milliseconds, not seconds.
-    var date = new Date(ts*1000);
-    return date.toUTCString();
+    var date = new Date(ts);
+    return date.getUTCFullYear() + "-" + pad2(date.getUTCMonth()+1) + "-" + pad2(date.getUTCDate()) + " " + pad2(date.getUTCHours()) + ":" + pad2(date.getUTCMinutes()) + ":" + pad2(date.getUTCSeconds()) + "." + pad3(date.getUTCMilliseconds());
 }
 
 function pad(num, size){ return ('000000000' + num).substr(-size); }
