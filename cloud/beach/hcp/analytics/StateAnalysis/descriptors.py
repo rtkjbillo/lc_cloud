@@ -24,7 +24,7 @@ EventOfType = Actor.importLib( './transitions', 'EventOfType' )
 ParentProcessInHistory = Actor.importLib( './transitions', 'ParentProcessInHistory' )
 NotParentProcessInHistory = Actor.importLib( './transitions', 'NotParentProcessInHistory' )
 
-def ProcessBurst( name, procRegExp, nPerBurst, withinSeconds ):
+def ProcessBurst( name, procRegExp, nPerBurst, withinMilliSeconds ):
     states = []
     for i in xrange( 0, nPerBurst ):
         states.append( State( StateTransition( isRecordOnMatch = True, 
@@ -32,7 +32,7 @@ def ProcessBurst( name, procRegExp, nPerBurst, withinSeconds ):
                                                toState = i + 1 if i < nPerBurst - 1 else 0, 
                                                evalFunc = NewProcessNamed( procRegExp ) ), 
                               StateTransition( toState = 0, 
-                                               evalFunc = HistoryOlderThan( withinSeconds ) ) ) )
+                                               evalFunc = HistoryOlderThan( withinMilliSeconds ) ) ) )
     return StateMachineDescriptor( name, *states )
 
 def ProcessDescendant( name, parentRegExp, childRegExp, isDirectOnly ):
@@ -56,13 +56,13 @@ def ProcessDescendant( name, parentRegExp, childRegExp, isDirectOnly ):
 
     return StateMachineDescriptor( name, parentState, descendantState )
 
-def EventBurst( name, eventType, nPerBurst, withinSeconds ):
+def EventBurst( name, eventType, nPerBurst, withinMilliSeconds ):
     states = []
     for i in xrange( 1, nPerBurst ):
         states.append( State( StateTransition( isRecordOnMatch = True, 
                                                isReportOnMatch = False if i < nPerBurst else True,
                                                toState = i if i < nPerBurst else 0, 
-                                                 evalFunc = EventOfType( eventType ) ), 
+                                               evalFunc = EventOfType( eventType ) ), 
                               StateTransition( toState = 0, 
-                                                  evalFunc = HistoryOlderThan( withinSeconds ) ) ) )
+                                               evalFunc = HistoryOlderThan( withinMilliSeconds ) ) ) )
     return StateMachineDescriptor( name, *states )
