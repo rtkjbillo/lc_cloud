@@ -163,11 +163,11 @@ uint64_t
     )
 {
     clock_sec_t ts = 0;
-    unsigned int ms = 0;
+    clock_usec_t us = 0;
     
-    clock_get_calendar_microtime( &ts, &ms );
+    clock_get_calendar_microtime( &ts, &us );
     
-    return ts;
+    return (uint64_t)ts + ((uint64_t)us * 1000);
 }
 
 

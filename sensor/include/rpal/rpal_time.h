@@ -27,7 +27,11 @@ limitations under the License.
 #define SEC_PER_HOUR                                (60*60)
 #define SEC_PER_DAY                                 (SEC_PER_HOUR * 24)
 #define MSEC_FROM_SEC(sec)                          ((sec)*1000)
-#define MICROSEC_FROM_MSEC(sec)                     ((sec)*100000)
+#define SEC_FROM_MSEC(msec)                         ((msec)/1000)
+#define MSEC_FROM_USEC(usec)                        ((usec)/1000)
+#define USEC_FROM_MSEC(sec)                         ((sec)*1000)
+#define USEC_PER_MSEC                               (1000)
+#define NSEC_100_PER_MSEC                           (10000)
 
 typedef struct
 {
@@ -40,6 +44,12 @@ typedef struct
 
 RU64
     rpal_time_getLocal
+    (
+
+    );
+
+RU64
+    rpal_time_getGlobalPreciseTime
     (
 
     );
@@ -84,8 +94,9 @@ RU64
     );
 
 #ifdef RPAL_PLATFORM_WINDOWS
+#define MS_FILETIME_TO_MSEC_EPOCH(ms_ts_ft)         ((RU64)((ms_ts_ft) / NSEC_100_PER_MSEC) - (RU64)11644473600000)
 RU64
-    rpal_winFileTimeToTs
+    rpal_winFileTimeToMsTs
     (
         FILETIME ft
     );

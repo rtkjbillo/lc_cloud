@@ -144,12 +144,15 @@ class AnalyticsModeling( Actor ):
         aid = agent.invariableToString()
         ts = _x_( event, '?/base.TIMESTAMP' )
 
+        if ts is not None:
+            ts = float( ts ) / 1000
+
         if ts is None or ts > ( 2 * time.time() ):
             ts = _x_( event, 'base.TIMESTAMP' )
             if ts is None:
                 ts = time_uuid.utctime()
             else:
-                ts = int( ts )
+                ts = float( ts ) / 1000
 
         eid = routing[ 'event_id' ]
 

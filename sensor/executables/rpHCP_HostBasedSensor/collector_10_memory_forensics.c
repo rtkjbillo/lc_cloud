@@ -409,7 +409,7 @@ RVOID
         }
     }
 
-    rSequence_addTIMESTAMP( event, RP_TAGS_TIMESTAMP, rpal_time_getGlobal() );
+    hbs_timestampEvent( event, 0 );
     notifications_publish( RP_TAGS_NOTIFICATION_MEM_MAP_REP, event );
 }
 
@@ -449,7 +449,7 @@ RVOID
             }
         }
 
-        rSequence_addTIMESTAMP( event, RP_TAGS_TIMESTAMP, rpal_time_getGlobal() );
+        hbs_timestampEvent( event, 0 );
         notifications_publish( RP_TAGS_NOTIFICATION_MEM_READ_REP, event );
     }
 }
@@ -485,7 +485,7 @@ RVOID
             }
         }
 
-        rSequence_addTIMESTAMP( event, RP_TAGS_TIMESTAMP, rpal_time_getGlobal() );
+        hbs_timestampEvent( event, 0 );
         notifications_publish( RP_TAGS_NOTIFICATION_MEM_HANDLES_REP, event );
     }
 }
@@ -523,7 +523,7 @@ RVOID
             }
         }
 
-        rSequence_addTIMESTAMP( event, RP_TAGS_TIMESTAMP, rpal_time_getGlobal() );
+        hbs_timestampEvent( event, 0 );
         notifications_publish( RP_TAGS_NOTIFICATION_MEM_FIND_HANDLE_REP, event );
     }
 }
@@ -596,7 +596,7 @@ RVOID
             }
         }
 
-        rSequence_addTIMESTAMP( event, RP_TAGS_TIMESTAMP, rpal_time_getGlobal() );
+        hbs_timestampEvent( event, 0 );
         notifications_publish( RP_TAGS_NOTIFICATION_MEM_STRINGS_REP, event );
     }
 }
@@ -678,7 +678,7 @@ RVOID
             }
         }
 
-        rSequence_addTIMESTAMP( event, RP_TAGS_TIMESTAMP, rpal_time_getGlobal() );
+        hbs_timestampEvent( event, 0 );
         notifications_publish( RP_TAGS_NOTIFICATION_MEM_FIND_STRING_REP, event );
     }
 }

@@ -114,7 +114,7 @@ RBOOL
                 if( rSequence_addLIST( pActivity->proc, RP_TAGS_NETWORK_ACTIVITY, pActivity->net ) )
                 {
                     rpal_debug_info( "publishing new process net summary" );
-                    rSequence_addTIMESTAMP( pActivity->proc, RP_TAGS_TIMESTAMP, rpal_time_getGlobal() );
+                    hbs_timestampEvent( pActivity->proc, 0 );
                     notifications_publish( RP_TAGS_NOTIFICATION_NETWORK_SUMMARY, pActivity->proc );
                     pActivity->net = NULL;
                 }

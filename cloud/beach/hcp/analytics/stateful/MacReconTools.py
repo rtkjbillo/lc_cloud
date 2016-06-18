@@ -23,6 +23,6 @@ class MacReconTools ( StatefulActor ):
         reconBurst = ProcessBurst( name = 'mac_recon_burst', 
         						   procRegExp = r'.*/((ifconfig)|(arp)|(route)|(ping)|(traceroute)|(nslookup)|(netstat)|(wget)|(curl))',
         						   nPerBurst = 3,
-        						   withinSeconds = 5 )
+        						   withinMilliSeconds = 5 * 1000 )
         
         self.addStateMachineDescriptor( reconBurst )

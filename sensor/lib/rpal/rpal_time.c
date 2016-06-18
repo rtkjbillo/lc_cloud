@@ -83,6 +83,27 @@ RU64,
     return localTs + g_rpal_time_globalOffset;
 }
 
+RU64
+    rpal_time_getGlobalPreciseTime
+    (
+
+    )
+{
+    RU64 ts = 0;
+#ifdef RPAL_PLATFORM_WINDOWS
+    FILETIME ft = { 0 };
+    GetSystemTimeAsFileTime( &ft );
+    ts = MS_FILETIME_TO_MSEC_EPOCH( (RU64)ft.dwLowDateTime + ( (RU64)ft.dwHighDateTime << 32 ) );
+#else
+    struct timeval tv = { 0 };
+    gettimeofday( &tv, NULL );
+    ts = MSEC_FROM_SEC((RU64)tv.tv_sec) + MSEC_FROM_USEC( (RU64)tv.tv_usec );
+#endif
+
+    ts += MSEC_FROM_SEC( rpal_time_getGlobalFromLocal( 0 ) );
+
+    return ts;
+}
 
 RBOOL
     rpal_timer_init_interval
@@ -298,17 +319,12 @@ RU64
 
 #ifdef RPAL_PLATFORM_WINDOWS
 RU64 
-    rpal_winFileTimeToTs
+    rpal_winFileTimeToMsTs
     (
         FILETIME ft
     )
 {
-    RU64 epochAsFiletime = 116444736000000000;
-    RU64 hundredOfNanosecondes = 10000000;
-
-    RU64 time = ( (RU64)(ft.dwHighDateTime) << 32 ) | ft.dwLowDateTime;
-
-    return ( time - epochAsFiletime ) / hundredOfNanosecondes;
+    return MS_FILETIME_TO_MSEC_EPOCH( (RU64)ft.dwLowDateTime + ( (RU64)ft.dwHighDateTime << 32 ) );
 }
 #endif
 

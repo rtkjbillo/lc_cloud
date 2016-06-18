@@ -301,9 +301,9 @@ RBOOL
                     ENABLE_FLAG( pFileInfo->attributes, RPAL_FILE_ATTRIBUTE_TEMP );
                 }
 
-                pFileInfo->creationTime = rpal_winFileTimeToTs( findData.ftCreationTime );
-                pFileInfo->lastAccessTime = rpal_winFileTimeToTs( findData.ftLastAccessTime );
-                pFileInfo->modificationTime = rpal_winFileTimeToTs( findData.ftLastWriteTime );
+                pFileInfo->creationTime = rpal_winFileTimeToMsTs( findData.ftCreationTime );
+                pFileInfo->lastAccessTime = rpal_winFileTimeToMsTs( findData.ftLastAccessTime );
+                pFileInfo->modificationTime = rpal_winFileTimeToMsTs( findData.ftLastWriteTime );
 
                 pFileInfo->size = ( (RU64)findData.nFileSizeHigh << 32 ) | findData.nFileSizeLow;
 
@@ -1536,9 +1536,9 @@ RBOOL
                     ENABLE_FLAG( pFileInfo->attributes, RPAL_FILE_ATTRIBUTE_EXECUTE );
                 }
 
-                pFileInfo->creationTime = rpal_winFileTimeToTs( findData.ftCreationTime );
-                pFileInfo->lastAccessTime = rpal_winFileTimeToTs( findData.ftLastAccessTime );
-                pFileInfo->modificationTime = rpal_winFileTimeToTs( findData.ftLastWriteTime );
+                pFileInfo->creationTime = rpal_winFileTimeToMsTs( findData.ftCreationTime );
+                pFileInfo->lastAccessTime = rpal_winFileTimeToMsTs( findData.ftLastAccessTime );
+                pFileInfo->modificationTime = rpal_winFileTimeToMsTs( findData.ftLastWriteTime );
 
                 pFileInfo->size = ( (RU64)findData.nFileSizeHigh << 32 ) | findData.nFileSizeLow;
 

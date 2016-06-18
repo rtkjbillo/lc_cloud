@@ -96,7 +96,7 @@ RPVOID
                   RPAL_DIR_WATCH_ACTION_REMOVED == apiAction ||
                   RPAL_DIR_WATCH_ACTION_MODIFIED  == apiAction ) )
             {
-                curTime = rpal_time_getGlobal();
+                curTime = rpal_time_getGlobalPreciseTime();
 
                 if( _assemble_full_name( fullName, sizeof( fullName ), root, fileName ) )
                 {
@@ -116,7 +116,7 @@ RPVOID
                         }
 
                         if( rSequence_addSTRINGW( notif, RP_TAGS_FILE_PATH, (RPWCHAR)&fullName ) &&
-                            rSequence_addTIMESTAMP( notif, RP_TAGS_TIMESTAMP, curTime ) )
+                            hbs_timestampEvent( notif, curTime ) )
                         {
                             notifications_publish( event, notif );
                         }
@@ -183,9 +183,7 @@ RPVOID
             if( NULL != ( notif = rSequence_new() ) )
             {
                 if( rSequence_addSTRINGN( notif, RP_TAGS_FILE_PATH, new_from_kernel[ i ].path ) &&
-                    rSequence_addTIMESTAMP( notif,
-                                            RP_TAGS_TIMESTAMP,
-                                            rpal_time_getGlobalFromLocal( new_from_kernel[ i ].ts ) ) )
+                    hbs_timestampEvent( notif, new_from_kernel[ i ].ts ) )
                 {
                     notifications_publish( event, notif );
                 }

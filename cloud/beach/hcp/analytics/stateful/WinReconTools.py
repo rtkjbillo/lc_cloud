@@ -23,6 +23,6 @@ class WinReconTools ( StatefulActor ):
         reconBurst = ProcessBurst( name = 'windows_recon_burst', 
         						   procRegExp = r'.*(/|\\)((ipconfig)|(arp)|(route)|(ping)|(traceroute)|(nslookup)|(netstat)|(wmic)|(net\d?)|(whoami)|(systeminfo))\.exe',
         						   nPerBurst = 3,
-        						   withinSeconds = 5 )
+        						   withinMilliSeconds = 5 * 1000 )
         
         self.addStateMachineDescriptor( reconBurst )

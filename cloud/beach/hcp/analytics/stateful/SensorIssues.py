@@ -33,7 +33,7 @@ class SensorIssues ( StatefulActor ):
         hcpFrequentRestart = EventBurst( name = 'hcp_frequent_restart',
                                          eventType = 'notification.STARTING_UP',
                                          nPerBurst = 3,
-                                         withinSeconds = 60 )
+                                         withinMilliSeconds = 60 * 1000 )
 
         self.addStateMachineDescriptor( hcpSpawningProcesses )
         self.addStateMachineDescriptor( hcpFrequentRestart )

@@ -152,7 +152,7 @@ RPVOID
                             rSequence_addSTRINGW( notif, RP_TAGS_DOMAIN_NAME, pCurRec->name );
                             rSequence_addRU16( notif, RP_TAGS_DNS_TYPE, pCurRec->type );
                             rSequence_addRU32( notif, RP_TAGS_DNS_FLAGS, pCurRec->flags );
-                            rSequence_addTIMESTAMP( notif, RP_TAGS_TIMESTAMP, rpal_time_getGlobal() );
+                            hbs_timestampEvent( notif, 0 );
 
                             notifications_publish( RP_TAGS_NOTIFICATION_DNS_REQUEST, notif );
 

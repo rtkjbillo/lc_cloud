@@ -119,7 +119,7 @@ RVOID
             rSequence_addRU32( event, RP_TAGS_ERROR, RPAL_ERROR_NOT_ENOUGH_MEMORY );
         }
 
-        rSequence_addTIMESTAMP( event, RP_TAGS_TIMESTAMP, rpal_time_getGlobal() );
+        hbs_timestampEvent( event, 0 );
         notifications_publish( RP_TAGS_NOTIFICATION_FILE_GET_REP, event );
     }
 }
@@ -152,7 +152,7 @@ RVOID
             }
         }
 
-        rSequence_addTIMESTAMP( event, RP_TAGS_TIMESTAMP, rpal_time_getGlobal() );
+        hbs_timestampEvent( event, 0 );
         notifications_publish( RP_TAGS_NOTIFICATION_FILE_DEL_REP, event );
     }
 }
@@ -180,7 +180,7 @@ RVOID
             }
         }
 
-        rSequence_addTIMESTAMP( event, RP_TAGS_TIMESTAMP, rpal_time_getGlobal() );
+        hbs_timestampEvent( event, 0 );
         notifications_publish( RP_TAGS_NOTIFICATION_FILE_MOV_REP, event );
     }
 }
@@ -219,7 +219,7 @@ RVOID
         }
 
         rSequence_unTaintRead( event );
-        rSequence_addTIMESTAMP( event, RP_TAGS_TIMESTAMP, rpal_time_getGlobal() );
+        hbs_timestampEvent( event, 0 );
         notifications_publish( RP_TAGS_NOTIFICATION_FILE_HASH_REP, event );
     }
 }
@@ -238,7 +238,7 @@ RVOID
     {
         enhanceFileInfo( event );
 
-        rSequence_addTIMESTAMP( event, RP_TAGS_TIMESTAMP, rpal_time_getGlobal() );
+        hbs_timestampEvent( event, 0 );
         notifications_publish( RP_TAGS_NOTIFICATION_FILE_INFO_REP, event );
     }
 }
@@ -308,7 +308,7 @@ RVOID
             rSequence_addRU32( event, RP_TAGS_ERROR, RPAL_ERROR_INVALID_NAME );
         }
 
-        rSequence_addTIMESTAMP( event, RP_TAGS_TIMESTAMP, rpal_time_getGlobal() );
+        hbs_timestampEvent( event, 0 );
         notifications_publish( RP_TAGS_NOTIFICATION_DIR_LIST_REP, event );
     }
 }

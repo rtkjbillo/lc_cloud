@@ -735,7 +735,6 @@ RBOOL
     RBOOL isRemoved = FALSE;
 
     if( NULL != vector &&
-        index >= 0 &&
         index < vector->nElements )
     {
         if( index < vector->nElements - 1 )

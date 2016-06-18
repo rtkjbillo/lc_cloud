@@ -18,7 +18,7 @@ limitations under the License.
 #include "stateful_helpers.h"
 #include "stateful_events.h"
 
-#define LOAD_LATE_AFTER_SEC (60)
+#define LOAD_LATE_AFTER_SEC (MSEC_FROM_SEC(60))
 
 static tr_match_params matching_module = {
     RPCM_RU32,

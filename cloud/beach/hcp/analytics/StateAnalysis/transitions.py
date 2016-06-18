@@ -28,11 +28,11 @@ def NewProcessNamed( regexp ):
             return False
     return _processNamed
 
-def HistoryOlderThan( nSeconds ):
+def HistoryOlderThan( nMilliseconds ):
     def _historyOlderThan( history, event ):
         newTs = event.event.get( 'base.TIMESTAMP', 0 )
         newest = max( x.event.get( 'base.TIMESTAMP', 0 ) for x in history )
-        if newTs > newest + nSeconds:
+        if newTs > newest + nMilliseconds:
             return True
         else:
             return False

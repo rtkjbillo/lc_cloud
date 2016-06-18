@@ -280,9 +280,7 @@ RPVOID
                                             }
                                         }
 
-                                        rSequence_addTIMESTAMP( region, 
-                                                                RP_TAGS_TIMESTAMP, 
-                                                                rpal_time_getGlobal() );
+                                        hbs_timestampEvent( region, 0 );
                                         hbs_markAsRelated( originalRequest, region );
                                         notifications_publish( RP_TAGS_NOTIFICATION_HIDDEN_MODULE_DETECTED, 
                                                                region );
@@ -416,11 +414,7 @@ RPVOID
                    rpal_memory_isValid( isTimeToStop ) &&
                    !rEvent_wait( isTimeToStop, _TIMEOUT_BETWEEN_CONSTANT_PROCESSS ) )
             {
-                if( hbs_whenCpuBelow( _CPU_WATERMARK, _MAX_CPU_WAIT, isTimeToStop ) )
-                {
-                    lookForHiddenModulesIn( isTimeToStop, proc->pid, originalRequest, &perfProfile );
-                }
-
+                lookForHiddenModulesIn( isTimeToStop, proc->pid, originalRequest, &perfProfile );
                 proc++;
             }
 
