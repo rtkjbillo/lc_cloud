@@ -122,6 +122,7 @@ def sanitizeJson( o, summarized = False ):
         o = [ sanitizeJson( x, summarized = summarized ) for x in o ]
     else:
         try:
+            if ( type(o) is str or type(o) is unicode ) and "\x00" in o: raise Exception()
             json.dumps( o )
         except:
             o = base64.b64encode( o )
