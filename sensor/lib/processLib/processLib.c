@@ -153,6 +153,7 @@ rSequence
     PROCESS_BASIC_INFORMATION pbi = {0};
     RTL_USER_PROCESS_PARAMETERS block = {0};
     HANDLE hProcess = NULL;
+    HANDLE hToken = NULL;
     SIZE_T dwSize = 0;
     RWCHAR pebPath[ MAX_PEB_PATH_LENGTH ] = { 0 };
     HANDLE hProcSnap = NULL;
@@ -170,6 +171,14 @@ rSequence
     RU32 retryCountDown = 0;
     RU32 i = 0;
     RU32 lastError = 0;
+    RU8 tokenOwner[ 256 ] = { 0 };
+    RU32 tokenSize = 0;
+    RWCHAR ownerName[ 64 ] = { 0 };
+    RU32 ownerNameSize = ARRAY_N_ELEM( ownerName );
+    RWCHAR ownerDomain[ 64 ] = { 0 };
+    RU32 ownerDomainSize = ARRAY_N_ELEM( ownerDomain );
+    SID_NAME_USE ownerUse = { 0 };
+    RWCHAR fullOwner[ ARRAY_N_ELEM( ownerName ) + ARRAY_N_ELEM( ownerDomain ) ] = { 0 };
 
     if( NULL == queryInfo )
     {
@@ -429,6 +438,43 @@ rSequence
                         }
                     }
                 }
+            }
+
+            // Let's try to get the owner
+            if( OpenProcessToken( hProcess, TOKEN_READ, &hToken ) )
+            {
+                if( GetTokenInformation( hToken, 
+                                         TokenOwner, 
+                                         (TOKEN_OWNER*)&tokenOwner, 
+                                         sizeof( tokenOwner ), 
+                                         (PDWORD)&tokenSize ) )
+                {
+                    if( LookupAccountSidW( NULL,
+                                           ((TOKEN_OWNER*)tokenOwner)->Owner,
+                                           (LPWSTR)&ownerName,
+                                           (LPDWORD)&ownerNameSize,
+                                           (LPWSTR)&ownerDomain,
+                                           (LPDWORD)&ownerDomainSize,
+                                           &ownerUse ) )
+                    {
+                        // By definition the fullOwner buffer always has enough room if the accounts
+                        // query were successful.
+                        rpal_string_strcpyw( fullOwner, ownerDomain );
+                        rpal_string_strcatw( fullOwner, _WCH( "\\" ) );
+                        rpal_string_strcatw( fullOwner, ownerName );
+                        rSequence_addSTRINGW( procInfo, RP_TAGS_USER_NAME, fullOwner );
+                    }
+                    else
+                    {
+                        lastError = GetLastError();
+                    }
+                }
+                else
+                {
+                    lastError = GetLastError();
+                }
+
+                CloseHandle( hToken );
             }
 
             CloseHandle( hProcess );
