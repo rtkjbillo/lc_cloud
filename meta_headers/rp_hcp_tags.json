@@ -310,5 +310,7 @@
              { "name" : "INVESTIGATION_ID", "value" : 1033 },
              { "name" : "CRITICAL_EVENTS", "value" : 1034 },
              { "name" : "GENERATIONS_TO_STABLE", "value" : 1035 },
-             { "name" : "GENERATIONS_SEEN", "value" : 1036 } ] } ]
+             { "name" : "GENERATIONS_SEEN", "value" : 1036 },
+             { "name" : "THIS_ATOM", "value" : 1037 },
+             { "name" : "PARENT_ATOM", "value" : 1038 } ] } ]
 }

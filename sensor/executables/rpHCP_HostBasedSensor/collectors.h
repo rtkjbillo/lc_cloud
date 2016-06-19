@@ -17,6 +17,7 @@ limitations under the License.
 #include <rpal/rpal.h>
 #include <librpcm/librpcm.h>
 #include <cryptoLib/cryptoLib.h>
+#include "atoms.h"
 
 typedef struct _HbsState
 {
