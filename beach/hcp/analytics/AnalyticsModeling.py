@@ -76,7 +76,7 @@ class AnalyticsModeling( Actor ):
         self.statements[ 'obj_batch_tmp_id' ] = self.db.prepare( '''INSERT INTO loc_by_id ( id, aid, last ) VALUES ( ?, ?, ? ) USING TTL 15552000;''' )
         self.statements[ 'obj_batch_tmp_type' ] = self.db.prepare( '''INSERT INTO loc_by_type ( d256, otype, id, aid ) VALUES ( ?, ?, ?, ? ) USING TTL 259200;''' )
 
-        self.statements[ 'atoms' ] = self.db.prepare( 'INSERT INTO atoms ( atomid, agentid, child, eid ) VALUES ( ?, ?, ?, ? ) USING TTL %d' % ( 60 * 60 * 24 * 7 * 2 ) )
+        self.statements[ 'atoms' ] = self.db.prepare( 'INSERT INTO atoms ( atomid, child, eid ) VALUES ( ?, ?, ? ) USING TTL %d' % ( 60 * 60 * 24 * 7 * 2 ) )
 
         for statement in self.statements.values():
             statement.consistency_level = CassDb.CL_Ingest
