@@ -76,6 +76,8 @@ class AnalyticsModeling( Actor ):
         self.statements[ 'obj_batch_tmp_id' ] = self.db.prepare( '''INSERT INTO loc_by_id ( id, aid, last ) VALUES ( ?, ?, ? ) USING TTL 15552000;''' )
         self.statements[ 'obj_batch_tmp_type' ] = self.db.prepare( '''INSERT INTO loc_by_type ( d256, otype, id, aid ) VALUES ( ?, ?, ?, ? ) USING TTL 259200;''' )
 
+        self.statements[ 'atoms' ] = self.db.prepare( 'INSERT INTO atoms ( atomid, agentid, child, eid ) VALUES ( ?, ?, ?, ? ) USING TTL %d' % ( 60 * 60 * 24 * 7 * 2 ) )
+
         for statement in self.statements.values():
             statement.consistency_level = CassDb.CL_Ingest
 
@@ -175,6 +177,18 @@ class AnalyticsModeling( Actor ):
         self.db.execute_async( self.statements[ 'last' ].bind( ( eid,
                                                                  aid,
                                                                  routing[ 'event_type' ] ) ) )
+
+        this_atom = _x_( event, '?/hbs.THIS_ATOM' )
+        parent_atom = _x_( event, '?/hbs.PARENT_ATOM' )
+        null_atom = "\x00" * 16
+
+        if this_atom is not None and parent_atom is not None and this_atom != null_atom and parent_atom != null_atom:
+            this_atom = uuid.UUID( bytes = this_atom )
+            parent_atom = uuid.UUID( bytes = parent_atom )
+            self.db.execute_async( self.statements[ 'atoms' ].bind( ( parent_atom,
+                                                                      aid,
+                                                                      this_atom,
+                                                                      eid ) ) )
 
         inv_id = _x_( event, '?/hbs.INVESTIGATION_ID' )
         if inv_id is not None and inv_id != '':
