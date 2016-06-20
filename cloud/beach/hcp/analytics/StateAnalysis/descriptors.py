@@ -61,7 +61,7 @@ def EventBurst( name, eventType, nPerBurst, withinMilliSeconds ):
     for i in xrange( 1, nPerBurst ):
         states.append( State( StateTransition( isRecordOnMatch = True, 
                                                isReportOnMatch = False if i < nPerBurst else True,
-                                               toState = i if i < nPerBurst else 0, 
+                                               toState = i + 1 if i < nPerBurst - 1 else 0, 
                                                evalFunc = EventOfType( eventType ) ), 
                               StateTransition( toState = 0, 
                                                evalFunc = HistoryOlderThan( withinMilliSeconds ) ) ) )
