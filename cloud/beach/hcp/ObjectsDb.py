@@ -418,6 +418,16 @@ class Host( object ):
 
         return record
 
+    @classmethod
+    def getSpecificEvents( self, ids ):
+        record = None
+
+        events = self._db.execute( 'SELECT eventid, agentid, event FROM events WHERE eventid IN ( \'%s\' )' % ( '\',\''.join( ids ), ) )
+        if event is not None:
+            record = ( event[ 0 ], event[ 1 ], event[ 2 ] )
+
+        return record
+
     def __init__( self, agentid ):
         if type( agentid  ) is not AgentId:
             agentid = AgentId( agentid )
@@ -662,3 +672,41 @@ class KeyValueStore( object ):
         if res:
             ret = ( res[ 0 ], res[ 1 ] )
         return ret
+
+class Atoms ( object ):
+    _db = None
+    _atomSelect = None
+    _queryChunks = 200
+
+    @classmethod
+    def setDatabase( cls, cassUrl ):
+        cls._db = CassDb( cassUrl, 'hcp_analytics', consistencyOne = True )
+
+    @classmethod
+    def closeDatabase( cls ):
+        cls._db.shutdown()
+
+    def __init__( self, ids ):
+        self._ids = []
+        if not hasattr( ids, '__iter__' ):
+            ids = [ ids ]
+        self._ids = ids
+
+    def __iter__( self ):
+        return self._ids.__iter__()
+
+    def next( self ):
+        return self._ids.next()
+
+    def children( self ):
+        def thisGen():
+            for ids in chunks( self._ids, self._queryChunks ):
+                for row in self._db.execute( 'SELECT child, eid FROM atoms WHERE atomid IN ( \'%s\' )' % ( '\',\''.join( x[ 0 ] for x in ids ), ) ):
+                    yield ( row[ 0 ], row[ 1 ] )
+        return type(self)( thisGen() )
+
+    def events( self ):
+        for ids in chunks( self._ids, self._queryChunks ):
+            for event in Host.getSpecificEvents( x[ 1 ] for x in ids ):
+                yield FluxEvent.decode( raw[ 2 ] )
+
