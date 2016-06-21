@@ -52,7 +52,7 @@ RVOID
             rSequence_addRU32( event, RP_TAGS_ERROR, rpal_error_getLast() );
         }
 
-        rSequence_addTIMESTAMP( event, RP_TAGS_TIMESTAMP, rpal_time_getGlobal() );
+        hbs_timestampEvent( event, 0 );
         notifications_publish( RP_TAGS_NOTIFICATION_OS_SERVICES_REP, event );
     }
 }

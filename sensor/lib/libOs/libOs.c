@@ -2664,13 +2664,18 @@ RBOOL
     RBOOL isSuccess = FALSE;
 
     rDirCrawl dirCrawl = NULL;
-    RPWCHAR crawlFiles[] = { _WCH( "*" ), NULL };
-    RPWCHAR paths[] = { _WCH( "%ALLUSERSPROFILE%\\Start Menu\\Programs\\Startup" ),
-                        _WCH( "%ProgramData%\\Microsoft\\Windows\\Start Menu\\Programs\\Startup" ),
-                        _WCH( "%systemdrive%\\users\\*\\Start Menu\\Programs\\Startup" ),
-                        _WCH( "%systemdrive%\\users\\*\\AppData\\Roaming\\Microsoft\\Windows\\Start" ),
-                        _WCH( "%systemdrive%\\documents and settings\\*\\Start Menu\\Programs\\Startup" ),
-                        _WCH( "%systemdrive%\\documents and settings\\*\\AppData\\Roaming\\Microsoft\\Windows\\Start" ) };
+    struct
+    {
+        RPWCHAR path;
+        RPWCHAR fileExpr[ 2 ];
+    } crawlInfo[] = { { _WCH( "%ALLUSERSPROFILE%\\Start Menu\\Programs\\Startup" ), { _WCH( "*" ), NULL } },
+                      { _WCH( "%ProgramData%\\Microsoft\\Windows\\Start Menu\\Programs\\Startup" ), { _WCH( "*" ), NULL } },
+                      { _WCH( "%systemdrive%\\users\\*\\Start Menu\\Programs\\Startup" ), { _WCH( "*" ), NULL } },
+                      { _WCH( "%systemdrive%\\users\\*\\AppData\\Roaming\\Microsoft\\Windows\\Start" ), { _WCH( "*" ), NULL } },
+                      { _WCH( "%systemdrive%\\documents and settings\\*\\Start Menu\\Programs\\Startup" ), { _WCH( "*" ), NULL } },
+                      { _WCH( "%systemdrive%\\documents and settings\\*\\AppData\\Roaming\\Microsoft\\Windows\\Start" ), { _WCH( "*" ), NULL } },
+                      { _WCH( "%systemroot%\\Tasks" ), { _WCH( "*.job" ), NULL } },
+                      { _WCH( "%systemroot%\\system32\\Tasks" ), { _WCH( "*.job" ), NULL } } };
     rFileInfo finfo = { 0 };
 
     RU32 i = 0;
@@ -2867,9 +2872,9 @@ RBOOL
     }
 
     // Now we look for dir-based autoruns
-    for( i = 0; i < ARRAY_N_ELEM( paths ); i++ )
+    for( i = 0; i < ARRAY_N_ELEM( crawlInfo ); i++ )
     {
-        if( NULL != ( dirCrawl = rpal_file_crawlStart( paths[ i ], crawlFiles, 1 ) ) )
+        if( NULL != ( dirCrawl = rpal_file_crawlStart( crawlInfo[ i ].path, crawlInfo[ i ].fileExpr, 1 ) ) )
         {
             while( rpal_file_crawlNextFile( dirCrawl, &finfo ) )
             {

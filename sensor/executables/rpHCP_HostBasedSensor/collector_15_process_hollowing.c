@@ -35,7 +35,7 @@ limitations under the License.
 #define _MAX_SAMPLE_SPECIAL_CHAR        0
 #define _MIN_SAMPLE_MATCH_PERCENT       50
 
-#define _CHECK_SEC_AFTER_PROCESS_CREATION   5
+#define _CHECK_SEC_AFTER_PROCESS_CREATION   5000
 
 #define _TIMEOUT_BETWEEN_MODULES                (5*1000)
 #define _LARGE_PATTERNS                         (500)
@@ -642,7 +642,7 @@ RPVOID
                 rSequence_getTIMESTAMP( newProcess, RP_TAGS_TIMESTAMP, &timestamp ) )
             {
                 timeToWait = timestamp + _CHECK_SEC_AFTER_PROCESS_CREATION;
-                now = rpal_time_getGlobal();
+                now = rpal_time_getGlobalPreciseTime();
                 if( now < timeToWait )
                 {
                     timeToWait = timeToWait - now;
@@ -651,7 +651,7 @@ RPVOID
                         // Sanity check
                         timeToWait = _CHECK_SEC_AFTER_PROCESS_CREATION;
                     }
-                    rpal_thread_sleep( (RU32)MSEC_FROM_SEC( timeToWait ) );
+                    rpal_thread_sleep( (RU32)timeToWait );
                 }
 
                 if( NULL != ( hollowedModules = _spotCheckProcess( isTimeToStop, pid, &perfProfile ) ) )
