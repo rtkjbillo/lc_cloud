@@ -87,7 +87,7 @@ static VOID
     if( NULL != CreateInfo )
     {
         g_processes[ g_nextProcess ].pid = (RU32)ProcessId;
-        g_processes[ g_nextProcess ].ppid = (RU32)CreateInfo->ParentProcessId;
+        g_processes[ g_nextProcess ].ppid = (RU32)PsGetCurrentProcessId();
         g_processes[ g_nextProcess ].ts = rpal_time_getLocal();
         g_processes[ g_nextProcess ].uid = KERNEL_ACQ_NO_USER_ID;
 
