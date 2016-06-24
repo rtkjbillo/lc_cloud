@@ -17,6 +17,7 @@ limitations under the License.
 #include "collectors.h"
 #include <rpHostCommonPlatformLib/rTags.h>
 #include <libOs/libOs.h>
+#include <notificationsLib/notificationsLib.h>
 
 #define RPAL_FILE_ID        103
 
@@ -304,4 +305,33 @@ RBOOL
     }
 
     return isFound;
+}
+
+RBOOL
+    hbs_sendCompletionEvent
+    (
+        rSequence originalRequest,
+        rpcm_tag eventType,
+        RU32 errorCode,
+        RPCHAR errorMessage
+    )
+{
+    RBOOL isSuccess = FALSE;
+
+    rSequence event = NULL;
+
+    if( NULL != ( event = rSequence_new() ) )
+    {
+        if( rSequence_addRU32( event, RP_TAGS_ERROR, errorCode ) &&
+            ( NULL == errorMessage || rSequence_addSTRINGA( event, RP_TAGS_ERROR_MESSAGE, errorMessage ) ) )
+        {
+            hbs_markAsRelated( originalRequest, event );
+            hbs_timestampEvent( event, 0 );
+            isSuccess = notifications_publish( eventType, event );
+        }
+
+        rSequence_free( event );
+    }
+
+    return isSuccess;
 }

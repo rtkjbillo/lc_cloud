@@ -161,3 +161,12 @@ RBOOL
         RPVOID ref,
         rSequence* pFound
     );
+
+RBOOL
+    hbs_sendCompletionEvent
+    (
+        rSequence originalRequest,
+        rpcm_tag eventType,
+        RU32 errorCode,
+        RPCHAR errorMessage
+    );

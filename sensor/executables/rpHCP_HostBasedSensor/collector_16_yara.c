@@ -36,28 +36,6 @@ limitations under the License.
 // YARA Required Shims
 //=============================================================================
 static
-RVOID
-    reportError
-    (
-        rSequence originalRequest,
-        RU32 errorCode,
-        RPCHAR errorStr
-    )
-{
-    rSequence event = NULL;
-
-    if( NULL != ( event = rSequence_new() ) )
-    {
-        hbs_markAsRelated( originalRequest, event );
-        rSequence_addRU32( event, RP_TAGS_ERROR, errorCode );
-        rSequence_addSTRINGA( event, RP_TAGS_ERROR_MESSAGE, errorStr ? errorStr : "" );
-        hbs_timestampEvent( event, 0 );
-        notifications_publish( RP_TAGS_NOTIFICATION_YARA_DETECTION, event );
-        rSequence_free( event );
-    }
-}
-
-static
 size_t
     _yara_stream_read
     (
@@ -796,12 +774,18 @@ RVOID
         else
         {
             rpal_debug_warning( "no rules in yara scan request" );
-            reportError( event, RPAL_ERROR_NOT_SUPPORTED, "yara rules do not parse" );
+            hbs_sendCompletionEvent( event, 
+                                     RP_TAGS_NOTIFICATION_YARA_DETECTION, 
+                                     RPAL_ERROR_NOT_SUPPORTED, 
+                                     "can't parse" );
         }
     }
 
     rpal_debug_info( "finished on demand yara scan" );
-    reportError( event, scanError, "done" );
+    hbs_sendCompletionEvent( event,
+                             RP_TAGS_NOTIFICATION_YARA_DETECTION,
+                             scanError,
+                             "done" );
 
     yr_finalize_thread();
 }
