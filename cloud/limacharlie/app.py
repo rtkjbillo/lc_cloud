@@ -26,6 +26,7 @@ import datetime
 import time
 import json
 import base64
+import uuid
 from functools import wraps
 
 
@@ -120,6 +121,8 @@ def sanitizeJson( o, summarized = False ):
             o[ k ] = sanitizeJson( v, summarized = summarized )
     elif type( o ) is list or type( o ) is tuple:
         o = [ sanitizeJson( x, summarized = summarized ) for x in o ]
+    elif type( o ) is uuid.UUID:
+        o = str( o )
     else:
         try:
             if ( type(o) is str or type(o) is unicode ) and "\x00" in o: raise Exception()
@@ -144,9 +147,10 @@ def jsonApi( f ):
         web.header( 'Content-Type', 'application/json' )
         r = f( *args, **kwargs )
         try:
-            return json.dumps( r )
+            return json.dumps( sanitizeJson( r ) )
         except:
-            return json.dumps( { 'error' : str( r ) } )
+            return json.dumps( { 'error' : str( r ),
+                                 'exception' : traceback.format_exc() } )
     return wrapped
 
 def fileDownload( f ):
@@ -270,6 +274,9 @@ class Timeline:
             originalEvents = info.data.get( 'events', [] )
             info.data[ 'events' ] = []
             for event in originalEvents:
+                thisAtom = event[ 3 ].values()[ 0 ].get( 'hbs.THIS_ATOM', None )
+                if thisAtom is not None:
+                    thisAtom = uuid.UUID( bytes = thisAtom )
                 richEvent = None
                 if hasattr( eventRender, event[ 1 ] ):
                     try:
@@ -282,7 +289,8 @@ class Timeline:
                 info.data[ 'events' ].append( ( event[ 0 ],
                                                 event[ 1 ],
                                                 event[ 2 ],
-                                                richEvent ) )
+                                                richEvent,
+                                                thisAtom ) )
         return info.data
 
 class ObjSearch:
@@ -345,7 +353,13 @@ class EventView:
         if not info.isSuccess:
             return render.error( str( info ) )
 
-        return render.event( sanitizeJson( info.data.get( 'event', {} ), summarized = params.summarized ) )
+        event = info.data.get( 'event', {} )
+
+        thisAtom = event[ 1 ].values()[ 0 ].get( 'hbs.THIS_ATOM', None )
+        if thisAtom is not None:
+            thisAtom = uuid.UUID( bytes = thisAtom )
+
+        return render.event( sanitizeJson( event, summarized = params.summarized ), thisAtom )
 
 class HostObjects:
     def GET( self ):
@@ -458,6 +472,37 @@ class DownloadFileInEvent:
 
         return info.data[ 'data' ]
 
+
+class Explorer:
+    @jsonApi
+    def GET( self ):
+        params = web.input( id = None )
+
+        if params.id is None:
+            raise web.HTTPError( '400 Bad Request: id required' )
+
+        try:
+            effectiveId = str( uuid.UUID( params.id ) )
+        except:
+            effectiveId = str( uuid.UUID( bytes = base64.b64decode( params.id ) ) )
+
+        info = model.request( 'get_atoms_from_root', { 'id' : effectiveId } )
+
+        if not info.isSuccess:
+            raise web.HTTPError( '503 Service Unavailable : %s' % str( info ) )
+
+        return info.data
+
+
+class ExplorerView:
+    def GET( self ):
+        params = web.input( id = None )
+
+        if params.id is None:
+            return render.error( 'requires an initial id' )
+
+        return render.explorer( id = params.id )
+
 ###############################################################################
 # BOILER PLATE
 ###############################################################################
@@ -469,6 +514,8 @@ urls = ( r'/', 'Index',
          r'/search', 'Search',
          r'/sensor_state', 'SensorState',
          r'/timeline', 'Timeline',
+         r'/explorer', 'Explorer',
+         r'/explorer_view', 'ExplorerView',
          r'/objsearch', 'ObjSearch',
          r'/obj', 'ObjViewer',
          r'/lastevents', 'LastEvents',

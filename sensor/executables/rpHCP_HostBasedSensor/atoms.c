@@ -17,7 +17,11 @@ limitations under the License.
 #include "atoms.h"
 #include <cryptoLib/cryptoLib.h>
 
+#define _CLEANUP_EVERY  50
+#define _ATOM_GRACE_MS  10000
+
 static rBTree g_atoms = NULL;
+static RU32 g_nextCleanup = _CLEANUP_EVERY;
 
 static RS32
     _compareAtomKeys
@@ -93,10 +97,7 @@ RBOOL
             isSuccess = rpal_btree_add( g_atoms, pAtom, FALSE );
             if( !isSuccess )
             {
-                if( rpal_btree_remove( g_atoms, pAtom, NULL, FALSE ) )
-                {
-                    isSuccess = rpal_btree_add( g_atoms, pAtom, FALSE );
-                }
+                isSuccess = rpal_btree_update( g_atoms, pAtom, pAtom, FALSE );
             }
         }
 
@@ -112,7 +113,8 @@ RBOOL
 RBOOL
     atoms_query
     (
-        Atom* pAtom
+        Atom* pAtom,
+        RU64 atTime
     )
 {
     RBOOL isSuccess = FALSE;
@@ -124,6 +126,12 @@ RBOOL
         {
             rpal_debug_warning( "atom not found" );
         }
+        else if( 0 != atTime &&
+                 0 != pAtom->expiredOn &&
+                 atTime > pAtom->expiredOn )
+        {
+            rpal_memory_zero( pAtom->id, sizeof( pAtom->id ) );
+        }
     }
 
     return isSuccess;
@@ -132,6 +140,64 @@ RBOOL
 RBOOL
     atoms_remove
     (
+        Atom* pAtom,
+        RU64 expiredOn
+    )
+{
+    RBOOL isSuccess = FALSE;
+    Atom tmpAtom = { 0 };
+    Atom nextAtom = { 0 };
+    RU64 curTime = 0;
+
+    if( NULL != pAtom )
+    {
+        pAtom->expiredOn = expiredOn;
+        isSuccess = rpal_btree_update( g_atoms, pAtom, pAtom, FALSE );
+        if( !isSuccess )
+        {
+            rpal_debug_error( "atom not found" );
+        }
+
+        if( 0 == g_nextCleanup )
+        {
+            g_nextCleanup = _CLEANUP_EVERY;
+
+            if( rpal_btree_minimum( g_atoms, &tmpAtom, FALSE ) )
+            {
+                curTime = rpal_time_getGlobalPreciseTime();
+
+                while( rpal_btree_next( g_atoms, &tmpAtom, &nextAtom, FALSE ) )
+                {
+                    if( 0 != tmpAtom.expiredOn &&
+                        curTime > tmpAtom.expiredOn + _ATOM_GRACE_MS )
+                    {
+                        rpal_btree_remove( g_atoms, &tmpAtom, NULL, FALSE );
+                    }
+
+                    tmpAtom = nextAtom;
+                }
+
+                if( 0 != tmpAtom.expiredOn &&
+                    curTime > tmpAtom.expiredOn + _ATOM_GRACE_MS )
+                {
+                    rpal_btree_remove( g_atoms, &tmpAtom, NULL, FALSE );
+                }
+            }
+
+            rpal_debug_info( "atom cleanup finished, %d left", rpal_btree_getSize( g_atoms, FALSE ) );
+        }
+        else
+        {
+            g_nextCleanup--;
+        }
+    }
+
+    return isSuccess;
+}
+
+RBOOL
+    atoms_getOneTime
+    (
         Atom* pAtom
     )
 {
@@ -139,11 +205,7 @@ RBOOL
 
     if( NULL != pAtom )
     {
-        isSuccess = rpal_btree_remove( g_atoms, pAtom, NULL, FALSE );
-        if( !isSuccess )
-        {
-            rpal_debug_error( "atom not found" );
-        }
+        isSuccess = CryptoLib_genRandomBytes( pAtom->id, sizeof( pAtom->id ) );
     }
 
     return isSuccess;

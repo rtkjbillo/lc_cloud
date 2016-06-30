@@ -53,7 +53,7 @@ RVOID
         }
 
         rSequence_addTIMESTAMP( event, RP_TAGS_TIMESTAMP, rpal_time_getGlobal() );
-        notifications_publish( RP_TAGS_NOTIFICATION_OS_SERVICES_REP, event );
+        hbs_publish( RP_TAGS_NOTIFICATION_OS_SERVICES_REP, event );
     }
 }
 
@@ -85,7 +85,7 @@ RVOID
         }
 
         hbs_timestampEvent( event, 0 );
-        notifications_publish( RP_TAGS_NOTIFICATION_OS_DRIVERS_REP, event );
+        hbs_publish( RP_TAGS_NOTIFICATION_OS_DRIVERS_REP, event );
     }
 }
 
@@ -141,7 +141,7 @@ RVOID
 
         rpal_memory_free( entries );
 
-        notifications_publish( RP_TAGS_NOTIFICATION_OS_PROCESSES_REP, event );
+        hbs_publish( RP_TAGS_NOTIFICATION_OS_PROCESSES_REP, event );
     }
     else
     {
@@ -176,7 +176,7 @@ RVOID
 
                 hbs_timestampEvent( event, 0 );
 
-                notifications_publish( RP_TAGS_NOTIFICATION_OS_AUTORUNS_REP, event );
+                hbs_publish( RP_TAGS_NOTIFICATION_OS_AUTORUNS_REP, event );
             }
         }
     }
@@ -207,7 +207,7 @@ RPVOID
                rpal_memory_isValid( isTimeToStop ) &&
                i < ARRAY_N_ELEM( events ) )
         {
-            notifications_publish( events[ i ], dummy );
+            hbs_publish( events[ i ], dummy );
             i++;
         }
 
@@ -243,7 +243,7 @@ RVOID
             }
 
             hbs_timestampEvent( event, 0 );
-            notifications_publish( RP_TAGS_NOTIFICATION_OS_KILL_PROCESS_REP, event );
+            hbs_publish( RP_TAGS_NOTIFICATION_OS_KILL_PROCESS_REP, event );
         }
     }
 }

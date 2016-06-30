@@ -186,6 +186,8 @@ RPVOID
     RU32 curProcId = 0;
     RBOOL isJITPresent = FALSE;
     RTIME runTime = 0;
+    Atom parentAtom = { 0 };
+    RU64 curTime = 0;
 
     curProcId = processLib_getCurrentPid();
     curThreadId = processLib_getCurrentThreadId();
@@ -280,15 +282,24 @@ RPVOID
         if( isFound &&
             NULL != ( notif = processLib_getProcessInfo( processId, NULL ) ) )
         {
+            curTime = rpal_time_getGlobalPreciseTime();
+
             if( !rSequence_addLIST( notif, RP_TAGS_STACK_TRACES, traces ) )
             {
                 rList_free( traces );
             }
 
-            hbs_markAsRelated( originalRequest, notif );
-            hbs_timestampEvent( notif, 0 );
+            parentAtom.key.category = RP_TAGS_NOTIFICATION_NEW_PROCESS;
+            parentAtom.key.process.pid = processId;
+            if( atoms_query( &parentAtom, curTime ) )
+            {
+                rSequence_addBUFFER( notif, RP_TAGS_HBS_PARENT_ATOM, (RPU8)&parentAtom, sizeof( parentAtom ) );
+            }
 
-            notifications_publish( RP_TAGS_NOTIFICATION_EXEC_OOB, notif );
+            hbs_markAsRelated( originalRequest, notif );
+            hbs_timestampEvent( notif, curTime );
+
+            hbs_publish( RP_TAGS_NOTIFICATION_EXEC_OOB, notif );
 
             rSequence_free( notif );
         }

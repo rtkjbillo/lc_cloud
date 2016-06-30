@@ -487,6 +487,7 @@ RPVOID
     rList hollowedModules = NULL;
     rSequence processInfo = NULL;
     LibOsPerformanceProfile perfProfile = { 0 };
+    Atom parentAtom = { 0 };
 
     perfProfile.targetCpuPerformance = 0;
     perfProfile.globalTargetCpuPerformance = GLOBAL_CPU_USAGE_TARGET;
@@ -517,8 +518,18 @@ RPVOID
                     }
                     else
                     {
+                        parentAtom.key.category = RP_TAGS_NOTIFICATION_NEW_PROCESS;
+                        parentAtom.key.process.pid = proc->pid;
+                        if( atoms_query( &parentAtom, 0 ) )
+                        {
+                            rSequence_addBUFFER( processInfo, 
+                                                 RP_TAGS_HBS_PARENT_ATOM, 
+                                                 (RPU8)&parentAtom, 
+                                                 sizeof( parentAtom ) );
+                        }
+
                         hbs_markAsRelated( originalRequest, processInfo );
-                        notifications_publish( RP_TAGS_NOTIFICATION_MODULE_MEM_DISK_MISMATCH, processInfo );
+                        hbs_publish( RP_TAGS_NOTIFICATION_MODULE_MEM_DISK_MISMATCH, processInfo );
                     }
 
                     rSequence_free( processInfo );
@@ -551,6 +562,7 @@ RPVOID
     rList hollowedModules = NULL;
     rSequence processInfo = NULL;
     LibOsPerformanceProfile perfProfile = { 0 };
+    Atom parentAtom = { 0 };
 
     perfProfile.targetCpuPerformance = 0;
     perfProfile.globalTargetCpuPerformance = GLOBAL_CPU_USAGE_TARGET;
@@ -586,9 +598,19 @@ RPVOID
                         }
                         else
                         {
+                            parentAtom.key.category = RP_TAGS_NOTIFICATION_NEW_PROCESS;
+                            parentAtom.key.process.pid = proc->pid;
+                            if( atoms_query( &parentAtom, 0 ) )
+                            {
+                                rSequence_addBUFFER( processInfo, 
+                                                     RP_TAGS_HBS_PARENT_ATOM, 
+                                                     (RPU8)&parentAtom, 
+                                                     sizeof( parentAtom ) );
+                            }
+
                             hbs_markAsRelated( originalRequest, processInfo );
-                            notifications_publish( RP_TAGS_NOTIFICATION_MODULE_MEM_DISK_MISMATCH, 
-                                                    processInfo );
+                            hbs_publish( RP_TAGS_NOTIFICATION_MODULE_MEM_DISK_MISMATCH, 
+                                         processInfo );
                         }
 
                         rSequence_free( processInfo );
@@ -662,8 +684,8 @@ RPVOID
                     }
                     else
                     {
-                        notifications_publish( RP_TAGS_NOTIFICATION_MODULE_MEM_DISK_MISMATCH, 
-                                               newProcess );
+                        hbs_publish( RP_TAGS_NOTIFICATION_MODULE_MEM_DISK_MISMATCH, 
+                                     newProcess );
                     }
                 }
             }
@@ -688,6 +710,7 @@ RVOID
     rList hollowedModules = NULL;
     rSequence process = NULL;
     LibOsPerformanceProfile perfProfile = { 0 };
+    Atom parentAtom = { 0 };
 
     UNREFERENCED_PARAMETER( eventType );
 
@@ -714,8 +737,18 @@ RVOID
                     }
                     else
                     {
-                        notifications_publish( RP_TAGS_NOTIFICATION_MODULE_MEM_DISK_MISMATCH,
-                                               process );
+                        parentAtom.key.category = RP_TAGS_NOTIFICATION_NEW_PROCESS;
+                        parentAtom.key.process.pid = pid;
+                        if( atoms_query( &parentAtom, 0 ) )
+                        {
+                            rSequence_addBUFFER( process, 
+                                                 RP_TAGS_HBS_PARENT_ATOM, 
+                                                 (RPU8)&parentAtom, 
+                                                 sizeof( parentAtom ) );
+                        }
+
+                        hbs_publish( RP_TAGS_NOTIFICATION_MODULE_MEM_DISK_MISMATCH,
+                                     process );
                     }
                 }
             }

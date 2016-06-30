@@ -190,6 +190,8 @@ int
     YR_RULE* rule = (YR_RULE*)message_data;
     YaraMatchContext* context = (YaraMatchContext*)user_data;
     rSequence event = NULL;
+    Atom parentAtom = { 0 };
+    RU64 curTime = 0;
 
     if( CALLBACK_MSG_RULE_MATCHING == message &&
         NULL != message_data &&
@@ -197,6 +199,8 @@ int
     {
         if( NULL != ( event = rSequence_new() ) )
         {
+            curTime = rpal_time_getGlobalPreciseTime();
+
             rSequence_addRU32( event, RP_TAGS_PROCESS_ID, context->pid );
             rSequence_addPOINTER64( event, RP_TAGS_BASE_ADDRESS, context->regionBase );
             rSequence_addRU64( event, RP_TAGS_MEMORY_SIZE, context->regionSize );
@@ -220,7 +224,18 @@ int
 
             rSequence_addSTRINGA( event, RP_TAGS_RULE_NAME, (char*)rule->identifier );
 
-            notifications_publish( RP_TAGS_NOTIFICATION_YARA_DETECTION, event );
+            parentAtom.key.category = RP_TAGS_NOTIFICATION_NEW_PROCESS;
+            parentAtom.key.process.pid = context->pid;
+            if( atoms_query( &parentAtom, curTime ) )
+            {
+                rSequence_addBUFFER( event, 
+                                     RP_TAGS_HBS_PARENT_ATOM, 
+                                     (RPU8)&parentAtom, 
+                                     sizeof( parentAtom ) );
+            }
+
+            hbs_timestampEvent( event, curTime );
+            hbs_publish( RP_TAGS_NOTIFICATION_YARA_DETECTION, event );
 
             rSequence_free( event );
         }
@@ -495,7 +510,7 @@ int
         {
             rSequence_addSTRINGA( event, RP_TAGS_RULE_NAME, (char*)rule->identifier );
 
-            notifications_publish( RP_TAGS_NOTIFICATION_YARA_DETECTION, event );
+            hbs_publish( RP_TAGS_NOTIFICATION_YARA_DETECTION, event );
 
             rSequence_free( event );
         }

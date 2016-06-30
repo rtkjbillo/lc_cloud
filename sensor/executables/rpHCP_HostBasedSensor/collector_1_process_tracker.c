@@ -179,20 +179,29 @@ static RBOOL
     Atom atom = { 0 };
     Atom parentAtom = { 0 };
 
+    if( 0 == optTs )
+    {
+        optTs = rpal_time_getGlobalPreciseTime();
+    }
+
     // The most time sensitive thing to do is register the atom and
     // to query the parent atom.
-    atom.key.category = RP_TAGS_NOTIFICATION_NEW_PROCESS;
-    atom.key.process.pid = pid;
     if( isStarting )
     {
+        atom.key.category = RP_TAGS_NOTIFICATION_NEW_PROCESS;
+        atom.key.process.pid = pid;
         atoms_register( &atom );
         parentAtom.key.category = RP_TAGS_NOTIFICATION_NEW_PROCESS;
         parentAtom.key.process.pid = ppid;
-        atoms_query( &parentAtom );
+        atoms_query( &parentAtom, optTs );
     }
     else
     {
-        atoms_query( &atom );
+        parentAtom.key.category = RP_TAGS_NOTIFICATION_NEW_PROCESS;
+        parentAtom.key.process.pid = pid;
+        atoms_query( &parentAtom, optTs );
+        atoms_remove( &parentAtom, optTs );
+        atoms_getOneTime( &atom );
     }
 
     // We prime the information with whatever was provided
@@ -250,7 +259,7 @@ static RBOOL
                 rSequence_addRU32( info, RP_TAGS_USER_ID, optUserId );
             }
 
-            if( notifications_publish( RP_TAGS_NOTIFICATION_NEW_PROCESS, info ) )
+            if( hbs_publish( RP_TAGS_NOTIFICATION_NEW_PROCESS, info ) )
             {
                 isSuccess = TRUE;
                 rpal_debug_info( "new process starting: %d / %d", pid, ppid );
@@ -258,7 +267,7 @@ static RBOOL
         }
         else
         {
-            if( notifications_publish( RP_TAGS_NOTIFICATION_TERMINATE_PROCESS, info ) )
+            if( hbs_publish( RP_TAGS_NOTIFICATION_TERMINATE_PROCESS, info ) )
             {
                 isSuccess = TRUE;
                 rpal_debug_info( "new process terminating: %d / %d", pid, ppid );

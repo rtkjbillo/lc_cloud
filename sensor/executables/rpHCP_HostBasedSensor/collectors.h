@@ -162,3 +162,10 @@ RBOOL
         RPVOID ref,
         rSequence* pFound
     );
+
+RBOOL
+    hbs_publish
+    (
+        rpcm_tag eventType,
+        rSequence event
+    );

@@ -58,7 +58,7 @@ def ProcessDescendant( name, parentRegExp, childRegExp, isDirectOnly ):
 
 def EventBurst( name, eventType, nPerBurst, withinMilliSeconds ):
     states = []
-    for i in xrange( 1, nPerBurst ):
+    for i in xrange( 0, nPerBurst ):
         states.append( State( StateTransition( isRecordOnMatch = True, 
                                                isReportOnMatch = False if i < nPerBurst else True,
                                                toState = i + 1 if i < nPerBurst - 1 else 0, 

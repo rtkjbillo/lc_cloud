@@ -152,6 +152,9 @@ RPVOID
 
     rSequence procInfo = NULL;
 
+    Atom parentAtom = { 0 };
+    RU64 curTime = 0;
+
 #ifdef RPAL_PLATFORM_WINDOWS
     PIMAGE_DOS_HEADER pDos = NULL;
     PIMAGE_NT_HEADERS pNt = NULL;
@@ -212,6 +215,7 @@ RPVOID
                                                                  (RPVOID*)&pMem,
                                                                  TRUE ) )
                                 {
+                                    curTime = rpal_time_getGlobalPreciseTime();
                                     isHidden = FALSE;
 #ifdef RPAL_PLATFORM_WINDOWS
                                     // Let's just check for MZ and PE for now, we can get fancy later.
@@ -272,6 +276,16 @@ RPVOID
                                     {
                                         rpal_debug_info( "found a hidden module in %d.", processId );
 
+                                        parentAtom.key.process.pid = processId;
+                                        parentAtom.key.category = RP_TAGS_NOTIFICATION_NEW_PROCESS;
+                                        if( atoms_query( &parentAtom, curTime ) )
+                                        {
+                                            rSequence_addBUFFER( region, 
+                                                                 RP_TAGS_HBS_PARENT_ATOM, 
+                                                                 (RPU8)&parentAtom, 
+                                                                 sizeof( parentAtom ) );
+                                        }
+
                                         if( NULL != ( procInfo = processLib_getProcessInfo( processId, NULL ) ) )
                                         {
                                             if( !rSequence_addSEQUENCE( region, RP_TAGS_PROCESS, procInfo ) )
@@ -280,9 +294,9 @@ RPVOID
                                             }
                                         }
 
-                                        hbs_timestampEvent( region, 0 );
+                                        hbs_timestampEvent( region, curTime );
                                         hbs_markAsRelated( originalRequest, region );
-                                        notifications_publish( RP_TAGS_NOTIFICATION_HIDDEN_MODULE_DETECTED, 
+                                        hbs_publish( RP_TAGS_NOTIFICATION_HIDDEN_MODULE_DETECTED, 
                                                                region );
                                         break;
                                     }

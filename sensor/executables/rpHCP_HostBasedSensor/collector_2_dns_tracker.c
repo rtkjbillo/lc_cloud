@@ -154,7 +154,7 @@ RPVOID
                             rSequence_addRU32( notif, RP_TAGS_DNS_FLAGS, pCurRec->flags );
                             hbs_timestampEvent( notif, 0 );
 
-                            notifications_publish( RP_TAGS_NOTIFICATION_DNS_REQUEST, notif );
+                            hbs_publish( RP_TAGS_NOTIFICATION_DNS_REQUEST, notif );
 
                             rSequence_free( notif );
                         }

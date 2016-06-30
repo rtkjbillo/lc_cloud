@@ -68,6 +68,8 @@ RVOID
     RPU8 fileContent = NULL;
     RU32 fileSize = 0;
     CryptoLib_Hash hash = { 0 };
+    RPU8 pAtomId = NULL;
+    RU32 atomSize = 0;
 
     if( NULL != notif )
     {
@@ -97,12 +99,17 @@ RVOID
                       CryptoLib_hash( fileContent, fileSize, &hash ) ) ||
                     CryptoLib_hashFileW( fileW, &hash, TRUE ) ) ) )
             {
+                if( rSequence_getBUFFER( notif, RP_TAGS_HBS_THIS_ATOM, &pAtomId, &atomSize ) )
+                {
+                    rSequence_addBUFFER( notif, RP_TAGS_HBS_PARENT_ATOM, pAtomId, atomSize );
+                }
+
                 // We acquired the hash, either by reading the entire file in memory
                 // which we will use for caching, or if it was too big by hashing it
                 // sequentially on disk.
                 rSequence_unTaintRead( notif );
                 rSequence_addBUFFER( notif, RP_TAGS_HASH, (RPU8)&hash, sizeof( hash ) );
-                notifications_publish( RP_TAGS_NOTIFICATION_NEW_DOCUMENT, notif );
+                hbs_publish( RP_TAGS_NOTIFICATION_NEW_DOCUMENT, notif );
             }
 
             if( rMutex_lock( cacheMutex ) )
@@ -260,7 +267,7 @@ RVOID
 
         rMutex_unlock( cacheMutex );
 
-        notifications_publish( RP_TAGS_NOTIFICATION_GET_DOCUMENT_REP, notif );
+        hbs_publish( RP_TAGS_NOTIFICATION_GET_DOCUMENT_REP, notif );
     }
 
     if( isAAlloced )

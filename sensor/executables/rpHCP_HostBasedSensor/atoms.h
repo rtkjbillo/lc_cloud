@@ -35,6 +35,7 @@ typedef struct
         };
         RU32 category;
     } key;
+    RU64 expiredOn;
 } Atom;
 
 RBOOL
@@ -58,11 +59,19 @@ RBOOL
 RBOOL
     atoms_query
     (
-        Atom* pAtom
+        Atom* pAtom,
+        RU64 atTime
     );
 
 RBOOL
     atoms_remove
+    (
+        Atom* pAtom,
+        RU64 expiredOn
+    );
+
+RBOOL
+    atoms_getOneTime
     (
         Atom* pAtom
     );

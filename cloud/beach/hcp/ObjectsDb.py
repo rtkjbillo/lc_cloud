@@ -420,13 +420,14 @@ class Host( object ):
 
     @classmethod
     def getSpecificEvents( self, ids ):
-        record = None
+        records = []
 
         events = self._db.execute( 'SELECT eventid, agentid, event FROM events WHERE eventid IN ( \'%s\' )' % ( '\',\''.join( ids ), ) )
-        if event is not None:
-            record = ( event[ 0 ], event[ 1 ], event[ 2 ] )
+        if events is not None:
+            for event in events:
+                records.append( ( event[ 0 ], event[ 1 ], event[ 2 ] ) )
 
-        return record
+        return records
 
     def __init__( self, agentid ):
         if type( agentid  ) is not AgentId:
@@ -689,6 +690,8 @@ class Atoms ( object ):
     def __init__( self, ids ):
         self._ids = []
         if not hasattr( ids, '__iter__' ):
+            ids = [ ( ids, ) ]
+        elif type( ids ) is tuple:
             ids = [ ids ]
         self._ids = ids
 
@@ -701,12 +704,19 @@ class Atoms ( object ):
     def children( self ):
         def thisGen():
             for ids in chunks( self._ids, self._queryChunks ):
-                for row in self._db.execute( 'SELECT child, eid FROM atoms WHERE atomid IN ( \'%s\' )' % ( '\',\''.join( x[ 0 ] for x in ids ), ) ):
+                for row in self._db.execute( 'SELECT child, eid FROM atoms_children WHERE atomid IN ( %s )' % ( ','.join( str( x[ 0 ] ) for x in ids ), ) ):
                     yield ( row[ 0 ], row[ 1 ] )
         return type(self)( thisGen() )
 
     def events( self ):
         for ids in chunks( self._ids, self._queryChunks ):
             for event in Host.getSpecificEvents( x[ 1 ] for x in ids ):
-                yield FluxEvent.decode( raw[ 2 ] )
+                yield FluxEvent.decode( event[ 2 ] )
+
+    def fillEventIds( self ):
+        def thisGen():
+            for ids in chunks( self._ids, self._queryChunks ):
+                for row in self._db.execute( 'SELECT atomid, eid FROM atoms_lookup WHERE atomid IN ( %s )' % ( ','.join( str( x[ 0 ] ) for x in ids ), ) ):
+                    yield ( row[ 0 ], row[ 1 ] )
+        return type(self)( thisGen() )
 
