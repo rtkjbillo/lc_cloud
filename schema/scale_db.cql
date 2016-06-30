@@ -152,11 +152,18 @@ CREATE TABLE keyvalue
   PRIMARY KEY( k, c )
 ) WITH compaction = { 'class' : 'DateTieredCompactionStrategy' } AND gc_grace_seconds = 86400;
 
-CREATE TABLE atoms
+CREATE TABLE atoms_children
 (
   atomid uuid,
   child uuid,
   eid varchar,
   PRIMARY KEY( atomid, child )
+) WITH compaction = { 'class' : 'DateTieredCompactionStrategy' } AND gc_grace_seconds = 86400;
+
+CREATE TABLE atoms_lookup
+(
+  atomid uuid,
+  eid varchar,
+  PRIMARY KEY( atomid, eid )
 ) WITH compaction = { 'class' : 'DateTieredCompactionStrategy' } AND gc_grace_seconds = 86400;
 
