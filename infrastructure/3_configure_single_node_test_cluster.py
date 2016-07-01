@@ -121,4 +121,4 @@ printStep( 'Setting HBS profile.',
            execInBackend( '''hbs_addProfile -m ff.ff.ffffffff.fff.ff -f %s''' % ( os.path.join( root,
                                                                                                 'cloud',
                                                                                                 'beach',
-                                                                                                'sample_hbs.profile' ) ) ) )
+                                                                                                'production_hbs.profile' ) ) ) )
