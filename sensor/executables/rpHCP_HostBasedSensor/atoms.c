@@ -57,7 +57,9 @@ RBOOL
 {
     RBOOL isSuccess = FALSE;
 
-    if( NULL != ( g_atoms = rpal_btree_create( sizeof( Atom ), _compareAtomKeys, _freeAtom ) ) )
+    if( NULL != ( g_atoms = rpal_btree_create( sizeof( Atom ), 
+                                               (rpal_btree_comp_f)_compareAtomKeys, 
+                                               (rpal_btree_free_f)_freeAtom ) ) )
     {
         isSuccess = TRUE;
     }

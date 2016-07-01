@@ -172,6 +172,7 @@ RBOOL
         RPCHAR errorMessage
     );
 
+RBOOL
     hbs_publish
     (
         rpcm_tag eventType,
