@@ -167,7 +167,7 @@ uint64_t
     
     clock_get_calendar_microtime( &ts, &us );
     
-    return (uint64_t)ts + ((uint64_t)us * 1000);
+    return ((uint64_t)ts * 1000) + ((uint64_t)us / 1000);
 }
 
 
