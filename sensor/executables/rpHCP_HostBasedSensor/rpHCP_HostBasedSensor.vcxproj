@@ -114,6 +114,7 @@
     </ClCompile>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="atoms.c" />
     <ClCompile Include="collectors.c" />
     <ClCompile Include="collector_0_exfil.c" />
     <ClCompile Include="collector_10_memory_forensics.c" />
@@ -183,6 +184,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\include\rpHostCommonPlatformLib\rTags.h" />
+    <ClInclude Include="atoms.h" />
     <ClInclude Include="collectors.h" />
     <ClInclude Include="deployments.h" />
     <ClInclude Include="keys.h" />

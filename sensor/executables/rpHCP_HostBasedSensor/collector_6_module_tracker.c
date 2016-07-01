@@ -76,6 +76,8 @@ RPVOID
     rList modules = NULL;
     rSequence module = NULL;
     LibOsPerformanceProfile perfProfile = { 0 };
+    Atom parentAtom = { 0 };
+    RU64 curTime = 0;
 
     perfProfile.enforceOnceIn = 1;
     perfProfile.lastTimeoutValue = 10;
@@ -108,6 +110,8 @@ RPVOID
                 {
                     if( NULL != ( modules = processLib_getProcessModules( curProc->pid ) ) )
                     {
+                        curTime = rpal_time_getGlobalPreciseTime();
+
                         while( rpal_memory_isValid( isTimeToStop ) &&
                                !rEvent_wait( isTimeToStop, 0 ) &&
                                rList_getSEQUENCE( modules, RP_TAGS_DLL, &module ) )
@@ -131,9 +135,16 @@ RPVOID
                                                                 &curModule, 
                                                                 (rpal_ordering_func)_cmpModule ) )
                                 {
-                                    hbs_timestampEvent( module, 0 );
-                                    notifications_publish( RP_TAGS_NOTIFICATION_MODULE_LOAD,
-                                                           module );
+                                    hbs_timestampEvent( module, curTime );
+                                    parentAtom.key.category = RP_TAGS_NOTIFICATION_NEW_PROCESS;
+                                    parentAtom.key.process.pid = curProc->pid;
+                                    if( atoms_query( &parentAtom, curTime ) )
+                                    {
+                                        rSequence_addBUFFER( module, RP_TAGS_HBS_PARENT_ATOM, parentAtom.id, sizeof( parentAtom.id ) );
+                                    }
+                                    rpal_memory_zero( &parentAtom, sizeof( parentAtom ) );
+                                    hbs_publish( RP_TAGS_NOTIFICATION_MODULE_LOAD,
+                                                 module );
                                 }
                             }
                         }
@@ -184,12 +195,20 @@ static RBOOL
     RU32 i = 0;
     RNATIVESTR dirSep = RPAL_FILE_LOCAL_DIR_SEP_N;
     RNATIVESTR cleanPath = NULL;
-
+    Atom parentAtom = { 0 };
+    
     if( NULL != module )
     {
         if( NULL != ( notif = rSequence_new() ) )
         {
             hbs_timestampEvent( notif, module->ts );
+            parentAtom.key.category = RP_TAGS_NOTIFICATION_NEW_PROCESS;
+            parentAtom.key.process.pid = module->pid;
+            if( atoms_query( &parentAtom, module->ts ) )
+            {
+                rSequence_addBUFFER( notif, RP_TAGS_HBS_PARENT_ATOM, parentAtom.id, sizeof( parentAtom.id ) );
+            }
+
             rSequence_addRU32( notif, RP_TAGS_PROCESS_ID, module->pid );
             rSequence_addPOINTER64( notif, RP_TAGS_BASE_ADDRESS, (RU64)module->baseAddress );
             rSequence_addRU64( notif, RP_TAGS_MEMORY_SIZE, module->imageSize );
@@ -212,8 +231,8 @@ static RBOOL
 
                 rSequence_addSTRINGN( notif, RP_TAGS_MODULE_NAME, &( module->path[ i ] ) );
 
-                if( notifications_publish( RP_TAGS_NOTIFICATION_MODULE_LOAD,
-                                           notif ) )
+                if( hbs_publish( RP_TAGS_NOTIFICATION_MODULE_LOAD,
+                                 notif ) )
                 {
                     isSuccess = TRUE;
                 }

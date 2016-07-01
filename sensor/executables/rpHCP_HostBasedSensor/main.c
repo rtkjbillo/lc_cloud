@@ -758,6 +758,7 @@ RPAL_THREAD_FUNC
     FORCE_LINK_THAT( HCP_IFACE );
 
     CryptoLib_init();
+    atoms_init();
 
     if( !getPrivileges() )
     {
@@ -973,6 +974,8 @@ RPAL_THREAD_FUNC
     {
         kAcq_deinit();
     }
+    
+    atoms_deinit();
 
     return ret;
 }

@@ -109,7 +109,7 @@ static RVOID
                                                     (rpal_ordering_func)_cmpHashes ) )
                 {
                     hbs_timestampEvent( elem, 0 );
-                    notifications_publish( notifTag, elem );
+                    hbs_publish( notifTag, elem );
                 }
             }
 

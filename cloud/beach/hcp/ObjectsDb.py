@@ -418,6 +418,17 @@ class Host( object ):
 
         return record
 
+    @classmethod
+    def getSpecificEvents( self, ids ):
+        records = []
+
+        events = self._db.execute( 'SELECT eventid, agentid, event FROM events WHERE eventid IN ( \'%s\' )' % ( '\',\''.join( ids ), ) )
+        if events is not None:
+            for event in events:
+                records.append( ( event[ 0 ], event[ 1 ], event[ 2 ] ) )
+
+        return records
+
     def __init__( self, agentid ):
         if type( agentid  ) is not AgentId:
             agentid = AgentId( agentid )
@@ -662,3 +673,50 @@ class KeyValueStore( object ):
         if res:
             ret = ( res[ 0 ], res[ 1 ] )
         return ret
+
+class Atoms ( object ):
+    _db = None
+    _atomSelect = None
+    _queryChunks = 200
+
+    @classmethod
+    def setDatabase( cls, cassUrl ):
+        cls._db = CassDb( cassUrl, 'hcp_analytics', consistencyOne = True )
+
+    @classmethod
+    def closeDatabase( cls ):
+        cls._db.shutdown()
+
+    def __init__( self, ids ):
+        self._ids = []
+        if not hasattr( ids, '__iter__' ):
+            ids = [ ( ids, ) ]
+        elif type( ids ) is tuple:
+            ids = [ ids ]
+        self._ids = ids
+
+    def __iter__( self ):
+        return self._ids.__iter__()
+
+    def next( self ):
+        return self._ids.next()
+
+    def children( self ):
+        def thisGen():
+            for ids in chunks( self._ids, self._queryChunks ):
+                for row in self._db.execute( 'SELECT child, eid FROM atoms_children WHERE atomid IN ( %s )' % ( ','.join( str( x[ 0 ] ) for x in ids ), ) ):
+                    yield ( row[ 0 ], row[ 1 ] )
+        return type(self)( thisGen() )
+
+    def events( self ):
+        for ids in chunks( self._ids, self._queryChunks ):
+            for event in Host.getSpecificEvents( x[ 1 ] for x in ids ):
+                yield FluxEvent.decode( event[ 2 ] )
+
+    def fillEventIds( self ):
+        def thisGen():
+            for ids in chunks( self._ids, self._queryChunks ):
+                for row in self._db.execute( 'SELECT atomid, eid FROM atoms_lookup WHERE atomid IN ( %s )' % ( ','.join( str( x[ 0 ] ) for x in ids ), ) ):
+                    yield ( row[ 0 ], row[ 1 ] )
+        return type(self)( thisGen() )
+

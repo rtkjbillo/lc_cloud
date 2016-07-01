@@ -410,7 +410,7 @@ RVOID
     }
 
     hbs_timestampEvent( event, 0 );
-    notifications_publish( RP_TAGS_NOTIFICATION_MEM_MAP_REP, event );
+    hbs_publish( RP_TAGS_NOTIFICATION_MEM_MAP_REP, event );
 }
 
 static
@@ -450,7 +450,7 @@ RVOID
         }
 
         hbs_timestampEvent( event, 0 );
-        notifications_publish( RP_TAGS_NOTIFICATION_MEM_READ_REP, event );
+        hbs_publish( RP_TAGS_NOTIFICATION_MEM_READ_REP, event );
     }
 }
 
@@ -486,7 +486,7 @@ RVOID
         }
 
         hbs_timestampEvent( event, 0 );
-        notifications_publish( RP_TAGS_NOTIFICATION_MEM_HANDLES_REP, event );
+        hbs_publish( RP_TAGS_NOTIFICATION_MEM_HANDLES_REP, event );
     }
 }
 
@@ -524,7 +524,7 @@ RVOID
         }
 
         hbs_timestampEvent( event, 0 );
-        notifications_publish( RP_TAGS_NOTIFICATION_MEM_FIND_HANDLE_REP, event );
+        hbs_publish( RP_TAGS_NOTIFICATION_MEM_FIND_HANDLE_REP, event );
     }
 }
 
@@ -597,7 +597,7 @@ RVOID
         }
 
         hbs_timestampEvent( event, 0 );
-        notifications_publish( RP_TAGS_NOTIFICATION_MEM_STRINGS_REP, event );
+        hbs_publish( RP_TAGS_NOTIFICATION_MEM_STRINGS_REP, event );
     }
 }
 
@@ -679,7 +679,7 @@ RVOID
         }
 
         hbs_timestampEvent( event, 0 );
-        notifications_publish( RP_TAGS_NOTIFICATION_MEM_FIND_STRING_REP, event );
+        hbs_publish( RP_TAGS_NOTIFICATION_MEM_FIND_STRING_REP, event );
     }
 }
 

@@ -118,7 +118,7 @@ RPVOID
                         if( rSequence_addSTRINGW( notif, RP_TAGS_FILE_PATH, (RPWCHAR)&fullName ) &&
                             hbs_timestampEvent( notif, curTime ) )
                         {
-                            notifications_publish( event, notif );
+                            hbs_publish( event, notif );
                         }
                         
                         rSequence_free( notif );
@@ -148,6 +148,7 @@ RPVOID
     RU32 nScratch = 0;
     KernelAcqFileIo new_from_kernel[ 200 ] = { 0 };
     RU32 i = 0;
+    Atom parentAtom = { 0 };
 
     while( rpal_memory_isValid( isTimeToStop ) &&
            !rEvent_wait( isTimeToStop, 1000 ) )
@@ -182,10 +183,21 @@ RPVOID
 
             if( NULL != ( notif = rSequence_new() ) )
             {
+                parentAtom.key.process.pid = new_from_kernel[ i ].pid;
+                parentAtom.key.category = RP_TAGS_NOTIFICATION_NEW_PROCESS;
+                if( atoms_query( &parentAtom, new_from_kernel[ i ].ts ) )
+                {
+                    rSequence_addBUFFER( notif, 
+                                         RP_TAGS_HBS_PARENT_ATOM, 
+                                         (RPU8)&parentAtom, 
+                                         sizeof( parentAtom ) );
+                }
+
                 if( rSequence_addSTRINGN( notif, RP_TAGS_FILE_PATH, new_from_kernel[ i ].path ) &&
+                    rSequence_addRU32( notif, RP_TAGS_PROCESS_ID, new_from_kernel[ i ].pid ) &&
                     hbs_timestampEvent( notif, new_from_kernel[ i ].ts ) )
                 {
-                    notifications_publish( event, notif );
+                    hbs_publish( event, notif );
                 }
 
                 rSequence_free( notif );

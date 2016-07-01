@@ -54,6 +54,8 @@ RVOID
     RBOOL isSigned = FALSE;
     RBOOL isVerifiedLocal = FALSE;
     RBOOL isVerifiedGlobal = FALSE;
+    RPU8 pAtomId = NULL;
+    RU32 atomSize = 0;
     
     ident.codeSize = codeSize;
 
@@ -83,6 +85,11 @@ RVOID
                     rSequence_addRU32( notif, RP_TAGS_MEMORY_SIZE, (RU32)codeSize ) &&
                     hbs_timestampEvent( notif, 0 ) )
                 {
+                    if( rSequence_getBUFFER( originalEvent, RP_TAGS_HBS_THIS_ATOM, &pAtomId, &atomSize ) )
+                    {
+                        rSequence_addBUFFER( notif, RP_TAGS_HBS_PARENT_ATOM, pAtomId, atomSize );
+                    }
+
                     if( NULL != pFileHash )
                     {
                         rSequence_addBUFFER( notif, RP_TAGS_HASH, (RPU8)pFileHash, sizeof( *pFileHash ) );
@@ -101,7 +108,7 @@ RVOID
                         }
                     }
 
-                    notifications_publish( RP_TAGS_NOTIFICATION_CODE_IDENTITY, notif );
+                    hbs_publish( RP_TAGS_NOTIFICATION_CODE_IDENTITY, notif );
                 }
                 rSequence_free( notif );
             }
@@ -128,6 +135,8 @@ RVOID
     rSequence sig = NULL;
     RPWCHAR wPath = NULL;
     RPWCHAR cleanPath = NULL;
+    RPU8 pAtomId = NULL;
+    RU32 atomSize = 0;
 
     ident.codeSize = codeSize;
 
@@ -157,6 +166,11 @@ RVOID
                     rSequence_addRU32( notif, RP_TAGS_MEMORY_SIZE, (RU32)codeSize ) &&
                     hbs_timestampEvent( notif, 0 ) )
                 {
+                    if( rSequence_getBUFFER( originalEvent, RP_TAGS_HBS_THIS_ATOM, &pAtomId, &atomSize ) )
+                    {
+                        rSequence_addBUFFER( notif, RP_TAGS_HBS_PARENT_ATOM, pAtomId, atomSize );
+                    }
+
                     if( NULL != pFileHash )
                     {
                         rSequence_addBUFFER( notif, RP_TAGS_HASH, (RPU8)pFileHash, sizeof( *pFileHash ) );
@@ -187,7 +201,7 @@ RVOID
                         rpal_memory_free( wPath );
                     }
 
-                    notifications_publish( RP_TAGS_NOTIFICATION_CODE_IDENTITY, notif );
+                    hbs_publish( RP_TAGS_NOTIFICATION_CODE_IDENTITY, notif );
                 }
                 rSequence_free( notif );
             }

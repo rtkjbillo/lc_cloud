@@ -17,6 +17,7 @@ limitations under the License.
 #include <rpal/rpal.h>
 #include <librpcm/librpcm.h>
 #include <cryptoLib/cryptoLib.h>
+#include "atoms.h"
 
 typedef struct _HbsState
 {
@@ -169,4 +170,10 @@ RBOOL
         rpcm_tag eventType,
         RU32 errorCode,
         RPCHAR errorMessage
+    );
+
+    hbs_publish
+    (
+        rpcm_tag eventType,
+        rSequence event
     );

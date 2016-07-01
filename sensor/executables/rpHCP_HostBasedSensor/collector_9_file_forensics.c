@@ -120,7 +120,7 @@ RVOID
         }
 
         hbs_timestampEvent( event, 0 );
-        notifications_publish( RP_TAGS_NOTIFICATION_FILE_GET_REP, event );
+        hbs_publish( RP_TAGS_NOTIFICATION_FILE_GET_REP, event );
     }
 }
 
@@ -153,7 +153,7 @@ RVOID
         }
 
         hbs_timestampEvent( event, 0 );
-        notifications_publish( RP_TAGS_NOTIFICATION_FILE_DEL_REP, event );
+        hbs_publish( RP_TAGS_NOTIFICATION_FILE_DEL_REP, event );
     }
 }
 
@@ -181,7 +181,7 @@ RVOID
         }
 
         hbs_timestampEvent( event, 0 );
-        notifications_publish( RP_TAGS_NOTIFICATION_FILE_MOV_REP, event );
+        hbs_publish( RP_TAGS_NOTIFICATION_FILE_MOV_REP, event );
     }
 }
 
@@ -220,7 +220,7 @@ RVOID
 
         rSequence_unTaintRead( event );
         hbs_timestampEvent( event, 0 );
-        notifications_publish( RP_TAGS_NOTIFICATION_FILE_HASH_REP, event );
+        hbs_publish( RP_TAGS_NOTIFICATION_FILE_HASH_REP, event );
     }
 }
 
@@ -239,7 +239,7 @@ RVOID
         enhanceFileInfo( event );
 
         hbs_timestampEvent( event, 0 );
-        notifications_publish( RP_TAGS_NOTIFICATION_FILE_INFO_REP, event );
+        hbs_publish( RP_TAGS_NOTIFICATION_FILE_INFO_REP, event );
     }
 }
 
@@ -309,7 +309,7 @@ RVOID
         }
 
         hbs_timestampEvent( event, 0 );
-        notifications_publish( RP_TAGS_NOTIFICATION_DIR_LIST_REP, event );
+        hbs_publish( RP_TAGS_NOTIFICATION_DIR_LIST_REP, event );
     }
 }
 

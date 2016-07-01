@@ -335,3 +335,32 @@ RBOOL
 
     return isSuccess;
 }
+
+RBOOL
+    hbs_publish
+    (
+        rpcm_tag eventType,
+        rSequence event
+    )
+{
+    RBOOL isSuccess = FALSE;
+    RPU8 pAtomId = NULL;
+    Atom atom = { 0 };
+    RU32 atomSize = 0;
+
+    if( NULL != event )
+    {
+        // We will add a one-off atom for free if it's not there.
+        // But if you need a registered atom you will need to generate it and 
+        // add it yourself.
+        if( !rSequence_getBUFFER( event, RP_TAGS_HBS_THIS_ATOM, &pAtomId, &atomSize ) )
+        {
+            atoms_getOneTime( &atom );
+            rSequence_addBUFFER( event, RP_TAGS_HBS_THIS_ATOM, atom.id, sizeof( atom.id ) );
+        }
+
+        isSuccess = notifications_publish( eventType, event );
+    }
+
+    return isSuccess;
+}

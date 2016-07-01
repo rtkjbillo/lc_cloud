@@ -75,7 +75,7 @@ RBOOL
                 else
                 {
                     hbs_timestampEvent( wrapper, 0 );
-                    isSuccess = notifications_publish( machine->desc->reportEventType, wrapper );
+                    isSuccess = hbs_publish( machine->desc->reportEventType, wrapper );
                 }
             }
 

@@ -176,6 +176,33 @@ static RBOOL
     rSequence parentInfo = NULL;
     RU32 tmpUid = 0;
     RNATIVESTR cleanPath = NULL;
+    Atom atom = { 0 };
+    Atom parentAtom = { 0 };
+
+    if( 0 == optTs )
+    {
+        optTs = rpal_time_getGlobalPreciseTime();
+    }
+
+    // The most time sensitive thing to do is register the atom and
+    // to query the parent atom.
+    if( isStarting )
+    {
+        atom.key.category = RP_TAGS_NOTIFICATION_NEW_PROCESS;
+        atom.key.process.pid = pid;
+        atoms_register( &atom );
+        parentAtom.key.category = RP_TAGS_NOTIFICATION_NEW_PROCESS;
+        parentAtom.key.process.pid = ppid;
+        atoms_query( &parentAtom, optTs );
+    }
+    else
+    {
+        parentAtom.key.category = RP_TAGS_NOTIFICATION_NEW_PROCESS;
+        parentAtom.key.process.pid = pid;
+        atoms_query( &parentAtom, optTs );
+        atoms_remove( &parentAtom, optTs );
+        atoms_getOneTime( &atom );
+    }
 
     // We prime the information with whatever was provided
     // to us by the kernel acquisition. If not available
@@ -211,6 +238,7 @@ static RBOOL
         rSequence_addRU32( info, RP_TAGS_PROCESS_ID, pid );
         rSequence_addRU32( info, RP_TAGS_PARENT_PROCESS_ID, ppid );
         hbs_timestampEvent( info, optTs );
+        rSequence_addBUFFER( info, RP_TAGS_HBS_THIS_ATOM, atom.id, sizeof( atom.id ) );
 
         if( isStarting )
         {
@@ -223,13 +251,15 @@ static RBOOL
 
         if( isStarting )
         {
+            rSequence_addBUFFER( info, RP_TAGS_HBS_PARENT_ATOM, parentAtom.id, sizeof( parentAtom.id ) );
+
             if( KERNEL_ACQ_NO_USER_ID != optUserId &&
                 !rSequence_getRU32( info, RP_TAGS_USER_ID, &tmpUid ) )
             {
                 rSequence_addRU32( info, RP_TAGS_USER_ID, optUserId );
             }
 
-            if( notifications_publish( RP_TAGS_NOTIFICATION_NEW_PROCESS, info ) )
+            if( hbs_publish( RP_TAGS_NOTIFICATION_NEW_PROCESS, info ) )
             {
                 isSuccess = TRUE;
                 rpal_debug_info( "new process starting: %d / %d", pid, ppid );
@@ -237,7 +267,7 @@ static RBOOL
         }
         else
         {
-            if( notifications_publish( RP_TAGS_NOTIFICATION_TERMINATE_PROCESS, info ) )
+            if( hbs_publish( RP_TAGS_NOTIFICATION_TERMINATE_PROCESS, info ) )
             {
                 isSuccess = TRUE;
                 rpal_debug_info( "new process terminating: %d / %d", pid, ppid );

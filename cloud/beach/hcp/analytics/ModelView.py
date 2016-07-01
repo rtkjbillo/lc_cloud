@@ -20,6 +20,7 @@ Host = Actor.importLib( '../ObjectsDb', 'Host' )
 HostObjects = Actor.importLib( '../ObjectsDb', 'HostObjects' )
 FluxEvent = Actor.importLib( '../ObjectsDb', 'FluxEvent' )
 ObjectTypes = Actor.importLib( '../ObjectsDb', 'ObjectTypes' )
+Atoms = Actor.importLib( '../ObjectsDb', 'Atoms' )
 ObjectKey = Actor.importLib( '../ObjectsDb', 'ObjectKey' )
 RelationNameFromId = Actor.importLib( '../ObjectsDb', 'RelationNameFromId' )
 Reporting = Actor.importLib( '../ObjectsDb', 'Reporting' )
@@ -35,6 +36,7 @@ class ModelView( Actor ):
         HostObjects.setDatabase( parameters[ 'scale_db' ] )
         Reporting.setDatabase( parameters[ 'scale_db' ] )
         KeyValueStore.setDatabase( parameters[ 'scale_db' ] )
+        Atoms.setDatabase( parameters[ 'scale_db' ] )
         self.handle( 'get_timeline', self.get_timeline )
         self.handle( 'get_sensor_info', self.get_sensor_info )
         self.handle( 'get_obj_list', self.get_obj_list )
@@ -49,6 +51,7 @@ class ModelView( Actor ):
         self.handle( 'get_kc', self.get_kv )
         self.handle( 'get_obj_loc', self.get_obj_loc )
         self.handle( 'get_file_in_event', self.get_file_in_event )
+        self.handle( 'get_atoms_from_root', self.get_atoms_from_root )
 
     def deinit( self ):
         Host.closeDatabase()
@@ -312,3 +315,21 @@ class ModelView( Actor ):
             return ( True, { 'data' : fileData, 'path' : filePath } )
         else:
             return ( True, {} )
+
+    def get_atoms_from_root( self, msg ):
+        tmp_atoms = msg.data[ 'id' ]
+        depth = msg.data.get( 'depth', 5 )
+        atoms = []
+        
+        # Get the root by itself
+        atoms.extend( Atoms( tmp_atoms ).fillEventIds().events() )
+        
+        # Then start getting children
+        while 0 != depth:
+            depth -= 1
+            tmp_atoms = [ _ for _ in Atoms( tmp_atoms ).children() ]
+            if 0 == len( tmp_atoms ):
+                break
+            atoms.extend( Atoms( tmp_atoms ).events() )
+
+        return ( True, atoms )

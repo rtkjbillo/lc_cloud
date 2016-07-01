@@ -113,7 +113,7 @@ static RPVOID
                                                                 &( newVolumes[ nNewVolumes ] ),
                                                                 (rpal_ordering_func)_cmpHashes ) )
                             {
-                                notifications_publish( RP_TAGS_NOTIFICATION_VOLUME_MOUNT, volume );
+                                hbs_publish( RP_TAGS_NOTIFICATION_VOLUME_MOUNT, volume );
                                 rpal_debug_info( "new volume mounted" );
                             }
 
@@ -141,7 +141,7 @@ static RPVOID
                                                             &( prevVolumes[ i ].hash ),
                                                             (rpal_ordering_func)_cmpHashes ) )
                         {
-                            notifications_publish( RP_TAGS_NOTIFICATION_VOLUME_UNMOUNT,
+                            hbs_publish( RP_TAGS_NOTIFICATION_VOLUME_UNMOUNT,
                                                    prevVolumes[ i ].volume );
                             rpal_debug_info( "volume unmounted" );
                         }

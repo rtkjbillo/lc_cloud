@@ -91,6 +91,9 @@ RPVOID
 
     RBOOL isFirstRun = TRUE;
 
+    Atom parentAtom = { 0 };
+    RU64 curTime = 0;
+
     LibOsPerformanceProfile perfProfile = { 0 };
 
     perfProfile.enforceOnceIn = 1;
@@ -129,6 +132,8 @@ RPVOID
         currentTcp4Table = NetLib_getTcp4Table();
         currentUdpTable = NetLib_getUdpTable();
 
+        curTime = rpal_time_getGlobalPreciseTime();
+
         // Diff TCP snapshots for new entries
         if( rpal_memory_isValid( currentTcp4Table ) &&
             rpal_memory_isValid( oldTcp4Table ) )
@@ -155,13 +160,20 @@ RPVOID
                 {
                     if( NULL != ( notif = rSequence_new() ) )
                     {
+                        parentAtom.key.category = RP_TAGS_NOTIFICATION_NEW_PROCESS;
+                        parentAtom.key.process.pid = currentTcp4Table->rows[ i ].pid;
+                        if( atoms_query( &parentAtom, curTime ) )
+                        {
+                            rSequence_addBUFFER( notif, RP_TAGS_HBS_PARENT_ATOM, parentAtom.id, sizeof( parentAtom.id ) );
+                        }
+
                         if( rSequence_addRU32( notif, 
                                                RP_TAGS_STATE, 
                                                currentTcp4Table->rows[ i ].state ) &&
                             rSequence_addRU32( notif, 
                                                RP_TAGS_PROCESS_ID, 
                                                currentTcp4Table->rows[ i ].pid ) &&
-                            hbs_timestampEvent( notif, 0 ) )
+                            hbs_timestampEvent( notif, curTime ) )
                         {
                             if( NULL != ( comp = rSequence_new() ) )
                             {
@@ -206,7 +218,7 @@ RPVOID
                                 currentTcp4Table->rows[ i ].destIp,
                                 currentTcp4Table->rows[ i ].destPort,
                                 currentTcp4Table->rows[ i ].pid );
-                            notifications_publish( RP_TAGS_NOTIFICATION_NEW_TCP4_CONNECTION, notif );
+                            hbs_publish( RP_TAGS_NOTIFICATION_NEW_TCP4_CONNECTION, notif );
                         }
 
                         rSequence_free( notif );
@@ -246,6 +258,13 @@ RPVOID
                 {
                     if( NULL != ( notif = rSequence_new() ) )
                     {
+                        parentAtom.key.category = RP_TAGS_NOTIFICATION_NEW_PROCESS;
+                        parentAtom.key.process.pid = currentUdpTable->rows[ i ].pid;
+                        if( atoms_query( &parentAtom, curTime ) )
+                        {
+                            rSequence_addBUFFER( notif, RP_TAGS_HBS_PARENT_ATOM, parentAtom.id, sizeof( parentAtom.id ) );
+                        }
+
                         if( !rSequence_addIPV4( notif, 
                                                 RP_TAGS_IP_ADDRESS, 
                                                 currentUdpTable->rows[ i ].localIp ) ||
@@ -255,7 +274,7 @@ RPVOID
                             !rSequence_addRU32( notif, 
                                                 RP_TAGS_PROCESS_ID, 
                                                 currentUdpTable->rows[ i ].pid ) ||
-                            !hbs_timestampEvent( notif, 0 ) )
+                            !hbs_timestampEvent( notif, curTime ) )
                         {
                             notif = NULL;
                         }
@@ -265,7 +284,7 @@ RPVOID
                                 currentUdpTable->rows[ i ].localIp,
                                 currentUdpTable->rows[ i ].localPort,
                                 currentUdpTable->rows[ i ].pid );
-                            notifications_publish( RP_TAGS_NOTIFICATION_NEW_UDP4_CONNECTION, notif );
+                            hbs_publish( RP_TAGS_NOTIFICATION_NEW_UDP4_CONNECTION, notif );
                         }
 
                         rSequence_free( notif );
