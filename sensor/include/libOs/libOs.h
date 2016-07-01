@@ -69,6 +69,7 @@ typedef struct
     RU32 enforceOnceIn;
     RU32 counter;
     RTIME lastUpdate;
+    RTIME lastSummary;
     LibOsThreadTimeContext threadTimeContext;
 } LibOsPerformanceProfile;
 
@@ -169,11 +170,14 @@ RU8
 
     );
 
+#define libOs_timeoutWithProfile( perfProfile, isEnforce ) libOs_timeoutWithProfileFrom((perfProfile),(isEnforce),__FUNCTION__)
+
 RVOID
-    libOs_timeoutWithProfile
+    libOs_timeoutWithProfileFrom
     (
         LibOsPerformanceProfile* perfProfile,
-        RBOOL isEnforce
+        RBOOL isEnforce,
+        RPCHAR from
     );
 
 rList

@@ -44,7 +44,7 @@ limitations under the License.
 #define _MAX_CPU_WAIT                           (60)
 #define _CPU_WATERMARK                          (50)
 
-#define _INITIAL_PROFILED_TIMEOUT               0
+#define _INITIAL_PROFILED_TIMEOUT               10
 #define _SANITY_CEILING                         MSEC_FROM_SEC( 2 )
 
 static rQueue g_newProcessNotifications = NULL;
@@ -574,7 +574,7 @@ RPVOID
     while( rpal_memory_isValid( isTimeToStop ) &&
            !rEvent_wait( isTimeToStop, 0 ) )
     {
-        libOs_timeoutWithProfile( &perfProfile, TRUE );
+        libOs_timeoutWithProfile( &perfProfile, FALSE );
 
         if( NULL != ( procs = processLib_getProcessEntries( TRUE ) ) )
         {

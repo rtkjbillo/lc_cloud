@@ -60,3 +60,6 @@ rList().addSequence( _.hbs.CONFIGURATION,
                                                                     .addStringA( _.base.EXTENSION, ".rtf" ) )
                                 .addList( _.base.PATTERNS, rList().addStringA( _.base.STRING_PATTERN, "/tmp/" )
                                                                   .addStringA( _.base.STRING_PATTERN, "\\temp\\" ) ) )
+       .addSequence( _.hbs.CONFIGURATION,
+                     rSequence().addInt32( _.hbs.CONFIGURATION_ID, HbsCollectorId.FILE_TRACKER )
+                                .addList( _.base.IS_DISABLED, rList().addInt32( _.base.IS_DISABLED, _.notification.FILE_MODIFIED ) ) )

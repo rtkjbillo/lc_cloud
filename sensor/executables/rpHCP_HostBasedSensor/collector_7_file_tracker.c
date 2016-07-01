@@ -26,6 +26,10 @@ limitations under the License.
 
 static RBOOL g_is_kernel_failure = FALSE;  // Kernel acquisition failed for this method
 
+static RBOOL g_is_create_enabled = TRUE;
+static RBOOL g_is_delete_enabled = TRUE;
+static RBOOL g_is_modified_enabled = TRUE;
+
 static
 RBOOL
     _assemble_full_name
@@ -77,12 +81,14 @@ RPVOID
     rSequence notif = 0;
     RU64 curTime = 0;
 
+    RU32 mask = 0;
+
+    if( g_is_create_enabled ) mask |= RPAL_DIR_WATCH_CHANGE_CREATION;
+    if( g_is_delete_enabled ) mask |= RPAL_DIR_WATCH_CHANGE_FILE_NAME;
+    if( g_is_modified_enabled ) mask |= RPAL_DIR_WATCH_CHANGE_LAST_WRITE;
+
     if( rpal_string_expandw( (RPWCHAR)&rootEnv, &root ) &&
-        NULL != ( watch = rDirWatch_new( root, 
-                                         RPAL_DIR_WATCH_CHANGE_CREATION |
-                                         RPAL_DIR_WATCH_CHANGE_FILE_NAME | 
-                                         RPAL_DIR_WATCH_CHANGE_LAST_ACCESS, 
-                                         TRUE ) ) )
+        NULL != ( watch = rDirWatch_new( root, mask, TRUE ) ) )
     {
         while( rpal_memory_isValid( isTimeToStop ) &&
                !rEvent_wait( isTimeToStop, 0 ) &&
@@ -164,15 +170,18 @@ RPVOID
 
         for( i = 0; i < nScratch; i++ )
         {
-            if( KERNEL_ACQ_FILE_ACTION_ADDED == new_from_kernel[ i ].action )
+            if( KERNEL_ACQ_FILE_ACTION_ADDED == new_from_kernel[ i ].action &&
+                g_is_create_enabled )
             {
                 event = RP_TAGS_NOTIFICATION_FILE_CREATE;
             }
-            else if( KERNEL_ACQ_FILE_ACTION_REMOVED == new_from_kernel[ i ].action )
+            else if( KERNEL_ACQ_FILE_ACTION_REMOVED == new_from_kernel[ i ].action &&
+                     g_is_delete_enabled )
             {
                 event = RP_TAGS_NOTIFICATION_FILE_DELETE;
             }
-            else if( KERNEL_ACQ_FILE_ACTION_MODIFIED == new_from_kernel[ i ].action )
+            else if( KERNEL_ACQ_FILE_ACTION_MODIFIED == new_from_kernel[ i ].action &&
+                     g_is_modified_enabled )
             {
                 event = RP_TAGS_NOTIFICATION_FILE_MODIFIED;
             }
@@ -258,11 +267,33 @@ RBOOL
 {
     RBOOL isSuccess = FALSE;
 
+    rList disabledList = NULL;
+    RU32 tagDisabled = 0;
+
     UNREFERENCED_PARAMETER( config );
 
     if( NULL != hbsState )
     {
         g_is_kernel_failure = FALSE;
+
+        if( rSequence_getLIST( config, RP_TAGS_IS_DISABLED, &disabledList ) )
+        {
+            while( rList_getRU32( disabledList, RP_TAGS_IS_DISABLED, &tagDisabled ) )
+            {
+                if( RP_TAGS_NOTIFICATION_FILE_CREATE == tagDisabled )
+                {
+                    g_is_create_enabled = FALSE;
+                }
+                else if( RP_TAGS_NOTIFICATION_FILE_DELETE == tagDisabled )
+                {
+                    g_is_delete_enabled = FALSE;
+                }
+                else if( RP_TAGS_NOTIFICATION_FILE_MODIFIED == tagDisabled )
+                {
+                    g_is_modified_enabled = FALSE;
+                }
+            }
+        }
 
         if( rThreadPool_task( hbsState->hThreadPool, processFileChanges, NULL ) )
         {

@@ -1577,23 +1577,25 @@ RU8
 }
 
 RVOID
-    libOs_timeoutWithProfile
+    libOs_timeoutWithProfileFrom
     (
         LibOsPerformanceProfile* perfProfile,
-        RBOOL isEnforce
+        RBOOL isEnforce,
+        RPCHAR from
     )
 {
     RU8 currentPerformance = 0;
     RTIME currentTime = 0;
     RU32 increment = 0;
-
+    
     if( NULL != perfProfile )
     {
         currentTime = rpal_time_getLocal();
         if( 0 == perfProfile->lastUpdate ) perfProfile->lastUpdate = currentTime;
+        if( 0 == perfProfile->lastSummary ) perfProfile->lastSummary = currentTime;
 
         if( !isEnforce &&
-            currentTime != perfProfile->lastUpdate )
+            currentTime >= perfProfile->lastUpdate + 1 )
         {
             increment = (RU32)( perfProfile->timeoutIncrementPerSec * ( currentTime - perfProfile->lastUpdate ) );
             perfProfile->lastUpdate = currentTime;
@@ -1615,7 +1617,7 @@ RVOID
                      perfProfile->lastTimeoutValue > 0 )
             {
                 perfProfile->lastTimeoutValue -= MIN_OF( increment,
-                    perfProfile->lastTimeoutValue );
+                                                         perfProfile->lastTimeoutValue );
                 //rpal_debug_info( "DECREMENT: %d (%d)", perfProfile->lastTimeoutValue, currentPerformance );
             }
 
@@ -1635,8 +1637,17 @@ RVOID
             else if( perfProfile->globalTimeoutValue > 0 )
             {
                 perfProfile->globalTimeoutValue -= MIN_OF( increment,
-                    perfProfile->globalTimeoutValue );
+                                                           perfProfile->globalTimeoutValue );
                 //rpal_debug_info( "GLOBAL DECREMENT: %d (%d)", perfProfile->globalTimeoutValue, currentPerformance );
+            }
+
+            if( ( 60 * 1 ) <= currentTime - perfProfile->lastSummary )
+            {
+                rpal_debug_info( "Profile: %s = last(%d) global(%d)",
+                                 from,
+                                 perfProfile->lastTimeoutValue,
+                                 perfProfile->globalTimeoutValue );
+                                 perfProfile->lastSummary = currentTime;
             }
         }
         else
