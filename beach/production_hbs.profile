@@ -57,7 +57,9 @@ rList().addSequence( _.hbs.CONFIGURATION,
                                                                     .addStringA( _.base.EXTENSION, ".pdf" )
                                                                     .addStringA( _.base.EXTENSION, ".doc" )
                                                                     .addStringA( _.base.EXTENSION, ".vbs" )
-                                                                    .addStringA( _.base.EXTENSION, ".rtf" ) )
+                                                                    .addStringA( _.base.EXTENSION, ".rtf" )
+                                                                    .addStringA( _.base.EXTENSION, ".exe" )
+                                                                    .addStringA( _.base.EXTENSION, ".scr" ) )
                                 .addList( _.base.PATTERNS, rList().addStringA( _.base.STRING_PATTERN, "/tmp/" )
                                                                   .addStringA( _.base.STRING_PATTERN, "\\temp\\" ) ) )
        .addSequence( _.hbs.CONFIGURATION,
