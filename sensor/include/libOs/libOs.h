@@ -170,7 +170,7 @@ RU8
 
     );
 
-#define libOs_timeoutWithProfile( perfProfile, isEnforce ) libOs_timeoutWithProfileFrom((perfProfile),(isEnforce),__FUNCTION__)
+#define libOs_timeoutWithProfile( perfProfile, isEnforce ) libOs_timeoutWithProfileFrom((perfProfile),(isEnforce),(RPCHAR)__FUNCTION__)
 
 RVOID
     libOs_timeoutWithProfileFrom
