@@ -1156,7 +1156,7 @@ RBOOL
         FILETIME2ULARGE( uKernel, ftKernel );
         FILETIME2ULARGE( uIdle, ftIdle );
         
-        *cpuTime = uUser.QuadPart + uKernel.QuadPart + uIdle.QuadPart;
+        *cpuTime = ( uUser.QuadPart + uKernel.QuadPart + uIdle.QuadPart ) / NSEC_100_PER_USEC;
         
         isSuccess = TRUE;
     }
@@ -1590,7 +1590,9 @@ RVOID
     
     if( NULL != perfProfile )
     {
-        currentTime = rpal_time_getLocal();
+        libOs_getSystemCPUTime( &currentTime );
+        currentTime = SEC_FROM_MSEC( currentTime / NSEC_100_PER_MSEC );
+
         if( 0 == perfProfile->lastUpdate ) perfProfile->lastUpdate = currentTime;
         if( 0 == perfProfile->lastSummary ) perfProfile->lastSummary = currentTime;
 

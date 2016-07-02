@@ -32,6 +32,7 @@ limitations under the License.
 #define USEC_FROM_MSEC(sec)                         ((sec)*1000)
 #define USEC_PER_MSEC                               (1000)
 #define NSEC_100_PER_MSEC                           (10000)
+#define NSEC_100_PER_USEC                           (10)
 
 typedef struct
 {
