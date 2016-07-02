@@ -226,6 +226,28 @@ Patrol( 'AnalyticsReporting',
             'isIsolated' : True } )
 
 #######################################
+# CEFOutput
+# This actor receives Detecs from the
+# reporting actor and outputs them to
+# a CEF-based SIEM.
+# Parameters:
+# url: the destination of the logs.
+#######################################
+Patrol( 'CEFOutput',
+        initialInstances = 1,
+        maxInstances = None,
+        relaunchOnFailure = True,
+        onFailureCall = None,
+        actorArgs = ( 'analytics/CEFOutput',
+                      'analytics/output/cef/1.0' ),
+        actorKwArgs = {
+            'parameters' : { 'url' : '127.0.0.1' },
+            'secretIdent' : 'output/bf73a858-8f05-45ab-9ead-05493e29429a',
+            'trustedIdents' : [ 'reporting/9ddcc95e-274b-4a49-a003-c952d12049b8' ],
+            'n_concurrent' : 5,
+            'isIsolated' : True } )
+
+#######################################
 # AnalyticsInvestigation
 # This actor responsible for sending
 # messages to the actors interested in

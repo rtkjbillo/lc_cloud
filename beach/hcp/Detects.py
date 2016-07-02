@@ -20,13 +20,18 @@ StateMachine = Actor.importLib( 'analytics/StateAnalysis', 'StateMachine' )
 StateEvent = Actor.importLib( 'analytics/StateAnalysis', 'StateEvent' )
 CreateOnAccess = Actor.importLib( 'hcp_helpers', 'CreateOnAccess' )
 
-def GenerateDetectReport( agentid, msgIds, cat, detect ):
+def GenerateDetectReport( agentid, msgIds, cat, detect, summary = '', priority = None ):
     if type( msgIds ) is not tuple and type( msgIds ) is not list:
         msgIds = ( msgIds, )
     if type( agentid ) is tuple or type( agentid ) is list:
         agentid = ' / '.join( agentid )
     reportId = hashlib.sha256( str( msgIds ) ).hexdigest()
-    return { 'source' : agentid, 'msg_ids' : msgIds, 'cat' : cat, 'detect' : detect, 'report_id' : reportId }
+    return { 'source' : agentid, 
+             'msg_ids' : msgIds, 
+             'cat' : cat, 
+             'detect' : detect, 
+             'report_id' : reportId, 
+             'summary' : summary }
 
 class StatelessActor ( Actor ):
     def init( self, parameters ):

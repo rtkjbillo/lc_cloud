@@ -19,6 +19,7 @@ import random
 import json
 CassDb = Actor.importLib( '../hcp_databases', 'CassDb' )
 CassPool = Actor.importLib( '../hcp_databases', 'CassPool' )
+CreateOnAccess = Actor.importLib( '../hcp_helpers', 'CreateOnAccess' )
 
 class AnalyticsReporting( Actor ):
     def init( self, parameters ):
@@ -34,9 +35,11 @@ class AnalyticsReporting( Actor ):
         self.report_stmt_tl = self.db.prepare( 'INSERT INTO report_timeline ( d, ts, repid ) VALUES ( ?, now(), ? ) USING TTL %d' % ( 60 * 60 * 24 * 7 * 4 ) )
         self.report_stmt_tl.consistency_level = CassDb.CL_Ingest
 
+        self.outputs = self.getActorHandleGroup( 'analytics/output/' )
+
         self.db.start()
         self.handle( 'report', self.report )
-        self.paging = self.getActorHandle( 'paging' )
+        self.paging = CreateOnAccess( self.getActorHandle, 'paging' )
         self.pageDest = parameters.get( 'paging_dest', [] )
         if type( self.pageDest ) is str or type( self.pageDest ) is unicode:
             self.pageDest = [ self.pageDest ]
@@ -54,6 +57,8 @@ class AnalyticsReporting( Actor ):
 
         self.db.execute_async( self.report_stmt_rep.bind( ( report_id, source, category, ' / '.join( event_ids ), detect ) ) )
         self.db.execute_async( self.report_stmt_tl.bind( ( random.randint( 0, 255 ), report_id ) ) )
+
+        self.outputs.shoot( 'report', msg.data )
 
         if 0 != len( self.pageDest ):
             self.paging.shoot( 'page', { 'to' : self.pageDest,
