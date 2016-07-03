@@ -27,13 +27,6 @@ limitations under the License.
 #include <setupapi.h>
 #define FILETIME2ULARGE( uli, ft )  (uli).u.LowPart = (ft).dwLowDateTime, (uli).u.HighPart = (ft).dwHighDateTime
 
-typedef struct
-{
-    HKEY root;
-    RPWCHAR path;
-    RPWCHAR keyName;
-} _KeyInfo;
-
 #elif defined( RPAL_PLATFORM_LINUX ) || defined( RPAL_PLATFORM_MACOSX )
 #include <stdio.h>
 #include <string.h>
@@ -2539,7 +2532,7 @@ RVOID
 
 static
 RBOOL
-    _processRegKey
+    _processRegValue
     (
         DWORD type,
         RPWCHAR path,
@@ -2669,6 +2662,89 @@ RBOOL
 
 static
 RBOOL
+    _processRegKey
+    (
+        HKEY keyRoot,
+        RPWCHAR keyPath,
+        RPWCHAR valueExpr,
+        rList autoruns
+    )
+{
+    RBOOL isSuccess = FALSE;
+    HKEY hKey = NULL;
+    DWORD type = 0;
+    RU8 value[ 1024 ] = { 0 };
+    DWORD size = 0;
+    RU32 iKey = 0;
+    DWORD tmpKeyNameSize = 0;
+    RWCHAR tmpKeyName[ 1024 ] = { 0 };
+
+    if( ERROR_SUCCESS == RegOpenKeyW( keyRoot, keyPath, &hKey ) )
+    {
+        if( _WCH( '*' ) != valueExpr[ 0 ] )
+        {
+            // This key is a specific leaf value
+            size = sizeof( value ) - sizeof( RWCHAR );
+            if( ERROR_SUCCESS == RegQueryValueExW( hKey,
+                                                   valueExpr,
+                                                   NULL,
+                                                   &type,
+                                                   (LPBYTE)&value,
+                                                   &size ) )
+            {
+                if( !_processRegValue( type, 
+                                       keyPath, 
+                                       valueExpr, 
+                                       (RPU8)&value, 
+                                       size, 
+                                       autoruns ) )
+                {
+                    rpal_debug_warning( "key contains unexpected data" );
+                }
+                else
+                {
+                    isSuccess = TRUE;
+                }
+            }
+        }
+        else
+        {
+            isSuccess = TRUE;
+
+            // This key is *, meaning all leaf values so we must enumerate
+            tmpKeyNameSize = ARRAY_N_ELEM( tmpKeyName );
+            size = sizeof( value ) - sizeof( RWCHAR );
+            while( ERROR_SUCCESS == RegEnumValueW( hKey, 
+                                                   iKey, 
+                                                   (RPWCHAR)&tmpKeyName, 
+                                                   &tmpKeyNameSize, 
+                                                   NULL, 
+                                                   &type, 
+                                                   (RPU8)&value, 
+                                                   &size ) )
+            {
+                tmpKeyName[ tmpKeyNameSize ] = 0;
+
+                if( !_processRegValue( type, keyPath, tmpKeyName, (RPU8)&value, size, autoruns ) )
+                {
+                    rpal_debug_warning( "key contains unexpected data" );
+                    isSuccess = FALSE;
+                }
+
+                iKey++;
+                tmpKeyNameSize = ARRAY_N_ELEM( tmpKeyName );
+                size = sizeof( value ) - sizeof( RWCHAR );
+            }
+        }
+
+        RegCloseKey( hKey );
+    }
+
+    return isSuccess;
+}
+
+static
+RBOOL
     _getWindowsAutoruns
     (
         rList autoruns
@@ -2692,18 +2768,20 @@ RBOOL
     rFileInfo finfo = { 0 };
 
     RU32 i = 0;
-    DWORD type = 0;
-    RU8 value[ 1024 ] = { 0 };
-    DWORD size = 0;
     RPWCHAR lnkDest = NULL;
-    HKEY hKey = NULL;
     rSequence entry = NULL;
     RU32 iKey = 0;
-    DWORD tmpKeyNameSize = 0;
+    HKEY hKey = NULL;
+    RU32 iTermKey = 0;
     RWCHAR tmpKeyName[ 1024 ] = { 0 };
     RPWCHAR tmp = NULL;
 
-    _KeyInfo keys[] = { 
+    struct
+    {
+        HKEY root;
+        RPWCHAR path;
+        RPWCHAR keyName;
+    } keys[] = {
         { HKEY_LOCAL_MACHINE, _WCH( "Software\\Microsoft\\Windows\\CurrentVersion\\Run\\" ), _WCH( "*" ) },
         { HKEY_LOCAL_MACHINE, _WCH( "Software\\Microsoft\\Windows\\CurrentVersion\\RunOnce\\" ), _WCH( "*" ) },
         { HKEY_LOCAL_MACHINE, _WCH( "SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Terminal Server\\Install\\Software\\Microsoft\\Windows\\CurrentVersion\\RunOnce" ), _WCH( "*" ) },
@@ -2727,8 +2805,8 @@ RBOOL
         { HKEY_LOCAL_MACHINE, _WCH( "Software\\Wow6432Node\\Microsoft\\Windows\\CurrentVersion\\Explorer\\" ), _WCH( "Browser Helper Objects" ) },
         { HKEY_LOCAL_MACHINE, _WCH( "Software\\Microsoft\\Windows NT\\CurrentVersion\\" ), _WCH( "Drivers32" ) },
         { HKEY_LOCAL_MACHINE, _WCH( "Software\\Wow6432Node\\Microsoft\\Windows NT\\CurrentVersion\\" ), _WCH( "Drivers32" ) },
-        { HKEY_LOCAL_MACHINE, _WCH( "Software\\Microsoft\\Windows NT\\CurrentVersion\\" ), _WCH( "Image File Execution Options" ) },
-        { HKEY_LOCAL_MACHINE, _WCH( "Software\\Wow6432Node\\Microsoft\\Windows NT\\CurrentVersion\\" ), _WCH( "Image File Execution Options" ) },
+        { HKEY_LOCAL_MACHINE, _WCH( "Software\\Microsoft\\Windows NT\\CurrentVersion\\Image File Execution Options\\*\\" ), _WCH( "debugger" ) },
+        { HKEY_LOCAL_MACHINE, _WCH( "Software\\Wow6432Node\\Microsoft\\Windows NT\\CurrentVersion\\Image File Execution Options\\*\\" ), _WCH( "debugger" ) },
         { HKEY_LOCAL_MACHINE, _WCH( "SOFTWARE\\Classes\\Exefile\\Shell\\Open\\Command\\" ), _WCH( "*" ) },
         { HKEY_LOCAL_MACHINE, _WCH( "SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Windows\\" ), _WCH( "Appinit_Dlls" ) },
         { HKEY_LOCAL_MACHINE, _WCH( "SOFTWARE\\Wow6432Node\\Microsoft\\Windows NT\\CurrentVersion\\Windows\\" ), _WCH( "Appinit_Dlls" ) },
@@ -2829,58 +2907,36 @@ RBOOL
     // First we check for Registry autoruns
     for( i = 0; i < ARRAY_N_ELEM( keys ); i++ )
     {
-        if( ERROR_SUCCESS == RegOpenKeyW( keys[ i ].root, keys[ i ].path, &hKey ) )
+        if( rpal_string_endswithw( keys[ i ].path, _WCH( "\\*\\" ) ) )
         {
-            if( _WCH( '*' ) != keys[ i ].keyName[ 0 ] )
+            iKey = 0;
+            iTermKey = rpal_string_strlenw( keys[ i ].path ) - 2;
+            if( NULL != ( tmp = rpal_string_strdupw( keys[ i ].path ) ) )
             {
-                // This key is a specific leaf value
-                size = sizeof( value ) - sizeof( RWCHAR );
-                if( ERROR_SUCCESS == RegQueryValueExW( hKey,
-                                                       keys[ i ].keyName,
-                                                       NULL,
-                                                       &type,
-                                                       (LPBYTE)&value,
-                                                       &size ) )
+                tmp[ iTermKey ] = 0;
+                if( ERROR_SUCCESS == RegOpenKeyW( keys[ i ].root, tmp, &hKey ) )
                 {
-                    if( !_processRegKey( type, 
-                                         keys[ i ].path, 
-                                         keys[ i ].keyName, 
-                                         (RPU8)&value, 
-                                         size, 
-                                         autoruns ) )
+                    while( ERROR_SUCCESS == RegEnumKeyW( hKey, iKey, tmpKeyName, ARRAY_N_ELEM( tmpKeyName ) ) )
                     {
-                        rpal_debug_warning( "key contains unexpected data" );
-                    }
-                }
-            }
-            else
-            {
-                // This key is *, meaning all leaf values so we must enumerate
-                tmpKeyNameSize = ARRAY_N_ELEM( tmpKeyName );
-                size = sizeof( value ) - sizeof( RWCHAR );
-                while( ERROR_SUCCESS == RegEnumValueW( hKey, 
-                                                       iKey, 
-                                                       (RPWCHAR)&tmpKeyName, 
-                                                       &tmpKeyNameSize, 
-                                                       NULL, 
-                                                       &type, 
-                                                       (RPU8)&value, 
-                                                       &size ) )
-                {
-                    tmpKeyName[ tmpKeyNameSize ] = 0;
+                        if( NULL != ( tmp = rpal_string_strcatExW( tmp, tmpKeyName ) ) )
+                        {
+                            _processRegKey( keys[ i ].root, tmp, keys[ i ].keyName, autoruns );
+                        }
 
-                    if( !_processRegKey( type, keys[ i ].path, tmpKeyName, (RPU8)&value, size, autoruns ) )
-                    {
-                        rpal_debug_warning( "key contains unexpected data" );
+                        tmp[ iTermKey ] = 0;
+
+                        iKey++;
                     }
 
-                    iKey++;
-                    tmpKeyNameSize = ARRAY_N_ELEM( tmpKeyName );
-                    size = sizeof( value ) - sizeof( RWCHAR );
+                    RegCloseKey( hKey );
                 }
-            }
 
-            RegCloseKey( hKey );
+                rpal_memory_free( tmp );
+            }
+        }
+        else
+        {
+            _processRegKey( keys[ i ].root, keys[ i ].path, keys[ i ].keyName, autoruns );
         }
     }
 
