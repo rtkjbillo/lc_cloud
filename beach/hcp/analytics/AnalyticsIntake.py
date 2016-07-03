@@ -168,6 +168,9 @@ class AnalyticsIntake( Actor ):
                           'notification.TERMINATE_PROCESS' ):
             curExe = self._extractProcess( agent, mtd, eventRoot )
             parent = eventRoot.get( 'base.PARENT', None )
+            user = eventRoot.get( 'base.USER_NAME', None )
+            if user is not None:
+                self._addRel( mtd, user, ObjectTypes.USER_NAME, curExe, ObjectTypes.PROCESS_NAME )
             if parent is not None:
                 parentExe = self._extractProcess( agent, mtd, parent )
                 if parentExe is not None:
