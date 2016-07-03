@@ -23,9 +23,9 @@ class CEFOutput( Actor ):
     def init( self, parameters ):
         self._logger = logging.getLogger( 'limacharlie_cef' )
         self._logger.setLevel( logging.INFO )
-        self._logger.addHandler( logging.handlers.SysLogHandler( address = parameters.get( 'url', '127.0.0.1' ),
+        self._logger.addHandler( logging.handlers.SysLogHandler( address = parameters.get( 'siem_server', '127.0.0.1' ),
                                                                  facility = logging.handler.SysLogHandler.LOG_LOCAL4 ) )
-
+        self._lc_web = parameters.get( 'lc_web', '127.0.0.1' )
         self.handle( 'report', self.report )
         
     def deinit( self ):
@@ -41,7 +41,8 @@ class CEFOutput( Actor ):
         priority = msg.data[ 'priority' ]
 
         record = 'CEF:0|refractionPOINT|LimaCharlie|1|%s|%s|%s|' % ( category, summary, priority )
-        extension = { 'refractionPOINTLimaCharlieFullDetails' : detect }
+        extension = { 'refractionPOINTLimaCharlieFullDetails' : detect,
+                      'refractionPOINTLimaCharlieLink' : 'http://%s?id=%s' % ( self._lc_web, report_id ) }
 
         # Try to parse out common datatypes
         # For now we'll only populate the details.
