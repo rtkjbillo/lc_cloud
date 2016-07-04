@@ -20,11 +20,11 @@ class YaraDetects ( StatelessActor ):
     def init( self, parameters ):
         super( YaraDetects, self ).init( parameters )
 
-    def process( self, msg ):
+    def process( self, detects, msg ):
         routing, event, mtd = msg.data
-        detects = []
-
+        
         # No validation for now, straight detect
-        detects.append( ( event, None ) )
-
-        return detects
+        detects.add( 90,
+        			 'yara signature hit',
+        			 event,
+        			 None )

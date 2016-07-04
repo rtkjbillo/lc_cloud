@@ -26,11 +26,15 @@ class SensorIssues ( StatefulActor ):
         anyApps = r'.*'
         
         hcpSpawningProcesses = ProcessDescendant( name = 'hcp_spawns_anything',
+                                                  priority = 99,
+                                                  summary = 'LimaCharlie was observed spawning processes',
                                                   parentRegExp = hcpProcesses,
                                                   childRegExp = anyApps,
                                                   isDirectOnly = True )
 
         hcpFrequentRestart = EventBurst( name = 'hcp_frequent_restart',
+                                         priority = 50,
+                                         summary = 'LimaCharlie sensor restarts frequently',
                                          eventType = 'notification.STARTING_UP',
                                          nPerBurst = 3,
                                          withinMilliSeconds = 60 * 1000 )

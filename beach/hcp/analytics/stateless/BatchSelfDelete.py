@@ -24,11 +24,8 @@ class BatchSelfDelete ( StatelessActor ):
 
         self.self_del = re.compile( r'.*\& +(?:(?:del)|(?:rmdir)) .*', re.IGNORECASE )
 
-    def process( self, msg ):
+    def process( self, detects, msg ):
         routing, event, mtd = msg.data
-        detects = []
         for cmdline in _xm_( event, '?/base.COMMAND_LINE' ):
             if self.self_del.search( cmdline ):
-                detects.append( ( event, None ) )
-
-        return detects
+                detects.add( 90, 'command prompt looks like a self-deleting technique', event, None )

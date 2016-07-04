@@ -24,12 +24,14 @@ class WinSuspExecName ( StatelessActor ):
         self.susp = re.compile( r'.*((\.txt)|(\.doc)|(\.rtf)|(\.jpg)|(\.gif)|(\.pdf)|(\.wmi)|(\.avi)|( {5}.*))\.exe', re.IGNORECASE )
         self.rtlo = re.compile( r'.*\xE2\x80\x8F.*' )
 
-    def process( self, msg ):
+    def process( self, detects, msg ):
         routing, event, mtd = msg.data
-        detects = []
+        
         for filePath in _xm_( event, '?/base.FILE_PATH' ):
             if self.susp.match( filePath ) or self.rtlo.match( filePath ):
-                detects.append( ( event, ( ( 'remain_live', 60 ),
-                                           ( 'history_dump', ),
-                                           ( 'exfil_add', 'notification.FILE_CREATE', '--expire', 60 ) ) ) )
-        return detects
+                detects.add( 90,
+                             'suspicious executable name',
+                             event,
+                             ( ( 'remain_live', 60 ),
+                               ( 'history_dump', ),
+                               ( 'exfil_add', 'notification.FILE_CREATE', '--expire', 60 ) ) )

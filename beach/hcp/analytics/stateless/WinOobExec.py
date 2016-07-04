@@ -23,12 +23,9 @@ class WinOobExec ( StatelessActor ):
         super( WinOobExec, self ).init( parameters )
         self.dotNet = re.compile( r'.*\\Microsoft.NET\\.*' )
 
-    def process( self, msg ):
+    def process( self, detects, msg ):
         routing, event, mtd = msg.data
-        detects = []
 
         # We can get false positives on executables running .net because of JIT
         if not self.dotNet.match( _x_( event, 'notification.EXEC_OOB/base.FILE_PATH' ) ):
-            detects.append( ( event, None ) )
-
-        return detects
+            detects.add( 90, 'execution outside of known modules detected in memory', event, None )

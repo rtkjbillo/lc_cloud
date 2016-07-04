@@ -53,13 +53,11 @@ class KnownObjects ( StatelessActor ):
                 info = {}
         return info
 
-    def process( self, msg ):
+    def process( self, detects, msg ):
         routing, event, mtd = msg.data
-        detects = []
+        
         for oType, objects in mtd[ 'obj' ].iteritems():
             for o in objects:
                 k = ObjectKey( o, oType )
                 if k in self.known:
-                    detects.append( ( { 'otype' : oType, 'o' : o, 'info' : self._getObjectInfo( k ) }, None ) )
-
-        return detects
+                    detects.add( 99, 'known bad object found', { 'otype' : oType, 'o' : o, 'info' : self._getObjectInfo( k ) }, None )

@@ -26,9 +26,9 @@ class VirusTotalKnownBad ( StatelessActor ):
         # Minimum number of AVs saying it's a hit before we flag it
         self.threshold = parameters.get( 'min_av', 5 )
 
-    def process( self, msg ):
+    def process( self, detects, msg ):
         routing, event, mtd = msg.data
-        detects = []
+        
         report = None
         for h in mtd[ 'obj' ].get( ObjectTypes.FILE_HASH, [] ):
             vtReport = self.vtReport.request( 'get_report', { 'hash' : h }, timeout = ( 60 * 30 ) )
@@ -42,6 +42,7 @@ class VirusTotalKnownBad ( StatelessActor ):
                     report = None
 
         if report is not None:
-            detects.append( ( { 'report' : report, 'hash' : h }, None ) )
-
-        return detects
+            detects.add( 70,
+                         'bad hash from virus total',
+                         { 'report' : report, 'hash' : h },
+                         None )

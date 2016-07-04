@@ -94,7 +94,7 @@ class YaraUpdater ( StatelessActor ):
                 self.logCritical( 'failed to fetch remote rule %s %s' % ( remote, traceback.format_exc() ) )
 
 
-    def process( self, msg ):
+    def process( self, detects, msg ):
         if self.rulesDir is None: return []
 
         routing, event, mtd = msg.data
@@ -113,6 +113,3 @@ class YaraUpdater ( StatelessActor ):
             self.task( routing[ 'agentid' ],
                        ( 'yara_update', rules ),
                        expiry = 60 )
-
-
-        return []

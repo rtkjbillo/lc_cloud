@@ -20,7 +20,9 @@ class MacReconTools ( StatefulActor ):
     def initMachines( self, parameters ):
         self.shardingKey = 'agentid'
 
-        reconBurst = ProcessBurst( name = 'mac_recon_burst', 
+        reconBurst = ProcessBurst( name = 'mac_recon_burst',
+        						   priority = 1,
+        						   summary = 'Burst of recon activity',
         						   procRegExp = r'.*/((ifconfig)|(arp)|(route)|(ping)|(traceroute)|(nslookup)|(netstat)|(wget)|(curl))',
         						   nPerBurst = 3,
         						   withinMilliSeconds = 5 * 1000 )

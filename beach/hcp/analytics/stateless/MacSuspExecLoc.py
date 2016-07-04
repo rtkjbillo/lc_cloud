@@ -24,14 +24,15 @@ class MacSuspExecLoc ( StatelessActor ):
         self.slocs = { 'shared' : re.compile( r'/Users/Shared/.*' ),
                        'hidden_dir' : re.compile( r'.*/\..+/.*' ) }
 
-    def process( self, msg ):
+    def process( self, detects, msg ):
         routing, event, mtd = msg.data
-        detects = []
+        
         for filePath in _xm_( event, '?/base.FILE_PATH' ):
             for k, v in self.slocs.iteritems():
                 if v.match( filePath ):
-                    detects.append( ( event, ( ( 'remain_live', 60 ),
-                                               ( 'history_dump', ),
-                                               ( 'exfil_add', 'notification.FILE_CREATE', '--expire', 60 ) ) ) )
-
-        return detects
+                    detects.add( 90, 
+                                 'binary executing from a suspicious location', 
+                                 event, 
+                                 ( ( 'remain_live', 60 ),
+                                   ( 'history_dump', ),
+                                   ( 'exfil_add', 'notification.FILE_CREATE', '--expire', 60 ) ) )
