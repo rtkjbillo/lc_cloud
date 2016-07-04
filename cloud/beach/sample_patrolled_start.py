@@ -241,7 +241,7 @@ Patrol( 'CEFOutput',
         actorArgs = ( 'analytics/CEFOutput',
                       'analytics/output/cef/1.0' ),
         actorKwArgs = {
-            'parameters' : { 'siem_server' : '127.0.0.1',
+            'parameters' : { 'siem_server' : '/dev/log',
                              'lc_web' : '127.0.0.1' },
             'secretIdent' : 'output/bf73a858-8f05-45ab-9ead-05493e29429a',
             'trustedIdents' : [ 'reporting/9ddcc95e-274b-4a49-a003-c952d12049b8' ],
