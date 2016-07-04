@@ -47,8 +47,8 @@ class CEFOutput( Actor ):
         priority = msg.data[ 'priority' ]
 
         record = 'CEF:0|refractionPOINT|LimaCharlie|1|%s|%s|%s|' % ( category, summary, priority )
-        extension = { 'refractionPOINTLimaCharlieFullDetails' : detect,
-                      'refractionPOINTLimaCharlieLink' : 'http://%s?id=%s' % ( self._lc_web, report_id ) }
+        extension = { 'rpLCFullDetails' : detect,
+                      'rpLCLink' : 'http://%s/detect?id=%s' % ( self._lc_web, report_id ) }
 
         # Try to parse out common datatypes
         # For now we'll only populate the details.
