@@ -20,18 +20,28 @@ StateMachine = Actor.importLib( 'analytics/StateAnalysis', 'StateMachine' )
 StateEvent = Actor.importLib( 'analytics/StateAnalysis', 'StateEvent' )
 CreateOnAccess = Actor.importLib( 'hcp_helpers', 'CreateOnAccess' )
 
-def GenerateDetectReport( agentid, msgIds, cat, detect, summary = '', priority = None ):
+def GenerateDetectReport( nthReport, agentid, msgIds, cat, detect, summary = '', priority = None ):
     if type( msgIds ) is not tuple and type( msgIds ) is not list:
         msgIds = ( msgIds, )
     if type( agentid ) is tuple or type( agentid ) is list:
         agentid = ' / '.join( agentid )
-    reportId = hashlib.sha256( str( msgIds ) ).hexdigest()
+    reportId = hashlib.sha256( '%s%d%s' % ( cat, nthReport, str( msgIds ) ) ).hexdigest()
     return { 'source' : agentid, 
              'msg_ids' : msgIds, 
              'cat' : cat, 
              'detect' : detect, 
              'report_id' : reportId, 
              'summary' : summary }
+
+class Detects( object ):
+    def __init__( self ):
+        self._detects = []
+    def add( self, priority, summary, detectInfo, taskings = None ):
+        self._detects.append( ( priority, summary, detectInfo, taskings ) )
+    def __len__( self ):
+        return len( self._detects )
+    def __iter__( self ):
+        return self._detects.__iter__()
 
 class StatelessActor ( Actor ):
     def init( self, parameters ):
@@ -66,20 +76,26 @@ class StatelessActor ( Actor ):
         self.log( "sent for tasking: %s" % ( str(cmdsAndArgs), ) )
 
     def _process( self, msg ):
-        detects = self.process( msg )
+        newDetects = Detects()
+        self.process( newDetects, msg )
 
-        if 0 != len( detects ):
+        if 0 != len( newDetects ):
             self.log( "reporting detects generated" )
+            i = 0
             routing, event, mtd = msg.data
-            for detect, taskings in detects:
-                report = GenerateDetectReport( routing[ 'agentid' ],
+            for priority, summary, detect, taskings in newDetects:
+                report = GenerateDetectReport( i,
+                                               routing[ 'agentid' ],
                                                ( routing[ 'event_id' ], ),
                                                self._cat,
-                                               detect )
+                                               detect,
+                                               summary,
+                                               priority )
                 self._reporting.shoot( 'report', report )
                 self._detects.broadcast( 'detect', report )
                 if taskings is not None and 0 != len( taskings ):
                     self.task( routing[ 'agentid' ], taskings, expiry = ( 60 * 60 ), inv_id = report[ 'report_id' ] )
+                i += 1
         return ( True, )
 
 class StatefulActor ( Actor ):
@@ -146,24 +162,29 @@ class StatefulActor ( Actor ):
         currentShard = self._compiled_machines.setdefault( shard, [] )
 
         # First we update currently running machines
+        i = 0
         for machine in currentShard:
             self._machine_activity[ machine ] = time.time()
             #self.log( "MACHINE: %s %d" % ( machine._descriptor.detectName, machine._currentState ) )
-            reportType, reportContent, isStayAlive = machine.update( newEvent )
+            reportPriority, reportSummary, reportType, reportContent, isStayAlive = machine.update( newEvent )
             #self.log( "TO MACHINE: %s %d" % ( machine._descriptor.detectName, machine._currentState ) )
             if reportType is not None and reportContent is not None:
                 if hasattr( self, 'processDetect' ):
                     reportContent = self.processDetect( reportContent )
-                report = GenerateDetectReport( tuple( Set( [ e.routing[ 'agentid' ] for e in reportContent ] ) ),
+                report = GenerateDetectReport( i,
+                                               tuple( Set( [ e.routing[ 'agentid' ] for e in reportContent ] ) ),
                                                tuple( Set( [ e.routing[ 'event_id' ] for e in reportContent ] ) ),
                                                reportType,
-                                               [ x.event for x in reportContent ] )
+                                               [ x.event for x in reportContent ],
+                                               reportPriority,
+                                               reportSummary )
                 self._reporting.shoot( 'report', report )
                 self._detects.setdefault( reportType,
                                           self.getActorHandle( 'analytics/detects/%s' % reportType ) ).broadcast( 'detect', report )
             if not isStayAlive:
                 del( self._machine_activity[ machine ] )
                 currentShard.remove( machine )
+            i += 1
 
         # Next we prime new machines
         for machine in self._machines:

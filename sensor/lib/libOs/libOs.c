@@ -1580,6 +1580,10 @@ RVOID
     RU8 currentPerformance = 0;
     RTIME currentTime = 0;
     RU32 increment = 0;
+
+#ifndef RPAL_PLATFORM_DEBUG
+    UNREFERENCED_PARAMETER( from );
+#endif
     
     if( NULL != perfProfile )
     {

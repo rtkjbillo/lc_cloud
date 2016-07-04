@@ -729,6 +729,29 @@ Patrol( 'YaraUpdater',
             'trustedIdents' : [ 'analysis/038528f5-5135-4ca8-b79f-d6b8ffc53bf5' ],
             'n_concurrent' : 5 } )
 
+#######################################
+# stateless/NewObjects
+# This actor looks for new objects of
+# specifically interesting types.
+#######################################
+Patrol( 'NewObjects',
+        initialInstances = 1,
+        maxInstances = None,
+        relaunchOnFailure = True,
+        onFailureCall = None,
+        actorArgs = ( 'analytics/stateless/NewObjects',
+                      'analytics/stateless/all/newobjects/1.0' ),
+        actorKwArgs = {
+            'parameters' : { 'types' : [ 'SERVICE_NAME', 'AUTORUNS' ],
+                             'db' : [ 'hcp-scale-db' ],
+                             'rate_limit_per_sec' : 10,
+                             'max_concurrent' : 5,
+                             'block_on_queue_size' : 200000 },
+            'secretIdent' : 'analysis/038528f5-5135-4ca8-b79f-d6b8ffc53bf5',
+            'trustedIdents' : [ 'analysis/038528f5-5135-4ca8-b79f-d6b8ffc53bf5' ],
+            'n_concurrent' : 5,
+            'isIsolated' : True } )
+
 ###############################################################################
 # Stateful Detection
 ###############################################################################

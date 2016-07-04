@@ -20,18 +20,19 @@ class TestDetection ( StatelessActor ):
     def init( self, parameters ):
         super( TestDetection, self ).init( parameters )
 
-    def process( self, msg ):
+    def process( self, detects, msg ):
         routing, event, mtd = msg.data
-        detects = []
+        
         for o in mtd[ 'obj' ].get( ObjectTypes.FILE_PATH, [] ):
             if 'hcp_evil_detection_test' in o:
-                detects.append( ( event, ( ( 'file_hash',
-                                             event.get( 'notification.NEW_PROCESS', {} )
-                                                  .get( 'base.FILE_PATH' ) ),
-                                           ( 'remain_live', 60 ),
-                                           ( 'history_dump', ),
-                                           ( 'exfil_add', 'notification.FILE_CREATE', '--expire', 60 ),
-                                           ( 'exfil_add', 'notification.FILE_DELETE', '--expire', 60 ) ) ) )
+                detects.add( 0,
+                             'test detection detected',
+                             event,
+                             ( ( 'file_hash',
+                                 event.get( 'notification.NEW_PROCESS', {} )
+                                      .get( 'base.FILE_PATH' ) ),
+                               ( 'remain_live', 60 ),
+                               ( 'history_dump', ),
+                               ( 'exfil_add', 'notification.FILE_CREATE', '--expire', 60 ),
+                               ( 'exfil_add', 'notification.FILE_DELETE', '--expire', 60 ) ) )
                 self.log( "test detection triggered" )
-
-        return detects

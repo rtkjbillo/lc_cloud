@@ -22,6 +22,9 @@ class AnalyticsStateless( Actor ):
         self.modulesWindows = {}
         self.modulesOsx = {}
         self.modulesLinux = {}
+        self.allConsumer = self.getActorHandleGroup( 'analytics/stateless/all/',
+                                                     timeout = 30,
+                                                     nRetries = 3 )
 
         self.handle( 'analyze', self.analyze )
 
@@ -59,5 +62,6 @@ class AnalyticsStateless( Actor ):
                                                                        nRetries = 3 )
             self.modulesLinux[ etype ].shoot( 'process', msg.data )
 
+        self.allConsumer.shoot( 'process', msg.data )
 
         return ( True, )

@@ -24,7 +24,7 @@ EventOfType = Actor.importLib( './transitions', 'EventOfType' )
 ParentProcessInHistory = Actor.importLib( './transitions', 'ParentProcessInHistory' )
 NotParentProcessInHistory = Actor.importLib( './transitions', 'NotParentProcessInHistory' )
 
-def ProcessBurst( name, procRegExp, nPerBurst, withinMilliSeconds ):
+def ProcessBurst( priority, summary, name, procRegExp, nPerBurst, withinMilliSeconds ):
     states = []
     for i in xrange( 0, nPerBurst ):
         states.append( State( StateTransition( isRecordOnMatch = True, 
@@ -33,9 +33,9 @@ def ProcessBurst( name, procRegExp, nPerBurst, withinMilliSeconds ):
                                                evalFunc = NewProcessNamed( procRegExp ) ), 
                               StateTransition( toState = 0, 
                                                evalFunc = HistoryOlderThan( withinMilliSeconds ) ) ) )
-    return StateMachineDescriptor( name, *states )
+    return StateMachineDescriptor( priority, summary, name, *states )
 
-def ProcessDescendant( name, parentRegExp, childRegExp, isDirectOnly ):
+def ProcessDescendant( priority, summary, name, parentRegExp, childRegExp, isDirectOnly ):
     parentState = State( StateTransition( isRecordOnMatch = True,
                                           toState = 1,
                                           evalFunc = NewProcessNamed( parentRegExp ) ) )
@@ -54,9 +54,9 @@ def ProcessDescendant( name, parentRegExp, childRegExp, isDirectOnly ):
                                               toState = 1,
                                               evalFunc = AlwaysReturn( not isDirectOnly ) ) )
 
-    return StateMachineDescriptor( name, parentState, descendantState )
+    return StateMachineDescriptor( priority, summary, name, parentState, descendantState )
 
-def EventBurst( name, eventType, nPerBurst, withinMilliSeconds ):
+def EventBurst( priority, summary, name, eventType, nPerBurst, withinMilliSeconds ):
     states = []
     for i in xrange( 0, nPerBurst ):
         states.append( State( StateTransition( isRecordOnMatch = True, 
@@ -65,4 +65,4 @@ def EventBurst( name, eventType, nPerBurst, withinMilliSeconds ):
                                                evalFunc = EventOfType( eventType ) ), 
                               StateTransition( toState = 0, 
                                                evalFunc = HistoryOlderThan( withinMilliSeconds ) ) ) )
-    return StateMachineDescriptor( name, *states )
+    return StateMachineDescriptor( priority, summary, name, *states )

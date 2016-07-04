@@ -36,9 +36,11 @@ class State ( object ):
         self.transitions = transitions
 
 class StateMachineDescriptor ( object ):
-    def __init__( self, detectName, *states ):
+    def __init__( self, priority, summary, detectName, *states ):
         self.states = states
         self.detectName = detectName
+        self.priority = priority
+        self.summary = summary
 
 class _StateMachineContext( object ):
     def __init__( self, descriptor ):
@@ -47,6 +49,8 @@ class _StateMachineContext( object ):
         self._history = []
 
     def update( self, event ):
+        reportPriority = None
+        reportSummary = None
         reportType = None
         reportContent = None
         isStayAlive = True
@@ -56,6 +60,8 @@ class _StateMachineContext( object ):
                 if transition.isRecordOnMatch:
                     self._history.append( event )
                 if transition.isReportOnMatch:
+                    reportPriority = self._descriptor.priority
+                    reportSummary = self._descriptor.summary
                     reportType = self._descriptor.detectName
                     reportContent = self._history
                 if ( 0 == transition.toState or 
@@ -64,7 +70,7 @@ class _StateMachineContext( object ):
                 self._currentState = transition.toState
                 break
 
-        return (reportType, reportContent, isStayAlive)
+        return (reportPriority, reportSummary, reportType, reportContent, isStayAlive)
 
 
 class StateMachine ( object ):

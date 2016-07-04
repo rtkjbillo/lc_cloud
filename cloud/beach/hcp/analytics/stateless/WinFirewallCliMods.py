@@ -27,12 +27,13 @@ class WinFirewallCliMods ( StatelessActor ):
                       re.compile( r'.*set.*state.*off.*', re.IGNORECASE ) ]
         self.re_known_good_rule = re.compile( r'.*rule name="system time".*', re.IGNORECASE )
 
-    def process( self, msg ):
+    def process( self, detects, msg ):
         routing, event, mtd = msg.data
-        detects = []
+        
         for cmdline in _xm_( event, '?/base.COMMAND_LINE' ):
             for modif in self.re_rule_modif:
                 if modif.search( cmdline ) and not self.re_known_good_rule.search( cmdline ):
-                    detects.append( ( event, None ) )
-
-        return detects
+                    detects.add( 30,
+                                 'exception added or state changed of windows firewall',
+                                 event,
+                                 None )
