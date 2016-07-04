@@ -18,20 +18,26 @@ _xm_ = Actor.importLib( '../hcp_helpers', '_xm_' )
 
 import logging
 import logging.handlers
+import traceback
 
 class CEFOutput( Actor ):
     def init( self, parameters ):
-        self._logger = logging.getLogger( 'limacharlie_cef' )
-        self._logger.setLevel( logging.INFO )
-        self._logger.addHandler( logging.handlers.SysLogHandler( address = parameters.get( 'siem_server', '127.0.0.1' ),
-                                                                 facility = logging.handler.SysLogHandler.LOG_LOCAL4 ) )
-        self._lc_web = parameters.get( 'lc_web', '127.0.0.1' )
-        self.handle( 'report', self.report )
+        try:
+            self._cef_logger = logging.getLogger( 'limacharlie_cef' )
+            handler = logging.handlers.SysLogHandler( address = parameters.get( 'siem_server', '/dev/log' ) )
+            handler.setFormatter( logging.Formatter( "%(message)s" ) )
+            self._cef_logger.setLevel( logging.INFO )
+            self._cef_logger.addHandler( handler )
+            self._lc_web = parameters.get( 'lc_web', '127.0.0.1' )
+            self.handle( 'report', self.report )
+        except:
+            self.log( "EXC: %s" % traceback.format_exc())
         
     def deinit( self ):
         pass
 
     def report( self, msg ):
+        self.log( "report" )
         event_ids = msg.data[ 'msg_ids' ]
         category = msg.data[ 'cat' ]
         source = msg.data[ 'source' ]
@@ -56,6 +62,6 @@ class CEFOutput( Actor ):
 
         record = record.encode( 'utf-8' )
 
-        self._logger.info( record )
+        self._cef_logger.info( record )
 
         return ( True, )

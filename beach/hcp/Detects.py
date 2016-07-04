@@ -31,7 +31,8 @@ def GenerateDetectReport( nthReport, agentid, msgIds, cat, detect, summary = '',
              'cat' : cat, 
              'detect' : detect, 
              'report_id' : reportId, 
-             'summary' : summary }
+             'summary' : summary,
+             'priority' : priority }
 
 class Detects( object ):
     def __init__( self ):
