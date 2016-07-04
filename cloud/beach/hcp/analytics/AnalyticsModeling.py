@@ -51,33 +51,33 @@ class AnalyticsModeling( Actor ):
                                    ObjectTypes.PORT ]
 
         self.statements = {}
-        self.statements[ 'events' ] = self.db.prepare( 'INSERT INTO events ( eventid, event, agentid ) VALUES ( ?, ?, ? ) USING TTL %d' % ( 60 * 60 * 24 * 7 * 2 ) )
-        self.statements[ 'timeline' ] = self.db.prepare( 'INSERT INTO timeline ( agentid, ts, eventid, eventtype ) VALUES ( ?, ?, ?, ? ) USING TTL %d' % ( 60 * 60 * 24 * 7 * 2 ) )
-        self.statements[ 'timeline_by_type' ] = self.db.prepare( 'INSERT INTO timeline_by_type ( agentid, ts, eventid, eventtype ) VALUES ( ?, ?, ?, ? ) USING TTL %d' % ( 60 * 60 * 24 * 7 * 2 ) )
-        self.statements[ 'recent' ] = self.db.prepare( 'UPDATE recentlyActive USING TTL %d SET last = dateOf( now() ) WHERE agentid = ?' % ( 60 * 60 * 24 * 14 ) )
-        self.statements[ 'last' ] = self.db.prepare( 'UPDATE last_events USING TTL %d SET id = ? WHERE agentid = ? AND type = ?' % ( 60 * 60 * 24 * 30 * 1 ) )
-        self.statements[ 'investigation' ] = self.db.prepare( 'INSERT INTO investigation_data ( invid, ts, eid, etype ) VALUES ( ?, ?, ?, ? ) USING TTL %d' % ( 60 * 60 * 24 * 30 * 1 ) )
+        self.statements[ 'events' ] = self.db.prepare( 'INSERT INTO events ( eventid, event, agentid ) VALUES ( ?, ?, ? ) USING TTL %d' % parameters[ 'retention_raw_events' ] )
+        self.statements[ 'timeline' ] = self.db.prepare( 'INSERT INTO timeline ( agentid, ts, eventid, eventtype ) VALUES ( ?, ?, ?, ? ) USING TTL %d' % parameters[ 'retention_raw_events' ] )
+        self.statements[ 'timeline_by_type' ] = self.db.prepare( 'INSERT INTO timeline_by_type ( agentid, ts, eventid, eventtype ) VALUES ( ?, ?, ?, ? ) USING TTL %d' % parameters[ 'retention_raw_events' ] )
+        self.statements[ 'recent' ] = self.db.prepare( 'UPDATE recentlyActive USING TTL %d SET last = dateOf( now() ) WHERE agentid = ?' % parameters[ 'retention_raw_events' ] )
+        self.statements[ 'last' ] = self.db.prepare( 'UPDATE last_events USING TTL %d SET id = ? WHERE agentid = ? AND type = ?' % parameters[ 'retention_raw_events' ] )
+        self.statements[ 'investigation' ] = self.db.prepare( 'INSERT INTO investigation_data ( invid, ts, eid, etype ) VALUES ( ?, ?, ?, ? ) USING TTL %d' % parameters[ 'retention_investigations' ] )
 
-        self.statements[ 'rel_batch_parent' ] = self.db.prepare( '''INSERT INTO rel_man_parent ( parentkey, ctype, cid ) VALUES ( ?, ?, ? ) USING TTL 31536000;''' )
-        self.statements[ 'rel_batch_child' ] = self.db.prepare( '''INSERT INTO rel_man_child ( childkey, ptype, pid ) VALUES ( ?, ?, ? ) USING TTL 31536000;''' )
+        self.statements[ 'rel_batch_parent' ] = self.db.prepare( '''INSERT INTO rel_man_parent ( parentkey, ctype, cid ) VALUES ( ?, ?, ? ) USING TTL %d;''' % parameters[ 'retention_objects_primary' ] )
+        self.statements[ 'rel_batch_child' ] = self.db.prepare( '''INSERT INTO rel_man_child ( childkey, ptype, pid ) VALUES ( ?, ?, ? ) USING TTL %d;''' % parameters[ 'retention_objects_primary' ] )
 
         self.statements[ 'rel_batch_tmp_parent' ] = self.db.prepare( '''INSERT INTO rel_man_parent ( parentkey, ctype, cid ) VALUES ( ?, ?, ? ) USING TTL 15552000;''' )
         self.statements[ 'rel_batch_tmp_child' ] = self.db.prepare( '''INSERT INTO rel_man_child ( childkey, ptype, pid ) VALUES ( ?, ?, ? ) USING TTL 15552000;''' )
 
-        self.statements[ 'obj_batch_man' ] = self.db.prepare( '''INSERT INTO obj_man ( id, obj, otype ) VALUES ( ?, ?, ? ) USING TTL 63072000;''' )
-        self.statements[ 'obj_batch_name' ] = self.db.prepare( '''INSERT INTO obj_name ( obj, id ) VALUES ( ?, ? ) USING TTL 63072000;''' )
-        self.statements[ 'obj_batch_loc' ] = self.db.prepare( '''UPDATE loc USING TTL 63072000 SET last = ? WHERE aid = ? AND otype = ? AND id = ?;''' )
-        self.statements[ 'obj_batch_id' ] = self.db.prepare( '''INSERT INTO loc_by_id ( id, aid, last ) VALUES ( ?, ?, ? ) USING TTL 63072000;''' )
-        self.statements[ 'obj_batch_type' ] = self.db.prepare( '''INSERT INTO loc_by_type ( d256, otype, id, aid ) VALUES ( ?, ?, ?, ? ) USING TTL 259200;''' )
+        self.statements[ 'obj_batch_man' ] = self.db.prepare( '''INSERT INTO obj_man ( id, obj, otype ) VALUES ( ?, ?, ? ) USING TTL %d;''' % parameters[ 'retention_objects_primary' ] )
+        self.statements[ 'obj_batch_name' ] = self.db.prepare( '''INSERT INTO obj_name ( obj, id ) VALUES ( ?, ? ) USING TTL %d;''' % parameters[ 'retention_objects_primary' ] )
+        self.statements[ 'obj_batch_loc' ] = self.db.prepare( '''UPDATE loc USING TTL %d SET last = ? WHERE aid = ? AND otype = ? AND id = ?;''' % parameters[ 'retention_objects_primary' ] )
+        self.statements[ 'obj_batch_id' ] = self.db.prepare( '''INSERT INTO loc_by_id ( id, aid, last ) VALUES ( ?, ?, ? ) USING TTL %d;''' % parameters[ 'retention_objects_primary' ] )
+        self.statements[ 'obj_batch_type' ] = self.db.prepare( '''INSERT INTO loc_by_type ( d256, otype, id, aid ) VALUES ( ?, ?, ?, ? ) USING TTL %d;''' % parameters[ 'retention_objects_primary' ] )
 
-        self.statements[ 'obj_batch_tmp_man' ] = self.db.prepare( '''INSERT INTO obj_man ( id, obj, otype ) VALUES ( ?, ?, ? ) USING TTL 15552000;''' )
-        self.statements[ 'obj_batch_tmp_name' ] = self.db.prepare( '''INSERT INTO obj_name ( obj, id ) VALUES ( ?, ? ) USING TTL 15552000;''' )
-        self.statements[ 'obj_batch_tmp_loc' ] = self.db.prepare( '''UPDATE loc USING TTL 15552000 SET last = ? WHERE aid = ? AND otype = ? AND id = ?;''' )
-        self.statements[ 'obj_batch_tmp_id' ] = self.db.prepare( '''INSERT INTO loc_by_id ( id, aid, last ) VALUES ( ?, ?, ? ) USING TTL 15552000;''' )
-        self.statements[ 'obj_batch_tmp_type' ] = self.db.prepare( '''INSERT INTO loc_by_type ( d256, otype, id, aid ) VALUES ( ?, ?, ?, ? ) USING TTL 259200;''' )
+        self.statements[ 'obj_batch_tmp_man' ] = self.db.prepare( '''INSERT INTO obj_man ( id, obj, otype ) VALUES ( ?, ?, ? ) USING TTL %d;''' % parameters[ 'retention_objects_secondary' ] )
+        self.statements[ 'obj_batch_tmp_name' ] = self.db.prepare( '''INSERT INTO obj_name ( obj, id ) VALUES ( ?, ? ) USING TTL %d;''' % parameters[ 'retention_objects_secondary' ] )
+        self.statements[ 'obj_batch_tmp_loc' ] = self.db.prepare( '''UPDATE loc USING TTL %d SET last = ? WHERE aid = ? AND otype = ? AND id = ?;''' % parameters[ 'retention_objects_secondary' ] )
+        self.statements[ 'obj_batch_tmp_id' ] = self.db.prepare( '''INSERT INTO loc_by_id ( id, aid, last ) VALUES ( ?, ?, ? ) USING TTL %d;''' % parameters[ 'retention_objects_secondary' ] )
+        self.statements[ 'obj_batch_tmp_type' ] = self.db.prepare( '''INSERT INTO loc_by_type ( d256, otype, id, aid ) VALUES ( ?, ?, ?, ? ) USING TTL %d;''' % parameters[ 'retention_objects_secondary' ] )
 
-        self.statements[ 'atoms_children' ] = self.db.prepare( 'INSERT INTO atoms_children ( atomid, child, eid ) VALUES ( ?, ?, ? ) USING TTL %d' % ( 60 * 60 * 24 * 7 * 2 ) )
-        self.statements[ 'atoms_lookup' ] = self.db.prepare( 'INSERT INTO atoms_lookup ( atomid, eid ) VALUES ( ?, ? ) USING TTL %d' % ( 60 * 60 * 24 * 7 * 2 ) )
+        self.statements[ 'atoms_children' ] = self.db.prepare( 'INSERT INTO atoms_children ( atomid, child, eid ) VALUES ( ?, ?, ? ) USING TTL %d' % parameters[ 'retention_explorer' ] )
+        self.statements[ 'atoms_lookup' ] = self.db.prepare( 'INSERT INTO atoms_lookup ( atomid, eid ) VALUES ( ?, ? ) USING TTL %d' % parameters[ 'retention_explorer' ] )
 
         for statement in self.statements.values():
             statement.consistency_level = CassDb.CL_Ingest
