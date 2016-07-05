@@ -15,32 +15,32 @@
 from beach.actor import Actor
 _x_ = Actor.importLib( '../hcp_helpers', '_x_' )
 _xm_ = Actor.importLib( '../hcp_helpers', '_xm_' )
+Host = Actor.importLib( '../ObjectsDb', 'Host' )
+BEAdmin = Actor.importLib( '../admin_lib', 'BEAdmin' )
 
 import logging
 import logging.handlers
-import traceback
 
 class CEFOutput( Actor ):
     def init( self, parameters ):
-        try:
-            self._cef_logger = logging.getLogger( 'limacharlie_cef' )
-            handler = logging.handlers.SysLogHandler( address = parameters.get( 'siem_server', '/dev/log' ) )
-            handler.setFormatter( logging.Formatter( "%(message)s" ) )
-            self._cef_logger.setLevel( logging.INFO )
-            self._cef_logger.addHandler( handler )
-            self._lc_web = parameters.get( 'lc_web', '127.0.0.1' )
-            self.handle( 'report', self.report )
-        except:
-            self.log( "EXC: %s" % traceback.format_exc())
+        self.admin = BEAdmin( parameters[ 'beach_config' ], None )
+        Host.setDatabase( self.admin, parameters[ 'scale_db' ] )
+        self._cef_logger = logging.getLogger( 'limacharlie_cef' )
+        handler = logging.handlers.SysLogHandler( address = parameters.get( 'siem_server', '/dev/log' ) )
+        handler.setFormatter( logging.Formatter( "%(message)s" ) )
+        self._cef_logger.setLevel( logging.INFO )
+        self._cef_logger.addHandler( handler )
+        self._lc_web = parameters.get( 'lc_web', '127.0.0.1' )
+        self.handle( 'report', self.report )
         
     def deinit( self ):
-        pass
+        Host.closeDatabase()
 
     def report( self, msg ):
         self.log( "report" )
         event_ids = msg.data[ 'msg_ids' ]
         category = msg.data[ 'cat' ]
-        source = msg.data[ 'source' ]
+        source = msg.data[ 'source' ].split( ' / ' )
         detect = msg.data[ 'detect' ]
         report_id = msg.data[ 'report_id' ].upper()
         summary = msg.data[ 'summary' ]
@@ -48,7 +48,8 @@ class CEFOutput( Actor ):
 
         record = 'CEF:0|refractionPOINT|LimaCharlie|1|%s|%s|%s|' % ( category, summary, priority )
         extension = { 'rpLCFullDetails' : detect,
-                      'rpLCLink' : 'http://%s/detect?id=%s' % ( self._lc_web, report_id ) }
+                      'rpLCLink' : 'http://%s/detect?id=%s' % ( self._lc_web, report_id ),
+                      'rpLCHostnames' : ','.join( map( lambda x: Host( x ).getHostName(), source ) ) }
 
         # Try to parse out common datatypes
         # For now we'll only populate the details.
