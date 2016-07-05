@@ -50,14 +50,15 @@ printStep( 'Starting the Beach dashboard on port 8080 (in a screen).',
 time.sleep( 2 )
 
 printStep( 'Starting all actor in a Beach Patrol (in a screen).',
-    os.system( 'screen -d -m python -m beach.patrol %s %s --realm hcp' % ( os.path.join( root,
-                                                                                         'cloud',
-                                                                                         'beach',
-                                                                                         'sample_cluster.yaml' ),
-                                                                           os.path.join( root,
-                                                                                         'cloud',
-                                                                                         'beach',
-                                                                                         'sample_patrolled_start.py' ) ) ) )
+    os.system( 'screen -d -m python -m beach.patrol %s %s --realm hcp --set-scale 10' % 
+        ( os.path.join( root,
+                        'cloud',
+                        'beach',
+                        'sample_cluster.yaml' ),
+          os.path.join( root,
+                        'cloud',
+                        'beach',
+                        'sample_patrolled_start.py' ) ) ) )
 
 printStep( 'Starting the LIMA CHARLIE web interface on port 8888 (in a screen).',
     os.system( 'screen -d -m python %s %s 8888'% ( os.path.join( root,
