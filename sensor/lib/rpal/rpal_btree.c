@@ -129,6 +129,8 @@ struct _btree_struct {
   size_t elem_size;
   unsigned int num_elems;
   int (*cmp)(const void *, const void *);
+  struct node *min;
+  struct node *max;
 };
 
 typedef struct node {
@@ -220,7 +222,7 @@ static int btree_Minimum(BTREE tree, void *ret)
 {
   btnode node;
 
-  node = node_Minimum(root(tree));
+  node = tree->min;
   if (node) {
     data_copy(tree, ret, data(tree, node));
     return 0;
@@ -245,7 +247,7 @@ static int btree_Maximum(BTREE tree, void *ret)
 {
   btnode node;
 
-  node = node_Maximum(root(tree));
+  node = tree->max;
   if (node) {
     data_copy(tree, ret, data(tree, node));
     return 0;
@@ -346,6 +348,9 @@ static int btree_Insert(BTREE tree, void *data)
 {
   btnode parent, node, newnode;
 
+  int is_min = 0;
+  int is_max = 0;
+
   newnode = node_Make(tree, data);
   if (!newnode) {
     return 1;
@@ -357,9 +362,11 @@ static int btree_Insert(BTREE tree, void *data)
   while (node) {
     parent = node;
     if (data_compare(tree, data, data(tree, node)) < 0) {
+      is_max = 0;
       node = left(node);
     }
     else {
+      is_min = 0;
       node = right(node);
     }
   }
@@ -371,11 +378,22 @@ static int btree_Insert(BTREE tree, void *data)
   }
   else {
     if (data_compare(tree, data, data(tree, parent)) < 0) {
+      is_max = 0;
       left(parent) = newnode;
     }
     else {
+      is_min = 0;
       right(parent) = newnode;
     }
+  }
+
+  if( is_max )
+  {
+      tree->max = newnode;
+  }
+  if( is_min )
+  {
+      tree->min = newnode;
   }
 
   tree->num_elems++;
