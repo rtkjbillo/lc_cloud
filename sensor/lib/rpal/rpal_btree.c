@@ -175,6 +175,8 @@ static BTREE btree_Create(size_t size, int (*cmp)(const void *, const void *))
     ret->node_size = sizeof(struct node);
     ret->elem_size = size;
     ret->cmp = cmp;
+    ret->min = NULL;
+    ret->max = NULL;
   }
   return ret;
 }
@@ -348,8 +350,8 @@ static int btree_Insert(BTREE tree, void *data)
 {
   btnode parent, node, newnode;
 
-  int is_min = 0;
-  int is_max = 0;
+  int is_min = 1;
+  int is_max = 1;
 
   newnode = node_Make(tree, data);
   if (!newnode) {
@@ -387,11 +389,13 @@ static int btree_Insert(BTREE tree, void *data)
     }
   }
 
-  if( is_max )
+  if( is_max &&
+      !right(newnode) )
   {
       tree->max = newnode;
   }
-  if( is_min )
+  if( is_min &&
+      !left(newnode) )
   {
       tree->min = newnode;
   }
@@ -445,6 +449,27 @@ static int btree_Delete(BTREE tree, void *data)
     }
   }
 
+  if( remove == tree->min )
+  {
+      if( NULL == ( tree->min = parent( remove ) ) )
+      {
+          if( NULL == ( tree->min = left( remove ) ) )
+          {
+              tree->min = right( remove );
+          }
+      }
+  }
+  if( remove == tree->max )
+  {
+      if( NULL == ( tree->max = parent( remove ) ) )
+      {
+          if( NULL == ( tree->max = right( remove ) ) )
+          {
+              tree->max = left( remove );
+          }
+      }
+  }
+
   if (node != remove) {
     data_copy(tree, data(tree, node), data(tree, remove));
   }
@@ -453,6 +478,7 @@ static int btree_Delete(BTREE tree, void *data)
       // should never get here...
      root(tree) = NULL;
   }
+
   //free(node);
   rpal_memory_free(remove);
 
