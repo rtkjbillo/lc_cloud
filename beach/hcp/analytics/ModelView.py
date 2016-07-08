@@ -52,6 +52,7 @@ class ModelView( Actor ):
         self.handle( 'get_obj_loc', self.get_obj_loc )
         self.handle( 'get_file_in_event', self.get_file_in_event )
         self.handle( 'get_atoms_from_root', self.get_atoms_from_root )
+        self.handle( 'get_backend_config', self.get_backend_config )
 
     def deinit( self ):
         Host.closeDatabase()
@@ -333,3 +334,15 @@ class ModelView( Actor ):
             atoms.extend( Atoms( tmp_atoms ).events() )
 
         return ( True, atoms )
+
+    def get_backend_config( self, msg ):
+        info = {}
+
+        info[ 'hcp_period' ] = self.admin.hcp_getPeriod().data
+        info[ 'hcp_enrollments' ] = self.admin.hcp_getEnrollmentRules().data
+        info[ 'hcp_taskings' ] = self.admin.hcp_getTaskings().data
+        info[ 'hcp_modules' ] = self.admin.hcp_getModules().data
+        info[ 'hbs_period' ] = self.admin.hbs_getPeriod().data
+        info[ 'hbs_profiles' ] = self.admin.hbs_getProfiles().data
+
+        return ( True, info )

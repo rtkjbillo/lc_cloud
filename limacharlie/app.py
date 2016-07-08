@@ -503,6 +503,17 @@ class ExplorerView:
 
         return render.explorer( id = params.id )
 
+class Backend:
+    def GET( self ):
+        params = web.input()
+
+        info = model.request( 'get_backend_config' )
+
+        if not info.isSuccess:
+            return render.error( 'failed to get config: %s' % info.error )
+
+        return render.backend( info.data )
+
 ###############################################################################
 # BOILER PLATE
 ###############################################################################
@@ -525,7 +536,8 @@ urls = ( r'/', 'Index',
          r'/detects', 'ViewDetects',
          r'/detect', 'ViewDetect',
          r'/hostchanges', 'HostChanges',
-         r'/downloadfileinevent', 'DownloadFileInEvent')
+         r'/downloadfileinevent', 'DownloadFileInEvent',
+         r'/backend', 'Backend')
 
 web.config.debug = False
 app = web.application( urls, globals() )
