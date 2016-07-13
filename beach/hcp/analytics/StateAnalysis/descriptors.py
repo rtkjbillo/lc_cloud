@@ -23,6 +23,7 @@ AlwaysReturn = Actor.importLib( './transitions', 'AlwaysReturn' )
 EventOfType = Actor.importLib( './transitions', 'EventOfType' )
 ParentProcessInHistory = Actor.importLib( './transitions', 'ParentProcessInHistory' )
 NotParentProcessInHistory = Actor.importLib( './transitions', 'NotParentProcessInHistory' )
+SensorRestart = Actor.importLib( './transitions', 'SensorRestart' )
 
 def ProcessBurst( priority, summary, name, procRegExp, nPerBurst, withinMilliSeconds ):
     states = []
@@ -39,7 +40,9 @@ def ProcessDescendant( priority, summary, name, parentRegExp, childRegExp, isDir
     parentState = State( StateTransition( isRecordOnMatch = True,
                                           toState = 1,
                                           evalFunc = NewProcessNamed( parentRegExp ) ) )
-    descendantState = State( StateTransition( toState = 1,
+    descendantState = State( StateTransition( toState = 0,
+                                              evalFunc = SensorRestart() ),
+                             StateTransition( toState = 1,
                                               isKillOnEmptyHistory = True,
                                               evalFunc = RunningPidReset() ),
                              StateTransition( toState = 1,
