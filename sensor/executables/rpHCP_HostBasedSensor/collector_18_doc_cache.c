@@ -101,15 +101,28 @@ RVOID
             {
                 if( rSequence_getBUFFER( notif, RP_TAGS_HBS_THIS_ATOM, &pAtomId, &atomSize ) )
                 {
+                    // We acquired the hash, either by reading the entire file in memory
+                    // which we will use for caching, or if it was too big by hashing it
+                    // sequentially on disk.
+                    rSequence_unTaintRead( notif );
                     rSequence_addBUFFER( notif, RP_TAGS_HBS_PARENT_ATOM, pAtomId, atomSize );
                 }
-
+                else
+                {
+                    // We acquired the hash, either by reading the entire file in memory
+                    // which we will use for caching, or if it was too big by hashing it
+                    // sequentially on disk.
+                    rSequence_unTaintRead( notif );
+                }
+                rSequence_addBUFFER( notif, RP_TAGS_HASH, (RPU8)&hash, sizeof( hash ) );
+                hbs_publish( RP_TAGS_NOTIFICATION_NEW_DOCUMENT, notif );
+            }
+            else
+            {
                 // We acquired the hash, either by reading the entire file in memory
                 // which we will use for caching, or if it was too big by hashing it
                 // sequentially on disk.
                 rSequence_unTaintRead( notif );
-                rSequence_addBUFFER( notif, RP_TAGS_HASH, (RPU8)&hash, sizeof( hash ) );
-                hbs_publish( RP_TAGS_NOTIFICATION_NEW_DOCUMENT, notif );
             }
 
             if( rMutex_lock( cacheMutex ) )

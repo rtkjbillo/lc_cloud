@@ -184,7 +184,7 @@ RBOOL
         rQueue queue,
         RPVOID* buffer,
         RU32* bufferSize,
-        RU32 miliSecTimeout
+        RU32 milliSecTimeout
     )
 {
     RBOOL isSuccess = FALSE;
@@ -198,8 +198,8 @@ RBOOL
 
         do
         {
-            if( 0 != miliSecTimeout &&
-                miliSecTimeout < ( rpal_time_getLocal() - tmpTime ) )
+            if( 0 != milliSecTimeout &&
+                milliSecTimeout < ( rpal_time_getLocal() - tmpTime ) )
             {
                 // Since we can't wait for both the event and the mutex
                 // there is a chance we get the event but by the time we get to the
@@ -227,9 +227,9 @@ RBOOL
                 break;
             }
         }
-        while( 0 != miliSecTimeout && 
+        while( 0 != milliSecTimeout && 
                !isSuccess && 
-               rEvent_wait( q->newItems, miliSecTimeout ) );
+               rEvent_wait( q->newItems, milliSecTimeout ) );
     }
 
     return isSuccess;

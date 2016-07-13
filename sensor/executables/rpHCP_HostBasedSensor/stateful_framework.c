@@ -130,7 +130,7 @@ StatefulEvent*
             {
                 if( NULL != ( event->ref = rRefCount_create( (rRefCount_freeFunc)_freeEvent, event, sizeof( *event ) ) ) )
                 {
-                    if( rSequence_addSEQUENCEdup( wrapper, eventType, data ) )
+                    if( rSequence_addSEQUENCE( wrapper, eventType, data ) )
                     {
                         event->data = wrapper;
                         event->eventType = eventType;

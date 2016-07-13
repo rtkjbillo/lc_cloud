@@ -56,50 +56,62 @@ static RPVOID
         RPVOID ctx
     )
 {
+    StatefulEvent* statefulEvent = NULL;
     StatefulMachine* tmpMachine = NULL;
     StatefulEvent* event = NULL;
+    rpcm_tag eventType = 0;
     RU32 i = 0;
 
     UNREFERENCED_PARAMETER( ctx );
 
     while( !rEvent_wait( isTimeToStop, 0 ) )
     {
-        if( rQueue_remove( g_events, (RPVOID*)&event, NULL, MSEC_FROM_SEC( 1 ) ) )
+        if( HbsDelayBuffer_remove( g_events, (RPVOID*)&event, &eventType, MSEC_FROM_SEC( 1 ) ) )
         {
-            // First we update currently running machines
-            for( i = 0; i < g_liveMachines->nElements; i++ )
+            RTIME tmp = 0;
+            rSequence_getTIMESTAMP( event, RP_TAGS_TIMESTAMP, &tmp );
+
+            if( NULL != ( statefulEvent = SMEvent_new( eventType, event ) ) )
             {
-                //rpal_debug_info( "SM begin update ( %p / %p )", g_liveMachines->elements[ i ], ((StatefulMachine*)g_liveMachines->elements[ i ])->desc );
-
-                if( !SMUpdate( g_liveMachines->elements[ i ], event ) )
+                // First we update currently running machines
+                for( i = 0; i < g_liveMachines->nElements; i++ )
                 {
-                    //rpal_debug_info( "SM no longer required ( %p / %p )", g_liveMachines->elements[ i ], ((StatefulMachine*)g_liveMachines->elements[ i ])->desc );
+                    //rpal_debug_info( "SM begin update ( %p / %p )", g_liveMachines->elements[ i ], ((StatefulMachine*)g_liveMachines->elements[ i ])->desc );
 
-                    // Machine indicated it is no longer live
-                    SMFreeMachine( g_liveMachines->elements[ i ] );
-                    if( rpal_vector_remove( g_liveMachines, i ) )
+                    if( !SMUpdate( g_liveMachines->elements[ i ], statefulEvent ) )
                     {
-                        i--;
+                        //rpal_debug_info( "SM no longer required ( %p / %p )", g_liveMachines->elements[ i ], ((StatefulMachine*)g_liveMachines->elements[ i ])->desc );
+
+                        // Machine indicated it is no longer live
+                        SMFreeMachine( g_liveMachines->elements[ i ] );
+                        if( rpal_vector_remove( g_liveMachines, i ) )
+                        {
+                            i--;
+                        }
                     }
                 }
-            }
 
-            // Then we prime any new machines
-            for( i = 0; i < ARRAY_N_ELEM( g_statefulMachines ); i++ )
-            {
-                if( NULL != ( tmpMachine = SMPrime( g_statefulMachines[ i ], event ) ) )
+                // Then we prime any new machines
+                for( i = 0; i < ARRAY_N_ELEM( g_statefulMachines ); i++ )
                 {
-                    //rpal_debug_info( "SM created ( %p / %p )", tmpMachine, g_statefulMachines[ i ] );
-
-                    // New machines get added to the pool of live machines
-                    if( !rpal_vector_add( g_liveMachines, tmpMachine ) )
+                    if( NULL != ( tmpMachine = SMPrime( g_statefulMachines[ i ], statefulEvent ) ) )
                     {
-                        SMFreeMachine( tmpMachine );
+                        //rpal_debug_info( "SM created ( %p / %p )", tmpMachine, g_statefulMachines[ i ] );
+
+                        // New machines get added to the pool of live machines
+                        if( !rpal_vector_add( g_liveMachines, tmpMachine ) )
+                        {
+                            SMFreeMachine( tmpMachine );
+                        }
                     }
                 }
-            }
 
-            _freeSmEvent( event, 0 );
+                _freeSmEvent( statefulEvent, 0 );
+            }
+            else
+            {
+                rSequence_free( event );
+            }
         }
     }
 
@@ -113,15 +125,14 @@ static RVOID
         rSequence event
     )
 {
-    StatefulEvent* statefulEvent = NULL;
-
     if( NULL != event )
     {
-        if( NULL != ( statefulEvent = SMEvent_new( notifType, event ) ) )
+        if( NULL != ( event = rSequence_duplicate( event ) ) )
         {
-            if( !rQueue_add( g_events, statefulEvent, sizeof( statefulEvent ) ) )
+            if( !HbsDelayBuffer_add( g_events, notifType, event ) )
             {
-                _freeSmEvent( statefulEvent, 0 );
+                rpal_debug_warning( "error enqueuing delayed buffer" );
+                rSequence_free( event );
             }
         }
     }
@@ -149,7 +160,7 @@ RBOOL
 
     if( NULL != hbsState )
     {
-        if( rQueue_create( &g_events, (queue_free_func)_freeSmEvent, 200 ) )
+        if( NULL != ( g_events = HbsDelayBuffer_new( 500 ) ) )
         {
             if( NULL != ( g_liveMachines = rpal_vector_new() ) )
             {
@@ -201,7 +212,7 @@ RBOOL
                     j++;
                 }
             }
-            rQueue_free( g_events );
+            HbsDelayBuffer_free( g_events );
             g_events = NULL;
             rpal_vector_free( g_liveMachines );
             g_liveMachines = NULL;
@@ -243,7 +254,7 @@ RBOOL
             }
         }
 
-        rQueue_free( g_events );
+        HbsDelayBuffer_free( g_events );
         g_events = NULL;
         for( i = 0; i < g_liveMachines->nElements; i++ )
         {
