@@ -26,14 +26,6 @@ limitations under the License.
 
 #define _MAX_FILE_HASH_SIZE                 (1024 * 1024 * 20)
 
-typedef struct
-{
-    CryptoLib_Hash nameHash;
-    CryptoLib_Hash fileHash;
-    RU64 codeSize;
-
-} CodeIdent;
-
 static rBloom g_knownCode = NULL;
 static rMutex g_mutex = NULL;
 
@@ -48,7 +40,13 @@ RVOID
         rSequence originalEvent
     )
 {
-    CodeIdent ident = { 0 };
+    struct
+    {
+        CryptoLib_Hash fileHash;
+        RU64 codeSize;
+        RWCHAR fileName[ RPAL_MAX_PATH ];
+    } ident = { 0 };
+
     rSequence notif = NULL;
     rSequence sig = NULL;
     RBOOL isSigned = FALSE;
@@ -61,7 +59,10 @@ RVOID
 
     if( NULL != name )
     {
-        CryptoLib_hash( name, rpal_string_strlenw( name ) * sizeof( RWCHAR ), &ident.nameHash );
+        rpal_memory_memcpy( &ident.fileName, 
+                            name, 
+                            MIN_OF( sizeof( ident.fileName ), 
+                                    rpal_string_strsizew( name ) ) );
     }
 
     if( NULL != pFileHash )
@@ -130,7 +131,13 @@ RVOID
         rSequence originalEvent
     )
 {
-    CodeIdent ident = { 0 };
+    struct
+    {
+        CryptoLib_Hash fileHash;
+        RU64 codeSize;
+        RCHAR fileName[ RPAL_MAX_PATH ];
+    } ident = { 0 };
+
     rSequence notif = NULL;
     rSequence sig = NULL;
     RPWCHAR wPath = NULL;
@@ -142,7 +149,10 @@ RVOID
 
     if( NULL != name )
     {
-        CryptoLib_hash( name, rpal_string_strlen( name ) * sizeof( RCHAR ), &ident.nameHash );
+        rpal_memory_memcpy( &ident.fileName,
+                            name,
+                            MIN_OF( sizeof( ident.fileName ), 
+                                    rpal_string_strsize( name ) ) );
     }
 
     if( NULL != pFileHash )

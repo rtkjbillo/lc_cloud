@@ -457,7 +457,7 @@ RPVOID
     perfProfile.lastTimeoutValue = MSEC_FROM_SEC( 1 );
     perfProfile.targetCpuPerformance = 0;
     perfProfile.globalTargetCpuPerformance = GLOBAL_CPU_USAGE_TARGET;
-    perfProfile.timeoutIncrementPerSec = 100;
+    perfProfile.timeoutIncrementPerSec = 50;
 
     while( rpal_memory_isValid( isTimeToStop ) &&
            !rEvent_wait( isTimeToStop, 0 ) )
