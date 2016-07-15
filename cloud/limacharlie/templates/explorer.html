@@ -52,12 +52,17 @@ var diagonal = d3.svg.diagonal()
 
 var svg = d3.select("#main-container")
    .append("div")
-   .style("overflow", "scroll")
-   .style("width","100%")
+   .style("overflow-x", "scroll")
+   .style("overflow-y", "scroll")
+   .style("width","500px")
+   .style("height","500px")
+   .style("border-width", "4px")
+   .style("border-style", "solid")
+   .style("border-radius", "10px")
+   .style("resize", "both")
    .append("svg")
-   .style("overflow", "scroll")
    .attr("height","10000")
-   .attr("width","100%");
+   .attr("width","10000");
    //.attr("viewBox", "0,0,2000,2000");
 
 // load the external data
