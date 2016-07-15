@@ -117,9 +117,7 @@ $var title = sensor_id
         <table class="table table-striped">
             <thead>
                 <tr>
-                    <th>Time</th>
-                    <th>Type</th>
-                    <th>Event</th>
+                    <th></th>
                     <th></th>
                 </tr>
             </thead>
@@ -201,21 +199,24 @@ $var title = sensor_id
 
                 jQuery('#timeline').prepend(
                     jQuery('<tr>').append(
-                        jQuery('<td>').html( ts_to_time( Math.floor( e[ 0 ] ) ) )
-                    ).append(
-                        jQuery('<td>').html( e[ 1 ] )
-                    ).append(
-                        eventContent
-                    ).append(
-                        jQuery('<td>').append( jQuery('<a>').attr('href','/event?id=' + e[ 2 ] )
+                        jQuery('<td>').append( jQuery('<i>').html( ts_to_time( Math.floor( e[ 0 ] ) ) ) )
+                                      .append( jQuery('<br>') )
+                                      .append( jQuery('<div>').html( e[ 1 ] ) )
+                                      .append( jQuery('<br>') )
+                                      .append( jQuery('<br>') )
+                                      .append( jQuery('<a>').attr('href','/event?id=' + e[ 2 ] )
                                                             .attr('title','View Event')
                                                             .addClass('glyphicon' )
-                                                            .addClass('glyphicon-log-in') )
-                                      .append( jQuery('<br>') )
+                                                            .addClass('glyphicon-log-in')
+                                                            .css('font-size', '30px') )
+                                      .append(" ")
                                       .append( jQuery('<a>').attr('href','/explorer_view?id=' + e[ 4 ] )
                                                             .attr('title','Explore')
                                                             .addClass('glyphicon' )
-                                                            .addClass('glyphicon-tree-conifer'))
+                                                            .addClass('glyphicon-tree-conifer')
+                                                            .css('font-size', '30px') )
+                    ).append(
+                        eventContent
                     ).attr( 'id', e[ 2 ] )
                      .addClass( 't_event' )
                      .hide()
