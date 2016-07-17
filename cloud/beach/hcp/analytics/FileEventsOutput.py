@@ -32,8 +32,8 @@ class FileEventsOutput( Actor ):
             return
         self._file_logger = logging.getLogger( 'limacharlie_events_file' )
         handler = logging.handlers.RotatingFileHandler( os.path.join( self._output_dir, self.name ), 
-                                                        maxBytes = 1024 * 1024 * 10, 
-                                                        backupCount = 3 )
+                                                        maxBytes = parameters.get( 'max_bytes', 1024 * 1024 * 10 ), 
+                                                        backupCount = parameters.get( 'backup_count', 3 ) )
         handler.setFormatter( logging.Formatter( "%(message)s" ) )
         self._file_logger.setLevel( logging.INFO )
         self._file_logger.addHandler( handler )
