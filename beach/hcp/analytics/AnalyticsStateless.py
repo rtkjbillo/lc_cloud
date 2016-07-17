@@ -25,6 +25,7 @@ class AnalyticsStateless( Actor ):
         self.allConsumer = self.getActorHandleGroup( 'analytics/stateless/all/',
                                                      timeout = 30,
                                                      nRetries = 3 )
+        self.outputs = self.getActorHandleGroup( 'analytics/output/events/' )
 
         self.handle( 'analyze', self.analyze )
 
@@ -63,5 +64,6 @@ class AnalyticsStateless( Actor ):
             self.modulesLinux[ etype ].shoot( 'process', msg.data )
 
         self.allConsumer.shoot( 'process', msg.data )
+        self.outputs.shoot( 'log', msg.data )
 
         return ( True, )

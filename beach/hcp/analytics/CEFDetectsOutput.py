@@ -21,11 +21,11 @@ BEAdmin = Actor.importLib( '../admin_lib', 'BEAdmin' )
 import logging
 import logging.handlers
 
-class CEFOutput( Actor ):
+class CEFDetectsOutput( Actor ):
     def init( self, parameters ):
         self.admin = BEAdmin( parameters[ 'beach_config' ], None )
         Host.setDatabase( self.admin, parameters[ 'scale_db' ] )
-        self._cef_logger = logging.getLogger( 'limacharlie_cef' )
+        self._cef_logger = logging.getLogger( 'limacharlie_detects_cef' )
         handler = logging.handlers.SysLogHandler( address = parameters.get( 'siem_server', '/dev/log' ) )
         handler.setFormatter( logging.Formatter( "%(message)s" ) )
         self._cef_logger.setLevel( logging.INFO )
@@ -37,7 +37,6 @@ class CEFOutput( Actor ):
         Host.closeDatabase()
 
     def report( self, msg ):
-        self.log( "report" )
         event_ids = msg.data[ 'msg_ids' ]
         category = msg.data[ 'cat' ]
         source = msg.data[ 'source' ].split( ' / ' )

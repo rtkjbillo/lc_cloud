@@ -35,7 +35,7 @@ class AnalyticsReporting( Actor ):
         self.report_stmt_tl = self.db.prepare( 'INSERT INTO report_timeline ( d, ts, repid ) VALUES ( ?, now(), ? ) USING TTL %d' % ( 60 * 60 * 24 * 7 * 4 ) )
         self.report_stmt_tl.consistency_level = CassDb.CL_Ingest
 
-        self.outputs = self.getActorHandleGroup( 'analytics/output/' )
+        self.outputs = self.getActorHandleGroup( 'analytics/output/detects/' )
 
         self.db.start()
         self.handle( 'report', self.report )
