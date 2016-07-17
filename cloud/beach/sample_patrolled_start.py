@@ -237,12 +237,17 @@ Patrol( 'AnalyticsReporting',
             'isIsolated' : True } )
 
 #######################################
-# CEFOutput
+# CEFDetectsOutput
 # This actor receives Detecs from the
 # reporting actor and outputs them to
 # a CEF-based SIEM.
 # Parameters:
-# url: the destination of the logs.
+# siem_server: the log destination.
+# lc_web: the base url for the LC GUI.
+# scale_db: connection information to
+#   Cassandra scale database.
+# beach_config: the path to the beach
+#   config file.
 #######################################
 Patrol( 'CEFOutput',
         initialInstances = 1,
@@ -250,8 +255,8 @@ Patrol( 'CEFOutput',
         relaunchOnFailure = True,
         onFailureCall = None,
         scalingFactor = 10000,
-        actorArgs = ( 'analytics/CEFOutput',
-                      'analytics/output/cef/1.0' ),
+        actorArgs = ( 'analytics/CEFDetectsOutput',
+                      'analytics/output/detects/cef/1.0' ),
         actorKwArgs = {
             'parameters' : { 'siem_server' : '/dev/log',
                              'lc_web' : '127.0.0.1',
@@ -261,6 +266,30 @@ Patrol( 'CEFOutput',
             'trustedIdents' : [ 'reporting/9ddcc95e-274b-4a49-a003-c952d12049b8' ],
             'n_concurrent' : 5,
             'isIsolated' : True } )
+
+#######################################
+# FileEventsOutput
+# This actor writes out all events as
+# files to the disk for ingestion in
+# other systems like Splunk.
+# Parameters:
+# output_dir: the directory where
+#   events get written to.
+#######################################
+Patrol( 'FileEventsOutput',
+        initialInstances = 1,
+        maxInstances = None,
+        relaunchOnFailure = True,
+        onFailureCall = None,
+        scalingFactor = 10000,
+        actorArgs = ( 'analytics/FileEventsOutput',
+                      'analytics/output/events/file/1.0' ),
+        actorKwArgs = {
+            'parameters' : { 'output_dir' : '/tmp/lc_out/' },
+            'secretIdent' : 'output/bf73a858-8f05-45ab-9ead-05493e29429a',
+            'trustedIdents' : [ 'analysis/038528f5-5135-4ca8-b79f-d6b8ffc53bf5' ],
+            'n_concurrent' : 5,
+            'isIsolated' : False } )
 
 #######################################
 # AnalyticsInvestigation
