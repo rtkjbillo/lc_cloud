@@ -484,7 +484,7 @@ class Explorer:
         try:
             effectiveId = str( uuid.UUID( params.id ) )
         except:
-            effectiveId = str( uuid.UUID( bytes = base64.b64decode( params.id ) ) )
+            effectiveId = str( uuid.UUID( bytes = base64.b64decode( params.id.replace( ' ', '+' ) ) ) )
 
         info = model.request( 'get_atoms_from_root', { 'id' : effectiveId } )
 
