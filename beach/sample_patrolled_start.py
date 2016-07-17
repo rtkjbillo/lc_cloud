@@ -275,6 +275,10 @@ Patrol( 'CEFOutput',
 # Parameters:
 # output_dir: the directory where
 #   events get written to.
+# max_bytes: max size of single log
+#   file before being rotated.
+# backup_count: number of rotated 
+#   files to keep.
 #######################################
 Patrol( 'FileEventsOutput',
         initialInstances = 1,
