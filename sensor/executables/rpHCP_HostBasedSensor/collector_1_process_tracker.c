@@ -267,6 +267,8 @@ static RBOOL
         }
         else
         {
+            rSequence_addBUFFER( info, RP_TAGS_HBS_PARENT_ATOM, parentAtom.id, sizeof( parentAtom.id ) );
+
             if( hbs_publish( RP_TAGS_NOTIFICATION_TERMINATE_PROCESS, info ) )
             {
                 isSuccess = TRUE;

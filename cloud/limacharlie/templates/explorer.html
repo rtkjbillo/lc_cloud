@@ -139,8 +139,8 @@ var nodeEnter = node.enter().append("g")
             .style("opacity", .95);
         details .html(
                 '<center style="background-color:#ddd; font-weight: bold;">' +
-                '<a href="explorer_view?id=' + d.parent.name + '">Center on Parent</a><br/>' +
-                '<a href="explorer_view?id=' + d.name + '">Center on This</a><br/>' +
+                '<a href="explorer_view?id=' + encodeURIComponent( d.parent ) + '">Center on Parent</a><br/>' +
+                '<a href="explorer_view?id=' + encodeURIComponent( d.name ) + '">Center on This</a><br/>' +
                 '</center>' +
                 '<pre>' + JSON.stringify( d.data, null, 4 ) + "</pre>"
             )
