@@ -70,6 +70,7 @@ RVOID
     CryptoLib_Hash hash = { 0 };
     RPU8 pAtomId = NULL;
     RU32 atomSize = 0;
+    Atom tmpAtom = { 0 };
 
     if( NULL != notif )
     {
@@ -99,21 +100,15 @@ RVOID
                       CryptoLib_hash( fileContent, fileSize, &hash ) ) ||
                     CryptoLib_hashFileW( fileW, &hash, TRUE ) ) ) )
             {
-                if( rSequence_getBUFFER( notif, RP_TAGS_HBS_THIS_ATOM, &pAtomId, &atomSize ) )
-                {
-                    // We acquired the hash, either by reading the entire file in memory
-                    // which we will use for caching, or if it was too big by hashing it
-                    // sequentially on disk.
-                    rSequence_unTaintRead( notif );
-                    rSequence_addBUFFER( notif, RP_TAGS_HBS_PARENT_ATOM, pAtomId, atomSize );
-                }
-                else
-                {
-                    // We acquired the hash, either by reading the entire file in memory
-                    // which we will use for caching, or if it was too big by hashing it
-                    // sequentially on disk.
-                    rSequence_unTaintRead( notif );
-                }
+                // We acquired the hash, either by reading the entire file in memory
+                // which we will use for caching, or if it was too big by hashing it
+                // sequentially on disk.
+                rSequence_getBUFFER( notif, RP_TAGS_HBS_THIS_ATOM, &pAtomId, &atomSize );
+                rpal_memory_memcpy( tmpAtom.id, pAtomId, sizeof( tmpAtom.id ) );
+                rSequence_unTaintRead( notif );
+                rSequence_removeElement( notif, RP_TAGS_HBS_THIS_ATOM, RPCM_BUFFER );
+                rSequence_addBUFFER( notif, RP_TAGS_HBS_PARENT_ATOM, tmpAtom.id, sizeof( tmpAtom.id ) );
+
                 rSequence_addBUFFER( notif, RP_TAGS_HASH, (RPU8)&hash, sizeof( hash ) );
                 hbs_publish( RP_TAGS_NOTIFICATION_NEW_DOCUMENT, notif );
             }
