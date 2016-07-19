@@ -29,6 +29,7 @@ class WinSuspExecLoc ( StatelessActor ):
                        'wbem' : re.compile( r'.*\\windows\\wbem\\.*', re.IGNORECASE ),
                        'addins' : re.compile( r'.*\\windows\\addins\\.*', re.IGNORECASE ),
                        'debug' : re.compile( r'.*\\windows\\debug\\.*', re.IGNORECASE ),
+                       'perflogs' : re.compile( r'.*\\perflogs\\.*', re.IGNORECASE ),
                        'virt_device' : re.compile( r'\\\\\\.\\.*', re.IGNORECASE ) }
 
     def process( self, detects, msg ):
