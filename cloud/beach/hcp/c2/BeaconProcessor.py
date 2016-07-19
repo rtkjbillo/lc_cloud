@@ -434,12 +434,14 @@ class BeaconProcessor( Actor ):
         #   Forward To Analytics Cloud
         #===========================================================
         i = 0
+        ingestTime = time.time()
         for message in session[ 'messages' ]:
             # We normalize the HCP beacon as we send it to analysis
             session[ 'analysis_events' ].append( ( { 'agentid' : session[ 'agentid' ],
                                                      'moduleid' : session[ 'moduleid' ],
                                                      'event_type' : 'HCP_BEACON',
-                                                     'event_id' : hashlib.sha256( '%s-%d' % ( session[ 'tx_id' ], i ) ).hexdigest() },
+                                                     'event_id' : hashlib.sha256( '%s-%d' % ( session[ 'tx_id' ], i ) ).hexdigest(),
+                                                     'ingest_time' : ingestTime },
                                                    { 'HCP_BEACON' : message } ) )
             i += 1
 
