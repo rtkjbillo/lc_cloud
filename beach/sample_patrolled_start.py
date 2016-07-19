@@ -485,6 +485,34 @@ Patrol( 'VirusTotalActor',
                                 'hunt/8e0f55c0-6593-4747-9d02-a4937fa79517' ],
             'n_concurrent' : 1 } )
 
+#######################################
+# StatsComputer
+# This actor computes stats on Objects
+# and their relationships to determine
+# which ones can be used as strong
+# outliers for runtime detection.
+# Parameters:
+# scale_db: the Cassandra seed nodes to
+#    connect to for storage.
+# beach_config: path to the beach config.
+#######################################
+Patrol( 'StatsComputer',
+        initialInstances = 1,
+        maxInstances = None,
+        relaunchOnFailure = True,
+        onFailureCall = None,
+        scalingFactor = 100000,
+        actorArgs = ( 'analytics/StatsComputer',
+                      'analytics/stats/1.0' ),
+        actorKwArgs = {
+            'parameters' : { 'scale_db' : SCALE_DB,
+                             'beach_config' : BEACH_CONFIG_FILE },
+            'secretIdent' : 'stats/3088dc10-b40c-40f8-bf3a-d07be4758098',
+            'trustedIdents' : [ 'analysis/038528f5-5135-4ca8-b79f-d6b8ffc53bf5',
+                                'hunt/8e0f55c0-6593-4747-9d02-a4937fa79517' ],
+            'n_concurrent' : 5,
+            'isIsolated' : True } )
+
 ###############################################################################
 # Stateless Detection
 ###############################################################################
@@ -504,6 +532,25 @@ Patrol( 'TestDetection',
         scalingFactor = 1000,
         actorArgs = ( 'analytics/stateless/TestDetection',
                       'analytics/stateless/common/notification.NEW_PROCESS/testdetection/1.0' ),
+        actorKwArgs = {
+            'parameters' : {},
+            'secretIdent' : 'analysis/038528f5-5135-4ca8-b79f-d6b8ffc53bf5',
+            'trustedIdents' : [ 'analysis/038528f5-5135-4ca8-b79f-d6b8ffc53bf5' ],
+            'n_concurrent' : 5 } )
+
+#######################################
+# stateless/ActiveDirectoryReference
+# This actor looks for execution with a
+# command line referencing the AD DB.
+#######################################
+Patrol( 'ActiveDirectoryReference',
+        initialInstances = 1,
+        maxInstances = None,
+        relaunchOnFailure = True,
+        onFailureCall = None,
+        scalingFactor = 1000,
+        actorArgs = ( 'analytics/stateless/WinSuspExecLoc',
+                      [ 'analytics/stateless/windows/notification.NEW_PROCESS/suspexecloc/1.0' ] ),
         actorKwArgs = {
             'parameters' : {},
             'secretIdent' : 'analysis/038528f5-5135-4ca8-b79f-d6b8ffc53bf5',
