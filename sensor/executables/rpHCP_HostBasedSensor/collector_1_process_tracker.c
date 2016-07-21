@@ -410,6 +410,26 @@ static RVOID
     RU32 nProcessEntries = 0;
     KernelAcqProcess new_from_kernel[ 200 ] = { 0 };
     processEntry tracking_user[ MAX_SNAPSHOT_SIZE ] = { 0 };
+    processLibProcEntry* tmpProcesses = NULL;
+    Atom tmpAtom = { 0 };
+
+    // Prime the list of tracked processes so we see them terminate
+    // and we have their Atoms.
+    if( NULL != ( tmpProcesses = processLib_getProcessEntries( FALSE ) ) )
+    {
+        for( i = 0; i < MAX_SNAPSHOT_SIZE; i++ )
+        {
+            if( 0 == tmpProcesses[ i ].pid ) break;
+            tracking_user[ i ].pid = tmpProcesses[ i ].pid;
+            tracking_user[ i ].ppid = 0;
+            tmpAtom.key.category = RP_TAGS_NOTIFICATION_NEW_PROCESS;
+            tmpAtom.key.process.pid = tmpProcesses[ i ].pid;
+            atoms_register( &tmpAtom );
+        }
+
+        rpal_memory_free( tmpProcesses );
+        tmpProcesses = NULL;
+    }
     
     while( !rEvent_wait( isTimeToStop, 1000 ) )
     {
