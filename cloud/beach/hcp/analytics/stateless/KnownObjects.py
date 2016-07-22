@@ -19,8 +19,8 @@ StatelessActor = Actor.importLib( '../../Detects', 'StatelessActor' )
 RingCache = Actor.importLib( '../../hcp_helpers', 'RingCache' )
 
 class KnownObjects ( StatelessActor ):
-    def init( self, parameters ):
-        super( KnownObjects, self ).init( parameters )
+    def init( self, parameters, resources ):
+        super( KnownObjects, self ).init( parameters, resources )
 
         self.known = {}
         self.infoCache = RingCache( maxEntries = 100, isAutoAdd = False )

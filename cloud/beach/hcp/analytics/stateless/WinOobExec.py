@@ -19,8 +19,8 @@ StatelessActor = Actor.importLib( '../../Detects', 'StatelessActor' )
 _x_ = Actor.importLib( '../../hcp_helpers', '_x_' )
 
 class WinOobExec ( StatelessActor ):
-    def init( self, parameters ):
-        super( WinOobExec, self ).init( parameters )
+    def init( self, parameters, resources ):
+        super( WinOobExec, self ).init( parameters, resources )
         self.dotNet = re.compile( r'.*\\Microsoft.NET\\.*' )
 
     def process( self, detects, msg ):

@@ -19,8 +19,8 @@ StatelessActor = Actor.importLib( '../../Detects', 'StatelessActor' )
 _xm_ = Actor.importLib( '../../hcp_helpers', '_xm_' )
 
 class ActiveDirectoryReference ( StatelessActor ):
-    def init( self, parameters ):
-        super( ActiveDirectoryReference, self ).init( parameters )
+    def init( self, parameters, resources ):
+        super( ActiveDirectoryReference, self ).init( parameters, resources )
 
     def process( self, detects, msg ):
         routing, event, mtd = msg.data

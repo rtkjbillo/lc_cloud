@@ -17,7 +17,7 @@ import virustotal
 RingCache = Actor.importLib( '../hcp_helpers', 'RingCache' )
 
 class VirusTotalActor ( Actor ):
-    def init( self, parameters ):
+    def init( self, parameters, resources ):
         self.key = parameters.get( '_key', None )
         if self.key is None: self.logCritical( 'missing API key' )
 

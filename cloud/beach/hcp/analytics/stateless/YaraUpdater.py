@@ -25,8 +25,8 @@ import urllib2
 import yara
 
 class YaraUpdater ( StatelessActor ):
-    def init( self, parameters ):
-        super( YaraUpdater, self ).init( parameters )
+    def init( self, parameters, resources ):
+        super( YaraUpdater, self ).init( parameters, resources )
         self.rulesDir = parameters.get( 'rules_dir', None )
         if self.rulesDir is not None:
             self.rulesDir = os.path.abspath( self.rulesDir )

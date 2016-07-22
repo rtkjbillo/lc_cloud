@@ -19,8 +19,8 @@ StatelessActor = Actor.importLib( '../../Detects', 'StatelessActor' )
 _xm_ = Actor.importLib( '../../hcp_helpers', '_xm_' )
 
 class BatchSelfDelete ( StatelessActor ):
-    def init( self, parameters ):
-        super( BatchSelfDelete, self ).init( parameters )
+    def init( self, parameters, resources ):
+        super( BatchSelfDelete, self ).init( parameters, resources )
 
         self.self_del = re.compile( r'.*\& +(?:(?:del)|(?:rmdir)) .*', re.IGNORECASE )
 

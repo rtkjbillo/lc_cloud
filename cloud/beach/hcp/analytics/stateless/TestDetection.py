@@ -17,8 +17,8 @@ StatelessActor = Actor.importLib( '../../Detects', 'StatelessActor' )
 ObjectTypes = Actor.importLib( '../../ObjectsDb', 'ObjectTypes' )
 
 class TestDetection ( StatelessActor ):
-    def init( self, parameters ):
-        super( TestDetection, self ).init( parameters )
+    def init( self, parameters, resources ):
+        super( TestDetection, self ).init( parameters, resources )
 
     def process( self, detects, msg ):
         routing, event, mtd = msg.data

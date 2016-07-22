@@ -19,8 +19,8 @@ StatelessActor = Actor.importLib( '../../Detects', 'StatelessActor' )
 _xm_ = Actor.importLib( '../../hcp_helpers', '_xm_' )
 
 class MacSuspExecLoc ( StatelessActor ):
-    def init( self, parameters ):
-        super( MacSuspExecLoc, self ).init( parameters )
+    def init( self, parameters, resources ):
+        super( MacSuspExecLoc, self ).init( parameters, resources )
         self.slocs = { 'shared' : re.compile( r'/Users/Shared/.*' ),
                        'hidden_dir' : re.compile( r'.*/\..+/.*' ) }
 

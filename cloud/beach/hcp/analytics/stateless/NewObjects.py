@@ -22,8 +22,8 @@ CassPool = Actor.importLib( '../../hcp_databases', 'CassPool' )
 from sets import Set
 
 class NewObjects ( StatelessActor ):
-    def init( self, parameters ):
-        super( NewObjects, self ).init( parameters )
+    def init( self, parameters, resources ):
+        super( NewObjects, self ).init( parameters, resources )
         self.db = parameters[ 'db' ]
         self.typesOfInterest = Set( parameters.get( 'types', [] ) )
         self.typesOfInterest = map( lambda x: ObjectTypes.forward[ x ], self.typesOfInterest )

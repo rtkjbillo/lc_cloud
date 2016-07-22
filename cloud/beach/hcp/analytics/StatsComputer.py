@@ -21,7 +21,7 @@ AgentId = Actor.importLib( '../hcp_helpers', 'AgentId' )
 chunks = Actor.importLib( '../hcp_helpers', 'chunks' )
 
 class StatsComputer( Actor ):
-    def init( self, parameters ):
+    def init( self, parameters, resources ):
         HostObjects.setDatabase( parameters[ 'scale_db' ] )
         self.be = BEAdmin( parameters[ 'beach_config' ], None )
 

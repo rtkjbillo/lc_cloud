@@ -18,8 +18,8 @@ StatelessActor = Actor.importLib( '../../Detects', 'StatelessActor' )
 RingCache = Actor.importLib( '../../hcp_helpers', 'RingCache' )
 
 class VirusTotalKnownBad ( StatelessActor ):
-    def init( self, parameters ):
-        super( VirusTotalKnownBad, self ).init( parameters )
+    def init( self, parameters, resources ):
+        super( VirusTotalKnownBad, self ).init( parameters, resources )
 
         self.vtReport = self.getActorHandle( 'analytics/virustotal' )
 

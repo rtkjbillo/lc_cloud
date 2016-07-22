@@ -17,8 +17,8 @@ ObjectTypes = Actor.importLib( '../../ObjectsDb', 'ObjectTypes' )
 StatelessActor = Actor.importLib( '../../Detects', 'StatelessActor' )
 
 class HiddenModules ( StatelessActor ):
-    def init( self, parameters ):
-        super( HiddenModules, self ).init( parameters )
+    def init( self, parameters, resources ):
+        super( HiddenModules, self ).init( parameters, resources )
 
     def process( self, detects, msg ):
         routing, event, mtd = msg.data
