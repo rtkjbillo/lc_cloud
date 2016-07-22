@@ -491,6 +491,17 @@ class Explorer:
         if not info.isSuccess:
             raise web.HTTPError( '503 Service Unavailable : %s' % str( info ) )
 
+        # Make sure the root is present
+        info.data = list( info.data )
+        isFound = False
+        effectiveId = base64.b64encode( uuid.UUID( effectiveId ).get_bytes() )
+        for atom in info.data:
+            if effectiveId == atom.values()[0]['hbs.THIS_ATOM']:
+                isFound = True
+                break
+        if not isFound:
+            info.data.append( { 'UNKNOWN' : { 'hbs.THIS_ATOM' : effectiveId } } )
+
         return info.data
 
 
