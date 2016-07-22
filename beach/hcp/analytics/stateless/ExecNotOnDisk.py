@@ -18,8 +18,8 @@ StatelessActor = Actor.importLib( '../../Detects', 'StatelessActor' )
 _x_ = Actor.importLib( '../../hcp_helpers', '_x_' )
 
 class ExecNotOnDisk ( StatelessActor ):
-    def init( self, parameters ):
-        super( ExecNotOnDisk, self ).init( parameters )
+    def init( self, parameters, resources ):
+        super( ExecNotOnDisk, self ).init( parameters, resources )
 
     def process( self, detects, msg ):
         routing, event, mtd = msg.data

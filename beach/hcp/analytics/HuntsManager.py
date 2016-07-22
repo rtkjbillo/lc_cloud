@@ -18,7 +18,7 @@ from beach.beach_api import Beach
 from sets import Set
 
 class HuntsManager( Actor ):
-    def init( self, parameters ):
+    def init( self, parameters, resources ):
         self.beach_api = Beach( parameters[ 'beach_config' ], realm = 'hcp' )
         self.handle( 'reg_detect', self.handleRegDetect )
         self.handle( 'reg_inv', self.handleRegInvestigation )

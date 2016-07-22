@@ -19,7 +19,7 @@ from sets import Set
 HcpCli = Actor.importLib( '../admin_cli', 'HcpCli' )
 
 class AutoTasking( Actor ):
-    def init( self, parameters ):
+    def init( self, parameters, resources ):
         self.hbs_key = parameters.get( '_hbs_key', None )
         if self.hbs_key is None: raise Exception( 'missing HBS key' )
         self.cli = HcpCli( parameters[ 'beach_config' ],

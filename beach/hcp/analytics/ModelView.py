@@ -30,7 +30,7 @@ _xm_ = Actor.importLib( '../hcp_helpers', '_xm_' )
 _x_ = Actor.importLib( '../hcp_helpers', '_x_' )
 
 class ModelView( Actor ):
-    def init( self, parameters ):
+    def init( self, parameters, resources ):
         self.admin = BEAdmin( parameters[ 'beach_config' ], None )
         Host.setDatabase( self.admin, parameters[ 'scale_db' ] )
         HostObjects.setDatabase( parameters[ 'scale_db' ] )

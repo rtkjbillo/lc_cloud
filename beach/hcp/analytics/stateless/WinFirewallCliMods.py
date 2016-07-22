@@ -19,8 +19,8 @@ StatelessActor = Actor.importLib( '../../Detects', 'StatelessActor' )
 _xm_ = Actor.importLib( '../../hcp_helpers', '_xm_' )
 
 class WinFirewallCliMods ( StatelessActor ):
-    def init( self, parameters ):
-        super( WinFirewallCliMods, self ).init( parameters )
+    def init( self, parameters, resources ):
+        super( WinFirewallCliMods, self ).init( parameters, resources )
 
         self.re_rule_modif = [ re.compile( r'.*firewall.*add.*rule.*', re.IGNORECASE ),
                       re.compile( r'.*firewall.*set.disable.*', re.IGNORECASE ),
