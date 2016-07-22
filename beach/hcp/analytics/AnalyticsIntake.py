@@ -22,12 +22,12 @@ ObjectNormalForm = Actor.importLib( '../ObjectsDb', 'ObjectNormalForm' )
 AgentId = Actor.importLib( '../hcp_helpers', 'AgentId' )
 
 class AnalyticsIntake( Actor ):
-    def init( self, parameters ):
+    def init( self, parameters, resources ):
         self.handle( 'analyze', self.analyze )
-        self.analytics_stateless = self.getActorHandle( 'analytics/stateless/intake', timeout = 30, nRetries = 3 )
-        self.analytics_stateful = self.getActorHandle( 'analytics/stateful/intake', timeout = 30, nRetries = 3 )
-        self.analytics_modeling = self.getActorHandle( 'analytics/modeling/intake', timeout = 120, nRetries = 3 )
-        self.analytics_investigation = self.getActorHandle( 'analytics/investigation/intake', timeout = 120, nRetries = 3 )
+        self.analytics_stateless = self.getActorHandle( resources[ 'stateless' ], timeout = 30, nRetries = 3 )
+        self.analytics_stateful = self.getActorHandle( resources[ 'stateful' ], timeout = 30, nRetries = 3 )
+        self.analytics_modeling = self.getActorHandle( resources[ 'modeling' ], timeout = 120, nRetries = 3 )
+        self.analytics_investigation = self.getActorHandle( resources[ 'investigation' ], timeout = 120, nRetries = 3 )
 
     def deinit( self ):
         pass

@@ -45,14 +45,17 @@ class Detects( object ):
         return self._detects.__iter__()
 
 class StatelessActor ( Actor ):
-    def init( self, parameters ):
+    def init( self, parameters, resources ):
         if not hasattr( self, 'process' ):
             raise Exception( 'Stateless Actor has no "process" function' )
-        self._reporting = self.getActorHandle( 'analytics/report' )
-        self._tasking = CreateOnAccess( self.getActorHandle, 'analytics/autotasking', mode = 'affinity' )
+        self._reporting = self.getActorHandle( resources.get( 'report', 'analytics/report' ) )
+        self._tasking = CreateOnAccess( self.getActorHandle, 
+                                        resources.get( 'autotasking', 'analytics/autotasking' ), 
+                                        mode = 'affinity' )
         self._cat = type( self ).__name__
         self._cat = self._cat[ self._cat.rfind( '.' ) + 1 : ]
-        self._detects = CreateOnAccess( self.getActorHandle, 'analytics/detects/%s' % self._cat )
+        self._detects = CreateOnAccess( self.getActorHandle, 
+                                        resources.get( 'detects', 'analytics/detects/%s' ) % self._cat )
         self.handle( 'process', self._process )
 
     def task( self, dest, cmdsAndArgs, expiry = None, inv_id = None ):
@@ -100,7 +103,7 @@ class StatelessActor ( Actor ):
         return ( True, )
 
 class StatefulActor ( Actor ):
-    def init( self, parameters ):
+    def init( self, parameters, resources ):
         self._compiled_machines = {}
         self._machine_activity = {}
         self._machine_ttl = parameters.get( 'machine_ttl', ( 60 * 60 * 24 * 30 ) )
@@ -110,11 +113,16 @@ class StatefulActor ( Actor ):
         self._machines = []
         self.initMachines( parameters )
 
+        self._detectsEndpoint = resources.get( 'detects', 'analytics/detects/%s' )
+
         if not hasattr( self, 'shardingKey' ):
             raise Exception( 'Stateful Actor has no associated shardingKey (or None)' )
 
-        self._reporting = CreateOnAccess( self.getActorHandle, 'analytics/report' )
-        self._tasking = CreateOnAccess( self.getActorHandle, 'analytics/autotasking', mode = 'affinity' )
+        self._reporting = CreateOnAccess( self.getActorHandle, 
+                                          resources.get( 'report', 'analytics/report' ) )
+        self._tasking = CreateOnAccess( self.getActorHandle, 
+                                        resources.get( 'autotasking', 'analytics/autotasking' ), 
+                                        mode = 'affinity' )
         self._detects = {}
         self.handle( 'process', self._process )
 
@@ -181,7 +189,7 @@ class StatefulActor ( Actor ):
                                                reportSummary )
                 self._reporting.shoot( 'report', report )
                 self._detects.setdefault( reportType,
-                                          self.getActorHandle( 'analytics/detects/%s' % reportType ) ).broadcast( 'detect', report )
+                                          self.getActorHandle( self._detectsEndpoint % reportType ) ).broadcast( 'detect', report )
             if not isStayAlive:
                 del( self._machine_activity[ machine ] )
                 currentShard.remove( machine )

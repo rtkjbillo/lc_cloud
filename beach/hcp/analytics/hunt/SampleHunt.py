@@ -20,7 +20,7 @@ _x_ = Actor.importLib( '../../hcp_helpers', '_x_' )
 class SampleHunt ( Hunt ):
     detects = ( 'TestDetection', )
 
-    def init( self, parameters ):
+    def init( self, parameters, resources ):
         super( SampleHunt, self ).init( parameters )
 
     def updateHunt( self, context, newMsg ):

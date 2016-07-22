@@ -31,7 +31,7 @@ RelationName = Actor.importLib( '../ObjectsDb', 'RelationName' )
 ObjectKey = Actor.importLib( '../ObjectsDb', 'ObjectKey' )
 
 class AnalyticsModeling( Actor ):
-    def init( self, parameters ):
+    def init( self, parameters, resources ):
         self._db = CassDb( parameters[ 'db' ], 'hcp_analytics', consistencyOne = True )
         self.db = CassPool( self._db,
                             rate_limit_per_sec = parameters[ 'rate_limit_per_sec' ],

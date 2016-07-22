@@ -22,7 +22,7 @@ CassPool = Actor.importLib( '../hcp_databases', 'CassPool' )
 CreateOnAccess = Actor.importLib( '../hcp_helpers', 'CreateOnAccess' )
 
 class AnalyticsReporting( Actor ):
-    def init( self, parameters ):
+    def init( self, parameters, resources ):
         self._db = CassDb( parameters[ 'db' ], 'hcp_analytics', consistencyOne = True )
         self.db = CassPool( self._db,
                             rate_limit_per_sec = parameters[ 'rate_limit_per_sec' ],
@@ -35,11 +35,11 @@ class AnalyticsReporting( Actor ):
         self.report_stmt_tl = self.db.prepare( 'INSERT INTO report_timeline ( d, ts, repid ) VALUES ( ?, now(), ? ) USING TTL %d' % ( 60 * 60 * 24 * 7 * 4 ) )
         self.report_stmt_tl.consistency_level = CassDb.CL_Ingest
 
-        self.outputs = self.getActorHandleGroup( 'analytics/output/detects/' )
+        self.outputs = self.getActorHandleGroup( resources[ 'output' ] )
 
         self.db.start()
         self.handle( 'report', self.report )
-        self.paging = CreateOnAccess( self.getActorHandle, 'paging' )
+        self.paging = CreateOnAccess( self.getActorHandle, resources[ 'paging' ] )
         self.pageDest = parameters.get( 'paging_dest', [] )
         if type( self.pageDest ) is str or type( self.pageDest ) is unicode:
             self.pageDest = [ self.pageDest ]

@@ -56,7 +56,7 @@ def NotParentProcessInHistory():
 
 def RunningPidReset():
     def _runningPidReset( history, event ):
-    	currentPid = _x_( event.event, 'notification.NEW_PROCESS/base.PROCESS_ID' )
+        currentPid = _x_( event.event, 'notification.NEW_PROCESS/base.PROCESS_ID' )
         if currentPid is None:
             currentPid = _x_( event.event, 'notification.TERMINATE_PROCESS/base.PROCESS_ID' )
         if currentPid is not None:
@@ -70,11 +70,11 @@ def RunningPidReset():
     return _runningPidReset
 
 def SensorRestart():
-	def _sensorRestart():
-		if( 'notification.STARTING_UP' == event.routing[ 'event_type' ] or
-    		'notification.SHUTTING_DOWN' == event.routing[ 'event_type' ] ):
-    		return True
-    	return False
+    def _sensorRestart():
+        if( 'notification.STARTING_UP' == event.routing[ 'event_type' ] or
+            'notification.SHUTTING_DOWN' == event.routing[ 'event_type' ] ):
+            return True
+        return False
 
 def AlwaysReturn( bValue ):
     def _alwaysReturn( history, event ):

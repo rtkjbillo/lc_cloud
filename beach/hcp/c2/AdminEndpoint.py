@@ -35,7 +35,7 @@ def audited( f ):
     return wrapped
 
 class AdminEndpoint( Actor ):
-    def init( self, parameters ):
+    def init( self, parameters, resources ):
         self.symbols = self.importLib( '../Symbols', 'Symbols' )()
         self.dbPool = PooledResource( lambda: HcpDb( parameters[ 'state_db' ][ 'url' ],
                                                      parameters[ 'state_db' ][ 'db' ],
@@ -64,7 +64,7 @@ class AdminEndpoint( Actor ):
         self.handle( 'hbs.del_profile', self.cmd_hbs_delProfile )
         self.handle( 'hbs.task_agent', self.cmd_hbs_taskAgent )
 
-        self.auditor = self.getActorHandle( 'c2/auditing', timeout = 5, nRetries = 3 )
+        self.auditor = self.getActorHandle( resources[ 'auditing' ], timeout = 5, nRetries = 3 )
 
     def deinit( self ):
         pass

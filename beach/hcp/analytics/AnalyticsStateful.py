@@ -16,21 +16,21 @@ from beach.actor import Actor
 AgentId = Actor.importLib( '../hcp_helpers', 'AgentId' )
 
 class AnalyticsStateful( Actor ):
-    def init( self, parameters ):
+    def init( self, parameters, resources ):
         self.handleCache = {}
-        self.statefulCommon = self.getActorHandleGroup( 'analytics/stateful/modules/common/',
+        self.statefulCommon = self.getActorHandleGroup( resources[ 'modules' ] % 'common',
                                                         mode = 'affinity',
                                                         timeout = 30,
                                                         nRetries = 3 )
-        self.statefulWindows = self.getActorHandleGroup( 'analytics/stateful/modules/windows/',
+        self.statefulWindows = self.getActorHandleGroup( resources[ 'modules' ] % 'windows',
                                                          mode = 'affinity',
                                                          timeout = 30,
                                                          nRetries = 3 )
-        self.statefulOsx = self.getActorHandleGroup( 'analytics/stateful/modules/osx/',
+        self.statefulOsx = self.getActorHandleGroup( resources[ 'modules' ] % 'osx',
                                                      mode = 'affinity',
                                                      timeout = 30,
                                                      nRetries = 3 )
-        self.statefulLinux = self.getActorHandleGroup( 'analytics/stateful/modules/linux/',
+        self.statefulLinux = self.getActorHandleGroup( resources[ 'modules' ] % 'linux',
                                                        mode = 'affinity',
                                                        timeout = 30,
                                                        nRetries = 3 )

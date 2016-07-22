@@ -22,7 +22,7 @@ import uuid
 import base64
 
 class FileEventsOutput( Actor ):
-    def init( self, parameters ):
+    def init( self, parameters, resources ):
         self._output_dir = parameters.get( 'output_dir', '/tmp/lc_out/' )
         if not os.path.exists( self._output_dir ):
             self.log( 'output directory does not exist, creating it' )
