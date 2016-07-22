@@ -18,10 +18,11 @@ AgentId = Actor.importLib( '../hcp_helpers', 'AgentId' )
 import time
 
 class AnalyticsInvestigation( Actor ):
-    def init( self, parameters ):
+    def init( self, parameters, resources ):
         self.ttl = parameters.get( 'ttl', 60 * 60 * 24 )
         self.handleCache = {}
         self.handleTtl = {}
+        self.invPath = resources[ 'investigations' ]
 
         self.handle( 'analyze', self.analyze )
         self.schedule( 60, self.invCulling )
@@ -43,7 +44,7 @@ class AnalyticsInvestigation( Actor ):
         inv_id = routing[ 'investigation_id' ]
 
         if inv_id not in self.handleCache:
-            handle = self.getActorHandle( 'analytics/inv_id/%s' % inv_id )
+            handle = self.getActorHandle( self.invPath % inv_id )
             self.handleCache[ inv_id ] = handle
             self.handleTtl[ inv_id ] = int( time.time() )
         else:

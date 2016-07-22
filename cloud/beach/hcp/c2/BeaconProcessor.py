@@ -34,7 +34,7 @@ HcpModuleId = Actor.importLib( '../hcp_helpers', 'HcpModuleId' )
 PooledResource = Actor.importLib( '../hcp_helpers', 'PooledResource' )
 
 class BeaconProcessor( Actor ):
-    def init( self, parameters ):
+    def init( self, parameters, resources ):
         self.private_key = M2Crypto.RSA.load_key_string( parameters[ '_priv_key' ] )
         self.handle( 'beacon', self.processBeacon )
         self.symbols = self.importLib( '../Symbols', 'Symbols' )()
@@ -46,7 +46,7 @@ class BeaconProcessor( Actor ):
                                                      isConnectRightAway = True ) )
         self.taskBackTimeout = parameters.get( 'task_back_timeout', 2 )
         self.deploymentKey = parameters.get( 'deployment_key', None )
-        self.analytics_intake = self.getActorHandle( 'analytics/intake' )
+        self.analytics_intake = self.getActorHandle( resources[ 'analytics' ] )
 
     def deinit( self ):
         pass

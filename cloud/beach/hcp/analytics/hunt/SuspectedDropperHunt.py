@@ -22,7 +22,7 @@ exeFromPath = Actor.importLib( '../../hcp_helpers', 'exeFromPath' )
 class SuspectedDropperHunt ( Hunt ):
     detects = ( 'WinSuspExecName', )
 
-    def init( self, parameters ):
+    def init( self, parameters, resources ):
         super( SuspectedDropperHunt, self ).init( parameters )
 
     def updateHunt( self, context, newMsg ):
