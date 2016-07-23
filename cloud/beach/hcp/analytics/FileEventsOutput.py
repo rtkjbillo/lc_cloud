@@ -24,6 +24,7 @@ import base64
 class FileEventsOutput( Actor ):
     def init( self, parameters, resources ):
         self._output_dir = parameters.get( 'output_dir', '/tmp/lc_out/' )
+        self._is_flat = parameters.get( 'is_flat', False )
         if not os.path.exists( self._output_dir ):
             self.log( 'output directory does not exist, creating it' )
             os.makedirs( self._output_dir )
@@ -59,10 +60,43 @@ class FileEventsOutput( Actor ):
 
         return o
 
+    def flattenRecord( self, o, newRoot = None, prefix = '' ):
+        isEntry = newRoot is None
+        if isEntry: newRoot = {}
+        if type( o ) is dict:
+            for k, v in o.iteritems():
+                if -1 != k.find( '.' ):
+                    newK = k[ k.find( '.' ) + 1 : ]
+                else:
+                    newK = k
+                if '' != prefix:
+                    newPrefix = '%s/%s' % ( prefix, newK )
+                else:
+                    newPrefix = newK
+                val = self.flattenRecord( v, newRoot, newPrefix )
+                if val is not None:
+                    newRoot[ newPrefix ] = val
+            return newRoot if isEntry else None
+        elif type( o ) is list or type( o ) is tuple:
+            i = 0
+            for v in o:
+                newPrefix = '%s_%d' % ( prefix, i )
+                val = self.flattenRecord( v, newRoot, newPrefix )
+                if val is not None:
+                    newRoot[ newPrefix ] = v
+                i += 1
+            return newRoot if isEntry else None
+        else:
+            return o
+
     def logToDisk( self, msg ):
         routing, event, mtd = msg.data
+
+        record = self.sanitizeJson( event )
+        if self._is_flat:
+            record = self.flattenRecord( record )
         
         self._file_logger.info( json.dumps( { 'routing' : routing, 
-                                              'event' : self.sanitizeJson( event ) } ) )
+                                              'event' : record } ) )
 
         return ( True, )
