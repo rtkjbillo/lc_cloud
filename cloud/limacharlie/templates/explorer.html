@@ -50,23 +50,15 @@ var tree = d3.layout.tree()
 var diagonal = d3.svg.diagonal()
     .projection(function(d) { return [d.y, d.x]; });
 
-var svg = d3.select("#main-container")
-   .append("div")
-   .style("overflow-x", "scroll")
-   .style("overflow-y", "scroll")
-   .style("width","500px")
-   .style("height","500px")
-   .style("border-width", "4px")
-   .style("border-style", "solid")
-   .style("border-radius", "10px")
-   .style("resize", "both")
-   .append("svg")
-   .attr("height","10000")
-   .attr("width","10000");
-   //.attr("viewBox", "0,0,2000,2000");
+var svg;
 
 // load the external data
 d3.json("/explorer?id=$id", function(error, data) {
+
+    svg = d3.select("#main-container")
+       .append("svg")
+       .attr("height","" + (data.length * 30) + "px")
+       .attr("width","" + (data.length * 200) + "px");
 
     data = data.map(function(elem){
         n = { data : elem };

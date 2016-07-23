@@ -30,8 +30,10 @@ function display_ct()
     var x = new Date()
     var x1 = x.getUTCFullYear() + "-" + pad( x.getUTCMonth() + 1, 2 ) + "-" + pad( x.getUTCDate(), 2 );
     x1 = x1 + " " +  pad( x.getUTCHours(), 2 ) + ":" +  pad( x.getUTCMinutes(), 2 ) + ":" +  pad( x.getUTCSeconds(), 2 );
-    document.getElementById('utc_clock').innerHTML = x1;
-    tt=display_c();
+    if( document.getElementById('utc_clock') ){
+        document.getElementById('utc_clock').innerHTML = x1;
+        tt=display_c();
+    }
 }
 
 $( document ).ready(function() {

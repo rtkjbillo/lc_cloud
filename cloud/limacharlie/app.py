@@ -512,7 +512,7 @@ class ExplorerView:
         if params.id is None:
             return render.error( 'requires an initial id' )
 
-        return render.explorer( id = params.id )
+        return renderFullPage.explorer( id = params.id )
 
 class Backend:
     def GET( self ):
@@ -559,6 +559,13 @@ render = web.template.render( 'templates', base = 'base', globals = { 'json' : j
                                                                       '_xm_' : _xm_,
                                                                       'hex' : hex,
                                                                       'sanitize' : sanitizeJson } )
+
+renderFullPage = web.template.render( 'templates', base = 'base_full', globals = { 'json' : json,
+                                                                                   'msTsToTime' : msTsToTime,
+                                                                                   '_x_' : _x_,
+                                                                                   '_xm_' : _xm_,
+                                                                                   'hex' : hex,
+                                                                                   'sanitize' : sanitizeJson } )
 eventRender = web.template.render( 'templates/custom_events', globals = { 'json' : json,
                                                                           'msTsToTime' : msTsToTime,
                                                                           '_x_' : _x_,

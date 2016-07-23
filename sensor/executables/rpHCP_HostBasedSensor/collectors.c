@@ -451,7 +451,9 @@ HbsDelayBuffer
     {
         hdb->nMilliSeconds = nMilliSeconds;
         hdb->oldestItem = (RTIME)(-1);
-        if( NULL == ( hdb->events = rpal_btree_create( sizeof( _EventStub ), _cmpEventTimes, _freeStub ) ) ||
+        if( NULL == ( hdb->events = rpal_btree_create( sizeof( _EventStub ),
+                                                       (rpal_btree_comp_f)_cmpEventTimes,
+                                                       (rpal_btree_free_f)_freeStub ) ) ||
             NULL == ( hdb->newElemEvent = rEvent_create( FALSE ) ) ||
             NULL == ( hdb->mutex = rMutex_create() ) )
         {
