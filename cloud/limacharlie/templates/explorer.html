@@ -58,7 +58,7 @@ d3.json("/explorer?id=$id", function(error, data) {
     svg = d3.select("#main-container")
        .append("svg")
        .attr("height","" + (data.length * 30) + "px")
-       .attr("width","" + (data.length * 200) + "px");
+       .attr("width","" + (data.length * 300) + "px");
 
     data = data.map(function(elem){
         n = { data : elem };

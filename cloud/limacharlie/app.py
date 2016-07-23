@@ -494,9 +494,8 @@ class Explorer:
         # Make sure the root is present
         info.data = list( info.data )
         isFound = False
-        effectiveId = base64.b64encode( uuid.UUID( effectiveId ).get_bytes() )
         for atom in info.data:
-            if effectiveId == atom.values()[0]['hbs.THIS_ATOM']:
+            if effectiveId == str( uuid.UUID( bytes = atom.values()[0]['hbs.THIS_ATOM'] ) ):
                 isFound = True
                 break
         if not isFound:
