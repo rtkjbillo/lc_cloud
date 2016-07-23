@@ -19,7 +19,7 @@ from email.mime.text import MIMEText
 import smtplib
 
 class PagingActor( Actor ):
-    def init( self, parameters ):
+    def init( self, parameters, resources ):
         self.fromAddr = parameters.get( 'from', None )
         self.password = parameters.get( 'password', None )
         self.smtpServer = parameters.get( 'smtp_server', 'smtp.gmail.com' )

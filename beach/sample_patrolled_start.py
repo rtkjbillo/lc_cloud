@@ -293,6 +293,10 @@ Patrol( 'CEFOutput',
 #   file before being rotated.
 # backup_count: number of rotated 
 #   files to keep.
+# is_flat: set to True to format events
+#   into flat key/value records on 
+#   systems that don't support nesting
+#   like LogStash
 #######################################
 Patrol( 'FileEventsOutput',
         initialInstances = 1,
@@ -304,7 +308,8 @@ Patrol( 'FileEventsOutput',
                       'analytics/output/events/file/1.0' ),
         actorKwArgs = {
             'resources' : {},
-            'parameters' : { 'output_dir' : '/tmp/lc_out/' },
+            'parameters' : { 'output_dir' : '/tmp/lc_out/',
+                             'is_flat' : False },
             'secretIdent' : 'output/bf73a858-8f05-45ab-9ead-05493e29429a',
             'trustedIdents' : [ 'analysis/038528f5-5135-4ca8-b79f-d6b8ffc53bf5' ],
             'n_concurrent' : 5,
