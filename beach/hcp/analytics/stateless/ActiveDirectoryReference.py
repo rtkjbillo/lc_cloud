@@ -13,8 +13,6 @@
 # limitations under the License.
 
 from beach.actor import Actor
-import re
-ObjectTypes = Actor.importLib( '../../ObjectsDb', 'ObjectTypes' )
 StatelessActor = Actor.importLib( '../../Detects', 'StatelessActor' )
 _xm_ = Actor.importLib( '../../hcp_helpers', '_xm_' )
 
