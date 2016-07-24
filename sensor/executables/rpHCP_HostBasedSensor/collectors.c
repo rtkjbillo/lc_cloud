@@ -379,6 +379,7 @@ RBOOL
 typedef struct
 {
     rpcm_tag type;
+    RTIME ts;
     rSequence event;
 } _EventStub;
 
@@ -397,9 +398,9 @@ RS32
     if( NULL != evt1 &&
         NULL != evt2 )
     {
-        rSequence_getTIMESTAMP( evt1->event, RP_TAGS_TIMESTAMP, &t1 );
-        rSequence_getTIMESTAMP( evt2->event, RP_TAGS_TIMESTAMP, &t2 );
-        
+        t1 = evt1->ts;
+        t2 = evt2->ts;
+
         // First key is the time and the pointer value is the tie breaker.
         if( t1 > t2 )
         {
@@ -489,9 +490,11 @@ RBOOL
             stub.event = event;
             stub.type = eventType;
 
-            if( rpal_btree_add( pHdb->events, &stub, FALSE ) )
+            if( rSequence_getTIMESTAMP( event, RP_TAGS_TIMESTAMP, &newTime ) )
             {
-                if( rSequence_getTIMESTAMP( event, RP_TAGS_TIMESTAMP, &newTime ) )
+                stub.ts = newTime;
+
+                if( rpal_btree_add( pHdb->events, &stub, FALSE ) )
                 {
                     curTime = rpal_time_getGlobalPreciseTime();
 
@@ -500,9 +503,8 @@ RBOOL
                         pHdb->oldestItem = newTime;
                         rEvent_set( pHdb->newElemEvent );
                     }
+                    isAdded = TRUE;
                 }
-
-                isAdded = TRUE;
             }
             rMutex_unlock( pHdb->mutex );
         }
@@ -541,7 +543,6 @@ RBOOL
     RBOOL isSuccess = FALSE;
     _HbsDelayBuffer* pHdb = (_HbsDelayBuffer*)hdb;
     RTIME curTime = 0;
-    RTIME eventTime = 0;
     RTIME endWait = 0;
     RTIME toWait = 0;
     RBOOL isItemReady = FALSE;
@@ -582,9 +583,12 @@ RBOOL
                     toWait = milliSecTimeout;
                 }
 
-
                 rMutex_unlock( pHdb->mutex );
-                if( !rEvent_wait( pHdb->newElemEvent, (RU32)toWait ) )
+
+                // We add a sanity check for max timeout here since in some rare cases
+                // (mainly related to running both a Cloud and a sensor in VMs on a laptop
+                // going in hibernation) we could end up with wild values.
+                if( !rEvent_wait( pHdb->newElemEvent, (RU32)MIN_OF( toWait, milliSecTimeout ) ) )
                 {
                     isItemReady = TRUE;
                 }
@@ -596,17 +600,15 @@ RBOOL
             if( isItemReady )
             {
                 if( rpal_btree_minimum( pHdb->events, &stub, TRUE ) &&
-                    rSequence_getTIMESTAMP( stub.event, RP_TAGS_TIMESTAMP, &eventTime ) &&
-                    curTime >= eventTime + pHdb->nMilliSeconds &&
+                    curTime >= stub.ts + pHdb->nMilliSeconds &&
                     rpal_btree_remove( pHdb->events, &stub, &stub, TRUE ) )
                 {
                     *pEvent = stub.event;
                     *pEventType = stub.type;
-                    if( rpal_btree_minimum( pHdb->events, &stub, TRUE ) &&
-                        rSequence_getTIMESTAMP( stub.event, RP_TAGS_TIMESTAMP, &eventTime ) )
+                    if( rpal_btree_minimum( pHdb->events, &stub, TRUE ) )
                     {
 
-                        pHdb->oldestItem = eventTime;
+                        pHdb->oldestItem = stub.ts;
                     }
                     else
                     {

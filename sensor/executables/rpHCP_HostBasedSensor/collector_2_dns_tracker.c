@@ -35,9 +35,10 @@ static DnsFree_f freeCacheEntry = NULL;
 
 typedef struct
 {
-    RPWCHAR name;
     RU16 type;
+    RU16 unused;
     RU32 flags;
+    RPWCHAR name;
 
 } _dnsRecord;
 
@@ -65,6 +66,30 @@ RVOID
     }
 }
 
+static
+RS32
+    _cmpDns
+    (
+        _dnsRecord* rec1,
+        _dnsRecord* rec2
+    )
+{
+    RS32 ret = 0;
+
+    if( NULL != rec1 &&
+        NULL != rec2 )
+    {
+        if( 0 == ( ret = rpal_memory_memcmp( rec1, 
+                                             rec2, 
+                                             sizeof( *rec1 ) - sizeof( RPWCHAR ) ) ) )
+        {
+            ret = rpal_string_strcmpw( rec1->name, rec2->name );
+        }
+    }
+
+    return ret;
+}
+
 static 
 RPVOID
     dnsDiffThread
@@ -78,10 +103,7 @@ RPVOID
     rBlob snapPrev = NULL;
     _dnsRecord rec = { 0 };
     _dnsRecord* pCurRec = NULL;
-    _dnsRecord* pPrevRec = NULL;
     RU32 i = 0;
-    RU32 j = 0;
-    RBOOL isNew = FALSE;
     LibOsPerformanceProfile perfProfile = { 0 };
     
 #ifdef RPAL_PLATFORM_WINDOWS
@@ -122,6 +144,11 @@ RPVOID
                     freeCacheEntry( pPrevDnsEntry->pszName, DnsFreeFlat );
                     freeCacheEntry( pPrevDnsEntry, DnsFreeFlat );
                 }
+
+                rpal_sort_array( rpal_blob_getBuffer( snapCur ), 
+                                 rpal_blob_getSize( snapCur ) / sizeof( rec ), 
+                                 sizeof( rec ), 
+                                 _cmpDns );
             }
 #endif
 
@@ -129,23 +156,14 @@ RPVOID
             if( NULL != snapPrev )
             {
                 i = 0;
-                while( NULL != ( pCurRec = rpal_blob_arrElem( snapCur, sizeof( rec ), i++ ) ) )
+                while( !rEvent_wait( isTimeToStop, 0 ) &&
+                       NULL != ( pCurRec = rpal_blob_arrElem( snapCur, sizeof( rec ), i++ ) ) )
                 {
-                    isNew = TRUE;
-                    j = 0;
-                    while( NULL != ( pPrevRec = rpal_blob_arrElem( snapPrev, sizeof( rec ), j++ ) ) )
-                    {
-                        if( pCurRec->flags == pPrevRec->flags &&
-                            pCurRec->type == pPrevRec->type &&
-                            0 == rpal_string_strcmpw( pCurRec->name, pPrevRec->name ) )
-                        {
-                            isNew = FALSE;
-                            break;
-                        }
-                    }
-
-                    if( isNew &&
-                        !rEvent_wait( isTimeToStop, 0 ) )
+                    if( -1 == rpal_binsearch_array( rpal_blob_getBuffer( snapPrev ), 
+                                                    rpal_blob_getSize( snapPrev ) / sizeof( rec ), 
+                                                    sizeof( rec ), 
+                                                    pCurRec,
+                                                    _cmpDns ) )
                     {
                         if( NULL != ( notif = rSequence_new() ) )
                         {
