@@ -1,6 +1,8 @@
 # LIMA CHARLIE
 <img src="https://raw.github.com/refractionPOINT/limacharlie/master/doc/lc.png" width="200">
 
+*Talk to us on the [LimaCharlie Slack Community](http://limacharlie.herokuapp.com/)*
+
 *Stay up to date with new features and detection modules: [@rp_limacharlie](https://twitter.com/rp_limacharlie)*
 
 *Need help? Contact other LC users via the Google Group: https://groups.google.com/d/forum/limacharlie*
