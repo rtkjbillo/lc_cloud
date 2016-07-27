@@ -1580,7 +1580,7 @@ RVOID
     RU8 currentPerformance = 0;
     RTIME currentTime = 0;
     RU32 increment = 0;
-
+    
 #ifndef RPAL_PLATFORM_DEBUG
     UNREFERENCED_PARAMETER( from );
 #endif
@@ -1646,7 +1646,8 @@ RVOID
                                  from,
                                  perfProfile->lastTimeoutValue,
                                  perfProfile->globalTimeoutValue );
-                                 perfProfile->lastSummary = currentTime;
+
+                perfProfile->lastSummary = currentTime;
             }
         }
         else
