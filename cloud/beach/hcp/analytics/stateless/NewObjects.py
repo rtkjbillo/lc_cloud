@@ -13,11 +13,11 @@
 # limitations under the License.
 
 from beach.actor import Actor
-ObjectTypes = Actor.importLib( '../../ObjectsDb', 'ObjectTypes' )
-HostObjects = Actor.importLib( '../../ObjectsDb', 'HostObjects' )
+ObjectTypes = Actor.importLib( '../../utils/ObjectsDb', 'ObjectTypes' )
+HostObjects = Actor.importLib( '../../utils/ObjectsDb', 'HostObjects' )
 StatelessActor = Actor.importLib( '../../Detects', 'StatelessActor' )
-CassDb = Actor.importLib( '../../hcp_databases', 'CassDb' )
-CassPool = Actor.importLib( '../../hcp_databases', 'CassPool' )
+CassDb = Actor.importLib( '../../utils/hcp_databases', 'CassDb' )
+CassPool = Actor.importLib( '../../utils/hcp_databases', 'CassPool' )
 
 from sets import Set
 

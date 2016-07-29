@@ -13,7 +13,7 @@
 # limitations under the License.
 
 from beach.actor import Actor
-ObjectTypes = Actor.importLib( '../../ObjectsDb', 'ObjectTypes' )
+ObjectTypes = Actor.importLib( '../../utils/ObjectsDb', 'ObjectTypes' )
 StatelessActor = Actor.importLib( '../../Detects', 'StatelessActor' )
 
 class YaraDetects ( StatelessActor ):

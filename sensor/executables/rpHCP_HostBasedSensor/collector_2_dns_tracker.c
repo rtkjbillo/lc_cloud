@@ -163,7 +163,7 @@ RPVOID
                                                     rpal_blob_getSize( snapPrev ) / sizeof( rec ), 
                                                     sizeof( rec ), 
                                                     pCurRec,
-                                                    _cmpDns ) )
+                                                    (rpal_ordering_func)_cmpDns ) )
                     {
                         if( NULL != ( notif = rSequence_new() ) )
                         {

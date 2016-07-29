@@ -16,16 +16,16 @@ from beach.actor import Actor
 import traceback
 import hashlib
 import time
-rpcm = Actor.importLib( '../rpcm', 'rpcm' )
-rList = Actor.importLib( '../rpcm', 'rList' )
-rSequence = Actor.importLib( '../rpcm', 'rSequence' )
-AgentId = Actor.importLib( '../hcp_helpers', 'AgentId' )
-HbsCollectorId = Actor.importLib( '../hcp_helpers', 'HbsCollectorId' )
-HcpDb = Actor.importLib( '../hcp_databases', 'HcpDb' )
-ip_to_tuple = Actor.importLib( '../hcp_helpers', 'ip_to_tuple' )
-HcpOperations = Actor.importLib( '../hcp_helpers', 'HcpOperations' )
-HcpModuleId = Actor.importLib( '../hcp_helpers', 'HcpModuleId' )
-PooledResource = Actor.importLib( '../hcp_helpers', 'PooledResource' )
+rpcm = Actor.importLib( '../utils/rpcm', 'rpcm' )
+rList = Actor.importLib( '../utils/rpcm', 'rList' )
+rSequence = Actor.importLib( '../utils/rpcm', 'rSequence' )
+AgentId = Actor.importLib( '../utils/hcp_helpers', 'AgentId' )
+HbsCollectorId = Actor.importLib( '../utils/hcp_helpers', 'HbsCollectorId' )
+HcpDb = Actor.importLib( '../utils/hcp_databases', 'HcpDb' )
+ip_to_tuple = Actor.importLib( '../utils/hcp_helpers', 'ip_to_tuple' )
+HcpOperations = Actor.importLib( '../utils/hcp_helpers', 'HcpOperations' )
+HcpModuleId = Actor.importLib( '../utils/hcp_helpers', 'HcpModuleId' )
+PooledResource = Actor.importLib( '../utils/hcp_helpers', 'PooledResource' )
 
 def audited( f ):
     def wrapped( self, *args, **kwargs ):

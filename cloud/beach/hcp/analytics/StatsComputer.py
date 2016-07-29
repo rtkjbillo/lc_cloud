@@ -14,25 +14,35 @@
 
 from beach.actor import Actor
 from sets import Set
-ObjectTypes = Actor.importLib( '../ObjectsDb', 'ObjectTypes' )
-HostObjects = Actor.importLib( '../ObjectsDb', 'HostObjects' )
+ObjectTypes = Actor.importLib( '../utils/ObjectsDb', 'ObjectTypes' )
+HostObjects = Actor.importLib( '../utils/ObjectsDb', 'HostObjects' )
 BEAdmin = Actor.importLib( '../admin_lib', 'BEAdmin' )
-AgentId = Actor.importLib( '../hcp_helpers', 'AgentId' )
-chunks = Actor.importLib( '../hcp_helpers', 'chunks' )
+AgentId = Actor.importLib( '../utils/hcp_helpers', 'AgentId' )
+chunks = Actor.importLib( '../utils/hcp_helpers', 'chunks' )
 
 class StatsComputer( Actor ):
     def init( self, parameters, resources ):
         HostObjects.setDatabase( parameters[ 'scale_db' ] )
         self.be = BEAdmin( parameters[ 'beach_config' ], None )
 
-        self.platforms = {}
+        self.lastStats = {}
 
         self.schedule( 3600, self.computeRelation, 
                        parentType = ObjectTypes.PROCESS_NAME, 
-                       childType = ObjectTypes.FILE_PATH )
+                       childType = ObjectTypes.FILE_PATH,
+                       absoluteParentCoverage = 50 )
+
+        self.handle( 'get_stats', self.getStats )
 
     def deinit( self ):
         pass
+
+    def getStats( self, msg ):
+        parentType = msg.data[ 'parent_type' ]
+        childType = msg.data[ 'child_type' ]
+        isReversed = bool( msg.data[ 'is_reversed' ] )
+
+        return ( True, self.lastStats.get( ( parentType, childType, isReversed ), {} ) )
 
     def _tallyLocStats( self, locs, withPlatform = True ):
         tally = {}
@@ -52,12 +62,13 @@ class StatsComputer( Actor ):
                          maxFalsePositives = 10,
                          isReversed = False, absoluteParentCoverage = None ):
         whitelisted = {}
+        platforms = {}
 
         # Count the number of hosts per platform
         agents = [ AgentId( x ) for x in self.be.hcp_getAgentStates().data[ 'agents' ].keys() ]
         for agent in agents:
-            self.platforms.setdefault( agent.getMajorPlatform(), 0 )
-            self.platforms[ agent.getMajorPlatform() ] += 1
+            platforms.setdefault( agent.getMajorPlatform(), 0 )
+            platforms[ agent.getMajorPlatform() ] += 1
         del agents
 
         # Find the number of locations per process object
@@ -66,13 +77,14 @@ class StatsComputer( Actor ):
         # Remove all process objects that were not on X% of hosts of that platform
         highCertaintyObjects = {}
         for platform, locs in locs.iteritems():
-            curPlatform = self.platforms[ platform ]
+            curPlatform = platforms[ platform ]
             for oid, n in locs.iteritems():
                 # If the object is in at least X% of hosts of that platform consider it
                 if( ( absoluteParentCoverage is None or n  >= absoluteParentCoverage ) and 
                     ( float( n ) / curPlatform ) >= parentCoverage ):
                     highCertaintyObjects.setdefault( platform, {} )[ oid ] = n
         del locs
+        del platforms
 
         # For each of those ubiquitious processes, find all the relationships (parent and child)
         for platform, objects in highCertaintyObjects.iteritems():
@@ -98,4 +110,4 @@ class StatsComputer( Actor ):
                     if ( nFPs <= maxFalsePositives and 
                        ( float( len( highCertaintyRelations ) ) / nRel ) >= parentCoverage ):
                         whitelisted[ oid ] = highCertaintyRelations.keys()
-        return whitelisted
+        self.lastStats[ ( parentType, childType, isReversed ) ] = whitelisted

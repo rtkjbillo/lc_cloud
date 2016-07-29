@@ -14,9 +14,9 @@
 
 from beach.actor import Actor
 import re
-ObjectTypes = Actor.importLib( '../../ObjectsDb', 'ObjectTypes' )
+ObjectTypes = Actor.importLib( '../../utils/ObjectsDb', 'ObjectTypes' )
 StatelessActor = Actor.importLib( '../../Detects', 'StatelessActor' )
-_x_ = Actor.importLib( '../../hcp_helpers', '_x_' )
+_x_ = Actor.importLib( '../../utils/hcp_helpers', '_x_' )
 
 class WinOobExec ( StatelessActor ):
     def init( self, parameters, resources ):

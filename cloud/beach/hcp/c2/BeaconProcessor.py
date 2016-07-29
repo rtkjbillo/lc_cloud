@@ -21,17 +21,17 @@ import struct
 import binascii
 import traceback
 import hashlib
-rpcm = Actor.importLib( '../rpcm', 'rpcm' )
-rList = Actor.importLib( '../rpcm', 'rList' )
-rSequence = Actor.importLib( '../rpcm', 'rSequence' )
-AgentId = Actor.importLib( '../hcp_helpers', 'AgentId' )
-_xm_ = Actor.importLib( '../hcp_helpers', '_xm_' )
-_x_ = Actor.importLib( '../hcp_helpers', '_x_' )
-HcpDb = Actor.importLib( '../hcp_databases', 'HcpDb' )
-ip_to_tuple = Actor.importLib( '../hcp_helpers', 'ip_to_tuple' )
-HcpOperations = Actor.importLib( '../hcp_helpers', 'HcpOperations' )
-HcpModuleId = Actor.importLib( '../hcp_helpers', 'HcpModuleId' )
-PooledResource = Actor.importLib( '../hcp_helpers', 'PooledResource' )
+rpcm = Actor.importLib( '../utils/rpcm', 'rpcm' )
+rList = Actor.importLib( '../utils/rpcm', 'rList' )
+rSequence = Actor.importLib( '../utils/rpcm', 'rSequence' )
+AgentId = Actor.importLib( '../utils/hcp_helpers', 'AgentId' )
+_xm_ = Actor.importLib( '../utils/hcp_helpers', '_xm_' )
+_x_ = Actor.importLib( '../utils/hcp_helpers', '_x_' )
+HcpDb = Actor.importLib( '../utils/hcp_databases', 'HcpDb' )
+ip_to_tuple = Actor.importLib( '../utils/hcp_helpers', 'ip_to_tuple' )
+HcpOperations = Actor.importLib( '../utils/hcp_helpers', 'HcpOperations' )
+HcpModuleId = Actor.importLib( '../utils/hcp_helpers', 'HcpModuleId' )
+PooledResource = Actor.importLib( '../utils/hcp_helpers', 'PooledResource' )
 
 class BeaconProcessor( Actor ):
     def init( self, parameters, resources ):

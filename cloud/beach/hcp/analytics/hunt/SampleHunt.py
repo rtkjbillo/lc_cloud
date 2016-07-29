@@ -14,8 +14,8 @@
 
 from beach.actor import Actor
 Hunt = Actor.importLib( '../../Hunts', 'Hunt' )
-_xm_ = Actor.importLib( '../../hcp_helpers', '_xm_' )
-_x_ = Actor.importLib( '../../hcp_helpers', '_x_' )
+_xm_ = Actor.importLib( '../../utils/hcp_helpers', '_xm_' )
+_x_ = Actor.importLib( '../../utils/hcp_helpers', '_x_' )
 
 class SampleHunt ( Hunt ):
     detects = ( 'TestDetection', )

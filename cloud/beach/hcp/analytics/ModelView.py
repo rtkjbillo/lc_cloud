@@ -16,18 +16,18 @@ from beach.actor import Actor
 import time
 from sets import Set
 BEAdmin = Actor.importLib( '../admin_lib', 'BEAdmin' )
-Host = Actor.importLib( '../ObjectsDb', 'Host' )
-HostObjects = Actor.importLib( '../ObjectsDb', 'HostObjects' )
-FluxEvent = Actor.importLib( '../ObjectsDb', 'FluxEvent' )
-ObjectTypes = Actor.importLib( '../ObjectsDb', 'ObjectTypes' )
-Atoms = Actor.importLib( '../ObjectsDb', 'Atoms' )
-ObjectKey = Actor.importLib( '../ObjectsDb', 'ObjectKey' )
-RelationNameFromId = Actor.importLib( '../ObjectsDb', 'RelationNameFromId' )
-Reporting = Actor.importLib( '../ObjectsDb', 'Reporting' )
-KeyValueStore = Actor.importLib( '../ObjectsDb', 'KeyValueStore' )
-AgentId = Actor.importLib( '../hcp_helpers', 'AgentId' )
-_xm_ = Actor.importLib( '../hcp_helpers', '_xm_' )
-_x_ = Actor.importLib( '../hcp_helpers', '_x_' )
+Host = Actor.importLib( '../utils/ObjectsDb', 'Host' )
+HostObjects = Actor.importLib( '../utils/ObjectsDb', 'HostObjects' )
+FluxEvent = Actor.importLib( '../utils/ObjectsDb', 'FluxEvent' )
+ObjectTypes = Actor.importLib( '../utils/ObjectsDb', 'ObjectTypes' )
+Atoms = Actor.importLib( '../utils/ObjectsDb', 'Atoms' )
+ObjectKey = Actor.importLib( '../utils/ObjectsDb', 'ObjectKey' )
+RelationNameFromId = Actor.importLib( '../utils/ObjectsDb', 'RelationNameFromId' )
+Reporting = Actor.importLib( '../utils/ObjectsDb', 'Reporting' )
+KeyValueStore = Actor.importLib( '../utils/ObjectsDb', 'KeyValueStore' )
+AgentId = Actor.importLib( '../utils/hcp_helpers', 'AgentId' )
+_xm_ = Actor.importLib( '../utils/hcp_helpers', '_xm_' )
+_x_ = Actor.importLib( '../utils/hcp_helpers', '_x_' )
 
 class ModelView( Actor ):
     def init( self, parameters, resources ):

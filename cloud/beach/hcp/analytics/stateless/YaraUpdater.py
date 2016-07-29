@@ -13,9 +13,9 @@
 # limitations under the License.
 
 from beach.actor import Actor
-ObjectTypes = Actor.importLib( '../../ObjectsDb', 'ObjectTypes' )
+ObjectTypes = Actor.importLib( '../../utils/ObjectsDb', 'ObjectTypes' )
 StatelessActor = Actor.importLib( '../../Detects', 'StatelessActor' )
-AgentId = Actor.importLib( '../../hcp_helpers', 'AgentId' )
+AgentId = Actor.importLib( '../../utils/hcp_helpers', 'AgentId' )
 
 import os
 import traceback

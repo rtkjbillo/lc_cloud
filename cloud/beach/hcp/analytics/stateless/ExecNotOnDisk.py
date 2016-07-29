@@ -12,10 +12,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from beach.actor import Actor
-ObjectTypes = Actor.importLib( '../../ObjectsDb', 'ObjectTypes' )
+from beach.actor import actor
+ObjectTypes = Actor.importLib( '../../utils/ObjectsDb', 'ObjectTypes' )
 StatelessActor = Actor.importLib( '../../Detects', 'StatelessActor' )
-_x_ = Actor.importLib( '../../hcp_helpers', '_x_' )
+_x_ = Actor.importLib( '../../utils/hcp_helpers', '_x_' )
 
 class ExecNotOnDisk ( StatelessActor ):
     def init( self, parameters, resources ):

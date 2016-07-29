@@ -14,7 +14,7 @@
 
 from beach.actor import Actor
 StatelessActor = Actor.importLib( '../../Detects', 'StatelessActor' )
-ObjectTypes = Actor.importLib( '../../ObjectsDb', 'ObjectTypes' )
+ObjectTypes = Actor.importLib( '../../utils/ObjectsDb', 'ObjectTypes' )
 
 class TestDetection ( StatelessActor ):
     def init( self, parameters, resources ):

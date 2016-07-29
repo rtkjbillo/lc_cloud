@@ -13,7 +13,7 @@
 # limitations under the License.
 
 import argparse
-from hcp.hcp_helpers import AgentId
+from hcp.utils.hcp_helpers import AgentId
 
 def int16( s ):
     return int( s, 16 )

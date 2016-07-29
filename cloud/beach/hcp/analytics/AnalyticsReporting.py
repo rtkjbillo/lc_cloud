@@ -17,9 +17,9 @@ import msgpack
 import base64
 import random
 import json
-CassDb = Actor.importLib( '../hcp_databases', 'CassDb' )
-CassPool = Actor.importLib( '../hcp_databases', 'CassPool' )
-CreateOnAccess = Actor.importLib( '../hcp_helpers', 'CreateOnAccess' )
+CassDb = Actor.importLib( '../utils/hcp_databases', 'CassDb' )
+CassPool = Actor.importLib( '../utils/hcp_databases', 'CassPool' )
+CreateOnAccess = Actor.importLib( '../utils/hcp_helpers', 'CreateOnAccess' )
 
 class AnalyticsReporting( Actor ):
     def init( self, parameters, resources ):

@@ -21,14 +21,14 @@ import msgpack
 import datetime
 import random
 from sets import Set
-CassDb = Actor.importLib( '../hcp_databases', 'CassDb' )
-CassPool = Actor.importLib( '../hcp_databases', 'CassPool' )
-AgentId = Actor.importLib( '../hcp_helpers', 'AgentId' )
-_x_ = Actor.importLib( '../hcp_helpers', '_x_' )
-_xm_ = Actor.importLib( '../hcp_helpers', '_xm_' )
-ObjectTypes = Actor.importLib( '../ObjectsDb', 'ObjectTypes' )
-RelationName = Actor.importLib( '../ObjectsDb', 'RelationName' )
-ObjectKey = Actor.importLib( '../ObjectsDb', 'ObjectKey' )
+CassDb = Actor.importLib( '../utils/hcp_databases', 'CassDb' )
+CassPool = Actor.importLib( '../utils/hcp_databases', 'CassPool' )
+AgentId = Actor.importLib( '../utils/hcp_helpers', 'AgentId' )
+_x_ = Actor.importLib( '../utils/hcp_helpers', '_x_' )
+_xm_ = Actor.importLib( '../utils/hcp_helpers', '_xm_' )
+ObjectTypes = Actor.importLib( '../utils/ObjectsDb', 'ObjectTypes' )
+RelationName = Actor.importLib( '../utils/ObjectsDb', 'RelationName' )
+ObjectKey = Actor.importLib( '../utils/ObjectsDb', 'ObjectKey' )
 
 class AnalyticsModeling( Actor ):
     def init( self, parameters, resources ):
@@ -187,13 +187,19 @@ class AnalyticsModeling( Actor ):
             if this_atom == null_atom:
                 this_atom = None
             else:
-                this_atom = uuid.UUID( bytes = this_atom )
+                try:
+                    this_atom = uuid.UUID( bytes = this_atom )
+                except:
+                    self.log( 'invalid atom: %s' % this_atom )
 
         if parent_atom is not None:
             if parent_atom == null_atom:
                 parent_atom = None
             else:
-                parent_atom = uuid.UUID( bytes = parent_atom )
+                try:
+                    parent_atom = uuid.UUID( bytes = parent_atom )
+                except:
+                    self.log( 'invalid atom: %s' % parent_atom )
 
         if this_atom is not None:
             self.db.execute_async( self.statements[ 'atoms_lookup' ].bind( ( this_atom,

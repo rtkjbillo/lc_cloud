@@ -18,7 +18,7 @@ from sets import Set
 import time
 StateMachine = Actor.importLib( 'analytics/StateAnalysis', 'StateMachine' )
 StateEvent = Actor.importLib( 'analytics/StateAnalysis', 'StateEvent' )
-CreateOnAccess = Actor.importLib( 'hcp_helpers', 'CreateOnAccess' )
+CreateOnAccess = Actor.importLib( 'utils/hcp_helpers', 'CreateOnAccess' )
 
 def GenerateDetectReport( nthReport, agentid, msgIds, cat, detect, summary = '', priority = None ):
     if type( msgIds ) is not tuple and type( msgIds ) is not list:

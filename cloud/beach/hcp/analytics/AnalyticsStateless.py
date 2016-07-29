@@ -13,7 +13,7 @@
 # limitations under the License.
 
 from beach.actor import Actor
-AgentId = Actor.importLib( '../hcp_helpers', 'AgentId' )
+AgentId = Actor.importLib( '../utils/hcp_helpers', 'AgentId' )
 
 class AnalyticsStateless( Actor ):
     def init( self, parameters, resources ):

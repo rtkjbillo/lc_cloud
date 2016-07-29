@@ -14,7 +14,7 @@
 
 from beach.actor import Actor
 StatelessActor = Actor.importLib( '../../Detects', 'StatelessActor' )
-_xm_ = Actor.importLib( '../../hcp_helpers', '_xm_' )
+_xm_ = Actor.importLib( '../../utils/hcp_helpers', '_xm_' )
 
 class ActiveDirectoryReference ( StatelessActor ):
     def init( self, parameters, resources ):
