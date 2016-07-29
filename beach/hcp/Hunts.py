@@ -14,7 +14,7 @@
 
 from beach.actor import Actor
 from threading import Lock
-CreateOnAccess = Actor.importLib( 'hcp_helpers', 'CreateOnAccess' )
+CreateOnAccess = Actor.importLib( 'utils/hcp_helpers', 'CreateOnAccess' )
 
 import time
 import uuid

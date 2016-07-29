@@ -14,12 +14,12 @@
 
 from sets import Set
 from beach.actor import Actor
-_xm_ = Actor.importLib( '../hcp_helpers', '_xm_' )
-_x_ = Actor.importLib( '../hcp_helpers', '_x_' )
-exeFromPath = Actor.importLib( '../hcp_helpers', 'exeFromPath' )
-ObjectTypes = Actor.importLib( '../ObjectsDb', 'ObjectTypes' )
-ObjectNormalForm = Actor.importLib( '../ObjectsDb', 'ObjectNormalForm' )
-AgentId = Actor.importLib( '../hcp_helpers', 'AgentId' )
+_xm_ = Actor.importLib( '../utils/hcp_helpers', '_xm_' )
+_x_ = Actor.importLib( '../utils/hcp_helpers', '_x_' )
+exeFromPath = Actor.importLib( '../utils/hcp_helpers', 'exeFromPath' )
+ObjectTypes = Actor.importLib( '../utils/ObjectsDb', 'ObjectTypes' )
+ObjectNormalForm = Actor.importLib( '../utils/ObjectsDb', 'ObjectNormalForm' )
+AgentId = Actor.importLib( '../utils/hcp_helpers', 'AgentId' )
 
 class AnalyticsIntake( Actor ):
     def init( self, parameters, resources ):
@@ -27,6 +27,7 @@ class AnalyticsIntake( Actor ):
         self.analytics_stateless = self.getActorHandle( resources[ 'stateless' ], timeout = 30, nRetries = 3 )
         self.analytics_stateful = self.getActorHandle( resources[ 'stateful' ], timeout = 30, nRetries = 3 )
         self.analytics_modeling = self.getActorHandle( resources[ 'modeling' ], timeout = 120, nRetries = 3 )
+        self.async_builder = self.getActorHandle( resources[ 'relation_builder' ], timeout = 120, nRetries = 3 )
         self.analytics_investigation = self.getActorHandle( resources[ 'investigation' ], timeout = 120, nRetries = 3 )
 
     def deinit( self ):
@@ -224,6 +225,7 @@ class AnalyticsIntake( Actor ):
             self.analytics_modeling.shoot( 'analyze', event )
             self.analytics_stateless.shoot( 'analyze', event )
             self.analytics_stateful.shoot( 'analyze', event )
+            self.async_builder.shoot( 'analyze', event )
 
             routing, rawEvent, mtd = event
             if 'investigation_id' in routing:

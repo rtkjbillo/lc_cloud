@@ -14,7 +14,7 @@
 
 from beach.actor import Actor
 import virustotal
-RingCache = Actor.importLib( '../hcp_helpers', 'RingCache' )
+RingCache = Actor.importLib( '../utils/hcp_helpers', 'RingCache' )
 
 class VirusTotalActor ( Actor ):
     def init( self, parameters, resources ):

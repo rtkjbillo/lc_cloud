@@ -13,10 +13,10 @@
 # limitations under the License.
 
 from beach.actor import Actor
-ObjectTypes = Actor.importLib( '../../ObjectsDb', 'ObjectTypes' )
-ObjectKey = Actor.importLib( '../../ObjectsDb', 'ObjectKey' )
+ObjectTypes = Actor.importLib( '../../utils/ObjectsDb', 'ObjectTypes' )
+ObjectKey = Actor.importLib( '../../utils/ObjectsDb', 'ObjectKey' )
 StatelessActor = Actor.importLib( '../../Detects', 'StatelessActor' )
-RingCache = Actor.importLib( '../../hcp_helpers', 'RingCache' )
+RingCache = Actor.importLib( '../../utils/hcp_helpers', 'RingCache' )
 
 class KnownObjects ( StatelessActor ):
     def init( self, parameters, resources ):

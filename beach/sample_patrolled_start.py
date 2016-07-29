@@ -118,7 +118,8 @@ Patrol( 'AnalyticsIntake',
             'resources' : { 'stateless' : 'analytics/stateless/intake',
                             'stateful' : 'analytics/stateful/intake',
                             'modeling' : 'analytics/modeling/intake',
-                            'investigation' : 'analytics/investigation/intake' },
+                            'investigation' : 'analytics/investigation/intake',
+                            'relation_builder' : 'analytics/async/relbuilder' },
             'parameters' : {},
             'secretIdent' : 'intake/6058e556-a102-4e51-918e-d36d6d1823db',
             'trustedIdents' : [ 'beacon/09ba97ab-5557-4030-9db0-1dbe7f2b9cfd' ],
@@ -205,6 +206,30 @@ Patrol( 'AnalyticsStateful',
         actorKwArgs = {
             'resources' : { 'modules' : 'analytics/stateful/modules/%s/' },
             'parameters' : {},
+            'secretIdent' : 'analysis/038528f5-5135-4ca8-b79f-d6b8ffc53bf5',
+            'trustedIdents' : [ 'intake/6058e556-a102-4e51-918e-d36d6d1823db' ],
+            'n_concurrent' : 5 } )
+
+#######################################
+# AsynchronousRelationBuilder
+# This actor responsible for sending
+# messages of the right type to the
+# right stateful detection actors.
+#######################################
+Patrol( 'AsynchronousRelationBuilder',
+        initialInstances = 1,
+        maxInstances = None,
+        relaunchOnFailure = True,
+        onFailureCall = None,
+        scalingFactor = 1000,
+        actorArgs = ( 'analytics/AsynchronousRelationBuilder',
+                      'analytics/async/relbuilder/1.0' ),
+        actorKwArgs = {
+            'resources' : {},
+            'parameters' : { 'db' : SCALE_DB,
+                             'rate_limit_per_sec' : 200,
+                             'max_concurrent' : 5,
+                             'block_on_queue_size' : 200000 },
             'secretIdent' : 'analysis/038528f5-5135-4ca8-b79f-d6b8ffc53bf5',
             'trustedIdents' : [ 'intake/6058e556-a102-4e51-918e-d36d6d1823db' ],
             'n_concurrent' : 5 } )

@@ -14,9 +14,9 @@
 
 from beach.actor import Actor
 import re
-ObjectTypes = Actor.importLib( '../../ObjectsDb', 'ObjectTypes' )
+ObjectTypes = Actor.importLib( '../../utils/ObjectsDb', 'ObjectTypes' )
 StatelessActor = Actor.importLib( '../../Detects', 'StatelessActor' )
-_xm_ = Actor.importLib( '../../hcp_helpers', '_xm_' )
+_xm_ = Actor.importLib( '../../utils/hcp_helpers', '_xm_' )
 
 class BatchSelfDelete ( StatelessActor ):
     def init( self, parameters, resources ):

@@ -61,13 +61,14 @@ d3.json("/explorer?id=$id", function(error, data) {
        .attr("width","" + (data.length * 300) + "px");
 
     data = data.map(function(elem){
-        n = { data : elem };
-        nodeType = Object.keys(elem)[0];
-        thisAtom = elem[nodeType]["hbs.THIS_ATOM"];
-        parentAtom = elem[nodeType]["hbs.PARENT_ATOM"];
+        n = { data : elem.data };
+        nodeType = Object.keys(elem.data)[0];
+        thisAtom = elem.data[nodeType]["hbs.THIS_ATOM"];
+        parentAtom = elem.data[nodeType]["hbs.PARENT_ATOM"];
         n.name = thisAtom;
         n.parent = parentAtom;
         n.type = nodeType;
+        n.keyName = elem.key;
         iPrefix = n.type.indexOf( '.' );
         if( -1 != iPrefix )
         {
@@ -113,7 +114,7 @@ var nodes = tree.nodes(root).reverse(),
 links = tree.links(nodes);
 
 // Normalize for fixed-depth.
-nodes.forEach(function(d) { d.y = ( d.depth + 1 ) * 200; d.x = d.x + jQuery("#main-container").height() / 2 });
+nodes.forEach(function(d) { d.y = ( d.depth + 1 ) * 300; d.x = d.x + jQuery("#main-container").height() / 2 });
 
 // Update the nodes…
 var node = svg.selectAll("g.node")
@@ -128,7 +129,8 @@ var nodeEnter = node.enter().append("g")
     .on("mouseover", function(d) {
         details.transition()
             .duration(200)
-            .style("opacity", .95);
+            .style("opacity", .95)
+            .style("visibility", "visible");
         details .html(
                 '<center style="background-color:#ddd; font-weight: bold;">' +
                 '<a href="explorer_view?id=' + encodeURIComponent( d.parent ) + '">Center on Parent</a><br/>' +
@@ -144,7 +146,8 @@ var nodeEnter = node.enter().append("g")
         setTimeout(function(){
             details.transition()
             .duration(500)
-            .style("opacity", 0);
+            .style("opacity", 0)
+            .style("visibility", "hidden");
         }, 5000);
       });
 
@@ -159,7 +162,7 @@ nodeEnter.append("text")
     .attr("dy", ".35em")
     .attr("text-anchor", function(d) { 
         return d.children || d._children ? "end" : "start"; })
-    .text(function(d) { return d.type; })
+    .text(function(d) { if(d.keyName){ return '' + d.type + ': ' + d.keyName; } else { return d.type } })
     .style("fill-opacity", 1e-6);
 
 // add the tool tip

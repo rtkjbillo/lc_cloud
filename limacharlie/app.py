@@ -19,6 +19,10 @@ import os
 import sys
 
 from beach.beach_api import Beach
+from hcp_helpers import timeToTs
+from hcp_helpers import _x_
+from hcp_helpers import _xm_
+from EventInterpreter import EventInterpreter
 
 import traceback
 import web
@@ -28,6 +32,10 @@ import json
 import base64
 import uuid
 from functools import wraps
+
+from hcp_helpers import _x_
+from hcp_helpers import _xm_
+from hcp_helpers import timeToTs
 
 
 ###############################################################################
@@ -45,75 +53,6 @@ from functools import wraps
 ###############################################################################
 def msTsToTime( ts ):
     return datetime.datetime.fromtimestamp( float( ts ) / 1000 ).strftime( '%Y-%m-%d %H:%M:%S.%f' )
-
-def timeToTs( timeStr ):
-    return time.mktime( datetime.datetime.strptime( timeStr, '%Y-%m-%d %H:%M:%S' ).timetuple() )
-
-def _xm_( o, path, isWildcardDepth = False ):
-    def _isDynamicType( e ):
-        eType = type( e )
-        return issubclass( eType, dict ) or issubclass( eType, list ) or issubclass( eType, tuple )
-
-    def _isListType( e ):
-        eType = type( e )
-        return issubclass( eType, list ) or issubclass( eType, tuple )
-
-    def _isSeqType( e ):
-        eType = type( e )
-        return issubclass( eType, dict )
-
-    result = []
-    oType = type( o )
-
-    if type( path ) is str or type( path ) is unicode:
-        tokens = [ x for x in path.split( '/' ) if x != '' ]
-    else:
-        tokens = path
-
-    if issubclass( oType, dict ):
-        isEndPoint = False
-        if 0 != len( tokens ):
-            if 1 == len( tokens ):
-                isEndPoint = True
-
-            curToken = tokens[ 0 ]
-
-            if '*' == curToken:
-                if 1 < len( tokens ):
-                    result = _xm_( o, tokens[ 1 : ], True )
-            elif '?' == curToken:
-                if 1 < len( tokens ):
-                    result = []
-                    for elem in o.itervalues():
-                        if _isDynamicType( elem ):
-                            result += _xm_( elem, tokens[ 1 : ], False )
-
-            elif o.has_key( curToken ):
-                if isEndPoint:
-                    result = [ o[ curToken ] ] if not _isListType( o[ curToken ] ) else o[ curToken ]
-                elif _isDynamicType( o[ curToken ] ):
-                    result = _xm_( o[ curToken ], tokens[ 1 : ] )
-
-            if isWildcardDepth:
-                tmpTokens = tokens[ : ]
-                for elem in o.itervalues():
-                    if _isDynamicType( elem ):
-                        result += _xm_( elem, tmpTokens, True )
-    elif issubclass( oType, list ) or oType is tuple:
-        result = []
-        for elem in o:
-            if _isDynamicType( elem ):
-                result += _xm_( elem, tokens )
-
-    return result
-
-def _x_( o, path, isWildcardDepth = False ):
-    r = _xm_( o, path, isWildcardDepth )
-    if 0 != len( r ):
-        r = r[ 0 ]
-    else:
-        r = None
-    return r
 
 def sanitizeJson( o, summarized = False ):
     if type( o ) is dict:
@@ -498,8 +437,12 @@ class Explorer:
             if effectiveId == str( uuid.UUID( bytes = atom.values()[0]['hbs.THIS_ATOM'] ) ):
                 isFound = True
                 break
+        info.data = map( lambda x: { 'data' : x, 'key' : EventInterpreter( x ).shortKey() }, info.data )
         if not isFound:
-            info.data.append( { 'UNKNOWN' : { 'hbs.THIS_ATOM' : effectiveId } } )
+            info.data.append( { 'data' : { 'UNKNOWN' : { 'hbs.THIS_ATOM' : effectiveId } },
+                                'key' : 'UNKNOWN' } )
+
+        # Summarize the events
 
         return info.data
 
@@ -557,20 +500,23 @@ render = web.template.render( 'templates', base = 'base', globals = { 'json' : j
                                                                       '_x_' : _x_,
                                                                       '_xm_' : _xm_,
                                                                       'hex' : hex,
-                                                                      'sanitize' : sanitizeJson } )
+                                                                      'sanitize' : sanitizeJson,
+                                                                      'EventInterpreter' : EventInterpreter } )
 
 renderFullPage = web.template.render( 'templates', base = 'base_full', globals = { 'json' : json,
                                                                                    'msTsToTime' : msTsToTime,
                                                                                    '_x_' : _x_,
                                                                                    '_xm_' : _xm_,
                                                                                    'hex' : hex,
-                                                                                   'sanitize' : sanitizeJson } )
+                                                                                   'sanitize' : sanitizeJson,
+                                                                                   'EventInterpreter' : EventInterpreter } )
 eventRender = web.template.render( 'templates/custom_events', globals = { 'json' : json,
                                                                           'msTsToTime' : msTsToTime,
                                                                           '_x_' : _x_,
                                                                           '_xm_' : _xm_,
                                                                           'hex' : hex,
-                                                                          'sanitize' : sanitizeJson } )
+                                                                          'sanitize' : sanitizeJson,
+                                                                          'EventInterpreter' : EventInterpreter } )
 
 if len( sys.argv ) < 2:
     print( "Usage: python app.py beach_config [listen_port]" )

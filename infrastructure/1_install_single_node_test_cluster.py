@@ -118,3 +118,14 @@ printStep( 'Setting up the cloud tags.',
     os.system( 'python %s' % ( os.path.join( root,
                                              'tools',
                                              'update_headers.py' ), ) ) )
+
+printSetp( 'Setup LC web ui dependencies.',
+    os.system( 'ln -s %s %s' % ( os.path.join( root,
+                                               'cloud',
+                                               'beach',
+                                               'hcp',
+                                               'utils',
+                                               '*' ),
+                                 os.path.join( root,
+                                               'cloud',
+                                               'limacharlie' ) ) ), )

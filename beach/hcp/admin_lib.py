@@ -27,12 +27,12 @@ try:
 except:
     # When in an actor, use the relative import
     from beach.actor import Actor
-    rpcm = Actor.importLib( 'rpcm', 'rpcm' )
-    rSequence = Actor.importLib( 'rpcm', 'rSequence' )
-    rList = Actor.importLib( 'rpcm', 'rList' )
+    rpcm = Actor.importLib( 'utils/rpcm', 'rpcm' )
+    rSequence = Actor.importLib( 'utils/rpcm', 'rSequence' )
+    rList = Actor.importLib( 'utils/rpcm', 'rList' )
     Symbols = Actor.importLib( 'Symbols', 'Symbols' )
     Signing = Actor.importLib( 'signing', 'Signing' )
-    AgentId = Actor.importLib( 'hcp_helpers', 'AgentId' )
+    AgentId = Actor.importLib( 'utils/hcp_helpers', 'AgentId' )
 
 #===============================================================================
 # Library section to be used by Python code for automation

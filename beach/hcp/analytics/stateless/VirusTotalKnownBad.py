@@ -13,9 +13,9 @@
 # limitations under the License.
 
 from beach.actor import Actor
-ObjectTypes = Actor.importLib( '../../ObjectsDb', 'ObjectTypes' )
+ObjectTypes = Actor.importLib( '../../utils/ObjectsDb', 'ObjectTypes' )
 StatelessActor = Actor.importLib( '../../Detects', 'StatelessActor' )
-RingCache = Actor.importLib( '../../hcp_helpers', 'RingCache' )
+RingCache = Actor.importLib( '../../utils/hcp_helpers', 'RingCache' )
 
 class VirusTotalKnownBad ( StatelessActor ):
     def init( self, parameters, resources ):

@@ -37,9 +37,9 @@ try:
 except:
     from beach.actor import Actor
     BEAdmin = Actor.importLib( 'admin_lib', 'BEAdmin' )
-    AgentId = Actor.importLib( 'hcp_helpers', 'AgentId' )
-    rSequence = Actor.importLib( 'rpcm', 'rSequence' )
-    rList = Actor.importLib( 'rpcm', 'rList' )
+    AgentId = Actor.importLib( 'utils/hcp_helpers', 'AgentId' )
+    rSequence = Actor.importLib( 'utils/rpcm', 'rSequence' )
+    rList = Actor.importLib( 'utils/rpcm', 'rList' )
     Symbols = Actor.importLib( 'Symbols', 'Symbols' )
     Signing = Actor.importLib( 'signing', 'Signing' )
 

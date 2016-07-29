@@ -15,9 +15,9 @@
 from beach.actor import Actor
 import hashlib
 Hunt = Actor.importLib( '../../Hunts', 'Hunt' )
-_xm_ = Actor.importLib( '../../hcp_helpers', '_xm_' )
-_x_ = Actor.importLib( '../../hcp_helpers', '_x_' )
-exeFromPath = Actor.importLib( '../../hcp_helpers', 'exeFromPath' )
+_xm_ = Actor.importLib( '../../utils/hcp_helpers', '_xm_' )
+_x_ = Actor.importLib( '../../utils/hcp_helpers', '_x_' )
+exeFromPath = Actor.importLib( '../../utils/hcp_helpers', 'exeFromPath' )
 
 class SuspectedDropperHunt ( Hunt ):
     detects = ( 'WinSuspExecName', )
