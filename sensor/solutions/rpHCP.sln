@@ -1,7 +1,7 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio 2013
-VisualStudioVersion = 12.0.31101.0
+VisualStudioVersion = 12.0.40629.0
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "rpal", "..\lib\rpal\rpal.vcxproj", "{C8461925-62D7-49FF-A7C7-6CB5F73FA441}"
 EndProject
@@ -13,6 +13,7 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "zlib", "..\lib\zlib\zlib.vc
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "rpHostCommonPlatformLib", "..\lib\rpHostCommonPlatformLib\rpHostCommonPlatformLib.vcxproj", "{CF4ADB77-6DA5-4985-B3C0-FBFC9CEE7625}"
 	ProjectSection(ProjectDependencies) = postProject
+		{CE91D7D4-2853-59A4-B328-CFEB4659323A} = {CE91D7D4-2853-59A4-B328-CFEB4659323A}
 		{448B43EC-557C-412C-89C5-88F2A6EDB0CD} = {448B43EC-557C-412C-89C5-88F2A6EDB0CD}
 		{E46202FA-FAF8-41B2-9E08-6C3E4AE99D91} = {E46202FA-FAF8-41B2-9E08-6C3E4AE99D91}
 	EndProjectSection

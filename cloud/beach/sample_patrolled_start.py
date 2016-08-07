@@ -29,45 +29,85 @@ STATE_DB = { 'url' : 'hcp-state-db',
              'password' : 'letmein' }
 
 #######################################
-# BeaconProcessor
+# EndpointProcessor
 # This actor will process incoming
-# beacons from the sensors.
+# connections from the sensors.
 # Parameters:
-# state_db: these are the connection
-#    details for the mysql database
-#    used to store the low-importance
-#    data tracked at runtime.
 # deployment_key: The deployment key
 #    to enforce if needed, it helps
 #    to filter out sensors beaconing
 #    to you that are not related to
 #    your deployment.
 # _priv_key: the C2 private key.
+# handler_port_*: start and end port
+#    where incoming connections will
+#    be processed.
+# enrollment_token: secret token used
+#    to verify enrolled sensor identities.
 # task_back_timeout: the number of
 #    seconds to wait during each
 #    beacon to give a chance to any
 #    detects to generate tasks for
 #    the sensor to process right away.
 #######################################
-Patrol( 'BeaconProcessor',
+Patrol( 'EndpointProcessor',
         initialInstances = 1,
         maxInstances = None,
         relaunchOnFailure = True,
         onFailureCall = None,
         scalingFactor = 1000,
-        actorArgs = ( 'c2/BeaconProcessor',
-                      'c2/beacon/1.0' ),
+        actorArgs = ( 'c2/EndpointProcessor',
+                      'c2/endpoint/1.0' ),
         actorKwArgs = {
-            'resources' : { 'analytics' : 'analytics/intake' },
-            'parameters' : { 'state_db' : STATE_DB,
-                             'deployment_key' : None,
+            'resources' : { 'analytics' : 'analytics/intake',
+                            'enrollments' : 'c2/enrollments',
+                            'states' : 'c2/states' },
+            'parameters' : { 'deployment_key' : None,
+                             'handler_port_start' : 80,
+                             'handler_port_end' : 80,
+                             'enrollment_token' : 'DEFAULT_HCP_ENROLLMENT_TOKEN',
                              '_priv_key' : open( os.path.join( REPO_ROOT,
                                                                'keys',
-                                                               'c2.priv.pem' ), 'r' ).read(),
-                             'task_back_timeout' : 2 },
+                                                               'c2.priv.pem' ), 'r' ).read() },
             'secretIdent' : 'beacon/09ba97ab-5557-4030-9db0-1dbe7f2b9cfd',
             'trustedIdents' : [ 'http/5bc10821-2d3f-413a-81ee-30759b9f863b' ],
             'n_concurrent' : 5 } )
+
+#######################################
+# EnrollmentManager
+# This actor is responsible to model
+# and record the information extracted
+# from the messages in all the different
+# pre-pivoted databases.
+# Parameters:
+# db: the Cassandra seed nodes to
+#    connect to for storage.
+# rate_limit_per_sec: number of db ops
+#    per second, limiting to avoid
+#    db overload since C* is bad at that.
+# max_concurrent: number of concurrent
+#    db queries.
+# block_on_queue_size: stop queuing after
+#    n number of items awaiting ingestion.
+#######################################
+Patrol( 'EnrollmentManager',
+        initialInstances = 1,
+        maxInstances = 1,
+        relaunchOnFailure = True,
+        onFailureCall = None,
+        scalingFactor = 1000,
+        actorArgs = ( 'c2/EnrollmentManager',
+                      'c2/enrollments/1.0' ),
+        actorKwArgs = {
+            'resources' : {},
+            'parameters' : { 'db' : SCALE_DB,
+                             'rate_limit_per_sec' : 200,
+                             'max_concurrent' : 5,
+                             'block_on_queue_size' : 100 },
+            'secretIdent' : 'enrollment/a3bebbb0-00e2-4345-990b-4c36a40b475e',
+            'trustedIdents' : [ 'beacon/09ba97ab-5557-4030-9db0-1dbe7f2b9cfd' ],
+            'n_concurrent' : 5,
+            'isIsolated' : True } )
 
 #######################################
 # AdminEndpoint
@@ -88,8 +128,12 @@ Patrol( 'AdminEndpoint',
         actorArgs = ( 'c2/AdminEndpoint',
                       'c2/admin/1.0' ),
         actorKwArgs = {
-            'resources' : { 'auditing' : 'c2/auditing' },
-            'parameters' : { 'state_db' : STATE_DB },
+            'resources' : { 'auditing' : 'c2/auditing',
+                            'enrollments' : 'c2/enrollments' },
+            'parameters' : { 'db' : SCALE_DB,
+                             'rate_limit_per_sec' : 200,
+                             'max_concurrent' : 5,
+                             'block_on_queue_size' : 100 },
             'secretIdent' : 'admin/dde768a4-8f27-4839-9e26-354066c8540e',
             'trustedIdents' : [ 'cli/955f6e63-9119-4ba6-a969-84b38bfbcc05' ],
             'n_concurrent' : 5 } )

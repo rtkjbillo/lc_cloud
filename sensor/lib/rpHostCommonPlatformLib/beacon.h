@@ -34,11 +34,10 @@ RBOOL
     );
 
 RBOOL
-    doBeacon
+    doSend
     (
         RpHcp_ModuleId sourceModuleId,
-        rList toSend,
-        rList* pReceived
+        rList toSend
     );
 
 #endif

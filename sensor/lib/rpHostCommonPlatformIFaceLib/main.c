@@ -25,7 +25,10 @@ FORCE_LINK_THIS(HCP_IFACE);
 
 rpHCPModuleContext* g_Module_Context = NULL;
 extern RpHcp_ModuleId g_current_Module_id;
-extern RU32 (RPAL_THREAD_FUNC RpHcpI_mainThread)( rEvent isTimeToStop );
+extern RU32( RPAL_THREAD_FUNC RpHcpI_mainThread )( rEvent isTimeToStop );
+extern RVOID( RPAL_THREAD_FUNC RpHcpI_onConnect )( );
+extern RVOID( RPAL_THREAD_FUNC RpHcpI_onDisconnect )( );
+extern RVOID( RPAL_THREAD_FUNC RpHcpI_recvMessage )( rSequence message );
 
 RU32
 #ifdef RPAL_PLATFORM_WINDOWS
@@ -85,18 +88,17 @@ RPAL_THREAD_FUNC
 }
 
 RBOOL
-    rpHcpI_beaconHome
+    rpHcpI_sendHome
     (
-        rList requests,
-        rList* responses
+        rList requests
     )
 {
     RBOOL isSuccess = FALSE;
 
     if( NULL != g_Module_Context &&
-        NULL != g_Module_Context->func_beaconHome )
+        NULL != g_Module_Context->func_sendHome )
     {
-        isSuccess = g_Module_Context->func_beaconHome( g_current_Module_id, requests, responses );
+        isSuccess = g_Module_Context->func_sendHome( g_current_Module_id, requests );
     }
 
     return isSuccess;

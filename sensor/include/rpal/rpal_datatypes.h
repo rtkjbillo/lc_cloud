@@ -31,6 +31,7 @@ limitations under the License.
     #ifdef RPAL_PLATFORM_KERNEL
         #include <ntddk.h>
     #else
+        #include <winsock2.h>
         #include <windows.h>
         #include <windows_undocumented.h>
     #endif

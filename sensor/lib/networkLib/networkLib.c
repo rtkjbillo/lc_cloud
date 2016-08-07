@@ -18,71 +18,18 @@ limitations under the License.
 
 #define RPAL_FILE_ID    41
 
-
 #ifdef RPAL_PLATFORM_WINDOWS
+#include <iphlpapi.h>
 #include <windows_undocumented.h>
+#else
+#include <sys/types.h>
+#include <sys/sockets.h>
+#endif
 
-static HMODULE hIpHlpApi = NULL;
-static GetTcpTable_f GetTcpTable = NULL;
-static GetUdpTable_f GetUdpTable = NULL;
-static GetExtendedTcpTable_f GetExtendedTcpTable = NULL;
-static GetExtendedUdpTable_f GetExtendedUdpTable = NULL;
+#pragma warning( disable: 4127 ) // Disabling error on constant expression in condition
 
-static
-RBOOL
-    loadNetApi
-    (
-
-    )
-{
-    RBOOL isLoaded = FALSE;
-
-    RCHAR importDll[] = "iphlpapi.dll";
-    RCHAR import1[] = "GetTcpTable";
-    RCHAR import2[] = "GetUdpTable";
-    RCHAR import3[] = "GetExtendedTcpTable";
-    RCHAR import4[] = "GetExtendedUdpTable";
-
-    if( ( NULL == GetTcpTable ||
-          NULL == GetUdpTable ) &&
-          NULL == hIpHlpApi )
-    {
-        // Some potential weird race condition, but extremelyt unlikely
-        if( NULL == ( hIpHlpApi = LoadLibraryA( (RPCHAR)&importDll ) ) )
-        {
-            return FALSE;
-        }
-    }
-
-    if( NULL == GetTcpTable )
-    {
-        GetTcpTable = (GetTcpTable_f)GetProcAddress( hIpHlpApi, (RPCHAR)&import1 );
-    }
-
-    if( NULL == GetUdpTable )
-    {
-        GetUdpTable = (GetUdpTable_f)GetProcAddress( hIpHlpApi, (RPCHAR)&import2 );
-    }
-
-    if( NULL == GetExtendedTcpTable )
-    {
-        GetExtendedTcpTable = (GetExtendedTcpTable_f)GetProcAddress( hIpHlpApi, (RPCHAR)&import3 );
-    }
-
-    if( NULL == GetExtendedUdpTable )
-    {
-        GetExtendedUdpTable = (GetExtendedUdpTable_f)GetProcAddress( hIpHlpApi, (RPCHAR)&import4 );
-    }
-
-    if( NULL != GetTcpTable &&
-        NULL != GetUdpTable )
-    {
-        isLoaded = TRUE;
-    }
-
-    return isLoaded;
-}
-
+#ifndef SOCKET_ERROR
+#define SOCKET_ERROR (-1)
 #endif
 
 NetLib_Tcp4Table*
@@ -99,71 +46,68 @@ NetLib_Tcp4Table*
     RBOOL isFinished = FALSE;
     RU32 i = 0;
 
-    if( loadNetApi() )
+    while( !isFinished )
     {
-        while( !isFinished )
+        if( NULL != GetExtendedTcpTable )
         {
-            if( NULL != GetExtendedTcpTable )
-            {
-                error = GetExtendedTcpTable( winTable, (DWORD*)&size, FALSE, AF_INET, TCP_TABLE_OWNER_PID_ALL, 0 );
-            }
-            else
-            {
-                error = GetTcpTable( winTable, (PDWORD)&size, FALSE );
-            }
+            error = GetExtendedTcpTable( winTable, (DWORD*)&size, FALSE, AF_INET, TCP_TABLE_OWNER_PID_ALL, 0 );
+        }
+        else
+        {
+            error = GetTcpTable( winTable, (PDWORD)&size, FALSE );
+        }
 
-            if( ERROR_INSUFFICIENT_BUFFER == error &&
-                0 != size )
-            {
-                if( NULL == ( winTable = rpal_memory_realloc( winTable, size ) ) )
-                {
-                    isFinished = TRUE;
-                }
-            }
-            else if( ERROR_SUCCESS != error )
-            {
-                rpal_memory_free( winTable );
-                winTable = NULL;
-                isFinished = TRUE;
-            }
-            else
+        if( ERROR_INSUFFICIENT_BUFFER == error &&
+            0 != size )
+        {
+            if( NULL == ( winTable = rpal_memory_realloc( winTable, size ) ) )
             {
                 isFinished = TRUE;
             }
         }
-
-        if( NULL != winTable )
+        else if( ERROR_SUCCESS != error )
         {
-            if( NULL != ( table = rpal_memory_alloc( sizeof( NetLib_Tcp4Table ) + 
-                                                     ( winTable->dwNumEntries * sizeof( NetLib_Tcp4TableRow ) ) ) ) )
-            {
-                table->nRows = winTable->dwNumEntries;
-
-                for( i = 0; i < winTable->dwNumEntries; i++ )
-                {
-                    if( NULL == GetExtendedTcpTable )
-                    {
-                        table->rows[ i ].destIp = winTable->table[ i ].dwRemoteAddr;
-                        table->rows[ i ].destPort = (RU16)winTable->table[ i ].dwRemotePort;
-                        table->rows[ i ].sourceIp = winTable->table[ i ].dwLocalAddr;
-                        table->rows[ i ].sourcePort = (RU16)winTable->table[ i ].dwLocalPort;
-                        table->rows[ i ].state = winTable->table[ i ].dwState;
-                        table->rows[ i ].pid = 0;
-                    }
-                    else
-                    {
-                        table->rows[ i ].destIp = ((PMIB_TCPROW_OWNER_PID)winTable->table)[ i ].dwRemoteAddr;
-                        table->rows[ i ].destPort = (RU16)((PMIB_TCPROW_OWNER_PID)winTable->table)[ i ].dwRemotePort;
-                        table->rows[ i ].sourceIp = ((PMIB_TCPROW_OWNER_PID)winTable->table)[ i ].dwLocalAddr;
-                        table->rows[ i ].sourcePort = (RU16)((PMIB_TCPROW_OWNER_PID)winTable->table)[ i ].dwLocalPort;
-                        table->rows[ i ].state = ((PMIB_TCPROW_OWNER_PID)winTable->table)[ i ].dwState;
-                        table->rows[ i ].pid = ((PMIB_TCPROW_OWNER_PID)winTable->table)[ i ].dwOwningPid;
-                    }
-                }
-            }
-
             rpal_memory_free( winTable );
+            winTable = NULL;
+            isFinished = TRUE;
         }
+        else
+        {
+            isFinished = TRUE;
+        }
+    }
+
+    if( NULL != winTable )
+    {
+        if( NULL != ( table = rpal_memory_alloc( sizeof( NetLib_Tcp4Table ) + 
+                                                    ( winTable->dwNumEntries * sizeof( NetLib_Tcp4TableRow ) ) ) ) )
+        {
+            table->nRows = winTable->dwNumEntries;
+
+            for( i = 0; i < winTable->dwNumEntries; i++ )
+            {
+                if( NULL == GetExtendedTcpTable )
+                {
+                    table->rows[ i ].destIp = winTable->table[ i ].dwRemoteAddr;
+                    table->rows[ i ].destPort = (RU16)winTable->table[ i ].dwRemotePort;
+                    table->rows[ i ].sourceIp = winTable->table[ i ].dwLocalAddr;
+                    table->rows[ i ].sourcePort = (RU16)winTable->table[ i ].dwLocalPort;
+                    table->rows[ i ].state = winTable->table[ i ].dwState;
+                    table->rows[ i ].pid = 0;
+                }
+                else
+                {
+                    table->rows[ i ].destIp = ((PMIB_TCPROW_OWNER_PID)winTable->table)[ i ].dwRemoteAddr;
+                    table->rows[ i ].destPort = (RU16)((PMIB_TCPROW_OWNER_PID)winTable->table)[ i ].dwRemotePort;
+                    table->rows[ i ].sourceIp = ((PMIB_TCPROW_OWNER_PID)winTable->table)[ i ].dwLocalAddr;
+                    table->rows[ i ].sourcePort = (RU16)((PMIB_TCPROW_OWNER_PID)winTable->table)[ i ].dwLocalPort;
+                    table->rows[ i ].state = ((PMIB_TCPROW_OWNER_PID)winTable->table)[ i ].dwState;
+                    table->rows[ i ].pid = ((PMIB_TCPROW_OWNER_PID)winTable->table)[ i ].dwOwningPid;
+                }
+            }
+        }
+
+        rpal_memory_free( winTable );
     }
 #else
     rpal_debug_not_implemented();
@@ -185,65 +129,62 @@ NetLib_UdpTable*
     RBOOL isFinished = FALSE;
     RU32 i = 0;
 
-    if( loadNetApi() )
+    while( !isFinished )
     {
-        while( !isFinished )
+        if( NULL != GetExtendedUdpTable )
         {
-            if( NULL != GetExtendedUdpTable )
-            {
-                error = GetExtendedUdpTable( winTable, (DWORD*)&size, FALSE, AF_INET, UDP_TABLE_OWNER_PID, 0 );
-            }
-            else
-            {
-                error = GetUdpTable( winTable, (PDWORD)&size, FALSE );
-            }
+            error = GetExtendedUdpTable( winTable, (DWORD*)&size, FALSE, AF_INET, UDP_TABLE_OWNER_PID, 0 );
+        }
+        else
+        {
+            error = GetUdpTable( winTable, (PDWORD)&size, FALSE );
+        }
 
-            if( ERROR_INSUFFICIENT_BUFFER == error &&
-                0 != size )
-            {
-                if( NULL == ( winTable = rpal_memory_realloc( winTable, size ) ) )
-                {
-                    isFinished = TRUE;
-                }
-            }
-            else if( ERROR_SUCCESS != error )
-            {
-                rpal_memory_free( winTable );
-                winTable = NULL;
-                isFinished = TRUE;
-            }
-            else
+        if( ERROR_INSUFFICIENT_BUFFER == error &&
+            0 != size )
+        {
+            if( NULL == ( winTable = rpal_memory_realloc( winTable, size ) ) )
             {
                 isFinished = TRUE;
             }
         }
-
-        if( NULL != winTable )
+        else if( ERROR_SUCCESS != error )
         {
-            if( NULL != ( table = rpal_memory_alloc( sizeof( NetLib_UdpTable ) + 
-                                                     ( winTable->dwNumEntries * sizeof( NetLib_UdpTableRow ) ) ) ) )
-            {
-                table->nRows = winTable->dwNumEntries;
-
-                for( i = 0; i < winTable->dwNumEntries; i++ )
-                {
-                    if( NULL == GetExtendedUdpTable )
-                    {
-                        table->rows[ i ].localIp = winTable->table[ i ].dwLocalAddr;
-                        table->rows[ i ].localPort = (RU16)winTable->table[ i ].dwLocalPort;
-                        table->rows[ i ].pid = 0;
-                    }
-                    else
-                    {
-                        table->rows[ i ].localIp = ((PMIB_UDPROW_OWNER_PID)winTable->table)[ i ].dwLocalAddr;
-                        table->rows[ i ].localPort = (RU16)((PMIB_UDPROW_OWNER_PID)winTable->table)[ i ].dwLocalPort;
-                        table->rows[ i ].pid = ((PMIB_UDPROW_OWNER_PID)winTable->table)[ i ].dwOwningPid;
-                    }
-                }
-            }
-
             rpal_memory_free( winTable );
+            winTable = NULL;
+            isFinished = TRUE;
         }
+        else
+        {
+            isFinished = TRUE;
+        }
+    }
+
+    if( NULL != winTable )
+    {
+        if( NULL != ( table = rpal_memory_alloc( sizeof( NetLib_UdpTable ) + 
+                                                    ( winTable->dwNumEntries * sizeof( NetLib_UdpTableRow ) ) ) ) )
+        {
+            table->nRows = winTable->dwNumEntries;
+
+            for( i = 0; i < winTable->dwNumEntries; i++ )
+            {
+                if( NULL == GetExtendedUdpTable )
+                {
+                    table->rows[ i ].localIp = winTable->table[ i ].dwLocalAddr;
+                    table->rows[ i ].localPort = (RU16)winTable->table[ i ].dwLocalPort;
+                    table->rows[ i ].pid = 0;
+                }
+                else
+                {
+                    table->rows[ i ].localIp = ((PMIB_UDPROW_OWNER_PID)winTable->table)[ i ].dwLocalAddr;
+                    table->rows[ i ].localPort = (RU16)((PMIB_UDPROW_OWNER_PID)winTable->table)[ i ].dwLocalPort;
+                    table->rows[ i ].pid = ((PMIB_UDPROW_OWNER_PID)winTable->table)[ i ].dwOwningPid;
+                }
+            }
+        }
+
+        rpal_memory_free( winTable );
     }
 #else
     rpal_debug_not_implemented();
@@ -251,3 +192,197 @@ NetLib_UdpTable*
     return table;
 }
 
+
+NetLibTcpConnection
+    NetLib_TcpConnect
+    (
+        RPCHAR dest,
+        RU16 port
+    )
+{
+    NetLibTcpConnection conn = 0;
+
+    if( NULL != dest )
+    {
+        RBOOL isConnected = FALSE;
+        struct sockaddr_in server = { 0 };
+        struct hostent* remoteHost = NULL;
+        conn = socket( AF_INET, SOCK_STREAM, IPPROTO_TCP );
+
+#ifdef RPAL_PLATFORM_WINDOWS
+        if( INVALID_SOCKET == conn && WSANOTINITIALISED == WSAGetLastError() )
+        {
+            WSADATA wsadata = { 0 };
+            if( 0 != WSAStartup( MAKEWORD( 2, 2 ), &wsadata ) )
+            {
+                return 0;
+            }
+            conn = socket( AF_INET, SOCK_STREAM, IPPROTO_TCP );
+        }
+#endif
+
+        if( conn )
+        {
+            if( NULL != ( remoteHost = gethostbyname( dest ) ) )
+            {
+                rpal_memory_memcpy( &server.sin_addr, remoteHost->h_addr_list[ 0 ], remoteHost->h_length );
+                server.sin_family = AF_INET;
+                server.sin_port = htons( port );
+
+                if( 0 == connect( conn, (struct sockaddr*)&server, sizeof( server ) ) )
+                {
+                    isConnected = TRUE;
+                }
+            }
+        }
+
+        if( !isConnected && 0 != conn )
+        {
+#ifdef RPAL_PLATFORM_WINDOWS
+            closesocket( conn );
+#else
+            close( conn );
+#endif
+            conn = 0;
+        }
+    }
+
+    return conn;
+}
+
+RBOOL
+    NetLib_TcpDisconnect
+    (
+        NetLibTcpConnection conn
+    )
+{
+    RBOOL isDisconnected = FALSE;
+
+    if( 0 != conn )
+    {
+#ifdef RPAL_PLATFORM_WINDOWS
+        closesocket( conn );
+#else
+        close( conn );
+#endif
+    }
+
+    return isDisconnected;
+}
+
+RBOOL
+    NetLib_TcpSend
+    (
+        NetLibTcpConnection conn,
+        RPVOID buffer,
+        RU32 bufferSize,
+        rEvent stopEvent
+    )
+{
+    RBOOL isSent = FALSE;
+    RU32 nSent = 0;
+    RU32 ret = 0;
+    fd_set sockets;
+    struct timeval timeout = { 1, 0 };
+    int waitVal = 0;
+
+    if( 0 != conn &&
+        NULL != buffer &&
+        0 != bufferSize )
+    {
+        isSent = TRUE;
+
+        FD_ZERO( &sockets );
+        FD_SET( conn, &sockets );
+
+        while( nSent < bufferSize && !rEvent_wait( stopEvent, 0 ) )
+        {
+            waitVal = select( 1, NULL, &sockets, NULL, &timeout );
+
+            if( 0 == waitVal )
+            {
+                continue;
+            }
+
+            if( SOCKET_ERROR == waitVal ||
+                SOCKET_ERROR == ( ret = send( conn, (const char*)( (RPU8)buffer ) + nSent, bufferSize - nSent, 0 ) ) )
+            {
+                isSent = FALSE;
+                break;
+            }
+
+            nSent += ret;
+        }
+
+        if( nSent != bufferSize )
+        {
+            isSent = FALSE;
+        }
+    }
+
+    return isSent;
+}
+
+RBOOL
+    NetLib_TcpReceive
+    (
+        NetLibTcpConnection conn,
+        RPVOID buffer,
+        RU32 bufferSize,
+        rEvent stopEvent,
+        RU32 timeoutSec
+    )
+{
+    RBOOL isReceived = FALSE;
+    RU32 nReceived = 0;
+    RU32 ret = 0;
+    fd_set sockets;
+    struct timeval timeout = { 1, 0 };
+    int waitVal = 0;
+    RTIME expire = 0;
+
+    if( 0 != conn &&
+        NULL != buffer &&
+        0 != bufferSize )
+    {
+        isReceived = TRUE;
+
+        FD_ZERO( &sockets );
+        FD_SET( conn, &sockets );
+
+        if( 0 != timeoutSec )
+        {
+            expire = rpal_time_getLocal() + timeoutSec;
+        }
+
+        while( nReceived < bufferSize && 
+               !rEvent_wait( stopEvent, 0 ) && 
+               ( 0 == timeoutSec || rpal_time_getLocal() <= expire ) )
+        {
+            waitVal = select( 1, &sockets, NULL, NULL, &timeout );
+
+            if( 0 == waitVal )
+            {
+                FD_ZERO( &sockets );
+                FD_SET( conn, &sockets );
+                continue;
+            }
+
+            if( SOCKET_ERROR == waitVal ||
+                SOCKET_ERROR == ( ret = recv( conn, (char*)( (RPU8)buffer ) + nReceived, bufferSize - nReceived, 0 ) ) )
+            {
+                isReceived = FALSE;
+                break;
+            }
+
+            nReceived += ret;
+        }
+
+        if( nReceived != bufferSize )
+        {
+            isReceived = FALSE;
+        }
+    }
+
+    return isReceived;
+}

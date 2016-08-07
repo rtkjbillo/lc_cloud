@@ -81,12 +81,10 @@ class BEAdmin( object ):
                                                          'new_subnet' : newSubnet,
                                                          'hostname' : hostname } )
     
-    def hcp_delEnrollmentRule( self, mask, externalIp, internalIp, newOrg, newSubnet, hostname ):
+    def hcp_delEnrollmentRule( self, mask, externalIp, internalIp, hostname ):
         return self._query( 'hcp.del_enrollment_rule', { 'mask' : mask,
                                                          'external_ip' : externalIp,
                                                          'internal_ip' : internalIp,
-                                                         'new_org' : newOrg,
-                                                         'new_subnet' : newSubnet,
                                                          'hostname' : hostname } )
     
     def hcp_getTaskings( self ):

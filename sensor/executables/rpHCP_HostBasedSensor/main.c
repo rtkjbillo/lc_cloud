@@ -303,7 +303,7 @@ static rList
         rpal_debug_info( "%d messages ready for exfil.", nExfilMsg );
 
 
-        if( rpHcpI_beaconHome( exfil, &response ) )
+        if( rpHcpI_sendHome( exfil ) )
         {
             rpal_debug_info( "%d messages received from cloud.", rList_getNumElements( response ) );
         }

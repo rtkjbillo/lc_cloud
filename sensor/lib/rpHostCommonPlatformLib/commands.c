@@ -125,6 +125,9 @@ RBOOL
     rpHCPModuleContext* modContext = NULL;
 
     OBFUSCATIONLIB_DECLARE( entryName, RP_HCP_CONFIG_MODULE_ENTRY );
+    OBFUSCATIONLIB_DECLARE( onConnect, RP_HCP_CONFIG_MODULE_ON_CONNECT );
+    OBFUSCATIONLIB_DECLARE( onDisconnect, RP_HCP_CONFIG_MODULE_ON_DISCONNECT );
+    OBFUSCATIONLIB_DECLARE( recvMessage, RP_HCP_CONFIG_MODULE_RECV_MESSAGE );
 
     if( NULL != seq )
     {
@@ -175,14 +178,19 @@ RBOOL
                         modContext = &(g_hcpContext.modules[ moduleIndex ].context);
 
                         modContext->pCurrentId = &(g_hcpContext.currentId);
-                        modContext->func_beaconHome = doBeacon;
+                        modContext->func_sendHome = doSend;
                         modContext->isTimeToStop = rEvent_create( TRUE );
                         modContext->rpalContext = rpal_Context_get();
 
                         if( NULL != modContext->isTimeToStop )
                         {
                             g_hcpContext.modules[ moduleIndex ].isTimeToStop  = modContext->isTimeToStop;
-
+                            g_hcpContext.modules[ moduleIndex ].func_onConnect = (rpal_thread_func)MemoryGetProcAddress( g_hcpContext.modules[ moduleIndex ].hModule,
+                                                                                                       (RPCHAR)onConnect );
+                            g_hcpContext.modules[ moduleIndex ].func_onDisconnect = (rpal_thread_func)MemoryGetProcAddress( g_hcpContext.modules[ moduleIndex ].hModule,
+                                                                                                          (RPCHAR)onDisconnect );
+                            g_hcpContext.modules[ moduleIndex ].func_recvMessage = (rpal_thread_func)MemoryGetProcAddress( g_hcpContext.modules[ moduleIndex ].hModule,
+                                                                                                         (RPCHAR)recvMessage );
                             g_hcpContext.modules[ moduleIndex ].hThread = rpal_thread_new( pEntry, modContext );
 
                             if( 0 != g_hcpContext.modules[ moduleIndex ].hThread )

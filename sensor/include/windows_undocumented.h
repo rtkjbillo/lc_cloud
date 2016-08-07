@@ -924,113 +924,12 @@ typedef BOOL (WINAPI *GetSystemTimes_f)(
 #define ANY_SIZE 1
 #endif
 
-typedef struct _MIB_UDPROW {
-    DWORD dwLocalAddr;
-    DWORD dwLocalPort;
-} MIB_UDPROW, *PMIB_UDPROW;
-
-typedef struct _MIB_UDPTABLE {
-    DWORD dwNumEntries;
-    MIB_UDPROW table[ANY_SIZE];
-} MIB_UDPTABLE, *PMIB_UDPTABLE;
-
-typedef struct _MIB_TCPROW {
-    DWORD       dwState;
-    DWORD       dwLocalAddr;
-    DWORD       dwLocalPort;
-    DWORD       dwRemoteAddr;
-    DWORD       dwRemotePort;
-} MIB_TCPROW, *PMIB_TCPROW;
-
-typedef struct _MIB_TCPTABLE {
-    DWORD dwNumEntries;
-    MIB_TCPROW table[ANY_SIZE];
-} MIB_TCPTABLE, *PMIB_TCPTABLE;
-
-typedef DWORD (WINAPI *GetTcpTable_f)
-	(
-    PMIB_TCPTABLE pTcpTable,
-    PDWORD        pdwSize,
-    BOOL          bOrder
-    );
-
-typedef DWORD (WINAPI *GetUdpTable_f)(
-    OUT    PMIB_UDPTABLE pUdpTable,
-    IN OUT PDWORD        pdwSize,
-    IN     BOOL          bOrder
-    );
-
 typedef LPVOID (WINAPI *ConvertThreadToFiber_f)(
     LPVOID lpParameter
 );
 
 typedef VOID (WINAPI *DeleteFiber_f)(
     LPVOID lpFiber
-);
-
-
-typedef enum  { 
-  TCP_TABLE_BASIC_LISTENER,
-  TCP_TABLE_BASIC_CONNECTIONS,
-  TCP_TABLE_BASIC_ALL,
-  TCP_TABLE_OWNER_PID_LISTENER,
-  TCP_TABLE_OWNER_PID_CONNECTIONS,
-  TCP_TABLE_OWNER_PID_ALL,
-  TCP_TABLE_OWNER_MODULE_LISTENER,
-  TCP_TABLE_OWNER_MODULE_CONNECTIONS,
-  TCP_TABLE_OWNER_MODULE_ALL 
-} TCP_TABLE_CLASS, *PTCP_TABLE_CLASS;
-    
-typedef enum  { 
-  UDP_TABLE_BASIC,
-  UDP_TABLE_OWNER_PID,
-  UDP_TABLE_OWNER_MODULE 
-} UDP_TABLE_CLASS, *PUDP_TABLE_CLASS;
-
-
-typedef struct _MIB_UDPROW_OWNER_PID {
-  DWORD dwLocalAddr;
-  DWORD dwLocalPort;
-  DWORD dwOwningPid;
-} MIB_UDPROW_OWNER_PID, *PMIB_UDPROW_OWNER_PID;
-
-typedef struct _MIB_UDPTABLE_OWNER_PID {
-  DWORD                dwNumEntries;
-  MIB_UDPROW_OWNER_PID table[ANY_SIZE];
-} MIB_UDPTABLE_OWNER_PID, *PMIB_UDPTABLE_OWNER_PID;
-    
-typedef struct _MIB_TCPROW_OWNER_PID {
-  DWORD dwState;
-  DWORD dwLocalAddr;
-  DWORD dwLocalPort;
-  DWORD dwRemoteAddr;
-  DWORD dwRemotePort;
-  DWORD dwOwningPid;
-} MIB_TCPROW_OWNER_PID, *PMIB_TCPROW_OWNER_PID;
-
-
-typedef struct {
-  DWORD                dwNumEntries;
-  MIB_TCPROW_OWNER_PID table[ANY_SIZE];
-} MIB_TCPTABLE_OWNER_PID, *PMIB_TCPTABLE_OWNER_PID;
-
-
-typedef DWORD (WINAPI *GetExtendedTcpTable_f)(
-  PVOID pTcpTable,
-  DWORD* pdwSize,
-  BOOL bOrder,
-  ULONG ulAf,
-  TCP_TABLE_CLASS TableClass,
-  ULONG Reserved
-);
-
-typedef DWORD (WINAPI *GetExtendedUdpTable_f)(
-  PVOID pUdpTable,
-  DWORD* pdwSize,
-  BOOL bOrder,
-  ULONG ulAf,
-  UDP_TABLE_CLASS TableClass,
-  ULONG Reserved
 );
 
 typedef struct _DNS_CACHE_ENTRY {

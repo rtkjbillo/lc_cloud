@@ -149,7 +149,7 @@ typedef struct
 {
     rpal_PContext rpalContext;
     rpHCPId* pCurrentId;
-    RBOOL (*func_beaconHome)( RpHcp_ModuleId sourceModuleId, rList toSend, rList* pReceived );
+    RBOOL (*func_sendHome)( RpHcp_ModuleId sourceModuleId, rList toSend );
     rEvent isTimeToStop;
 
 } rpHCPModuleContext;

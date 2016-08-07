@@ -42,10 +42,9 @@ RPAL_THREAD_FUNC
 //  API For Module
 //=============================================================================
 RBOOL
-    rpHcpI_beaconHome
+    rpHcpI_sendHome
     (
-        rList requests,
-        rList* responses
+        rList requests
     );
 
 RBOOL

@@ -65,6 +65,13 @@ RU32
 		rBlob blob
 	);
 
+RBOOL
+    rpal_blob_pad
+    (
+        rBlob blob,
+        RU32 nPaddingBytes
+    );
+
 RPVOID
     rpal_blob_arrElem
     (
@@ -95,6 +102,12 @@ RPVOID
         rBlob blob
     );
 
+RBOOL
+    rpal_blob_freeBufferOnly
+    (
+        rBlob blob
+    );
+
 rBlob
     rpal_blob_createFromBuffer
     (
@@ -108,6 +121,14 @@ RBOOL
         rBlob blob,
         RU32 nBytesToRead,
         RPVOID toBuffer
+    );
+
+RBOOL
+    rpal_blob_setBuffer
+    (
+        rBlob blob,
+        RPVOID buffer,
+        RU32 bufferSize
     );
 
 #endif

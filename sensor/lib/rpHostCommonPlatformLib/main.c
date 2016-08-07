@@ -230,6 +230,7 @@ RBOOL
     rSequence tmpSeq = NULL;
     RPU8 tmpBuffer = NULL;
     RU32 tmpSize = 0;
+    RU16 tmpPort = 0;
 
     rpal_debug_info( "launching hcp" );
 
@@ -251,24 +252,33 @@ RBOOL
         {
             CryptoLib_init();
 
+            if( NULL == ( g_hcpContext.cloudConnectionMutex = rMutex_create() ) )
+            {
+                rpal_debug_error( "could not create cloud connection mutex" );
+                return FALSE;
+            }
+
             g_hcpContext.currentId.raw = g_idTemplate.raw;
 
             // We attempt to load some initial config from the serialized
             // rSequence that can be patched in this binary.
             if( NULL != ( staticConfig = getStaticConfig() ) )
             {
-                if( rSequence_getSTRINGA( staticConfig, RP_TAGS_HCP_PRIMARY_URL, &tmpStr ) )
+                if( rSequence_getSTRINGA( staticConfig, RP_TAGS_HCP_PRIMARY_URL, &tmpStr ) &&
+                    rSequence_getRU16( staticConfig, RP_TAGS_HCP_PRIMARY_PORT, &tmpPort ) )
                 {
                     g_hcpContext.primaryUrl = rpal_string_strdupa( tmpStr );
+                    g_hcpContext.primaryPort = tmpPort;
                     rpal_debug_info( "loading primary url from static config" );
                 }
 
-                if( rSequence_getSTRINGA( staticConfig, RP_TAGS_HCP_SECONDARY_URL, &tmpStr ) )
+                if( rSequence_getSTRINGA( staticConfig, RP_TAGS_HCP_SECONDARY_URL, &tmpStr ) &&
+                    rSequence_getRU16( staticConfig, RP_TAGS_HCP_SECONDARY_PORT, &tmpPort ) )
                 {
                     g_hcpContext.secondaryUrl = rpal_string_strdupa( tmpStr );
+                    g_hcpContext.secondaryPort = tmpPort;
                     rpal_debug_info( "loading secondary url from static config" );
                 }
-
                 if( rSequence_getSEQUENCE( staticConfig, RP_TAGS_HCP_ID, &tmpSeq ) )
                 {
                     g_hcpContext.currentId = seqToHcpId( tmpSeq );
@@ -381,6 +391,8 @@ RBOOL
         SetConsoleCtrlHandler( (PHANDLER_ROUTINE)ctrlHandler, FALSE );
 #endif
 
+        rMutex_free( g_hcpContext.cloudConnectionMutex );
+
         rpal_Context_cleanup();
 
         rpal_Context_deinitialize();
@@ -420,6 +432,9 @@ RBOOL
     RPCHAR errorStr = NULL;
 
     OBFUSCATIONLIB_DECLARE( entrypoint, RP_HCP_CONFIG_MODULE_ENTRY );
+    OBFUSCATIONLIB_DECLARE( onConnect, RP_HCP_CONFIG_MODULE_ON_CONNECT );
+    OBFUSCATIONLIB_DECLARE( onDisconnect, RP_HCP_CONFIG_MODULE_ON_DISCONNECT );
+    OBFUSCATIONLIB_DECLARE( recvMessage, RP_HCP_CONFIG_MODULE_RECV_MESSAGE );
 
     if( NULL != modulePath )
     {
@@ -454,14 +469,19 @@ RBOOL
                         modContext = &(g_hcpContext.modules[ moduleIndex ].context);
 
                         modContext->pCurrentId = &(g_hcpContext.currentId);
-                        modContext->func_beaconHome = doBeacon;
+                        modContext->func_sendHome = doSend;
                         modContext->isTimeToStop = rEvent_create( TRUE );
                         modContext->rpalContext = rpal_Context_get();
 
                         if( NULL != modContext->isTimeToStop )
                         {
                             g_hcpContext.modules[ moduleIndex ].isTimeToStop  = modContext->isTimeToStop;
-
+                            g_hcpContext.modules[ moduleIndex ].func_onConnect = (rpal_thread_func)MemoryGetProcAddress( g_hcpContext.modules[ moduleIndex ].hModule,
+                                                                                                                         (RPCHAR)onConnect );
+                            g_hcpContext.modules[ moduleIndex ].func_onDisconnect = (rpal_thread_func)MemoryGetProcAddress( g_hcpContext.modules[ moduleIndex ].hModule,
+                                                                                                                            (RPCHAR)onDisconnect );
+                            g_hcpContext.modules[ moduleIndex ].func_recvMessage = (rpal_thread_func)MemoryGetProcAddress( g_hcpContext.modules[ moduleIndex ].hModule,
+                                                                                                                           (RPCHAR)recvMessage );
                             g_hcpContext.modules[ moduleIndex ].hThread = rpal_thread_new( pEntry, modContext );
 
                             if( 0 != g_hcpContext.modules[ moduleIndex ].hThread )

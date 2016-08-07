@@ -155,6 +155,9 @@
     <ProjectReference Include="..\MemoryModule\MemoryModule.vcxproj">
       <Project>{f94005c9-8884-4bdb-af60-f6b07f6253cb}</Project>
     </ProjectReference>
+    <ProjectReference Include="..\networkLib\networkLib.vcxproj">
+      <Project>{ce91d7d4-2853-59a4-b328-cfeb4659323a}</Project>
+    </ProjectReference>
     <ProjectReference Include="..\obfuscationLib\obfuscationLib.vcxproj">
       <Project>{53e5cf95-eaba-412b-82c4-39632419171f}</Project>
     </ProjectReference>

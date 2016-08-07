@@ -22,6 +22,8 @@ limitations under the License.
 #include <MemoryModule/MemoryModule.h>
 #include <rpHostCommonPlatformLib/rpHCP_Common.h>
 #include <librpcm/librpcm.h>
+#include <networkLib/networkLib.h>
+#include <cryptoLib/cryptoLib.h>
 
 #pragma pack(push)
 #pragma pack(1)
@@ -40,6 +42,9 @@ typedef struct
     rThread hThread;
     rEvent isTimeToStop;
     HMEMORYMODULE hModule;
+    RVOID( RPAL_THREAD_FUNC *func_onConnect )( );
+    RVOID( RPAL_THREAD_FUNC *func_onDisconnect )( );
+    RVOID( RPAL_THREAD_FUNC *func_recvMessage )( rSequence message );
     rpHCPModuleContext context;
     CryptoLib_Hash hash;
     RBOOL isOsLoaded;
@@ -69,7 +74,18 @@ typedef struct
     rThread hBeaconThread;
     RU64 beaconTimeout;
     RPCHAR primaryUrl;
+    RU16 primaryPort;
     RPCHAR secondaryUrl;
+    RU16 secondaryPort;
+
+    // Current Connection
+    NetLibTcpConnection cloudConnection;
+    rMutex cloudConnectionMutex;
+    struct
+    {
+        CryptoLib_SymContext symSendCtx;
+        CryptoLib_SymContext symRecvCtx;
+    } session;
 
     // Modules Management
     rpHCPModuleInfo modules[ RP_HCP_CONTEXT_MAX_MODULES ];

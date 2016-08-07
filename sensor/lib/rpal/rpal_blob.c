@@ -109,7 +109,6 @@ RBOOL
 	RBOOL isAdded = FALSE;
 
 	if( rpal_memory_isValid( blob ) &&
-		NULL != pData &&
 		0 != size )
 	{
 		if( ((_prBlob)blob)->currentSize - ((_prBlob)blob)->sizeUsed < size )
@@ -122,7 +121,15 @@ RBOOL
 
 		if( rpal_memory_isValid( ((_prBlob)blob)->pData ) )
 		{
-			rpal_memory_memcpy( ((_prBlob)blob)->pData + ((_prBlob)blob)->sizeUsed, pData, size );
+            if( NULL != pData )
+            {
+                rpal_memory_memcpy( ( (_prBlob)blob )->pData + ( (_prBlob)blob )->sizeUsed, pData, size );
+            }
+            else
+            {
+                // If size is non zero but pointer to data is null, assume we just want blank data.
+                rpal_memory_zero( ( (_prBlob)blob )->pData + ( (_prBlob)blob )->sizeUsed, size );
+            }
 
 			((_prBlob)blob)->sizeUsed += size;
             
@@ -242,6 +249,38 @@ RU32
 	}
 
 	return size;
+}
+
+RBOOL
+    rpal_blob_pad
+    (
+        rBlob blob,
+        RU32 nPaddingBytes
+    )
+{
+    RBOOL isPadded = FALSE;
+    _prBlob pBlob = (_prBlob)blob;
+    RU32 nCurrentPad = 0;
+
+    if( rpal_memory_isValid( blob ) )
+    {
+        nCurrentPad = pBlob->currentSize - pBlob->sizeUsed;
+        if( nPaddingBytes > nCurrentPad )
+        {
+            if( NULL != ( pBlob->pData = rpal_memory_realloc( pBlob->pData, 
+                                                              pBlob->sizeUsed + nPaddingBytes ) ) )
+            {
+                pBlob->currentSize = pBlob->sizeUsed + nPaddingBytes;
+                isPadded = TRUE;
+            }
+        }
+        else
+        {
+            isPadded = TRUE;
+        }
+    }
+
+    return isPadded;
 }
 
 RPVOID
@@ -376,6 +415,32 @@ RPVOID
     return buffer;
 }
 
+RBOOL
+    rpal_blob_freeBufferOnly
+    (
+        rBlob blob
+    )
+{
+    RBOOL isFree = FALSE;
+
+    _prBlob pBlob = (_prBlob)blob;
+
+    if( rpal_memory_isValid( pBlob ) )
+    {
+        if( rpal_memory_isValid( pBlob->pData ) )
+        {
+            rpal_memory_free( pBlob->pData );
+            pBlob->pData = NULL;
+            pBlob->currentSize = 0;
+            pBlob->sizeUsed = 0;
+            pBlob->readOffset = 0;
+            isFree = TRUE;
+        }
+    }
+
+    return isFree;
+}
+
 rBlob
     rpal_blob_createFromBuffer
     (
@@ -427,4 +492,29 @@ RBOOL
     }
 
     return isRead;
+}
+
+RBOOL
+    rpal_blob_setBuffer
+    (
+        rBlob blob,
+        RPVOID buffer,
+        RU32 bufferSize
+    )
+{
+    RBOOL isSet = FALSE;
+    _prBlob pBlob = (_prBlob)blob;
+
+    if( rpal_memory_isValid( blob ) &&
+        rpal_memory_isValid( buffer ) &&
+        0 != bufferSize )
+    {
+        pBlob->pData = buffer;
+        pBlob->currentSize = bufferSize;
+        pBlob->readOffset = 0;
+        pBlob->sizeUsed = bufferSize;
+        isSet = TRUE;
+    }
+
+    return isSet;
 }

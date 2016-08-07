@@ -70,16 +70,6 @@ printStep( 'Starting the LIMA CHARLIE web interface on port 8888 (in a screen).'
                                                                  'beach',
                                                                  'sample_cluster.yaml' ) ) ) )
 
-printStep( 'Starting the HTTP endpoint for the cloud (in a screen).',
-    os.system( 'screen -d -m python %s %s'% ( os.path.join( root,
-                                                            'cloud',
-                                                            'beach',
-                                                            'http_endpoint.py' ),
-                                              os.path.join( root,
-                                                            'cloud',
-                                                            'beach',
-                                                            'sample_cluster.yaml' ) ) ) )
-
 printStep( 'Starting the BEACH REST interface on port 8000 (in a screen).',
     os.system( 'screen -d -m python -m beach.restbridge 8000 %s hcp'% ( os.path.join( root,
                                                                                       'cloud',
