@@ -71,6 +71,7 @@ class HcpCli ( cmd.Cmd ):
     prompt = '<NEED_LOGIN> %> '
 
     def __init__( self, beachConfig = None, token = None, hbsKey = None, logFile = None ):
+        self.histFile = os.path.expanduser( '~/.lc_history' )
         self.logFile = logFile
         if self.logFile is not None:
             self.logFile = open( self.logFile, 'w', 0 )
@@ -83,6 +84,13 @@ class HcpCli ( cmd.Cmd ):
         self.investigationId = None
         self.tags = Symbols()
         readline.set_completer_delims(":;'\"? \t")
+        readline.set_history_length( 100 )
+        try:
+            readline.read_history_file( self.histFile )
+        except:
+            self.outputString( 'Failed to load history file' )
+            open( self.histFile, 'w' ).close()
+
 
         if beachConfig is not None:
             self.connectWithConfig( beachConfig, token )
@@ -169,6 +177,7 @@ class HcpCli ( cmd.Cmd ):
             return [ x[ 3 : ] for x in dir( self ) if x.startswith( 'do_' ) ]
 
     def execAndPrintResponse( self, command, arguments, isHbsTask = False ):
+        readline.write_history_file( self.histFile )
         if isHbsTask:
             tmp = arguments
             arguments = argparse.Namespace()
@@ -463,16 +472,6 @@ class HcpCli ( cmd.Cmd ):
                              default = '255.255.255.255',
                              help = 'external ip mask the rule applies to (255 wildcard)',
                              dest = 'externalIp' )
-        parser.add_argument( '-s', '--newsubnet',
-                             type = hexArg,
-                             required = True,
-                             help = 'new subnet to give to agents matching this rule (hex)',
-                             dest = 'newSubnet' )
-        parser.add_argument( '-o', '--neworg',
-                             type = hexArg,
-                             required = True,
-                             help = 'new org to give to agents matching this rule (hex)',
-                             dest = 'newOrg' )
         parser.add_argument( '-n', '--hostname',
                              type = str,
                              required = False,

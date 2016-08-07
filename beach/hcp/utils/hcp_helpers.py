@@ -26,6 +26,7 @@ from contextlib import contextmanager
 from beach.actor import Actor
 rSequence = Actor.importLib( 'rpcm', 'rSequence' )
 
+import gevent.lock
 
 import hmac, base64, struct, hashlib, time, string, random
 
@@ -306,16 +307,53 @@ def timedFunction( f ):
         return r
     return wrapped
 
+class Mutex( object ):
+    def __init__( self ):
+        self._sem = gevent.lock.BoundedSemaphore( value = 1 )
+
+    def lock( self, timeout = None ):
+        return self._sem.acquire( timeout = timeout )
+
+    def unlock( self ):
+        return self._sem.release()
+
+class RWLock( object ):
+    def __init__( self, nReaders ):
+        self._nReaders = nReaders
+        self._sem = gevent.lock.BoundedSemaphore( value = nReaders )
+
+    def rLock( self, timeout = None ):
+        return self._sem.acquire( timeout = timeout )
+
+    def rUnlock( self ):
+        return self._sem.release()
+
+    def wLock( self, timeout = None ):
+        nLocked = 0
+        for n in range( self._nReaders ):
+            if self._sem.acquire( timeout = timeout ):
+                nLocked += 1
+        if nLocked != self._nReaders:
+            for n in range( nLocked ):
+                self._sem.release()
+            return False
+        else:
+            return True
+
+    def wUnlock( self ):
+        for n in range( self._nReaders ):
+            self._sem.release()
+
 class AgentId( object ):
     
     re_agent_id = re.compile( '^([a-fA-F0-9]+)\.([a-fA-F0-9]+)\.([a-fA-F0-9]+)\.([a-fA-F0-9])([a-fA-F0-9])([a-fA-F0-9])(?:\.([a-fA-F0-9]+))?$' )
     
     def __init__( self, seq, isWithoutConfig = False ):
-        self.org = None
-        self.subnet = None
-        self.unique = None
-        self.platform = None
-        self.config = None
+        self.org = 0xFF
+        self.subnet = 0xFF
+        self.unique = 0xFFFFFFFF
+        self.platform = 0xFF
+        self.config = 0xFF
         
         self.isWithoutConfig = isWithoutConfig
         
@@ -367,15 +405,16 @@ class AgentId( object ):
                         self.config = int( matches[ 6 ], 16 )
                 
                 self.isValid = True
-        elif type( seq ) is list:
+        elif type( seq ) is list or type( seq ) is tuple:
             self.org = int( seq[ 0 ] )
             self.subnet = int( seq[ 1 ] )
             self.unique = int( seq[ 2 ] )
-            self.platform = int( seq[ 3 ] )
-            if 5 == len( seq ):
-                if not isWithoutConfig:
-                    self.config = int( seq[ 4 ] )
-            self.isValid = True
+            if 3 < len( seq ):
+                self.platform = int( seq[ 3 ] )
+                if 5 == len( seq ):
+                    if not isWithoutConfig:
+                        self.config = int( seq[ 4 ] )
+                self.isValid = True
         elif type( seq ) is AgentId:
             self.org = int( seq.org )
             self.subnet = int( seq.subnet )
@@ -384,6 +423,29 @@ class AgentId( object ):
             if not isWithoutConfig:
                 self.config = int( seq.config ) if seq.config is not None else None
             self.isValid = seq.isValid
+
+    def asWhere( self, isSimpleOnly = False ):
+        filt = []
+        filtValues = []
+
+        if self.org != 0xFF:
+            filt.append( 'org = %s' )
+            filtValues.append( self.org )
+        if self.subnet != 0xFF:
+            filt.append( 'subnet = %s' )
+            filtValues.append( self.subnet )
+        if self.unique != 0xFFFFFFFF:
+            filt.append( 'unique = %s' )
+            filtValues.append( self.unique )
+        if not simple:
+            if self.platform != 0xFF:
+                filt.append( 'platform = %s' )
+                filtValues.append( self.platform )
+            if self.config != 0xFF:
+                filt.append( 'config = %s' )
+                filtValues.append( self.config )
+
+        return ( ', '.join( filt ), filterValues )
 
     def asString( self, isInvariable = False ) :
         if self.isValid:
@@ -452,25 +514,6 @@ class AgentId( object ):
                 isMatch = True
         
         return isMatch
-    
-    def asWhere( self, isWithConfig = True, prefix = '' ):
-        s = '''( ( 255 = %s OR %sorg = %s OR %sorg = 255 ) AND
-                 ( 255 = %s OR %ssubnet = %s OR %ssubnet = 255 ) AND
-                 ( 4294967295 = %s OR %suniqueid = %s OR %suniqueid = 4294967295 ) AND
-                 ( 192 = ( %s & 192 ) OR ( %splatform & 192 ) = ( %s & 192 ) OR ( 192 = ( %splatform & 192 ) ) ) AND
-                 ( 56 = ( %s & 56 ) OR ( %splatform & 56 ) = ( %s & 56 ) OR ( 56 = ( %splatform & 56 ) ) ) AND
-                 ( 7 = ( %s & 7 ) OR ( %splatform & 7 ) = ( %s & 7 ) OR ( 7 = ( %splatform & 7 ) ) )''' % ( int( self.org ), prefix, int( self.org ), prefix,
-                                                                                                            int( self.subnet ), prefix, int( self.subnet ), prefix,
-                                                                                                            int( self.unique ), prefix, int( self.unique ), prefix,
-                                                                                                            int( self.platform ), prefix, int( self.platform ), prefix,
-                                                                                                            int( self.platform ), prefix, int( self.platform ), prefix,
-                                                                                                            int( self.platform ), prefix, int( self.platform ), prefix )
-        if isWithConfig:
-            s += ''' AND ( 255 = %s OR %sconfig = %s OR %sconfig = 255 )''' % ( int( self.config if None != self.config else 0 ), prefix,
-                                                                                int( self.config if None != self.config else 0 ), prefix )
-            
-        s += ' )'
-        return s
     
     def toJson( self ):
         j = None

@@ -21,11 +21,10 @@ rList = Actor.importLib( '../utils/rpcm', 'rList' )
 rSequence = Actor.importLib( '../utils/rpcm', 'rSequence' )
 AgentId = Actor.importLib( '../utils/hcp_helpers', 'AgentId' )
 HbsCollectorId = Actor.importLib( '../utils/hcp_helpers', 'HbsCollectorId' )
-HcpDb = Actor.importLib( '../utils/hcp_databases', 'HcpDb' )
-ip_to_tuple = Actor.importLib( '../utils/hcp_helpers', 'ip_to_tuple' )
+CassDb = Actor.importLib( '../utils/hcp_databases', 'CassDb' )
+CassPool = Actor.importLib( '../utils/hcp_databases', 'CassPool' )
 HcpOperations = Actor.importLib( '../utils/hcp_helpers', 'HcpOperations' )
 HcpModuleId = Actor.importLib( '../utils/hcp_helpers', 'HcpModuleId' )
-PooledResource = Actor.importLib( '../utils/hcp_helpers', 'PooledResource' )
 
 def audited( f ):
     def wrapped( self, *args, **kwargs ):
@@ -37,15 +36,14 @@ def audited( f ):
 class AdminEndpoint( Actor ):
     def init( self, parameters, resources ):
         self.symbols = self.importLib( '../Symbols', 'Symbols' )()
-        self.dbPool = PooledResource( lambda: HcpDb( parameters[ 'state_db' ][ 'url' ],
-                                                     parameters[ 'state_db' ][ 'db' ],
-                                                     parameters[ 'state_db' ][ 'user' ],
-                                                     parameters[ 'state_db' ][ 'password' ],
-                                                     isConnectRightAway = True ) )
+        self._db = CassDb( parameters[ 'db' ], 'hcp_analytics', consistencyOne = True )
+        self.db = CassPool( self._db,
+                            rate_limit_per_sec = parameters[ 'rate_limit_per_sec' ],
+                            maxConcurrent = parameters[ 'max_concurrent' ],
+                            blockOnQueueSize = parameters[ 'block_on_queue_size' ] )
+        self.db.start()
         self.handle( 'ping', self.ping )
         self.handle( 'hcp.get_agent_states', self.cmd_hcp_getAgentStates )
-        self.handle( 'hcp.get_period', self.cmd_hcp_getPeriod )
-        self.handle( 'hcp.set_period', self.cmd_hcp_setPeriod )
         self.handle( 'hcp.get_enrollment_rules', self.cmd_hcp_getEnrollmentRules )
         self.handle( 'hcp.add_enrollment_rule', self.cmd_hcp_addEnrollmentRule )
         self.handle( 'hcp.del_enrollment_rule', self.cmd_hcp_delEnrollmentRule )
@@ -57,14 +55,13 @@ class AdminEndpoint( Actor ):
         self.handle( 'hcp.remove_module', self.cmd_hcp_delModule )
         self.handle( 'hcp.reloc_agent', self.cmd_hcp_relocAgent )
         self.handle( 'hcp.get_relocations', self.cmd_hcp_getRelocs )
-        self.handle( 'hbs.get_period', self.cmd_hbs_getPeriod )
-        self.handle( 'hbs.set_period', self.cmd_hbs_setPeriod )
         self.handle( 'hbs.set_profile', self.cmd_hbs_addProfile )
         self.handle( 'hbs.get_profiles', self.cmd_hbs_getProfiles )
         self.handle( 'hbs.del_profile', self.cmd_hbs_delProfile )
         self.handle( 'hbs.task_agent', self.cmd_hbs_taskAgent )
 
         self.auditor = self.getActorHandle( resources[ 'auditing' ], timeout = 5, nRetries = 3 )
+        self.enrollments = self.getActorHandle( resources[ 'enrollments' ], timeout = 5, nRetries = 3 )
 
     def deinit( self ):
         pass
@@ -74,429 +71,244 @@ class AdminEndpoint( Actor ):
 
     @audited
     def cmd_hcp_getAgentStates( self, msg ):
-        with self.dbPool.anInstance() as db:
-            data = {}
-            request = msg.data
+        request = msg.data
+        aid = None
+        hostName = request.get( 'hostname', None )
+        aids = []
+        if 'agent_id' in request:
+            aids.append( AgentId( request[ 'agent_id' ] ) )
+        elif hostName is not None:
+            aids = [ AgentId( x ) for x in self.db.getOne( 'SELECT aid FROM sensor_hostnames WHERE hostname = %s', hostName ) ]
 
-            where = ''
-            v = []
-            if 'agent_id' in request:
-                aid = AgentId( request[ 'agent_id' ] )
-                where = 'WHERE %s' % aid.asWhere( isWithConfig = False )
-            elif 'hostname' in request:
-                where ='WHERE last_hostname = %s'
-                v.append( request[ 'hostname' ] )
+        data = { 'agents' : {} }
 
-            results = db.query( 'SELECT * FROM hcp_agentinfo %s' % where, v )
-
-            if results is not False:
-                data[ 'agents' ] = {}
-                for result in results:
-                    a = {}
-                    a[ 'agent_id' ] = str( AgentId( result ) )
-                    a[ 'last_external_ip' ] = '%s.%s.%s.%s' % ( result[ 'last_e_ip_A' ],
-                                                                result[ 'last_e_ip_B' ],
-                                                                result[ 'last_e_ip_C' ],
-                                                                result[ 'last_e_ip_D' ] )
-                    a[ 'last_internal_ip' ] = '%s.%s.%s.%s' % ( result[ 'last_i_ip_A' ],
-                                                                result[ 'last_i_ip_B' ],
-                                                                result[ 'last_i_ip_C' ],
-                                                                result[ 'last_i_ip_D' ] )
-                    a[ 'last_hostname' ] = result[ 'last_hostname' ]
-                    a[ 'enrollment_date' ] = str( result[ 'enrollment' ] )
-                    a[ 'date_last_seen' ] = str( result[ 'lastseen' ] )
-                    a[ 'last_module' ] = result[ 'lastmodule' ]
-                    a[ 'mem_used' ] = result[ 'memused' ]
-                    data[ 'agents' ][ a[ 'agent_id' ] ] = a
-
-                response = ( True, data )
-            else:
-                response = ( False, db.last_error )
-
-        return response
-
-    @audited
-    def cmd_hcp_getPeriod( self, msg ):
-        with self.dbPool.anInstance() as db:
-            result = db.queryOne( 'SELECT COUNT( slice ) AS n FROM hcp_schedule_periods' )
-
-            if result is not False:
-                response = ( True, { 'period' : result[ 'n' ] } )
-            else:
-                response = ( False, db.last_error )
-
-        return response
-
-    @audited
-    def cmd_hcp_setPeriod( self, msg ):
-        with self.dbPool.anInstance() as db:
-            response = ( True, )
-            request = msg.data
-            result = db.queryOne( 'SELECT COUNT( slice ) AS n FROM hcp_schedule_periods' )
-
-            if result is not False:
-                period = result[ 'n' ]
-
-                if period > request[ 'period' ]:
-                    if not db.execute( 'DELETE FROM hcp_schedule_periods WHERE slice > %s', request[ 'period' ] ):
-                        response = ( False, db.last_error )
-                elif period != request[ 'period' ]:
-                    if not db.execute( 'INSERT INTO hcp_schedule_periods ( slice, numscheduled ) VALUES %s' % ', '.join( [ '( %d, 0 )' % x for x in range( period, request[ 'period' ] ) ] ) ):
-                        response = ( False, db.last_error )
-            else:
-                response = ( False, db.last_error )
-
-        return response
+        if aid is not None and 0 != len( aid ):
+            for aid in aids:
+                filt = aid.isWhere( isSimpleOnly = False )
+                for row in self.db.execute( 'SELECT org, subnet, unique, enroll, alive, dead, hostname, ext_ip, int_ip FROM sensor_states WHERE %s' % filt[ 0 ], filt[ 1 ] ):
+                    tmpAid = AgentId( ( row[ 0 ], row[ 1 ], row[ 2 ] ) )
+                    tmpData = {}
+                    tmpData[ str( tmpAid ) ]
+                    tmpData[ 'last_external_ip' ] = row[ 7 ]
+                    tmpData[ 'last_internal_ip' ] = row[ 8 ]
+                    tmpData[ 'last_hostname' ] = row[ 6 ]
+                    data[ 'agents' ][ str( tmpAid ) ] = tmpData
+        
+        return ( True, data )
 
     @audited
     def cmd_hcp_getEnrollmentRules( self, msg ):
-        with self.dbPool.anInstance() as db:
-            results = db.query( 'SELECT * FROM hcp_enrollment_rules' )
+        rules = []
+        data = { 'rules' : rules }
+        for row in self.db.execute( 'SELECT aid, ext_ip, int_ip, hostname, new_org, new_subnet FROM enrollment' ):
+            rules.append( { 'mask' : AgentId( row[ 0 ] ),
+                            'external_ip' : row[ 1 ],
+                            'internal_ip' : row[ 2 ],
+                            'hostname' : row[ 3 ],
+                            'new_org' : row[ 4 ],
+                            'new_subnet' : row[ 5 ] } )
 
-            if results is not False:
-                rules = []
-
-                for record in results:
-                    rules.append( { 'mask' : AgentId( record ),
-                                    'external_ip' : '%d.%d.%d.%d' % ( record[ 'e_ip_A' ], record[ 'e_ip_B' ], record[ 'e_ip_C' ], record[ 'e_ip_D' ] ),
-                                    'internal_ip' : '%d.%d.%d.%d' % ( record[ 'i_ip_A' ], record[ 'i_ip_B' ], record[ 'i_ip_C' ], record[ 'i_ip_D' ] ),
-                                    'hostname' : record[ 'hostname' ],
-                                    'new_org' : hex( record[ 'new_org' ] ),
-                                    'new_subnet' : hex( record[ 'new_subnet' ] ),
-                                    'hostname' : record[ 'hostname' ] } )
-
-                response = ( True, { 'rules' : rules } )
-            else:
-                response = ( False, db.last_error )
-
-        return response
+        return ( True, data )
 
     @audited
     def cmd_hcp_addEnrollmentRule( self, msg ):
-        with self.dbPool.anInstance() as db:
-            request = msg.data
-            response = ( True, )
+        request = msg.data
+        self.db.execute( 'INSERT INTO enrollment ( aid, ext_ip, int_ip, hostname, new_org, new_subnet ) VALUES ( %s, %s, %s, %s, %s, %s )',
+                         ( str( AgentId( request[ 'mask' ] ) ), 
+                           request[ 'external_ip' ],
+                           request[ 'internal_ip' ],
+                           request[ 'hostname' ],
+                           request[ 'new_org' ],
+                           request[ 'new_subnet' ] ) )
 
-            mask = AgentId( request[ 'mask' ] )
-            e_ip = ip_to_tuple( request[ 'external_ip' ] )
-            i_ip = ip_to_tuple( request[ 'internal_ip' ] )
-            new_org = request[ 'new_org' ]
-            new_subnet = request[ 'new_subnet' ]
-            hostname = request[ 'hostname' ]
+        self.enrollments.broadcast( 'reload', {} )
 
-            if not db.execute( '''INSERT INTO hcp_enrollment_rules ( org, subnet, uniqueid, platform, config,
-                                                                     e_ip_A, e_ip_B, e_ip_C, e_ip_D,
-                                                                     i_ip_A, i_ip_B, i_ip_C, i_ip_D,
-                                                                     new_org, new_subnet, hostname ) VALUES (
-                                                                     %s, %s, %s, %s, %s,
-                                                                     %s, %s, %s, %s,
-                                                                     %s, %s, %s, %s,
-                                                                     %s, %s, %s )''', ( mask.org, mask.subnet, mask.unique, mask.platform, mask.config,
-                                                                                        e_ip[ 0 ], e_ip[ 1 ], e_ip[ 2 ], e_ip[ 3 ],
-                                                                                        i_ip[ 0 ], i_ip[ 1 ], i_ip[ 2 ], i_ip[ 3 ],
-                                                                                        new_org, new_subnet,
-                                                                                        hostname ) ):
-                response = ( False, db.last_error )
-
-        return response
+        return ( True, )
 
     @audited
     def cmd_hcp_delEnrollmentRule( self, msg ):
-        with self.dbPool.anInstance() as db:
-            response = ( True, )
-            request = msg.data
+        request = msg.data
+        mask = AgentId( request[ 'mask' ] ).asString()
+        e_ip = request[ 'external_ip' ]
+        i_ip = request[ 'internal_ip' ]
+        hostname = request[ 'hostname' ]
 
-            mask = AgentId( request[ 'mask' ] )
-            e_ip = ip_to_tuple( request[ 'external_ip' ] )
-            i_ip = ip_to_tuple( request[ 'internal_ip' ] )
-            new_org = request[ 'new_org' ]
-            new_subnet = request[ 'new_subnet' ]
-            hostname = request[ 'hostname' ]
+        self.db.execute( 'DELETE FROM enrollment WHERE aid = %s AND ext_ip = %s AND int_ip = %s AND hostname = %s',
+                         ( mask, e_ip, i_ip, hostname ) )
 
-            if not db.execute( '''DELETE FROM hcp_enrollment_rules WHERE org = %s AND subnet = %s AND uniqueid = %s AND platform = %s AND config = %s AND
-                                                                         e_ip_A = %s AND e_ip_B = %s AND e_ip_C = %s AND e_ip_D = %s AND
-                                                                         i_ip_A = %s AND i_ip_B = %s AND i_ip_C = %s AND i_ip_D = %s AND
-                                                                         new_org = %s AND new_subnet = %s AND hostname = %s''',
-                                                                         ( mask.org, mask.subnet, mask.unique, mask.platform, mask.config,
-                                                                           e_ip[ 0 ], e_ip[ 1 ], e_ip[ 2 ], e_ip[ 3 ],
-                                                                           i_ip[ 0 ], i_ip[ 1 ], i_ip[ 2 ], i_ip[ 3 ],
-                                                                           new_org, new_subnet, hostname ) ):
-                response = ( False, db.last_error )
+        self.enrollments.broadcast( 'reload', {} )
 
-
-        return response
+        return ( True, )
 
     @audited
     def cmd_hcp_getTaskings( self, msg ):
-        with self.dbPool.anInstance() as db:
-            results = db.query( 'SELECT * FROM hcp_module_tasking' )
-
-            if results is not False:
-                data = {}
-                data[ 'taskings' ] = []
-
-                for record in results:
-                    data[ 'taskings' ].append( { 'mask' : AgentId( record ),
-                                                 'module_id' : record[ 'moduleid' ],
-                                                 'hash' : record[ 'hash' ] } )
-
-                response = ( True, data )
-            else:
-                response = ( False, db.last_error )
-
-        return response
+        data = {}
+        data[ 'taskings' ] = []
+        for row in self.db.execute( 'SELECT aid, mid, mhash FROM hcp_module_tasking' ):
+            data[ 'taskings' ].append( { 'mask' : AgentId( row[ 0 ] ),
+                                                 'module_id' : row[ 1 ],
+                                                 'hash' : row[ 2 ] } )
+        return ( True, data )
 
     @audited
     def cmd_hcp_addTasking( self, msg ):
-        with self.dbPool.anInstance() as db:
-            request = msg.data
-            response = ( True, )
-            mask = AgentId( request[ 'mask' ] )
-            moduleid = int( request[ 'module_id' ] )
-            h = str( request[ 'hash' ] )
+        request = msg.data
+        mask = AgentId( request[ 'mask' ] ).asString()
+        moduleid = int( request[ 'module_id' ] )
+        h = str( request[ 'hash' ] )
+        self.db.execute( 'INSERT INTO hcp_module_tasking ( aid, mid, mhash ) VALUES ( %s, %s, %s )',
+                         ( mask, moduleid, h ) )
 
-            if not db.execute( '''INSERT INTO hcp_module_tasking ( org, subnet, uniqueid, platform, config,
-                                                                   moduleid, hash ) VALUES ( %s, %s, %s, %s, %s, %s, %s )''',
-                                                                   ( mask.org, mask.subnet, mask.unique, mask.platform, mask.config,
-                                                                     moduleid, h ) ):
-                response = ( False, db.last_error )
-
-        return response
+        return ( True, )
 
     @audited
     def cmd_hcp_delTasking( self, msg ):
-        with self.dbPool.anInstance() as db:
-            request = msg.data
-            response = ( True, )
-            mask = AgentId( request[ 'mask' ] )
-            moduleid = int( request[ 'module_id' ] )
-            h = str( request[ 'hash' ] )
-
-            if not db.execute( '''DELETE FROM hcp_module_tasking WHERE org = %s AND subnet = %s AND uniqueid = %s AND platform = %s AND config = %s AND
-                                                                       moduleid = %s AND hash = %s''',
-                                                                       ( mask.org, mask.subnet, mask.unique, mask.platform, mask.config,
-                                                                         moduleid, h ) ):
-                response = ( False, db.last_error )
-
-        return response
+        request = msg.data
+        mask = AgentId( request[ 'mask' ] ).asString()
+        moduleid = int( request[ 'module_id' ] )
+        h = str( request[ 'hash' ] )
+        self.db.execute( 'DELETE FROM hcp_module_tasking WHERE aid = %s AND mid = %s AND mhash = %s',
+                         ( mask, moduleid, h ) )
+        
+        return ( True, )
 
     @audited
     def cmd_hcp_getModules( self, msg ):
-        with self.dbPool.anInstance() as db:
-            results = db.query( 'SELECT moduleid, hash, description FROM hcp_modules' )
+        modules = []
+        data = { 'modules' : modules }
+        for row in self.db.execute( 'SELECT mid, mhash, description FROM hcp_modules' ):
+            modules.append( { 'module_id' : row[ 0 ],
+                              'hash' : row[ 1 ],
+                              'description' : row[ 2 ] } )
 
-            if results is not False:
-                data = {}
-                data[ 'modules' ] = []
-
-                for record in results:
-                    data[ 'modules' ].append( { 'module_id' : record[ 'moduleid' ],
-                                                'hash' : record[ 'hash' ],
-                                                'description' : record[ 'description' ] } )
-                response = ( True, data )
-            else:
-                response = ( False, db.last_error )
-
-        return response
+        return ( True, data )
 
     @audited
     def cmd_hcp_addModule( self, msg ):
-        with self.dbPool.anInstance() as db:
-            request = msg.data
-            moduleid = int( request[ 'module_id' ] )
-            h = str( request[ 'hash' ] )
-            b = request[ 'bin' ]
-            sig = request[ 'signature' ]
-            description = ''
-            if 'description' in request:
-                description = request[ 'description' ]
+        request = msg.data
+        moduleid = int( request[ 'module_id' ] )
+        h = str( request[ 'hash' ] )
+        b = request[ 'bin' ]
+        sig = request[ 'signature' ]
+        description = ''
+        if 'description' in request:
+            description = request[ 'description' ]
+        self.db.execute( 'INSERT INTO hcp_modules ( mid, mhash, mdat, msig, description ) VALUES ( %s, %s, %s, %s, %s )',
+                         ( moduleid, h, bytearray( b ), bytearray( sig ), description ) )
 
-            if db.execute( '''INSERT INTO hcp_modules ( moduleid, hash, bin, signature, description ) VALUES ( %s, %s, %s, %s, %s )''',
-                                                      ( moduleid, h, b, sig, description ) ):
-                data = {}
-                data[ 'hash' ] = h
-                data[ 'module_id' ] = moduleid
-                data[ 'description' ] = description
-                response = ( True, data )
-            else:
-                response = ( False, db.last_error )
+        data = {}
+        data[ 'hash' ] = h
+        data[ 'module_id' ] = moduleid
+        data[ 'description' ] = description
 
-        return response
+        return ( True, data )
 
     @audited
     def cmd_hcp_delModule( self, msg ):
-        with self.dbPool.anInstance() as db:
-            request = msg.data
-            moduleid = int( request[ 'module_id' ] )
-            h = str( request[ 'hash' ] )
+        request = msg.data
+        moduleid = int( request[ 'module_id' ] )
+        h = str( request[ 'hash' ] )
 
-            if db.execute( '''DELETE FROM hcp_modules WHERE moduleid = %s AND hash = %s''',
-                              ( moduleid, h ) ):
-                response = ( True, )
-            else:
-                response = ( False, db.last_error )
+        self.db.execute( 'DELETE FROM hcp_modules WHERE mid = %s AND mhash = %s',
+                         ( moduleid, h ) )
 
-        return response
+        return ( True, )
 
     @audited
     def cmd_hcp_relocAgent( self, msg ):
-        with self.dbPool.anInstance() as db:
-            request = msg.data
-            fromAgent = AgentId( request[ 'agentid' ] )
-            newOrg = request[ 'new_org' ]
-            newSub = request[ 'new_subnet' ]
+        request = msg.data
+        fromAgent = AgentId( request[ 'agentid' ] ).asString()
+        newOrg = request[ 'new_org' ]
+        newSub = request[ 'new_subnet' ]
 
-            if not db.execute( 'INSERT INTO hcp_agent_reloc ( org, subnet, uniqueid, platform, new_org, new_subnet ) VALUES ( %s, %s, %s, %s, %s, %s )',
-                                ( fromAgent.org, fromAgent.subnet, fromAgent.unique, fromAgent.platform, newOrg, newSub ) ):
-                response = ( False, db.last_error )
-            else:
-                response = ( True, )
-
-        return response
+        self.db.execute( 'INSERT INTO sensor_reloc ( aid, new_org, new_subnet ) VALUES ( %s, %s, %s )',
+                         ( fromAgent, newOrg, newSub ) )
+        
+        return ( True, )
 
     @audited
     def cmd_hcp_getRelocs( self, msg ):
-        with self.dbPool.anInstance() as db:
-            results = db.query( 'SELECT * FROM hcp_agent_reloc' )
-
-            if results is not False:
-                data = {}
-                data[ 'relocations' ] = {}
-                for reloc in results:
-                    data[ 'relocations' ][ str( AgentId( reloc ) ) ] = { 'agentid' : AgentId( reloc ), 'new_org' : reloc[ 'new_org' ], 'new_subnet' : reloc[ 'new_subnet' ] }
-
-                response = ( True, data )
-            else:
-                response = ( False, db.last_error )
-
-        return response
-
-    @audited
-    def cmd_hbs_getPeriod( self, msg ):
-        with self.dbPool.anInstance() as db:
-            result = db.queryOne( 'SELECT COUNT( slice ) AS n FROM hbs_schedule_periods' )
-
-            if result is not False:
-                response = ( True, { 'period' : result[ 'n' ] } )
-            else:
-                response = ( False, db.last_error )
-
-        return response
-
-    @audited
-    def cmd_hbs_setPeriod( self, msg ):
-        with self.dbPool.anInstance() as db:
-            response = ( True, )
-            request = msg.data
-            result = db.queryOne( 'SELECT COUNT( slice ) AS n FROM hbs_schedule_periods' )
-
-            if result is not False:
-                period = result[ 'n' ]
-
-                if period > request[ 'period' ]:
-                    if not db.execute( 'DELETE FROM hbs_schedule_periods WHERE slice > %s', request[ 'period' ] ):
-                        response = ( False, db.last_error )
-                elif period != request[ 'period' ]:
-                    if not db.execute( 'INSERT INTO hbs_schedule_periods ( slice, numscheduled ) VALUES %s' % ', '.join( [ '( %d, 0 )' % x for x in range( period, request[ 'period' ] ) ] ) ):
-                        response = ( False, db.last_error )
-            else:
-                response = ( False, db.last_error )
-
-        return response
+        data = { 'relocations' : {} }
+        for row in self.db.execute( 'SELECT aid, new_org, new_subnet FROM sensor_reloc' ):
+            data[ 'relocations' ][ AgentId( row[ 0 ] ) ] = { 'agentid' :AgentId( row[ 0 ] ),
+                                                             'new_org' : row[ 1 ],
+                                                             'new_subnet' : row[ 2 ] }
+        
+        return ( True, data )
 
     @audited
     def cmd_hbs_getProfiles( self, msg ):
-        with self.dbPool.anInstance() as db:
-            results = db.query( 'SELECT * FROM hbs_configurations' )
+        data = { 'profiles' : [] }
+        for row in self.db.execute( 'SELECT aid, oprofile FROM hbs_profiles' ):
+            data[ 'profiles' ].append( { 'mask' : row[ 0 ],
+                                         'original_configs' : row[ 1 ] } )
 
-            if results is not False:
-                data = {}
-                data[ 'profiles' ] = []
-
-                for record in results:
-                    data[ 'profiles' ].append( { 'mask' : AgentId( record ),
-                                                 'original_configs' : record[ 'originalconfigs' ] } )
-
-                response = ( True, data )
-            else:
-                response = ( False, db.last_error )
-
-        return response
+        return ( True, data )
 
     @audited
     def cmd_hbs_addProfile( self, msg ):
-        with self.dbPool.anInstance() as db:
-            request = msg.data
-            mask = AgentId( request[ 'mask' ] )
-            c = request[ 'module_configs' ]
-            isValidConfig = False
-            profileError = ''
-            oc = c
-            configHash = None
+        request = msg.data
+        mask = AgentId( request[ 'mask' ] ).asString()
+        c = request[ 'module_configs' ]
+        isValidConfig = False
+        profileError = ''
+        oc = c
+        configHash = None
 
-            if c is not None and '' != c:
-                r = rpcm( isDebug = True )
-                rpcm_environment = { '_' : self.symbols,
-                                     'rList' : rList,
-                                     'rSequence' : rSequence,
-                                     'HbsCollectorId' : HbsCollectorId }
-                try:
-                    profile = eval( c.replace( '\n', '' ), rpcm_environment )
-                except:
-                    profile = None
-                    profileError = traceback.format_exc()
+        if c is not None and '' != c:
+            r = rpcm( isDebug = True )
+            rpcm_environment = { '_' : self.symbols,
+                                 'rList' : rList,
+                                 'rSequence' : rSequence,
+                                 'HbsCollectorId' : HbsCollectorId }
+            try:
+                profile = eval( c.replace( '\n', '' ), rpcm_environment )
+            except:
+                profile = None
+                profileError = traceback.format_exc()
 
-                if profile is not None:
-                    if type( profile ) is rList:
-                        profile = r.serialise( profile )
+            if profile is not None:
+                if type( profile ) is rList:
+                    profile = r.serialise( profile )
 
-                        if profile is not None:
-                            isValidConfig = True
-                            c = profile
-                            configHash = hashlib.sha256( profile ).hexdigest()
-                        else:
-                            profileError = 'config could not be serialised'
+                    if profile is not None:
+                        isValidConfig = True
+                        c = profile
+                        configHash = hashlib.sha256( profile ).hexdigest()
                     else:
-                        profileError = 'config did not evaluate as an rList: %s' % type( profile )
+                        profileError = 'config could not be serialised'
+                else:
+                    profileError = 'config did not evaluate as an rList: %s' % type( profile )
 
-            else:
-                isValidConfig = True
+        else:
+            isValidConfig = True
 
-            if isValidConfig:
-                response = ( True, )
-                if not db.execute( '''INSERT INTO hbs_configurations ( org, subnet, uniqueid, platform, config, modconfigs, originalconfigs, confighash ) VALUES ( %s, %s, %s, %s, %s, %s, %s, %s )''',
-                                                                     ( mask.org, mask.subnet, mask.unique, mask.platform, mask.config, c, oc, configHash ) ):
-                    response = ( False, db.last_error )
-            else:
-                response = ( False, profileError )
+        if isValidConfig:
+            self.db.execute( 'INSERT INTO hbs_profiles ( aid, cprofile, oprofile, hprofile ) VALUES ( %s, %s, %s, %s )',
+                             ( mask, bytearray( c ), oc, configHash ) )
+            response = ( True, )
+        else:
+            response = ( False, profileError )
 
         return response
 
     @audited
     def cmd_hbs_delProfile( self, msg ):
-        with self.dbPool.anInstance() as db:
-            request = msg.data
-            mask = AgentId( request[ 'mask' ] )
+        request = msg.data
+        mask = AgentId( request[ 'mask' ] ).asString()
 
-            if db.execute( '''DELETE FROM hbs_configurations WHERE org = %s AND subnet = %s AND uniqueid = %s AND platform = %s AND config = %s''',
-                                                                 ( mask.org, mask.subnet, mask.unique, mask.platform, mask.config ) ):
-                response = ( True, )
-            else:
-                response = ( False, db.last_error )
+        self.db.execute( 'DELETE FROM hbs_profiles WHERE aid = %s',
+                         ( mask, ) )
 
-        return response
+        return ( True, )
 
     @audited
     def cmd_hbs_taskAgent( self, msg ):
-        with self.dbPool.anInstance() as db:
-            request = msg.data
-            agent = AgentId( request[ 'agentid' ] )
-            task = request[ 'task' ]
+        request = msg.data
+        agent = AgentId( request[ 'agentid' ] ).asString()
+        task = request[ 'task' ]
 
-            if db.execute( '''INSERT INTO hbs_agent_tasks ( org, subnet, uniqueid, platform, task ) VALUES ( %s, %s, %s, %s, %s )''',
-                                                          ( agent.org, agent.subnet, agent.unique, agent.platform, task ) ):
-                response = ( True, )
-            else:
-                response = ( False, db.last_error )
-
-        return response
+        self.db.execute( 'INSERT INTO hbs_queue ( aid, task ) VALUES ( %s, %s )',
+                         ( agent, bytearray( task ) ) )
+        
+        return ( True, )

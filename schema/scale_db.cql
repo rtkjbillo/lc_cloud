@@ -2,6 +2,72 @@ CREATE KEYSPACE "hcp_analytics" WITH REPLICATION = { 'class' : 'SimpleStrategy',
 
 use hcp_analytics;
 
+CREATE TABLE sensor_states(
+  org int,
+  subnet int,
+  unique int,
+  enroll timestamp,
+  alive timestamp,
+  dead timestamp,
+  ext_ip varchar,
+  int_ip varchar,
+  hostname varchar,
+  PRIMARY KEY( org, subnet, unique )
+) WITH compaction = { 'class' : 'DateTieredCompactionStrategy' } AND gc_grace_seconds = 86400;
+
+CREATE TABLE sensor_hostnames(
+  hostname varchar,
+  aid list<varchar>,
+  PRIMARY KEY( hostname )
+) WITH compaction = { 'class' : 'DateTieredCompactionStrategy' } AND gc_grace_seconds = 86400;
+
+CREATE TABLE enrollment(
+  aid varchar,
+  ext_ip varchar,
+  int_ip varchar,
+  hostname varchar,
+  new_org int,
+  new_subnet int,
+  PRIMARY KEY( aid, ext_ip, int_ip, hostname )
+) WITH compaction = { 'class' : 'DateTieredCompactionStrategy' } AND gc_grace_seconds = 86400;
+
+CREATE TABLE sensor_reloc(
+  aid varchar,
+  new_org int,
+  new_subnet int,
+  PRIMARY KEY( aid )
+) WITH compaction = { 'class' : 'DateTieredCompactionStrategy' } AND gc_grace_seconds = 86400;
+
+CREATE TABLE hcp_modules(
+  mid int,
+  mhash varchar,
+  mdat blob,
+  msig blob,
+  description varchar,
+  PRIMARY KEY( mid, mhash )
+) WITH compaction = { 'class' : 'DateTieredCompactionStrategy' } AND gc_grace_seconds = 86400;
+
+CREATE TABLE hcp_module_tasking(
+  aid varchar,
+  mid int,
+  mhash varchar,
+  PRIMARY KEY( aid, mid, mhash )
+) WITH compaction = { 'class' : 'DateTieredCompactionStrategy' } AND gc_grace_seconds = 86400;
+
+CREATE TABLE hbs_profiles(
+  aid varchar,
+  cprofile blob,
+  oprofile varchar,
+  hprofile varchar,
+  PRIMARY KEY( aid )
+) WITH compaction = { 'class' : 'DateTieredCompactionStrategy' } AND gc_grace_seconds = 86400;
+
+CREATE TABLE hbs_queue(
+  aid varchar,
+  task blob,
+  PRIMARY KEY( aid, task )
+) WITH compaction = { 'class' : 'DateTieredCompactionStrategy' } AND gc_grace_seconds = 86400;
+
 CREATE TABLE events(
   eventid varchar,
   event varchar,

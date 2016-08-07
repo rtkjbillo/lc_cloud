@@ -13,21 +13,21 @@
 # limitations under the License.
 
 from beach.actor import Actor
-ObjectTypes = Actor.importLib( '../../utils/ObjectsDb', 'ObjectTypes' )
 StatelessActor = Actor.importLib( '../../Detects', 'StatelessActor' )
-_x_ = Actor.importLib( '../../utils/hcp_helpers', '_x_' )
+_xm_ = Actor.importLib( '../../utils/hcp_helpers', '_xm_' )
 
-class ExecNotOnDisk ( StatelessActor ):
+class ActiveDirectoryReference ( StatelessActor ):
     def init( self, parameters, resources ):
-        super( ExecNotOnDisk, self ).init( parameters, resources )
+        super( ActiveDirectoryReference, self ).init( parameters, resources )
 
     def process( self, detects, msg ):
         routing, event, mtd = msg.data
 
-        h = _x_( event, '?/base.HASH' )
-        if ( _x_( event, '?/base.EXECUTABLE' ) is not None or
-             _x_( event, '?/base.DLL' ) is not None or
-             _x_( event, '?/base.FILE_PATH' ) is not None ):
-            if h is None or h == '0000000000000000000000000000000000000000000000000000000000000000':
-                if _x_( event, '?/base.ERROR' ) is None:
-                    detects.add( 10, 'executing binary could not be found on disk', event, None )
+        for filePath in _xm_( event, '?/base.COMMAND_LINE' ):
+            if 'ntds.dit' in filePath.lower():
+                detects.add( 90, 
+                             'command line referencing the active directory database file',
+                             event, 
+                             ( ( 'remain_live', 60 ),
+                               ( 'history_dump', ),
+                               ( 'exfil_add', 'notification.FILE_CREATE', '--expire', 60 ) ) )
