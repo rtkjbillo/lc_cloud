@@ -125,8 +125,6 @@ RBOOL
     rpHCPModuleContext* modContext = NULL;
 
     OBFUSCATIONLIB_DECLARE( entryName, RP_HCP_CONFIG_MODULE_ENTRY );
-    OBFUSCATIONLIB_DECLARE( onConnect, RP_HCP_CONFIG_MODULE_ON_CONNECT );
-    OBFUSCATIONLIB_DECLARE( onDisconnect, RP_HCP_CONFIG_MODULE_ON_DISCONNECT );
     OBFUSCATIONLIB_DECLARE( recvMessage, RP_HCP_CONFIG_MODULE_RECV_MESSAGE );
 
     if( NULL != seq )
@@ -185,10 +183,7 @@ RBOOL
                         if( NULL != modContext->isTimeToStop )
                         {
                             g_hcpContext.modules[ moduleIndex ].isTimeToStop  = modContext->isTimeToStop;
-                            g_hcpContext.modules[ moduleIndex ].func_onConnect = (rpal_thread_func)MemoryGetProcAddress( g_hcpContext.modules[ moduleIndex ].hModule,
-                                                                                                       (RPCHAR)onConnect );
-                            g_hcpContext.modules[ moduleIndex ].func_onDisconnect = (rpal_thread_func)MemoryGetProcAddress( g_hcpContext.modules[ moduleIndex ].hModule,
-                                                                                                          (RPCHAR)onDisconnect );
+                            g_hcpContext.modules[ moduleIndex ].isCloudOnline= g_hcpContext.isCloudOnline;
                             g_hcpContext.modules[ moduleIndex ].func_recvMessage = (rpal_thread_func)MemoryGetProcAddress( g_hcpContext.modules[ moduleIndex ].hModule,
                                                                                                          (RPCHAR)recvMessage );
                             g_hcpContext.modules[ moduleIndex ].hThread = rpal_thread_new( pEntry, modContext );
@@ -318,7 +313,6 @@ RBOOL
     rpHCPId tmpId = {0};
     RU64 tmpTime = 0;
     rThread hQuitThread = 0;
-    RU64 delta = 0;
 
     rpHCPIdentStore identStore = {0};
     RPU8 token = NULL;
@@ -339,14 +333,6 @@ RBOOL
                 break;
             case RP_HCP_COMMAND_UNLOAD_MODULE:
                 isSuccess = unloadModule( seq );
-                break;
-            case RP_HCP_COMMAND_SET_NEXT_BEACON:
-                if( rSequence_getTIMEDELTA( seq, RP_TAGS_TIMEDELTA, &delta ) )
-                {
-                    g_hcpContext.beaconTimeout = delta;
-                    rpal_debug_info( "setting next beacon delta to %d", delta );
-                    isSuccess = TRUE;
-                }
                 break;
             case RP_HCP_COMMAND_SET_HCP_ID:
                 if( rSequence_getSEQUENCE( seq, RP_TAGS_HCP_ID, &idSeq ) )

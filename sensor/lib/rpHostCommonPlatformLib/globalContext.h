@@ -42,8 +42,7 @@ typedef struct
     rThread hThread;
     rEvent isTimeToStop;
     HMEMORYMODULE hModule;
-    RVOID( RPAL_THREAD_FUNC *func_onConnect )( );
-    RVOID( RPAL_THREAD_FUNC *func_onDisconnect )( );
+    rEvent isCloudOnline;
     RVOID( RPAL_THREAD_FUNC *func_recvMessage )( rSequence message );
     rpHCPModuleContext context;
     CryptoLib_Hash hash;
@@ -72,7 +71,6 @@ typedef struct
     // Beacon Management
     rEvent isBeaconTimeToStop;
     rThread hBeaconThread;
-    RU64 beaconTimeout;
     RPCHAR primaryUrl;
     RU16 primaryPort;
     RPCHAR secondaryUrl;
@@ -81,6 +79,7 @@ typedef struct
     // Current Connection
     NetLibTcpConnection cloudConnection;
     rMutex cloudConnectionMutex;
+    rEvent isCloudOnline;
     struct
     {
         CryptoLib_SymContext symSendCtx;

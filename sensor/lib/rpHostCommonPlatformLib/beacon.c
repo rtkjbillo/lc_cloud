@@ -35,6 +35,7 @@ limitations under the License.
 //  Private defines and datastructures
 //=============================================================================
 #define FRAME_MAX_SIZE  (1024 * 1024 * 50)
+#define CLOUD_SYNC_TIMEOUT  (MSEC_FROM_SEC(60 * 10))
 
 //=============================================================================
 //  Helpers
@@ -262,6 +263,13 @@ rSequence
                     crashContext = NULL;
                     crashContextSize = 0;
                 }
+                else
+                {
+                    rSequence_addBUFFER( headers, RP_TAGS_HCP_CRASH_CONTEXT, crashContext, crashContextSize );
+                    rpal_memory_free( crashContext );
+                    crashContext = NULL;
+                    crashContextSize = 0;
+                }
 
                 // Set a default crashContext to be removed before exiting
                 setCrashContext( &defaultCrashContext, sizeof( defaultCrashContext ) );
@@ -318,121 +326,122 @@ rSequence
     return wrapper;
 }
 
-
-static
-rList
-    assembleRequest
-    (
-        RPU8 optCrashCtx,
-        RU32 optCrashCtxSize
-    )
-{
-    rSequence req = NULL;
-    RU32 moduleIndex = 0;
-    rList msgList = NULL;
-    rList modList = NULL;
-    rSequence modEntry = NULL;
-
-    if( NULL != ( req = rSequence_new() ) )
-    {
-        // Add some basic info
-        rSequence_addRU32( req, RP_TAGS_MEMORY_USAGE, rpal_memory_totalUsed() );
-        rSequence_addTIMESTAMP( req, RP_TAGS_TIMESTAMP, rpal_time_getGlobal() );
-
-        // If we have a crash context to report
-        if( NULL != optCrashCtx )
-        {
-            if( !rSequence_addBUFFER( req, RP_TAGS_HCP_CRASH_CONTEXT, optCrashCtx, optCrashCtxSize ) )
-            {
-                rpal_debug_error( "error adding crash context of size %d to hcp beacon", optCrashCtxSize );
-            }
-            else
-            {
-                rpal_debug_info( "crash context is being bundled in hcp beacon" );
-            }
-        }
-
-        // List of loaded modules
-        if( NULL != ( modList = rList_new( RP_TAGS_HCP_MODULE, RPCM_SEQUENCE ) ) )
-        {
-            for( moduleIndex = 0; moduleIndex < RP_HCP_CONTEXT_MAX_MODULES; moduleIndex++ )
-            {
-                if( NULL != g_hcpContext.modules[ moduleIndex ].hModule )
-                {
-                    if( NULL != ( modEntry = rSequence_new() ) )
-                    {
-                        if( !rSequence_addBUFFER( modEntry, 
-                                                    RP_TAGS_HASH, 
-                                                    (RPU8)&( g_hcpContext.modules[ moduleIndex ].hash ),
-                                                    sizeof( g_hcpContext.modules[ moduleIndex ].hash ) ) ||
-                            !rSequence_addRU8( modEntry, 
-                                                RP_TAGS_HCP_MODULE_ID, 
-                                                g_hcpContext.modules[ moduleIndex ].id ) ||
-                            !rList_addSEQUENCE( modList, modEntry ) )
-                        {
-                            break;
-                        }
-
-                        // We take the opportunity to cleanup the list of modules...
-                        if( rpal_thread_wait( g_hcpContext.modules[ moduleIndex ].hThread, 0 ) )
-                        {
-                            // This thread has exited, which is our signal that the module
-                            // has stopped executing...
-                            rEvent_free( g_hcpContext.modules[ moduleIndex ].isTimeToStop );
-                            rpal_thread_free( g_hcpContext.modules[ moduleIndex ].hThread );
-                            if( g_hcpContext.modules[ moduleIndex ].isOsLoaded )
-                            {
-#ifdef RPAL_PLATFORM_WINDOWS
-                                FreeLibrary( (HMODULE)( g_hcpContext.modules[ moduleIndex ].hModule ) );
-#elif defined( RPAL_PLATFORM_LINUX ) || defined( RPAL_PLATFORM_MACOSX )
-                                dlclose( g_hcpContext.modules[ moduleIndex ].hModule );
-#endif
-                            }
-                            else
-                            {
-                                MemoryFreeLibrary( g_hcpContext.modules[ moduleIndex ].hModule );
-                            }
-                            rpal_memory_zero( &(g_hcpContext.modules[ moduleIndex ]),
-                                              sizeof( g_hcpContext.modules[ moduleIndex ] ) );
-
-                            if( !rSequence_addRU8( modEntry, RP_TAGS_HCP_MODULE_TERMINATED, 1 ) )
-                            {
-                                break;
-                            }
-                        }
-                    }
-                }
-            }
-
-            if( !rSequence_addLIST( req, RP_TAGS_HCP_MODULES, modList ) )
-            {
-                rList_free( modList );
-            }
-        }
-
-        if( NULL != ( msgList = rList_new( RP_TAGS_MESSAGE, RPCM_SEQUENCE ) ) )
-        {
-            if( !rList_addSEQUENCE( msgList, req ) )
-            {
-                rList_free( msgList );
-                rSequence_free( req );
-                msgList = NULL;
-            }
-        }
-        else
-        {
-            rSequence_free( req );
-        }
-    }
-
-    return msgList;
-}
-
-
-
 //=============================================================================
 //  Base beacon
 //=============================================================================
+static
+RU32
+    RPAL_THREAD_FUNC thread_sync
+    (
+        RPVOID context
+    )
+{
+    rList wrapper = NULL;
+    rSequence message = NULL;
+    rList modList = NULL;
+    rSequence modEntry = NULL;
+    RU32 moduleIndex = 0;
+
+    RU32 timeout = MSEC_FROM_SEC( 30 );
+
+    UNREFERENCED_PARAMETER( context );
+
+    do
+    {
+        if( !rEvent_wait( g_hcpContext.isCloudOnline, 0 ) )
+        {
+            // Not online, no need to try.
+            continue;
+        }
+
+        if( NULL != ( wrapper = rList_new( RP_TAGS_MESSAGE, RPCM_SEQUENCE ) ) )
+        {
+            if( NULL != ( message = rSequence_new() ) )
+            {
+                // Add some basic info
+                rSequence_addRU32( message, RP_TAGS_MEMORY_USAGE, rpal_memory_totalUsed() );
+                rSequence_addTIMESTAMP( message, RP_TAGS_TIMESTAMP, rpal_time_getGlobal() );
+
+                if( NULL != ( modList = rList_new( RP_TAGS_HCP_MODULE, RPCM_SEQUENCE ) ) )
+                {
+                    for( moduleIndex = 0; moduleIndex < RP_HCP_CONTEXT_MAX_MODULES; moduleIndex++ )
+                    {
+                        if( NULL != g_hcpContext.modules[ moduleIndex ].hModule )
+                        {
+                            if( NULL != ( modEntry = rSequence_new() ) )
+                            {
+                                if( !rSequence_addBUFFER( modEntry,
+                                                          RP_TAGS_HASH,
+                                                          (RPU8)&( g_hcpContext.modules[ moduleIndex ].hash ),
+                                                          sizeof( g_hcpContext.modules[ moduleIndex ].hash ) ) ||
+                                    !rSequence_addRU8( modEntry,
+                                                       RP_TAGS_HCP_MODULE_ID,
+                                                       g_hcpContext.modules[ moduleIndex ].id ) ||
+                                    !rList_addSEQUENCE( modList, modEntry ) )
+                                {
+                                    break;
+                                }
+
+                                // We take the opportunity to cleanup the list of modules...
+                                if( rpal_thread_wait( g_hcpContext.modules[ moduleIndex ].hThread, 0 ) )
+                                {
+                                    // This thread has exited, which is our signal that the module
+                                    // has stopped executing...
+                                    rEvent_free( g_hcpContext.modules[ moduleIndex ].isTimeToStop );
+                                    rpal_thread_free( g_hcpContext.modules[ moduleIndex ].hThread );
+                                    if( g_hcpContext.modules[ moduleIndex ].isOsLoaded )
+                                    {
+#ifdef RPAL_PLATFORM_WINDOWS
+                                        FreeLibrary( (HMODULE)( g_hcpContext.modules[ moduleIndex ].hModule ) );
+#elif defined( RPAL_PLATFORM_LINUX ) || defined( RPAL_PLATFORM_MACOSX )
+                                        dlclose( g_hcpContext.modules[ moduleIndex ].hModule );
+#endif
+                                    }
+                                    else
+                                    {
+                                        MemoryFreeLibrary( g_hcpContext.modules[ moduleIndex ].hModule );
+                                    }
+                                    rpal_memory_zero( &( g_hcpContext.modules[ moduleIndex ] ),
+                                                      sizeof( g_hcpContext.modules[ moduleIndex ] ) );
+
+                                    if( !rSequence_addRU8( modEntry, RP_TAGS_HCP_MODULE_TERMINATED, 1 ) )
+                                    {
+                                        break;
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    if( !rSequence_addLIST( message, RP_TAGS_HCP_MODULES, modList ) )
+                    {
+                        rList_free( modList );
+                    }
+                }
+
+                if( !rList_addSEQUENCE( wrapper, message ) )
+                {
+                    rSequence_free( message );
+                }
+            }
+
+            if( !doSend( RP_HCP_MODULE_ID_HCP, wrapper ) )
+            {
+                // On successful sync, wait full period before another sync.
+                timeout = CLOUD_SYNC_TIMEOUT;
+            }
+            else
+            {
+                rpal_debug_warning( "sending sync failed, we may be offline" );
+            }
+
+            rList_free( wrapper );
+        }
+    } while( !rEvent_wait( g_hcpContext.isBeaconTimeToStop, timeout ) );
+
+    return 0;
+}
+
 static
 RU32
     RPAL_THREAD_FUNC thread_conn
@@ -449,6 +458,7 @@ RU32
     RU16 effectiveSecondaryPort = RP_HCP_CONFIG_HOME_PORT_SECONDARY;
     RPCHAR currentDest = NULL;
     RU16 currentPort = 0;
+    rThread syncThread = NULL;
     
     UNREFERENCED_PARAMETER( context );
 
@@ -475,6 +485,11 @@ RU32
     currentDest = effectivePrimary;
     currentPort = effectivePrimaryPort;
 
+    if( NULL == ( syncThread = rpal_thread_new( thread_sync, NULL ) ) )
+    {
+        rpal_debug_error( "could not start sync thread" );
+        return 0;
+    }
     
     while( !rEvent_wait( g_hcpContext.isBeaconTimeToStop, 0 ) )
     {
@@ -599,15 +614,10 @@ RU32
                 // Notify the modules of the connect.
                 RU32 moduleIndex = 0;
                 rpal_debug_info( "comms channel up with the cloud" );
-                for( moduleIndex = 0; moduleIndex < ARRAY_N_ELEM( g_hcpContext.modules ); moduleIndex++ )
-                {
-                    if( NULL != g_hcpContext.modules[ moduleIndex ].func_onConnect )
-                    {
-                        g_hcpContext.modules[ moduleIndex ].func_onConnect();
-                    }
-                }
 
                 // Secure channel is up and running, start receiving messages.
+                rEvent_set( g_hcpContext.isCloudOnline );
+
                 do
                 {
                     if( rMutex_lock( g_hcpContext.cloudConnectionMutex ) )
@@ -657,6 +667,8 @@ RU32
                     }
                 } while( !rEvent_wait( g_hcpContext.isBeaconTimeToStop, 0 ) );
 
+                rEvent_unset( g_hcpContext.isCloudOnline );
+
                 if( rMutex_lock( g_hcpContext.cloudConnectionMutex ) )
                 {
                     if( 0 != g_hcpContext.cloudConnection )
@@ -668,15 +680,6 @@ RU32
                 }
 
                 rpal_debug_info( "comms with cloud down" );
-
-                // Notify the modules of the disconnect.
-                for( moduleIndex = 0; moduleIndex < ARRAY_N_ELEM( g_hcpContext.modules ); moduleIndex++ )
-                {
-                    if( NULL != g_hcpContext.modules[ moduleIndex ].func_onDisconnect )
-                    {
-                        g_hcpContext.modules[ moduleIndex ].func_onDisconnect();
-                    }
-                }
             }
         }
         else
@@ -693,6 +696,9 @@ RU32
         rEvent_wait( g_hcpContext.isBeaconTimeToStop, MSEC_FROM_SEC( 10 ) );
         rpal_debug_warning( "failed connecting, cycling destination" );
     }
+
+    rpal_thread_wait( syncThread, MSEC_FROM_SEC( 10 ) );
+    rpal_thread_free( syncThread );
 
     return 0;
 }

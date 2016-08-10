@@ -270,9 +270,12 @@ class EndpointProcessor( Actor ):
             c.setAid( aid )
             self.currentClients[ aid.invariableToString() ] = c
             self.stateChanges.shoot( 'live', { 'aid' : aid.invariableToString(), 
-                                               'endpoint' : self.name } )
+                                               'endpoint' : self.name,
+                                               'ext_ip' : externalIp,
+                                               'int_ip' : internalIp,
+                                               'hostname' : hostName } )
 
-            self.log( 'Client registered, beginning to receive data' )
+            self.log( 'Client %s registered, beginning to receive data' % str( aid ) )
             while True:
                 moduleId, messages = c.recvFrame( timeout = 60 * 60 )
                 handler = self.moduleHandlers.get( moduleId, None )

@@ -369,7 +369,8 @@ RBOOL
             }
 
             if( SOCKET_ERROR == waitVal ||
-                SOCKET_ERROR == ( ret = recv( conn, (char*)( (RPU8)buffer ) + nReceived, bufferSize - nReceived, 0 ) ) )
+                SOCKET_ERROR == ( ret = recv( conn, (char*)( (RPU8)buffer ) + nReceived, bufferSize - nReceived, 0 ) ) ||
+                0 == ret )
             {
                 isReceived = FALSE;
                 break;

@@ -252,9 +252,11 @@ RBOOL
         {
             CryptoLib_init();
 
-            if( NULL == ( g_hcpContext.cloudConnectionMutex = rMutex_create() ) )
+            if( NULL == ( g_hcpContext.cloudConnectionMutex = rMutex_create() ) ||
+                NULL == ( g_hcpContext.isCloudOnline = rEvent_create( TRUE ) ) )
             {
-                rpal_debug_error( "could not create cloud connection mutex" );
+                rMutex_free( g_hcpContext.cloudConnectionMutex );
+                rpal_debug_error( "could not create cloud connection mutex or event" );
                 return FALSE;
             }
 
@@ -392,6 +394,9 @@ RBOOL
 #endif
 
         rMutex_free( g_hcpContext.cloudConnectionMutex );
+        rEvent_free( g_hcpContext.isCloudOnline );
+        g_hcpContext.cloudConnectionMutex = NULL;
+        g_hcpContext.isCloudOnline = NULL;
 
         rpal_Context_cleanup();
 
@@ -432,8 +437,6 @@ RBOOL
     RPCHAR errorStr = NULL;
 
     OBFUSCATIONLIB_DECLARE( entrypoint, RP_HCP_CONFIG_MODULE_ENTRY );
-    OBFUSCATIONLIB_DECLARE( onConnect, RP_HCP_CONFIG_MODULE_ON_CONNECT );
-    OBFUSCATIONLIB_DECLARE( onDisconnect, RP_HCP_CONFIG_MODULE_ON_DISCONNECT );
     OBFUSCATIONLIB_DECLARE( recvMessage, RP_HCP_CONFIG_MODULE_RECV_MESSAGE );
 
     if( NULL != modulePath )
@@ -476,10 +479,7 @@ RBOOL
                         if( NULL != modContext->isTimeToStop )
                         {
                             g_hcpContext.modules[ moduleIndex ].isTimeToStop  = modContext->isTimeToStop;
-                            g_hcpContext.modules[ moduleIndex ].func_onConnect = (rpal_thread_func)MemoryGetProcAddress( g_hcpContext.modules[ moduleIndex ].hModule,
-                                                                                                                         (RPCHAR)onConnect );
-                            g_hcpContext.modules[ moduleIndex ].func_onDisconnect = (rpal_thread_func)MemoryGetProcAddress( g_hcpContext.modules[ moduleIndex ].hModule,
-                                                                                                                            (RPCHAR)onDisconnect );
+                            g_hcpContext.modules[ moduleIndex ].isCloudOnline = g_hcpContext.isCloudOnline;
                             g_hcpContext.modules[ moduleIndex ].func_recvMessage = (rpal_thread_func)MemoryGetProcAddress( g_hcpContext.modules[ moduleIndex ].hModule,
                                                                                                                            (RPCHAR)recvMessage );
                             g_hcpContext.modules[ moduleIndex ].hThread = rpal_thread_new( pEntry, modContext );

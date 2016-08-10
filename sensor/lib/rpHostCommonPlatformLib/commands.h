@@ -22,10 +22,9 @@ limitations under the License.
 
 #define RP_HCP_COMMAND_LOAD_MODULE          0x01
 #define RP_HCP_COMMAND_UNLOAD_MODULE        0x02
-#define RP_HCP_COMMAND_SET_NEXT_BEACON      0x03
-#define RP_HCP_COMMAND_SET_HCP_ID           0x04
-#define RP_HCP_COMMAND_SET_GLOBAL_TIME      0x05
-#define RP_HCP_COMMAND_QUIT                 0x06
+#define RP_HCP_COMMAND_SET_HCP_ID           0x03
+#define RP_HCP_COMMAND_SET_GLOBAL_TIME      0x04
+#define RP_HCP_COMMAND_QUIT                 0x05
 
 
 RBOOL
