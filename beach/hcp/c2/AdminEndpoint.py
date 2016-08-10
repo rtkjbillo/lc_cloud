@@ -72,26 +72,36 @@ class AdminEndpoint( Actor ):
     @audited
     def cmd_hcp_getAgentStates( self, msg ):
         request = msg.data
-        aid = None
         hostName = request.get( 'hostname', None )
         aids = []
         if 'agent_id' in request:
             aids.append( AgentId( request[ 'agent_id' ] ) )
         elif hostName is not None:
             aids = [ AgentId( x ) for x in self.db.getOne( 'SELECT aid FROM sensor_hostnames WHERE hostname = %s', hostName ) ]
+        else:
+            aids = None
 
         data = { 'agents' : {} }
 
-        if aid is not None and 0 != len( aid ):
+        if aids is None:
+            for row in self.db.execute( 'SELECT org, subnet, unique, platform, enroll, alive, dead, hostname, ext_ip, int_ip FROM sensor_states' ):
+                    tmpAid = AgentId( ( row[ 0 ], row[ 1 ], row[ 2 ], row[ 3 ] ) )
+                    tmpData = {}
+                    tmpData[ 'agent_id' ] = str( tmpAid )
+                    tmpData[ 'last_external_ip' ] = row[ 8 ]
+                    tmpData[ 'last_internal_ip' ] = row[ 9 ]
+                    tmpData[ 'last_hostname' ] = row[ 7 ]
+                    data[ 'agents' ][ str( tmpAid ) ] = tmpData
+        elif 0 != len( aids ):
             for aid in aids:
                 filt = aid.isWhere( isSimpleOnly = False )
-                for row in self.db.execute( 'SELECT org, subnet, unique, enroll, alive, dead, hostname, ext_ip, int_ip FROM sensor_states WHERE %s' % filt[ 0 ], filt[ 1 ] ):
-                    tmpAid = AgentId( ( row[ 0 ], row[ 1 ], row[ 2 ] ) )
+                for row in self.db.execute( 'SELECT org, subnet, unique, platform, enroll, alive, dead, hostname, ext_ip, int_ip FROM sensor_states WHERE %s' % filt[ 0 ], filt[ 1 ] ):
+                    tmpAid = AgentId( ( row[ 0 ], row[ 1 ], row[ 2 ], row[ 3 ] ) )
                     tmpData = {}
-                    tmpData[ str( tmpAid ) ]
-                    tmpData[ 'last_external_ip' ] = row[ 7 ]
-                    tmpData[ 'last_internal_ip' ] = row[ 8 ]
-                    tmpData[ 'last_hostname' ] = row[ 6 ]
+                    tmpData[ 'agent_id' ] = str( tmpAid )
+                    tmpData[ 'last_external_ip' ] = row[ 8 ]
+                    tmpData[ 'last_internal_ip' ] = row[ 9 ]
+                    tmpData[ 'last_hostname' ] = row[ 7 ]
                     data[ 'agents' ][ str( tmpAid ) ] = tmpData
         
         return ( True, data )

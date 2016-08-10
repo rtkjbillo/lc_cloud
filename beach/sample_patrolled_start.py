@@ -44,11 +44,6 @@ STATE_DB = { 'url' : 'hcp-state-db',
 #    be processed.
 # enrollment_token: secret token used
 #    to verify enrolled sensor identities.
-# task_back_timeout: the number of
-#    seconds to wait during each
-#    beacon to give a chance to any
-#    detects to generate tasks for
-#    the sensor to process right away.
 #######################################
 Patrol( 'EndpointProcessor',
         initialInstances = 1,
@@ -70,15 +65,13 @@ Patrol( 'EndpointProcessor',
                                                                'keys',
                                                                'c2.priv.pem' ), 'r' ).read() },
             'secretIdent' : 'beacon/09ba97ab-5557-4030-9db0-1dbe7f2b9cfd',
-            'trustedIdents' : [ 'http/5bc10821-2d3f-413a-81ee-30759b9f863b' ],
+            'trustedIdents' : [ 'stateupdater/d3c521c6-d5c6-4726-9b0c-84d0ac356409' ],
             'n_concurrent' : 5 } )
 
 #######################################
 # EnrollmentManager
-# This actor is responsible to model
-# and record the information extracted
-# from the messages in all the different
-# pre-pivoted databases.
+# This actor is responsible for managing
+# enrollment requests from sensors.
 # Parameters:
 # db: the Cassandra seed nodes to
 #    connect to for storage.
@@ -105,6 +98,112 @@ Patrol( 'EnrollmentManager',
                              'max_concurrent' : 5,
                              'block_on_queue_size' : 100 },
             'secretIdent' : 'enrollment/a3bebbb0-00e2-4345-990b-4c36a40b475e',
+            'trustedIdents' : [ 'beacon/09ba97ab-5557-4030-9db0-1dbe7f2b9cfd' ],
+            'n_concurrent' : 5,
+            'isIsolated' : True } )
+
+#######################################
+# StateUpdater
+# This actor is responsible for updating
+# the current status of connections with
+# sensors.
+# Parameters:
+# db: the Cassandra seed nodes to
+#    connect to for storage.
+# rate_limit_per_sec: number of db ops
+#    per second, limiting to avoid
+#    db overload since C* is bad at that.
+# max_concurrent: number of concurrent
+#    db queries.
+# block_on_queue_size: stop queuing after
+#    n number of items awaiting ingestion.
+#######################################
+Patrol( 'StateUpdater',
+        initialInstances = 1,
+        maxInstances = None,
+        relaunchOnFailure = True,
+        onFailureCall = None,
+        scalingFactor = 1000,
+        actorArgs = ( 'c2/StateUpdater',
+                      [ 'c2/stateupdater/1.0',
+                        'c2/states/updater/1.0' ] ),
+        actorKwArgs = {
+            'resources' : {},
+            'parameters' : { 'db' : SCALE_DB,
+                             'rate_limit_per_sec' : 200,
+                             'max_concurrent' : 5,
+                             'block_on_queue_size' : 100 },
+            'secretIdent' : 'stateupdater/d3c521c6-d5c6-4726-9b0c-84d0ac356409',
+            'trustedIdents' : [ 'beacon/09ba97ab-5557-4030-9db0-1dbe7f2b9cfd' ],
+            'n_concurrent' : 5,
+            'isIsolated' : True } )
+
+#######################################
+# SensorDirectory
+# This actor is responsible for keeping
+# a list of which sensors are online and
+# at which endpoint.
+# Parameters:
+#######################################
+Patrol( 'SensorDirectory',
+        initialInstances = 1,
+        maxInstances = None,
+        relaunchOnFailure = True,
+        onFailureCall = None,
+        scalingFactor = 10000,
+        actorArgs = ( 'c2/SensorDirectory',
+                      [ 'c2/sensordir/1.0' ] ),
+        actorKwArgs = {
+            'resources' : {},
+            'parameters' : {},
+            'secretIdent' : 'sensordir/3babff24-400b-4233-bcac-18f538a88fe1',
+            'trustedIdents' : [ 'beacon/09ba97ab-5557-4030-9db0-1dbe7f2b9cfd' ],
+            'n_concurrent' : 5,
+            'isIsolated' : True } )
+
+#######################################
+# TaskingProxy
+# This actor is responsible for proxying
+# various taskings from actors in the
+# cloud to the relevant endpoint and sensors.
+# Parameters:
+#######################################
+Patrol( 'TaskingProxy',
+        initialInstances = 1,
+        maxInstances = None,
+        relaunchOnFailure = True,
+        onFailureCall = None,
+        scalingFactor = 1000,
+        actorArgs = ( 'c2/TaskingProxy',
+                      [ 'c2/taskingproxy/1.0' ] ),
+        actorKwArgs = {
+            'resources' : {},
+            'parameters' : {},
+            'secretIdent' : 'taskingproxy/794729aa-1ef5-4930-b377-48dda7b759a5',
+            'trustedIdents' : [ 'autotasking/a6cd8d9a-a90c-42ec-bd60-0519b6fb1f64',
+                                'modulemanager/1ecf1cd3-044d-434d-9134-b9b2c976ccad' ],
+            'n_concurrent' : 5,
+            'isIsolated' : True } )
+
+#######################################
+# ModuleManager
+# This actor is responsible for keeping
+# a list of which sensors are online and
+# at which endpoint.
+# Parameters:
+#######################################
+Patrol( 'ModuleManager',
+        initialInstances = 1,
+        maxInstances = None,
+        relaunchOnFailure = True,
+        onFailureCall = None,
+        scalingFactor = 1000,
+        actorArgs = ( 'c2/ModuleManager',
+                      [ 'c2/modulemanager/1.0' ] ),
+        actorKwArgs = {
+            'resources' : {},
+            'parameters' : {},
+            'secretIdent' : 'modulemanager/1ecf1cd3-044d-434d-9134-b9b2c976ccad',
             'trustedIdents' : [ 'beacon/09ba97ab-5557-4030-9db0-1dbe7f2b9cfd' ],
             'n_concurrent' : 5,
             'isIsolated' : True } )

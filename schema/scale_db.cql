@@ -6,19 +6,20 @@ CREATE TABLE sensor_states(
   org int,
   subnet int,
   unique int,
+  platform int,
   enroll timestamp,
   alive timestamp,
   dead timestamp,
   ext_ip varchar,
   int_ip varchar,
   hostname varchar,
-  PRIMARY KEY( org, subnet, unique )
+  PRIMARY KEY( org, subnet, unique, platform )
 ) WITH compaction = { 'class' : 'DateTieredCompactionStrategy' } AND gc_grace_seconds = 86400;
 
 CREATE TABLE sensor_hostnames(
   hostname varchar,
-  aid list<varchar>,
-  PRIMARY KEY( hostname )
+  aid varchar,
+  PRIMARY KEY( hostname, aid )
 ) WITH compaction = { 'class' : 'DateTieredCompactionStrategy' } AND gc_grace_seconds = 86400;
 
 CREATE TABLE enrollment(

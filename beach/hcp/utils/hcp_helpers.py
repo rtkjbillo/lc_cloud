@@ -654,10 +654,9 @@ def synchronized( lock = None ):
 class HcpOperations:
     LOAD_MODULE = 1
     UNLOAD_MODULE = 2
-    SET_NEXT_BEACON = 3
-    SET_HCP_ID = 4
-    SET_GLOBAL_TIME = 5
-    QUIT = 6
+    SET_HCP_ID = 3
+    SET_GLOBAL_TIME = 4
+    QUIT = 5
 
 class PooledResource( object ):
     def __init__( self, resourceFactoryFunc, maxResources = None ):
