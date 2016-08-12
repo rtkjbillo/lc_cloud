@@ -62,6 +62,7 @@ class AdminEndpoint( Actor ):
 
         self.auditor = self.getActorHandle( resources[ 'auditing' ], timeout = 5, nRetries = 3 )
         self.enrollments = self.getActorHandle( resources[ 'enrollments' ], timeout = 5, nRetries = 3 )
+        self.moduleTasking = self.getActorHandle( resources[ 'module_tasking' ], timeout = 5, nRetries = 3 )
 
     def deinit( self ):
         pass
@@ -131,7 +132,7 @@ class AdminEndpoint( Actor ):
                            request[ 'new_org' ],
                            request[ 'new_subnet' ] ) )
 
-        self.enrollments.broadcast( 'reload', {} )
+        self.schedule( 5, self.enrollments.broadcast, 'reload', {} )
 
         return ( True, )
 
@@ -146,7 +147,7 @@ class AdminEndpoint( Actor ):
         self.db.execute( 'DELETE FROM enrollment WHERE aid = %s AND ext_ip = %s AND int_ip = %s AND hostname = %s',
                          ( mask, e_ip, i_ip, hostname ) )
 
-        self.enrollments.broadcast( 'reload', {} )
+        self.schedule( 5, self.enrollments.broadcast, 'reload', {} )
 
         return ( True, )
 
@@ -169,6 +170,8 @@ class AdminEndpoint( Actor ):
         self.db.execute( 'INSERT INTO hcp_module_tasking ( aid, mid, mhash ) VALUES ( %s, %s, %s )',
                          ( mask, moduleid, h ) )
 
+        self.schedule( 5, self.moduleTasking.broadcast, 'reload', {} )
+
         return ( True, )
 
     @audited
@@ -179,6 +182,8 @@ class AdminEndpoint( Actor ):
         h = str( request[ 'hash' ] )
         self.db.execute( 'DELETE FROM hcp_module_tasking WHERE aid = %s AND mid = %s AND mhash = %s',
                          ( mask, moduleid, h ) )
+
+        self.schedule( 5, self.moduleTasking.broadcast, 'reload', {} )
         
         return ( True, )
 
