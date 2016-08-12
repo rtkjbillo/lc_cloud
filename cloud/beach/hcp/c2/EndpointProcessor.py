@@ -117,7 +117,7 @@ class _ClientContext( object ):
         timeout.start()
         try:
             with self.lock:
-                self.s.send( data )
+                self.s.sendall( data )
         except:
             raise DisconnectException( 'disconnect while sending' )
         finally:
@@ -160,6 +160,7 @@ class _ClientContext( object ):
         data += zlib.compress( hcpData )
         data = self.sendAes.update( self._pad( data ) )
         #data += self.sendAes.final()
+        self.parent.log( 'sending frame of size %d' % len( data ) )
         self.sendData( struct.pack( '>I', len( data ) ) + data, timeout = timeout )
 
 class EndpointProcessor( Actor ):
@@ -326,6 +327,8 @@ class EndpointProcessor( Actor ):
                                                              mod[ 2 ] ) )
 
                     c.sendFrame( HcpModuleId.HCP, tasks )
+                    self.log( 'load %d modules, unload %d modules' % ( len( changes[ 'load' ] ),
+                                                                       len( changes[ 'unload' ] ) ) )
                 else:
                     self.log( "could not provide module sync: %s" % moduleUpdateResp.error )
 

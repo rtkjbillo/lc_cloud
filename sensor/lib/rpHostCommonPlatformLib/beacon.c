@@ -346,6 +346,9 @@ RU32
 
     UNREFERENCED_PARAMETER( context );
 
+    // Blanket wait initially to give it a chance to connect.
+    rEvent_wait( g_hcpContext.isBeaconTimeToStop, MSEC_FROM_SEC( 5 ) );
+
     do
     {
         if( !rEvent_wait( g_hcpContext.isCloudOnline, 0 ) )
@@ -425,7 +428,7 @@ RU32
                 }
             }
 
-            if( !doSend( RP_HCP_MODULE_ID_HCP, wrapper ) )
+            if( doSend( RP_HCP_MODULE_ID_HCP, wrapper ) )
             {
                 // On successful sync, wait full period before another sync.
                 timeout = CLOUD_SYNC_TIMEOUT;
@@ -620,51 +623,46 @@ RU32
 
                 do
                 {
-                    if( rMutex_lock( g_hcpContext.cloudConnectionMutex ) )
+                    rList messages = NULL;
+                    rSequence message = NULL;
+                    RpHcp_ModuleId targetModuleId = 0;
+
+                    if( !recvFrame( &targetModuleId, &messages, 0 ) )
                     {
-                        rList messages = NULL;
-                        rSequence message = NULL;
-                        RpHcp_ModuleId targetModuleId = 0;
-
-                        if( !recvFrame( &targetModuleId, &messages, 0 ) )
-                        {
-                            rpal_debug_warning( "error receiving frame" );
-                            rMutex_unlock( g_hcpContext.cloudConnectionMutex );
-                            break;
-                        }
-
-                        // HCP is not a module so check manually
-                        if( RP_HCP_MODULE_ID_HCP == targetModuleId )
-                        {
-                            while( rList_getSEQUENCE( messages, RP_TAGS_MESSAGE, &message ) )
-                            {
-                                processMessage( message );
-                            }
-                        }
-                        else
-                        {
-                            // Look for the module this message is destined to
-                            for( moduleIndex = 0; moduleIndex < ARRAY_N_ELEM( g_hcpContext.modules ); moduleIndex++ )
-                            {
-                                if( targetModuleId == g_hcpContext.modules[ moduleIndex ].id )
-                                {
-                                    if( NULL != g_hcpContext.modules[ moduleIndex ].func_recvMessage )
-                                    {
-                                        while( rList_getSEQUENCE( messages, RP_TAGS_MESSAGE, &message ) )
-                                        {
-                                            g_hcpContext.modules[ moduleIndex ].func_recvMessage( message );
-                                        }
-                                    }
-
-                                    break;
-                                }
-                            }
-                        }
-
-                        rList_free( messages );
-
-                        rMutex_unlock( g_hcpContext.cloudConnectionMutex );
+                        rpal_debug_warning( "error receiving frame" );
+                        break;
                     }
+
+                    // HCP is not a module so check manually
+                    if( RP_HCP_MODULE_ID_HCP == targetModuleId )
+                    {
+                        while( rList_getSEQUENCE( messages, RP_TAGS_MESSAGE, &message ) )
+                        {
+                            processMessage( message );
+                        }
+                    }
+                    else
+                    {
+                        // Look for the module this message is destined to
+                        for( moduleIndex = 0; moduleIndex < ARRAY_N_ELEM( g_hcpContext.modules ); moduleIndex++ )
+                        {
+                            if( targetModuleId == g_hcpContext.modules[ moduleIndex ].id )
+                            {
+                                if( NULL != g_hcpContext.modules[ moduleIndex ].func_recvMessage )
+                                {
+                                    while( rList_getSEQUENCE( messages, RP_TAGS_MESSAGE, &message ) )
+                                    {
+                                        g_hcpContext.modules[ moduleIndex ].func_recvMessage( message );
+                                    }
+                                }
+
+                                break;
+                            }
+                        }
+                    }
+
+                    rList_free( messages );
+
                 } while( !rEvent_wait( g_hcpContext.isBeaconTimeToStop, 0 ) );
 
                 rEvent_unset( g_hcpContext.isCloudOnline );
