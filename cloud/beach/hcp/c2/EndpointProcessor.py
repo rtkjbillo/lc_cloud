@@ -86,6 +86,9 @@ class _ClientContext( object ):
     def setAid( self, aid ):
         self.aid = aid
 
+    def getAid( self ):
+        return self.aid
+
     def close( self ):
         with self.lock:
             self.s.close()
@@ -174,6 +177,7 @@ class EndpointProcessor( Actor ):
         self.analyticsIntake = self.getActorHandle( resources[ 'analytics' ] )
         self.enrollmentManager = self.getActorHandle( resources[ 'enrollments' ] )
         self.stateChanges = self.getActorHandleGroup( resources[ 'states' ] )
+        self.moduleManager = self.getActorHandle( resources[ 'module_tasking' ] )
         self.handle( 'task', self.taskClient )
 
         self.server = None
@@ -299,7 +303,32 @@ class EndpointProcessor( Actor ):
                 self.log( 'Connection terminated: %s:%s' % address )
 
     def handlerHcp( self, c, messages ):
-        pass
+        for message in messages:
+            if 'hcp.MODULES' in message:
+                moduleUpdateResp = self.moduleManager.request( 'sync', { 'mods' : message[ 'hcp.MODULES' ],
+                                                                         'aid' : c.getAid() } )
+                if moduleUpdateResp.isSuccess:
+                    changes = moduleUpdateResp.data[ 'changes' ]
+                    tasks = []
+                    for mod in changes[ 'unload' ]:
+                        tasks.append( rSequence().addInt8( Symbols.base.OPERATION,
+                                                           HcpOperations.UNLOAD_MODULE )
+                                                 .addInt8( Symbols.hcp.MODULE_ID,
+                                                           mod ) )
+                    for mod in changes[ 'load' ]:
+                        tasks.append( rSequence().addInt8( Symbols.base.OPERATION,
+                                                           HcpOperations.LOAD_MODULE )
+                                                 .addInt8( Symbols.hcp.MODULE_ID,
+                                                           mod[ 0 ] )
+                                                 .addBuffer( Symbols.base.BINARY,
+                                                             mod[ 1 ] )
+                                                 .addBuffer( Symbols.base.SIGNATURE,
+                                                             mod[ 2 ] ) )
+
+                    c.sendFrame( HcpModuleId.HCP, tasks )
+                else:
+                    self.log( "could not provide module sync: %s" % moduleUpdateResp.error )
+
 
     def handlerHbs( self, c, messages ):
         pass

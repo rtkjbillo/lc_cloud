@@ -144,16 +144,16 @@ RBOOL
     {
         // We got an empty spot for our module
         if( rSequence_getRU8( seq, 
-                                RP_TAGS_HCP_MODULE_ID, 
-                                &(g_hcpContext.modules[ moduleIndex ].id) ) &&
+                              RP_TAGS_HCP_MODULE_ID, 
+                              &(g_hcpContext.modules[ moduleIndex ].id) ) &&
             rSequence_getBUFFER( seq,
-                                    RP_TAGS_BINARY, 
-                                    &tmpBuff, 
-                                    &tmpSize ) &&
+                                 RP_TAGS_BINARY, 
+                                 &tmpBuff, 
+                                 &tmpSize ) &&
             rSequence_getBUFFER( seq,
-                                    RP_TAGS_SIGNATURE,
-                                    &tmpSig,
-                                    &tmpSigSize ) )
+                                 RP_TAGS_SIGNATURE,
+                                 &tmpSig,
+                                 &tmpSigSize ) )
         {
             // We got the data, now verify the buffer signature
             if( CryptoLib_verify( tmpBuff, tmpSize, getRootPublicKey(), tmpSig ) )
