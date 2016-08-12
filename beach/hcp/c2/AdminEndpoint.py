@@ -132,7 +132,7 @@ class AdminEndpoint( Actor ):
                            request[ 'new_org' ],
                            request[ 'new_subnet' ] ) )
 
-        self.schedule( 5, self.enrollments.broadcast, 'reload', {} )
+        self.delay( 5, self.enrollments.broadcast, 'reload', {} )
 
         return ( True, )
 
@@ -147,7 +147,7 @@ class AdminEndpoint( Actor ):
         self.db.execute( 'DELETE FROM enrollment WHERE aid = %s AND ext_ip = %s AND int_ip = %s AND hostname = %s',
                          ( mask, e_ip, i_ip, hostname ) )
 
-        self.schedule( 5, self.enrollments.broadcast, 'reload', {} )
+        self.delay( 5, self.enrollments.broadcast, 'reload', {} )
 
         return ( True, )
 
@@ -170,7 +170,7 @@ class AdminEndpoint( Actor ):
         self.db.execute( 'INSERT INTO hcp_module_tasking ( aid, mid, mhash ) VALUES ( %s, %s, %s )',
                          ( mask, moduleid, h ) )
 
-        self.schedule( 5, self.moduleTasking.broadcast, 'reload', {} )
+        self.delay( 5, self.moduleTasking.broadcast, 'reload', {} )
 
         return ( True, )
 
@@ -183,7 +183,7 @@ class AdminEndpoint( Actor ):
         self.db.execute( 'DELETE FROM hcp_module_tasking WHERE aid = %s AND mid = %s AND mhash = %s',
                          ( mask, moduleid, h ) )
 
-        self.schedule( 5, self.moduleTasking.broadcast, 'reload', {} )
+        self.delay( 5, self.moduleTasking.broadcast, 'reload', {} )
         
         return ( True, )
 

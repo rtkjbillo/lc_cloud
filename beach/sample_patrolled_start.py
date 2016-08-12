@@ -99,7 +99,8 @@ Patrol( 'EnrollmentManager',
                              'max_concurrent' : 5,
                              'block_on_queue_size' : 100 },
             'secretIdent' : 'enrollment/a3bebbb0-00e2-4345-990b-4c36a40b475e',
-            'trustedIdents' : [ 'beacon/09ba97ab-5557-4030-9db0-1dbe7f2b9cfd' ],
+            'trustedIdents' : [ 'beacon/09ba97ab-5557-4030-9db0-1dbe7f2b9cfd',
+                                'admin/dde768a4-8f27-4839-9e26-354066c8540e' ],
             'n_concurrent' : 5,
             'isIsolated' : True } )
 
@@ -208,7 +209,8 @@ Patrol( 'ModuleManager',
                              'max_concurrent' : 5,
                              'block_on_queue_size' : 100 },
             'secretIdent' : 'modulemanager/1ecf1cd3-044d-434d-9134-b9b2c976ccad',
-            'trustedIdents' : [ 'beacon/09ba97ab-5557-4030-9db0-1dbe7f2b9cfd' ],
+            'trustedIdents' : [ 'beacon/09ba97ab-5557-4030-9db0-1dbe7f2b9cfd',
+                                'admin/dde768a4-8f27-4839-9e26-354066c8540e' ],
             'n_concurrent' : 5,
             'isIsolated' : True } )
 
