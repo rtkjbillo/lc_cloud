@@ -63,6 +63,7 @@ class AdminEndpoint( Actor ):
         self.auditor = self.getActorHandle( resources[ 'auditing' ], timeout = 5, nRetries = 3 )
         self.enrollments = self.getActorHandle( resources[ 'enrollments' ], timeout = 5, nRetries = 3 )
         self.moduleTasking = self.getActorHandle( resources[ 'module_tasking' ], timeout = 5, nRetries = 3 )
+        self.hbsProfiles = self.getActorHandle( resources[ 'hbs_profiles' ], timeout = 5, nRetries = 3 )
 
     def deinit( self ):
         pass
@@ -305,6 +306,8 @@ class AdminEndpoint( Actor ):
         else:
             response = ( False, profileError )
 
+        self.delay( 5, self.hbsProfiles.broadcast, 'reload', {} )
+
         return response
 
     @audited
@@ -314,6 +317,8 @@ class AdminEndpoint( Actor ):
 
         self.db.execute( 'DELETE FROM hbs_profiles WHERE aid = %s',
                          ( mask, ) )
+
+        self.delay( 5, self.hbsProfiles.broadcast, 'reload', {} )
 
         return ( True, )
 

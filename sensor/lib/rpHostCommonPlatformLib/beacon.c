@@ -347,7 +347,7 @@ RU32
     UNREFERENCED_PARAMETER( context );
 
     // Blanket wait initially to give it a chance to connect.
-    rEvent_wait( g_hcpContext.isBeaconTimeToStop, MSEC_FROM_SEC( 5 ) );
+    rEvent_wait( g_hcpContext.isCloudOnline, MSEC_FROM_SEC( 5 ) );
 
     do
     {

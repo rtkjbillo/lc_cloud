@@ -57,7 +57,8 @@ Patrol( 'EndpointProcessor',
             'resources' : { 'analytics' : 'analytics/intake',
                             'enrollments' : 'c2/enrollments',
                             'states' : 'c2/states',
-                            'module_tasking' : 'c2/modulemanager' },
+                            'module_tasking' : 'c2/modulemanager',
+                            'hbs_profiles' : 'c2/hbsprofilemanager' },
             'parameters' : { 'deployment_key' : None,
                              'handler_port_start' : 80,
                              'handler_port_end' : 80,
@@ -189,10 +190,19 @@ Patrol( 'TaskingProxy',
 
 #######################################
 # ModuleManager
-# This actor is responsible for keeping
-# a list of which sensors are online and
-# at which endpoint.
+# This actor is responsible for syncing
+# with sensors and keeping their loaded
+# modules up to date.
 # Parameters:
+# db: the Cassandra seed nodes to
+#    connect to for storage.
+# rate_limit_per_sec: number of db ops
+#    per second, limiting to avoid
+#    db overload since C* is bad at that.
+# max_concurrent: number of concurrent
+#    db queries.
+# block_on_queue_size: stop queuing after
+#    n number of items awaiting ingestion.
 #######################################
 Patrol( 'ModuleManager',
         initialInstances = 1,
@@ -220,10 +230,15 @@ Patrol( 'ModuleManager',
 # endpoint by the admin_lib/cli
 # to administer the LC.
 # Parameters:
-# state_db: these are the connection
-#    details for the mysql database
-#    used to store low-importance
-#    data tracked at runtime.
+# db: the Cassandra seed nodes to
+#    connect to for storage.
+# rate_limit_per_sec: number of db ops
+#    per second, limiting to avoid
+#    db overload since C* is bad at that.
+# max_concurrent: number of concurrent
+#    db queries.
+# block_on_queue_size: stop queuing after
+#    n number of items awaiting ingestion.
 #######################################
 Patrol( 'AdminEndpoint',
         initialInstances = 1,
@@ -235,7 +250,8 @@ Patrol( 'AdminEndpoint',
         actorKwArgs = {
             'resources' : { 'auditing' : 'c2/auditing',
                             'enrollments' : 'c2/enrollments',
-                            'module_tasking' : 'c2/modulemanager' },
+                            'module_tasking' : 'c2/modulemanager',
+                            'hbs_profiles' : 'c2/hbsprofilemanager' },
             'parameters' : { 'db' : SCALE_DB,
                              'rate_limit_per_sec' : 200,
                              'max_concurrent' : 5,
@@ -243,6 +259,42 @@ Patrol( 'AdminEndpoint',
             'secretIdent' : 'admin/dde768a4-8f27-4839-9e26-354066c8540e',
             'trustedIdents' : [ 'cli/955f6e63-9119-4ba6-a969-84b38bfbcc05' ],
             'n_concurrent' : 5 } )
+
+#######################################
+# HbsProfileManager
+# This actor is responsible for syncing
+# with sensors to keep HBS profiles up
+# to date.
+# Parameters:
+# db: the Cassandra seed nodes to
+#    connect to for storage.
+# rate_limit_per_sec: number of db ops
+#    per second, limiting to avoid
+#    db overload since C* is bad at that.
+# max_concurrent: number of concurrent
+#    db queries.
+# block_on_queue_size: stop queuing after
+#    n number of items awaiting ingestion.
+#######################################
+Patrol( 'HbsProfileManager',
+        initialInstances = 1,
+        maxInstances = None,
+        relaunchOnFailure = True,
+        onFailureCall = None,
+        scalingFactor = 1000,
+        actorArgs = ( 'c2/HbsProfileManager',
+                      [ 'c2/hbsprofilemanager/1.0' ] ),
+        actorKwArgs = {
+            'resources' : {},
+            'parameters' : { 'db' : SCALE_DB,
+                             'rate_limit_per_sec' : 200,
+                             'max_concurrent' : 5,
+                             'block_on_queue_size' : 100 },
+            'secretIdent' : 'hbsprofilemanager/8326405a-0698-4a91-9b30-d4ef9e4b9926',
+            'trustedIdents' : [ 'beacon/09ba97ab-5557-4030-9db0-1dbe7f2b9cfd',
+                                'admin/dde768a4-8f27-4839-9e26-354066c8540e' ],
+            'n_concurrent' : 5,
+            'isIsolated' : True } )
 
 ###############################################################################
 # Analysis Intake
