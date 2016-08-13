@@ -179,6 +179,7 @@ class EndpointProcessor( Actor ):
         self.enrollmentManager = self.getActorHandle( resources[ 'enrollments' ] )
         self.stateChanges = self.getActorHandleGroup( resources[ 'states' ] )
         self.moduleManager = self.getActorHandle( resources[ 'module_tasking' ] )
+        self.hbsProfileManager = self.getActorHandle( resources[ 'hbs_profiles' ] )
         self.handle( 'task', self.taskClient )
 
         self.server = None
@@ -332,9 +333,27 @@ class EndpointProcessor( Actor ):
                 else:
                     self.log( "could not provide module sync: %s" % moduleUpdateResp.error )
 
-
     def handlerHbs( self, c, messages ):
-        pass
+        for message in messages:
+            # We treat sync messages slightly differently since they're only destined for
+            # the platform and not for detection.
+            if 'notification.SYNC' in message:
+                profileHash = message[ 'notification.SYNC' ].get( 'base.HASH', None )
+                profileUpdateResp = self.profileManager.request( 'sync', { 'hprofile' : profileHash,
+                                                                           'aid' : c.getAid() } )
+                if profileUpdateResp.isSuccess and 'changes' in profileUpdateResp.data:
+                    profile = profileUpdateResp.data[ 'changes' ].get( 'profile', None )
+                    if profile is not None:
+                        c.r.setBuffer( profile [ 0 ] )
+                        realProfile = c.r.deserialise( isList = True )
+                        if realProfile is not None:
+                            syncProfile = rSequence().addBuffer( Symbols.base.HASH,
+                                                                 profile[ 1 ] )
+                                                     .addList( Symbols.hbs.CONFIGURATIONS,
+                                                               realProfile )
+                            c.sendFrame( HcpModuleId.HBS, ( syncProfile, ) )
+            else:
+                # Transmit the message to the analytics cloud.
 
     def timeSyncMessage( self ):
         return ( rSequence().addInt8( Symbols.base.OPERATION,
