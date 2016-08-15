@@ -442,6 +442,20 @@ RU32
         }
     } while( !rEvent_wait( g_hcpContext.isBeaconTimeToStop, timeout ) );
 
+    // We attempt to close the connection quickly, so either
+    // the beaconing thread gets to it first or we do.
+    rEvent_unset( g_hcpContext.isCloudOnline );
+
+    if( rMutex_lock( g_hcpContext.cloudConnectionMutex ) )
+    {
+        if( 0 != g_hcpContext.cloudConnection )
+        {
+            NetLib_TcpDisconnect( g_hcpContext.cloudConnection );
+            g_hcpContext.cloudConnection = 0;
+        }
+        rMutex_unlock( g_hcpContext.cloudConnectionMutex );
+    }
+
     return 0;
 }
 
