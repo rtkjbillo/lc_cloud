@@ -22,12 +22,13 @@ limitations under the License.
 typedef struct _HbsState
 {
     rEvent isTimeToStop;
-    rEvent isOnlineEvent;
     rThreadPool hThreadPool;
     rQueue outQueue;
     RU8 currentConfigHash[ CRYPTOLIB_HASH_SIZE ];
     RU32 maxQueueNum;
     RU32 maxQueueSize;
+    RBOOL isProfilePresent;
+    RTIME liveUntil;
     rMutex mutex;
     struct
     {
@@ -107,7 +108,6 @@ DECLARE_COLLECTOR( 20 );
 //=============================================================================
 typedef RPVOID HbsRingBuffer;
 typedef RBOOL(*HbsRingBufferCompareFunc)( rSequence seq, RPVOID ref );
-typedef RPVOID HbsDelayBuffer;
 
 //=============================================================================
 //  Helper Functionality
@@ -164,48 +164,8 @@ RBOOL
     );
 
 RBOOL
-    hbs_sendCompletionEvent
-    (
-        rSequence originalRequest,
-        rpcm_tag eventType,
-        RU32 errorCode,
-        RPCHAR errorMessage
-    );
-
-RBOOL
     hbs_publish
     (
         rpcm_tag eventType,
         rSequence event
-    );
-
-
-HbsDelayBuffer
-    HbsDelayBuffer_new
-    (
-        RU32 nMilliSeconds
-    );
-
-RVOID
-    HbsDelayBuffer_free
-    (
-        HbsDelayBuffer hdb
-    );
-
-
-RBOOL
-    HbsDelayBuffer_add
-    (
-        HbsDelayBuffer hdb,
-        rpcm_tag eventType,
-        rSequence event
-    );
-
-RBOOL
-    HbsDelayBuffer_remove
-    (
-        HbsDelayBuffer hdb,
-        rSequence* pEvent,
-        rpcm_tag* pEventType,
-        RU32 milliSecTimeout
     );

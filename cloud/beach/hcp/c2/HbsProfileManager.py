@@ -34,11 +34,11 @@ class TaskingRule( object ):
     def isMatch( self, aid ):
         if not AgentId( aid ).inSubnet( self._aid ):
             return False
-        return ( self._compileProfile, self._h )
+        return ( self._compiledProfile, self._h )
 
 class HbsProfileManager( Actor ):
     def init( self, parameters, resources ):
-    	self._db = CassDb( parameters[ 'db' ], 'hcp_analytics', consistencyOne = True )
+        self._db = CassDb( parameters[ 'db' ], 'hcp_analytics', consistencyOne = True )
         self.db = CassPool( self._db,
                             rate_limit_per_sec = parameters[ 'rate_limit_per_sec' ],
                             maxConcurrent = parameters[ 'max_concurrent' ],
@@ -50,35 +50,35 @@ class HbsProfileManager( Actor ):
 
         self.profiles = []
 
-    	self.reloadProfiles()
+        self.reloadProfiles()
 
         self.handle( 'sync', self.sync )
-        self.handle( 'reload', self.reloadTaskings )
+        self.handle( 'reload', self.reloadProfiles )
 
     def deinit( self ):
         pass
 
     def sync( self, msg ):
         changes = {}
-    	aid = msg.data[ 'aid' ]
-        currentProfileHash = msg.data[ 'hprofile' ]
+        aid = msg.data[ 'aid' ]
+        currentProfileHash = msg.data[ 'hprofile' ].encode( 'hex' )
 
-    	for rule in self.profiles:
-    		match = rule.isMatch( aid )
-    		if match is not False:
+        for rule in self.profiles:
+            match = rule.isMatch( aid )
+            if match is not False:
                 if match[ 1 ] != currentProfileHash:
-    			    changes[ 'profile' ] = match
+                    changes[ 'profile' ] = match
                 break
 
         return ( True, { 'changes' : changes } )
 
     def reloadProfiles( self, msg = None ):
-    	newProfiles = []
-    	for row in self.db.execute( self.loadProfiles.bind( tuple() ) ):
-    		newProfiles.append( TaskingRule( self, row[ 0 ], row[ 1 ], row[ 2 ] ) )
+        newProfiles = []
+        for row in self.db.execute( self.loadProfiles.bind( tuple() ) ):
+            newProfiles.append( TaskingRule( self, row[ 0 ], row[ 1 ], row[ 2 ] ) )
 
-    	self.profiles = newProfiles
+        self.profiles = newProfiles
 
-    	self.log( 'reloaded %d profiles' % ( len( newProfiles ), ) )
+        self.log( 'reloaded %d profiles' % ( len( newProfiles ), ) )
 
-    	return ( True, )
+        return ( True, )

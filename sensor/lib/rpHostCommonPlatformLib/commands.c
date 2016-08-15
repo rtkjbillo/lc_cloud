@@ -179,13 +179,13 @@ RBOOL
                         modContext->func_sendHome = doSend;
                         modContext->isTimeToStop = rEvent_create( TRUE );
                         modContext->rpalContext = rpal_Context_get();
+                        modContext->isOnlineEvent = g_hcpContext.isCloudOnline;
 
                         if( NULL != modContext->isTimeToStop )
                         {
                             g_hcpContext.modules[ moduleIndex ].isTimeToStop  = modContext->isTimeToStop;
-                            g_hcpContext.modules[ moduleIndex ].isCloudOnline= g_hcpContext.isCloudOnline;
                             g_hcpContext.modules[ moduleIndex ].func_recvMessage = (rpal_thread_func)MemoryGetProcAddress( g_hcpContext.modules[ moduleIndex ].hModule,
-                                                                                                         (RPCHAR)recvMessage );
+                                                                                                                           (RPCHAR)recvMessage );
                             g_hcpContext.modules[ moduleIndex ].hThread = rpal_thread_new( pEntry, modContext );
 
                             if( 0 != g_hcpContext.modules[ moduleIndex ].hThread )

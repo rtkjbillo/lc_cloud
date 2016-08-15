@@ -40,10 +40,10 @@ RpHcp_ModuleId g_current_Module_id = 2;
 //=============================================================================
 //  Global Behavior Variables
 //=============================================================================
-#define HBS_DEFAULT_BEACON_TIMEOUT              (1*60)
-#define HBS_DEFAULT_BEACON_TIMEOUT_FUZZ         (1*60)
 #define HBS_EXFIL_QUEUE_MAX_NUM                 5000
 #define HBS_EXFIL_QUEUE_MAX_SIZE                (1024*1024*10)
+#define HBS_MAX_OUBOUND_FRAME_SIZE              (100)
+#define HBS_SYNC_INTERVAL                       (60*5)
 
 // Large blank buffer to be used to patch configurations post-build
 #define _HCP_DEFAULT_STATIC_STORE_SIZE                          (1024 * 50)
@@ -57,10 +57,9 @@ static RU8 g_patchedConfig[ _HCP_DEFAULT_STATIC_STORE_SIZE ] = _HCP_DEFAULT_STAT
 HbsState g_hbs_state = { NULL,
                          NULL,
                          NULL,
+                         NULL,
                          { 0 },
                          0,
-                         0,
-                         FALSE,
                          0,
                          NULL,
                          { ENABLED_COLLECTOR( 0 ),
@@ -77,7 +76,7 @@ HbsState g_hbs_state = { NULL,
                            ENABLED_COLLECTOR( 11 ),
                            DISABLED_COLLECTOR( 12 ),
                            ENABLED_WINDOWS_COLLECTOR( 13 ),
-                           ENABLED_COLLECTOR( 14 ),
+                           DISABLED_COLLECTOR( 14 ),
                            DISABLED_OSX_COLLECTOR( 15 ),
                            ENABLED_COLLECTOR( 16 ),
                            ENABLED_COLLECTOR( 17 ),
@@ -257,91 +256,34 @@ static RVOID
     rSequence_free( seq );
 }
 
-static rList
-    beaconHome
-    (
-        
-    )
+
+static RBOOL
+checkKernelAcquisition
+(
+
+)
 {
-    rList response = NULL;
-    rList exfil = NULL;
-    rSequence msg = NULL;
-    RU32 nExfilMsg = 0;
-    rSequence tmpMessage = NULL;
+    RBOOL isKernelInit = FALSE;
 
-    if( NULL != ( exfil = rList_new( RP_TAGS_MESSAGE, RPCM_SEQUENCE ) ) )
+    if( !kAcq_init() )
     {
-        if( NULL != ( msg = rSequence_new() ) )
+        rpal_debug_info( "kernel acquisition not initialized" );
+    }
+    else
+    {
+        if( kAcq_ping() )
         {
-            if( rSequence_addBUFFER( msg, RP_TAGS_HASH, g_hbs_state.currentConfigHash, CRYPTOLIB_HASH_SIZE ) )
-            {
-                if( !rList_addSEQUENCE( exfil, msg ) )
-                {
-                    rSequence_free( msg );
-                    msg = NULL;
-                }
-
-                tmpMessage = msg;
-            }
-            else
-            {
-                rSequence_free( msg );
-                msg = NULL;
-            }
-        }
-
-        while( rQueue_remove( g_hbs_state.outQueue, &msg, NULL, 0 ) )
-        {
-            nExfilMsg++;
-
-            if( !rList_addSEQUENCE( exfil, msg ) )
-            {
-                rSequence_free( msg );
-            }
-        }
-
-        rpal_debug_info( "%d messages ready for exfil.", nExfilMsg );
-
-
-        if( rpHcpI_sendHome( exfil ) )
-        {
-            rpal_debug_info( "%d messages received from cloud.", rList_getNumElements( response ) );
-        }
-        else if( g_hbs_state.maxQueueSize > rList_getEstimateSize( exfil ) )
-        {
-            rpal_debug_info( "beacon failed, re-adding %d messages.", rList_getNumElements( exfil ) );
-
-            // We will attempt to re-add the existing messages back in the queue since this failed
-            rList_resetIterator( exfil );
-            while( rList_getSEQUENCE( exfil, RP_TAGS_MESSAGE, &msg ) )
-            {
-                // Ignore message we generate temporarily for the beacon
-                if( tmpMessage == msg )
-                {
-                    rSequence_free( msg );
-                    continue;
-                }
-
-                if( !rQueue_add( g_hbs_state.outQueue, msg, 0 ) )
-                {
-                    rSequence_free( msg );
-                }
-            }
-            rList_shallowFree( exfil );
-            exfil = NULL;
+            rpal_debug_info( "kernel acquisition available" );
+            isKernelInit = TRUE;
         }
         else
         {
-            rpal_debug_warning( "beacon failed but discarded exfil because of its size." );
-        }
-
-        if( NULL != exfil )
-        {
-            rList_free( exfil );
+            rpal_debug_info( "kernel acquisition not available" );
+            kAcq_deinit();
         }
     }
 
-    return response;
+    return isKernelInit;
 }
 
 static RBOOL
@@ -427,6 +369,87 @@ static RVOID
     }
 }
 
+static
+RBOOL
+    sendSingleMessageHome
+    (
+        rSequence message
+    )
+{
+    RBOOL isSuccess = FALSE;
+
+    rList messages = NULL;
+
+    if( NULL != ( messages = rList_new( RP_TAGS_MESSAGE, RPCM_SEQUENCE ) ) )
+    {
+        if( rSequence_addSEQUENCE( messages, RP_TAGS_MESSAGE, message ) )
+        {
+            isSuccess = rpHcpI_sendHome( messages );
+        }
+
+        rList_shallowFree( messages );
+    }
+
+    return isSuccess;
+}
+
+
+static
+RPVOID
+RPAL_THREAD_FUNC
+    issueSync
+    (
+        rEvent isTimeToStop,
+        RPVOID ctx
+    )
+{
+    rSequence wrapper = NULL;
+    rSequence message = NULL;
+
+    UNREFERENCED_PARAMETER( ctx );
+
+    if( rEvent_wait( isTimeToStop, 0 ) )
+    {
+        return NULL;
+    }
+
+    if( NULL != ( wrapper = rSequence_new() ) )
+    {
+        if( NULL != ( message = rSequence_new() ) )
+        {
+            if( rSequence_addSEQUENCE( wrapper, RP_TAGS_NOTIFICATION_SYNC, message ) )
+            {
+                if( rSequence_addBUFFER( message,
+                                         RP_TAGS_HASH,
+                                         g_hbs_state.currentConfigHash,
+                                         sizeof( g_hbs_state.currentConfigHash ) ) )
+                {
+                    if( !sendSingleMessageHome( wrapper ) )
+                    {
+                        rpal_debug_warning( "failed to send sync" );
+                    }
+                }
+                    
+                rSequence_free( wrapper );
+            }
+            else
+            {
+                rSequence_free( wrapper );
+                rSequence_free( message );
+            }
+        }
+        else
+        {
+            rSequence_free( wrapper );
+        }
+    }
+
+    // We use this to regularly ping the kernel acquisition and see if we're good.
+    checkKernelAcquisition();
+
+    return NULL;
+}
+
 static RBOOL
     startCollectors
     (
@@ -482,8 +505,8 @@ static RVOID
         {
             if( rSequence_addSEQUENCE( wrapper, RP_TAGS_NOTIFICATION_STARTING_UP, startupEvent ) )
             {
-                if( !hbs_timestampEvent( startupEvent, 0 ) ||
-                    !rQueue_add( g_hbs_state.outQueue, wrapper, 0 ) )
+                hbs_timestampEvent( startupEvent, 0 );
+                if( !rQueue_add( g_hbs_state.outQueue, wrapper, 0 ) )
                 {
                     rSequence_free( wrapper );
                 }
@@ -507,7 +530,6 @@ static RVOID
 
     )
 {
-    rList cloudMessages = NULL;
     rSequence wrapper = NULL;
     rSequence shutdownEvent = NULL;
 
@@ -517,18 +539,11 @@ static RVOID
         {
             if( rSequence_addSEQUENCE( wrapper, RP_TAGS_NOTIFICATION_SHUTTING_DOWN, shutdownEvent ) )
             {
-                if( hbs_timestampEvent( shutdownEvent, 0 ) &&
-                    rQueue_add( g_hbs_state.outQueue, wrapper, 0 ) )
-                {
-                    if( NULL != ( cloudMessages = beaconHome() ) )
-                    {
-                        rList_free( cloudMessages );
-                    }
-                }
-                else
-                {
-                    rSequence_free( wrapper );
-                }
+                hbs_timestampEvent( shutdownEvent, 0 );
+                // There is no point queuing it up since we're exiting
+                // so we'll try to send it right away.
+                sendSingleMessageHome( shutdownEvent );
+                rSequence_free( wrapper );
             }
             else
             {
@@ -700,39 +715,65 @@ static RVOID
     }
 }
 
-static RBOOL
-    checkKernelAcquisition
+//=============================================================================
+//  Entry Points
+//=============================================================================
+RVOID
+    RpHcpI_receiveMessage
     (
-
+        rSequence message
     )
 {
-    RBOOL isKernelInit = FALSE;
+    rSequence sync = NULL;
+    RU8* profileHash = NULL;
+    RU32 hashSize = 0;
+    rList configurations = NULL;
+    rList cloudNotifications = NULL;
 
-    if( !kAcq_init() )
+    // If it's an internal HBS message we'll process it right away.
+    if( rSequence_getSEQUENCE( message, RP_TAGS_NOTIFICATION_SYNC, &sync ) )
     {
-        rpal_debug_info( "kernel acquisition not initialized" );
-    }
-    else
-    {
-        if( kAcq_ping() )
+        if( rSequence_getBUFFER( sync, RP_TAGS_HASH, &profileHash, &hashSize ) &&
+            CRYPTOLIB_HASH_SIZE == hashSize &&
+            rSequence_getLIST( sync, RP_TAGS_HBS_CONFIGURATIONS, &configurations ) )
         {
-            rpal_debug_info( "kernel acquisition available" );
-            isKernelInit = TRUE;
+            if( NULL != ( configurations = rList_duplicate( configurations ) ) )
+            {
+                if( rMutex_lock( g_hbs_state.mutex ) )
+                {
+                    rpal_memory_memcpy( g_hbs_state.currentConfigHash, profileHash, hashSize );
+
+                    // We're going to shut down all collectors, swap the configs and restart them.
+                    shutdownCollectors();
+                    updateCollectorConfigs( configurations );
+                    startCollectors();
+
+                    // Check to see if this has changed the kernel acquisition status.
+                    checkKernelAcquisition();
+
+                    rMutex_unlock( g_hbs_state.mutex );
+                }
+
+                rList_free( configurations );
+            }
         }
         else
         {
-            rpal_debug_info( "kernel acquisition not available" );
-            kAcq_deinit();
+            rpal_debug_warning( "hbs sync missing critical component" );
         }
     }
-
-    return isKernelInit;
+    else if( rSequence_getLIST( message, RP_TAGS_HBS_CLOUD_NOTIFICATIONS, &cloudNotifications ) )
+    {
+        // If it's a list of notifications we'll pass them on to be verified.
+        rpal_debug_info( "received %d cloud notifications", rList_getNumElements( cloudNotifications ) );
+        publishCloudNotifications( cloudNotifications );
+    }
+    else
+    {
+        rpal_debug_warning( "unknown message received" );
+    }
 }
 
-
-//=============================================================================
-//  Entry Point
-//=============================================================================
 RU32
 RPAL_THREAD_FUNC
     RpHcpI_mainThread
@@ -742,18 +783,13 @@ RPAL_THREAD_FUNC
 {
     RU32 ret = 0;
 
-    RTIME nextBeaconTime = 0;
-    RU64 timeDelta = 0;
-
-    rList cloudMessages = NULL;
-    rSequence msg = NULL;
-    rList newConfigurations = NULL;
-    rList newNotifications = NULL;
-    RPU8 newConfigurationHash = NULL;
-    RU32 newHashSize = 0;
     rSequence staticConfig = NULL;
+    rList tmpConfigurations = NULL;
     RU8* tmpBuffer = NULL;
     RU32 tmpSize = 0;
+    rList exfilList = NULL;
+    rSequence exfilMessage = NULL;
+    rEvent newExfilEvents = NULL;
 
     FORCE_LINK_THAT( HCP_IFACE );
 
@@ -777,6 +813,15 @@ RPAL_THREAD_FUNC
     {
         rEvent_free( g_hbs_state.isTimeToStop );
         return (RU32)-1;
+    }
+
+    // Initial boot and we have no profile yet, we'll load a dummy
+    // blank profile and use our defaults.
+    if( NULL != ( tmpConfigurations = rList_new( RP_TAGS_HCP_MODULES, RPCM_SEQUENCE ) ) )
+    {
+        updateCollectorConfigs( tmpConfigurations );
+        rpal_debug_info( "setting empty profile" );
+        rList_free( tmpConfigurations );
     }
 
     // By default, no collectors are running
@@ -829,124 +874,82 @@ RPAL_THREAD_FUNC
         return (RU32)-1;
     }
 
+    newExfilEvents = rQueue_getNewElemEvent( g_hbs_state.outQueue );
+
+    g_hbs_state.isOnlineEvent = rpHcpI_getOnlineEvent();
+
     // We simply enqueue a message to let the cloud know we're starting
     sendStartupEvent();
 
-    while( !rEvent_wait( isTimeToStop, MSEC_FROM_SEC( 1 ) ) )
+    if( !rEvent_wait( isTimeToStop, 0 ) )
     {
-        if( rMutex_lock( g_hbs_state.mutex ) )
-        {
-            if( rpal_time_getGlobal() <= g_hbs_state.liveUntil )
-            {
-                nextBeaconTime = 0;
-                rpal_debug_info( "currently live with cloud" );
-            }
+        startCollectors();
+    }
 
-            rMutex_unlock( g_hbs_state.mutex );
+    // We'll wait for the very first online notification to start syncing.
+    while( !rEvent_wait( isTimeToStop, 0 ) )
+    {
+        if( rEvent_wait( g_hbs_state.isOnlineEvent, MSEC_FROM_SEC( 5 ) ) )
+        {
+            // From the first sync, we'll schedule recurring ones.
+            issueSync( g_hbs_state.isTimeToStop, NULL );
+            rThreadPool_scheduleRecurring( g_hbs_state.hThreadPool, HBS_SYNC_INTERVAL, issueSync, NULL, FALSE );
+            break;
         }
+    }
 
-        if( rpal_time_getGlobal() < nextBeaconTime )
+    // We've connected to the cloud at least once, did a sync once, let's start normal exfil.
+    while( !rEvent_wait( isTimeToStop, 0 ) )
+    {
+        if( rEvent_wait(g_hbs_state.isOnlineEvent, MSEC_FROM_SEC( 1 ) ) &&
+            rEvent_wait( newExfilEvents, MSEC_FROM_SEC( 1 ) ) )
         {
-            continue;
-        }
-
-        nextBeaconTime = rpal_time_getGlobal() + 
-                         HBS_DEFAULT_BEACON_TIMEOUT +
-                         ( rpal_rand() % HBS_DEFAULT_BEACON_TIMEOUT_FUZZ );
-
-        checkKernelAcquisition();
-
-        if( NULL != ( cloudMessages = beaconHome() ) )
-        {
-            while( rList_getSEQUENCE( cloudMessages, RP_TAGS_MESSAGE, &msg ) )
+            if( NULL != ( exfilList = rList_new( RP_TAGS_MESSAGE, RPCM_SEQUENCE ) ) )
             {
-                // Cloud message indicating next requested beacon time, as a Seconds delta
-                if( rSequence_getTIMEDELTA( msg, RP_TAGS_TIMEDELTA, &timeDelta ) )
+                while( rQueue_remove( g_hbs_state.outQueue, &exfilMessage, NULL, 0 ) &&
+                       HBS_MAX_OUBOUND_FRAME_SIZE > rList_getNumElements( exfilList ) )
                 {
-                    nextBeaconTime = rpal_time_getGlobal() + timeDelta;
-                    rpal_debug_info( "received set_next_beacon" );
+                    if( !rList_addSEQUENCE( exfilList, exfilMessage ) )
+                    {
+                        rpal_debug_error( "dropping exfil message" );
+                        rSequence_free( exfilMessage );
+                    }
                 }
 
-                if( NULL == newConfigurations &&
-                    rSequence_getLIST( msg, RP_TAGS_HBS_CONFIGURATIONS, &newConfigurations ) )
+                rpal_debug_info( "sending frame with %d messages", rList_getNumElements( exfilList ) );
+                if( rpHcpI_sendHome( exfilList ) )
                 {
-                    rpal_debug_info( "received a new profile" );
-
-                    if( rSequence_getBUFFER( msg, RP_TAGS_HASH, &newConfigurationHash, &newHashSize ) &&
-                        newHashSize == CRYPTOLIB_HASH_SIZE )
+                    rList_free( exfilList );
+                }
+                else
+                {
+                    // Failed to send the data home, so we'll re-queue it.
+                    if( g_hbs_state.maxQueueNum < rList_getNumElements( exfilList ) ||
+                        g_hbs_state.maxQueueSize < rList_getEstimateSize( exfilList ) )
                     {
-                        newConfigurations = rList_duplicate( newConfigurations );
-                        rpal_memory_memcpy( &( g_hbs_state.currentConfigHash ), 
-                                            newConfigurationHash, 
-                                            CRYPTOLIB_HASH_SIZE );
-                        g_hbs_state.isProfilePresent = TRUE;
+                        // We have an overflow of the queues, dropping will occur.
+                        rpal_debug_warning( "queue thresholds reached, dropping %d messages", 
+                                            rList_getNumElements( exfilList ) );
+                        rList_free( exfilList );
                     }
                     else
                     {
-                        newConfigurations = NULL;
-                        rpal_debug_error( "profile hash received is invalid" );
+                        rpal_debug_info( "transmition failed, re-adding %d messages.", rList_getNumElements( exfilList ) );
+
+                        // We will attempt to re-add the existing messages back in the queue since this failed
+                        rList_resetIterator( exfilList );
+                        while( rList_getSEQUENCE( exfilList, RP_TAGS_MESSAGE, &exfilMessage ) )
+                        {
+                            if( !rQueue_add( g_hbs_state.outQueue, exfilMessage, 0 ) )
+                            {
+                                rSequence_free( exfilMessage );
+                            }
+                        }
+                        rList_shallowFree( exfilList );
                     }
                 }
-
-                if( NULL == newNotifications &&
-                    rSequence_getLIST( msg, RP_TAGS_HBS_CLOUD_NOTIFICATIONS, &newNotifications ) )
-                {
-                    rpal_debug_info( "received cloud events" );
-                    newNotifications = rList_duplicate( newNotifications );
-                }
             }
-
-            rList_free( cloudMessages );
         }
-
-        // If this is the initial boot and we have no profile yet, we'll load a dummy
-        // blank profile and use our defaults.
-        if( NULL == newConfigurations &&
-            !g_hbs_state.isProfilePresent &&
-            !rEvent_wait( isTimeToStop, 0 ) )
-        {
-            newConfigurations = rList_new( RP_TAGS_HCP_MODULES, RPCM_SEQUENCE );
-            rpal_debug_info( "setting empty profile" );
-            g_hbs_state.isProfilePresent = TRUE;
-        }
-
-        if( NULL != newConfigurations )
-        {
-            // We try to be as responsive as possible when asked to quit
-            // so if we happen to have received the signal during a beacon
-            // we will action the quit instead of the config change.
-            if( !rEvent_wait( isTimeToStop, 0 ) )
-            {
-                rpal_debug_info( "begining sensor update on new profile" );
-                shutdownCollectors();
-
-                updateCollectorConfigs( newConfigurations );
-                rList_free( newConfigurations );
-                newConfigurations = NULL;
-
-                startCollectors();
-            }
-            else
-            {
-                rList_free( newConfigurations );
-            }
-
-            newConfigurations = NULL;
-        }
-
-        if( NULL != newNotifications )
-        {
-            if( !rEvent_wait( isTimeToStop, 0 ) )
-            {
-                publishCloudNotifications( newNotifications );
-            }
-
-            rList_free( newNotifications );
-
-            newNotifications = NULL;
-        }
-
-        checkKernelAcquisition();
     }
 
     // We issue one last beacon indicating we are stopping

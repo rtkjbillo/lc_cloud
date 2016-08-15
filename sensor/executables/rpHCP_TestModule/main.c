@@ -21,6 +21,14 @@ limitations under the License.
 //=============================================================================
 RpHcp_ModuleId g_current_Module_id = 42;
 
+RVOID
+    RpHcpI_receiveMessage
+    (
+        rSequence message
+    )
+{
+    UNREFERENCED_PARAMETER( message );
+}
 
 RU32
 RPAL_THREAD_FUNC

@@ -36,7 +36,8 @@ RBOOL
 RBOOL
     rpHostCommonPlatformLib_load
     (
-        RPWCHAR modulePath
+        RPWCHAR modulePath,
+        RU32 moduleId
     );
 
 RBOOL

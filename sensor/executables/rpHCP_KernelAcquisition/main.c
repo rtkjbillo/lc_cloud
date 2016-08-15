@@ -82,6 +82,15 @@ rSequence
 //=============================================================================
 //  Entry Point
 //=============================================================================
+RVOID
+    RpHcpI_receiveMessage
+    (
+        rSequence message
+    )
+{
+    UNREFERENCED_PARAMETER( message );
+}
+
 RU32
 RPAL_THREAD_FUNC
     RpHcpI_mainThread

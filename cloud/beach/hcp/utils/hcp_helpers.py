@@ -147,7 +147,7 @@ class HbsCollectorId ( object ):
     OS_FORENSIC = 11
     _AVAILABLE = 12
     EXEC_OOB = 13
-    OPERATIONS_MAN = 14
+    TODO_CHANGEME = 14
     PROCESS_HOLLOWING = 15
     YARA = 16
     OS_TRACKER = 17
@@ -169,7 +169,7 @@ class HbsCollectorId ( object ):
         11 : 'OS_FORENSIC',
         12 : '_AVAILABLE',
         13 : 'EXEC_OOB',
-        14 : 'OPERATIONS_MAN',
+        14 : 'TODO_CHANGEME',
         15 : 'PROCESS_HOLLOWING',
         16 : 'YARA',
         17 : 'OS_TRACKER',
@@ -437,7 +437,7 @@ class AgentId( object ):
         if self.unique != 0xFFFFFFFF:
             filt.append( 'unique = %s' )
             filtValues.append( self.unique )
-        if not simple:
+        if not isSimpleOnly:
             if self.platform != 0xFF:
                 filt.append( 'platform = %s' )
                 filtValues.append( self.platform )
@@ -445,7 +445,7 @@ class AgentId( object ):
                 filt.append( 'config = %s' )
                 filtValues.append( self.config )
 
-        return ( ', '.join( filt ), filterValues )
+        return ( ' AND '.join( filt ), filtValues )
 
     def asString( self, isInvariable = False ) :
         if self.isValid:

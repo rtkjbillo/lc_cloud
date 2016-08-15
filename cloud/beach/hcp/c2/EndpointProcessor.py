@@ -293,6 +293,7 @@ class EndpointProcessor( Actor ):
         except Exception as e:
             if type( e ) is not DisconnectException:
                 self.log( 'Exception while processing: %s' % str( e ) )
+                #self.log( traceback.format_exc() )
                 raise
         finally:
             if aid is not None:
@@ -334,26 +335,39 @@ class EndpointProcessor( Actor ):
                     self.log( "could not provide module sync: %s" % moduleUpdateResp.error )
 
     def handlerHbs( self, c, messages ):
+        self.log( "received %d hbs messages" % len( messages ) )
         for message in messages:
             # We treat sync messages slightly differently since they're only destined for
             # the platform and not for detection.
             if 'notification.SYNC' in message:
+                self.log( "sync received from %s" % c.getAid() )
                 profileHash = message[ 'notification.SYNC' ].get( 'base.HASH', None )
-                profileUpdateResp = self.profileManager.request( 'sync', { 'hprofile' : profileHash,
-                                                                           'aid' : c.getAid() } )
+                profileUpdateResp = self.hbsProfileManager.request( 'sync', { 'hprofile' : profileHash,
+                                                                              'aid' : c.getAid() } )
                 if profileUpdateResp.isSuccess and 'changes' in profileUpdateResp.data:
                     profile = profileUpdateResp.data[ 'changes' ].get( 'profile', None )
                     if profile is not None:
-                        c.r.setBuffer( profile [ 0 ] )
-                        realProfile = c.r.deserialise( isList = True )
+                        r = rpcm( isHumanReadable = False, isDebug = self.log, isDetailedDeserialize = True )
+                        r.setBuffer( profile [ 0 ] )
+                        realProfile = r.deserialise( isList = True )
                         if realProfile is not None:
-                            syncProfile = rSequence().addBuffer( Symbols.base.HASH,
-                                                                 profile[ 1 ] )
-                                                     .addList( Symbols.hbs.CONFIGURATIONS,
-                                                               realProfile )
+                            syncProfile = rSequence().addSequence( Symbols.notification.SYNC,
+                                                                   rSequence().addBuffer( Symbols.base.HASH,
+                                                                                          profile[ 1 ].decode( 'hex' ) )
+                                                                              .addList( Symbols.hbs.CONFIGURATIONS,
+                                                                                        realProfile ) )
                             c.sendFrame( HcpModuleId.HBS, ( syncProfile, ) )
+                            self.log( "sync profile sent to %s" % c.getAid() )
             else:
                 # Transmit the message to the analytics cloud.
+                routing = { 'agentid' : c.getAid(),
+                            'moduleid' : HcpModuleId.HBS,
+                            'event_type' : message.keys()[ 0 ],
+                            'event_id' : hashlib.sha256( str( uuid.uuid4() ) ).hexdigest() }
+                invId = message.values()[ 0 ].get( 'hbs.INVESTIGATION_ID', None )
+                if invId is not None:
+                    routing[ 'investigation_id' ] = invId
+                self.analyticsIntake.shoot( 'analyze', ( ( routing, message ), ) )
 
     def timeSyncMessage( self ):
         return ( rSequence().addInt8( Symbols.base.OPERATION,

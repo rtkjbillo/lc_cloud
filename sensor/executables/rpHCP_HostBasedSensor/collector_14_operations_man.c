@@ -25,34 +25,6 @@ limitations under the License.
 
 static HbsState* g_hbsStateRef = NULL;
 
-static
-RVOID
-    remain_live
-    (
-        rpcm_tag eventType,
-        rSequence event
-    )
-{
-    RTIME expiry = 0;
-
-    UNREFERENCED_PARAMETER( eventType );
-
-    if( rpal_memory_isValid( event ) &&
-        NULL != g_hbsStateRef )
-    {
-        if( rSequence_getTIMESTAMP( event, RP_TAGS_EXPIRY, &expiry ) )
-        {
-            if( rMutex_lock( g_hbsStateRef->mutex ) )
-            {
-                g_hbsStateRef->liveUntil = expiry;
-                rpal_debug_info( "going live until %ld", expiry );
-
-                rMutex_unlock( g_hbsStateRef->mutex );
-            }
-        }
-    }
-}
-
 //=============================================================================
 // COLLECTOR INTERFACE
 //=============================================================================
@@ -69,20 +41,7 @@ RBOOL
     RBOOL isSuccess = FALSE;
 
     UNREFERENCED_PARAMETER( config );
-
-    if( NULL != hbsState )
-    {
-        g_hbsStateRef = hbsState;
-
-        if( notifications_subscribe( RP_TAGS_NOTIFICATION_REMAIN_LIVE_REQ,
-                                     NULL,
-                                     0,
-                                     NULL,
-                                     remain_live ) )
-        {
-            isSuccess = TRUE;
-        }
-    }
+    UNREFERENCED_PARAMETER( hbsState );
 
     return isSuccess;
 }
@@ -98,12 +57,6 @@ RBOOL
 
     UNREFERENCED_PARAMETER( hbsState );
     UNREFERENCED_PARAMETER( config );
-
-    notifications_unsubscribe( RP_TAGS_NOTIFICATION_REMAIN_LIVE_REQ, NULL, remain_live );
-
-    g_hbsStateRef = NULL;
-
-    isSuccess = TRUE;
 
     return isSuccess;
 }

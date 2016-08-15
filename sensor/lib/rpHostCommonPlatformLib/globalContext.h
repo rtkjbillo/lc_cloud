@@ -42,7 +42,6 @@ typedef struct
     rThread hThread;
     rEvent isTimeToStop;
     HMEMORYMODULE hModule;
-    rEvent isCloudOnline;
     RVOID( RPAL_THREAD_FUNC *func_recvMessage )( rSequence message );
     rpHCPModuleContext context;
     CryptoLib_Hash hash;

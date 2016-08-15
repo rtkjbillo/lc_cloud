@@ -88,6 +88,7 @@ static RU8 g_svc_conf = 0;
 static RPCHAR g_svc_primary = NULL;
 static RPCHAR g_svc_secondary = NULL;
 static RPWCHAR g_svc_mod = NULL;
+static RU32 g_svc_mod_id = 0;
 
 static
 RU32
@@ -348,7 +349,7 @@ VOID WINAPI
     if( NULL != g_svc_mod )
     {
 #ifdef HCP_EXE_ENABLE_MANUAL_LOAD
-        rpHostCommonPlatformLib_load( g_svc_mod );
+        rpHostCommonPlatformLib_load( g_svc_mod, g_svc_mod_id );
 #endif
         rpal_memory_free( g_svc_mod );
     }
@@ -406,6 +407,7 @@ RPAL_EXPORT
     RPCHAR primary = NULL;
     RPCHAR secondary = NULL;
     RPWCHAR tmpMod = NULL;
+    RU32 tmpModId = 0;
     RU32 memUsed = 0;
     RBOOL asService = FALSE;
 
@@ -413,7 +415,8 @@ RPAL_EXPORT
                             { 'c', "config", TRUE },
                             { 'p', "primary", TRUE },
                             { 's', "secondary", TRUE },
-                            { 'm', "manual", TRUE }
+                            { 'm', "manual", TRUE },
+                            { 'n', "moduleId", TRUE }
 #ifdef RPAL_PLATFORM_WINDOWS
                             ,
                             { 'i', "install", FALSE },
@@ -444,6 +447,16 @@ RPAL_EXPORT
                     tmpMod = rpal_string_atow( argVal );
                     rpal_debug_info( "Manually loading module: %s.", argVal );
                     break;
+                case 'n':
+                    if( rpal_string_atoi( argVal, &tmpModId ) )
+                    {
+                        rpal_debug_info( "Manually loaded module id is: %d", tmpModId );
+                    }
+                    else
+                    {
+                        rpal_debug_warning( "Module id provided is invalid." );
+                    }
+                    break;
 #ifdef RPAL_PLATFORM_WINDOWS
                 case 'i':
                     return installService();
@@ -463,6 +476,7 @@ RPAL_EXPORT
                     printf( "-p: primary Url used to communicate home.\n" );
                     printf( "-s: secondary Url used to communicate home if the primary failed.\n" );
                     printf( "-m: module to be loaded manually, only available in debug builds.\n" );
+                    printf( "-n: the module id of the module being manually loaded.\n" );
 #ifdef RPAL_PLATFORM_WINDOWS
                     printf( "-i: install executable as a service.\n" );
                     printf( "-r: uninstall executable as a service.\n" );
@@ -491,6 +505,7 @@ RPAL_EXPORT
             g_svc_primary = primary;
             g_svc_secondary = secondary;
             g_svc_mod = tmpMod;
+            g_svc_mod_id = tmpModId;
             if( !StartServiceCtrlDispatcherA( DispatchTable ) )
             {
                 return GetLastError();
@@ -531,7 +546,7 @@ RPAL_EXPORT
         if( NULL != tmpMod )
         {
 #ifdef HCP_EXE_ENABLE_MANUAL_LOAD
-            rpHostCommonPlatformLib_load( tmpMod );
+            rpHostCommonPlatformLib_load( tmpMod, tmpModId );
 #endif
             rpal_memory_free( tmpMod );
         }

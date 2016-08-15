@@ -151,6 +151,7 @@ typedef struct
     rpHCPId* pCurrentId;
     RBOOL (*func_sendHome)( RpHcp_ModuleId sourceModuleId, rList toSend );
     rEvent isTimeToStop;
+    rEvent isOnlineEvent;
 
 } rpHCPModuleContext;
 

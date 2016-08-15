@@ -426,7 +426,8 @@ RBOOL
 RBOOL
     rpHostCommonPlatformLib_load
     (
-        RPWCHAR modulePath
+        RPWCHAR modulePath,
+        RU32 moduleId
     )
 {
     RBOOL isSuccess = FALSE;
@@ -475,13 +476,20 @@ RBOOL
                         modContext->func_sendHome = doSend;
                         modContext->isTimeToStop = rEvent_create( TRUE );
                         modContext->rpalContext = rpal_Context_get();
+                        modContext->isOnlineEvent = g_hcpContext.isCloudOnline;
 
                         if( NULL != modContext->isTimeToStop )
                         {
+                            g_hcpContext.modules[ moduleIndex ].id = (RpHcp_ModuleId)moduleId;
                             g_hcpContext.modules[ moduleIndex ].isTimeToStop  = modContext->isTimeToStop;
-                            g_hcpContext.modules[ moduleIndex ].isCloudOnline = g_hcpContext.isCloudOnline;
-                            g_hcpContext.modules[ moduleIndex ].func_recvMessage = (rpal_thread_func)MemoryGetProcAddress( g_hcpContext.modules[ moduleIndex ].hModule,
-                                                                                                                           (RPCHAR)recvMessage );
+                            OBFUSCATIONLIB_TOGGLE( recvMessage );
+#ifdef RPAL_PLATFORM_WINDOWS
+                            g_hcpContext.modules[ moduleIndex ].func_recvMessage = (rpal_thread_func)GetProcAddress( (HMODULE)g_hcpContext.modules[ moduleIndex ].hModule,
+                                                                                                                     (RPCHAR)recvMessage );
+#elif defined( RPAL_PLATFORM_LINUX ) || defined( RPAL_PLATFORM_MACOSX )
+                            g_hcpContext.modules[ moduleIndex ].func_recvMessage = (rpal_thread_func)dlsym( g_hcpContext.modules[ moduleIndex ].hModule, (RPCHAR)recvMessage );
+#endif
+                            OBFUSCATIONLIB_TOGGLE( recvMessage );
                             g_hcpContext.modules[ moduleIndex ].hThread = rpal_thread_new( pEntry, modContext );
 
                             if( 0 != g_hcpContext.modules[ moduleIndex ].hThread )

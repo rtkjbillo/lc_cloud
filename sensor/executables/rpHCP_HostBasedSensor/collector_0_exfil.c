@@ -37,8 +37,6 @@ static HbsState* g_state = NULL;
 
 static _EventList g_exfil_profile = { 0 };
 static _EventList g_exfil_adhoc = { 0 };
-static _EventList g_critical_profile = { 0 };
-static _EventList g_critical_adhoc = { 0 };
 
 static RU32 g_cur_size = 0;
 static rSequence g_history[ _HISTORY_MAX_LENGTH ] = { 0 };
@@ -302,7 +300,6 @@ RVOID
 {
     rSequence wrapper = NULL;
     rSequence tmpNotif = NULL;
-    RU64 tmpTime = 0;
 
     if( rpal_memory_isValid( notif ) &&
         NULL != g_state )
@@ -332,22 +329,6 @@ RVOID
         else
         {
             recordEvent( notifId, notif );
-        }
-
-        if( _isEventIn( &g_critical_profile, notifId ) ||
-            _isEventIn( &g_critical_adhoc, notifId ) )
-        {
-            if( rMutex_lock( g_state->mutex ) )
-            {
-                tmpTime = rpal_time_getGlobal() + 2;
-
-                if( g_state->liveUntil < tmpTime )
-                {
-                    g_state->liveUntil = tmpTime;
-                }
-
-                rMutex_unlock( g_state->mutex );
-            }
         }
     }
 }
@@ -522,150 +503,11 @@ RVOID
     }
 }
 
-static
-RPVOID
-    stopCriticalCb
-    (
-        rEvent isTimeToStop,
-        RPVOID ctx
-    )
-{
-    rpcm_tag* criticalStub = (rpcm_tag*)ctx;
-
-    UNREFERENCED_PARAMETER( isTimeToStop );
-
-    if( rpal_memory_isValid( criticalStub ) )
-    {
-        if( _removeEventId( &g_critical_adhoc, *criticalStub ) )
-        {
-            rpal_debug_info( "removing adhoc critical (expired): %d", *criticalStub );
-        }
-
-        rpal_memory_free( criticalStub );
-    }
-
-    return NULL;
-}
-
-static
-RVOID
-    add_critical
-    (
-        rpcm_tag eventType,
-        rSequence event
-    )
-{
-    rpcm_tag eventId = 0;
-    RTIME expire = 0;
-    rpcm_tag* criticalStub = NULL;
-
-    UNREFERENCED_PARAMETER( eventType );
-
-    if( rpal_memory_isValid( event ) )
-    {
-        if( rSequence_getRU32( event, RP_TAGS_HBS_NOTIFICATION_ID, &eventId ) )
-        {
-            if( _addEventId( &g_critical_adhoc, eventId ) )
-            {
-                rpal_debug_info( "adding adhoc critical: %d", eventId );
-
-                if( rSequence_getTIMESTAMP( event, RP_TAGS_EXPIRY, &expire ) )
-                {
-                    if( NULL != ( criticalStub = rpal_memory_alloc( sizeof( *criticalStub ) ) ) )
-                    {
-                        *criticalStub = eventId;
-                        if( !rThreadPool_scheduleOneTime( g_state->hThreadPool,
-                                                          expire,
-                                                          stopCriticalCb,
-                                                          criticalStub ) )
-                        {
-                            rpal_memory_free( criticalStub );
-                        }
-                        else
-                        {
-                            rpal_debug_info( "adding callback for expiry on new adhoc critical" );
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-
-
-static
-RVOID
-    del_critical
-    (
-        rpcm_tag eventType,
-        rSequence event
-    )
-{
-    rpcm_tag eventId = 0;
-
-    UNREFERENCED_PARAMETER( eventType );
-
-    if( rpal_memory_isValid( event ) )
-    {
-        if( rSequence_getRU32( event, RP_TAGS_HBS_NOTIFICATION_ID, &eventId ) )
-        {
-            if( _removeEventId( &g_critical_adhoc, eventId ) )
-            {
-                rpal_debug_info( "removing adhoc critical: %d", eventId );
-            }
-        }
-    }
-}
-
-
-static
-RVOID
-    get_critical
-    (
-        rpcm_tag eventType,
-        rSequence event
-    )
-{
-    rList events = NULL;
-    RU32 i = 0;
-
-    UNREFERENCED_PARAMETER( eventType );
-
-    if( rpal_memory_isValid( event ) )
-    {
-        if( rMutex_lock( g_critical_adhoc.mutex ) )
-        {
-            if( NULL != ( events = rList_new( RP_TAGS_HBS_NOTIFICATION_ID, RPCM_RU32 ) ) )
-            {
-                if( rpal_memory_isValid( g_critical_adhoc.pElems ) )
-                {
-                    for( i = 0; i < g_critical_adhoc.nElem; i++ )
-                    {
-                        rList_addRU32( events, g_critical_adhoc.pElems[ i ] );
-                    }
-                }
-
-                if( !rSequence_addLIST( event, RP_TAGS_HBS_LIST_NOTIFICATIONS, events ) )
-                {
-                    rList_free( events );
-                    events = NULL;
-                }
-
-                notifications_publish( RP_TAGS_NOTIFICATION_GET_CRITICAL_EVENT_REP, event );
-            }
-
-            rMutex_unlock( g_critical_adhoc.mutex );
-        }
-    }
-}
-
-
 //=============================================================================
 // COLLECTOR INTERFACE
 //=============================================================================
 
 rpcm_tag collector_0_events[] = { RP_TAGS_NOTIFICATION_GET_EXFIL_EVENT_REP,
-                                  RP_TAGS_NOTIFICATION_GET_CRITICAL_EVENT_REP,
                                   0 };
 
 RBOOL
@@ -686,9 +528,7 @@ RBOOL
     {
         if( NULL != ( g_history_mutex = rMutex_create() ) &&
             _initEventList( &g_exfil_profile ) &&
-            _initEventList( &g_exfil_adhoc ) &&
-            _initEventList( &g_critical_profile ) &&
-            _initEventList( &g_critical_adhoc ) )
+            _initEventList( &g_exfil_adhoc ) )
         {
             isSuccess = TRUE;
             g_state = hbsState;
@@ -712,21 +552,6 @@ RBOOL
                                          0,
                                          NULL,
                                          get_exfil ) &&
-                notifications_subscribe( RP_TAGS_NOTIFICATION_ADD_CRITICAL_EVENT_REQ,
-                                         NULL,
-                                         0,
-                                         NULL,
-                                         add_critical ) &&
-                notifications_subscribe( RP_TAGS_NOTIFICATION_DEL_CRITICAL_EVENT_REQ,
-                                         NULL,
-                                         0,
-                                         NULL,
-                                         del_critical ) &&
-                notifications_subscribe( RP_TAGS_NOTIFICATION_GET_CRITICAL_EVENT_REQ,
-                                         NULL,
-                                         0,
-                                         NULL,
-                                         get_critical ) &&
                 notifications_subscribe( RP_TAGS_NOTIFICATION_HISTORY_DUMP_REQ, 
                                          NULL, 
                                          0, 
@@ -765,19 +590,6 @@ RBOOL
                         }
                     }
                 }
-
-                // Finally we get the list of critical events.
-                if( rpal_memory_isValid( config ) &&
-                    rSequence_getLIST( config, RP_TAGS_HBS_CRITICAL_EVENTS, &subscribed ) )
-                {
-                    while( rList_getRU32( subscribed, RP_TAGS_HBS_NOTIFICATION_ID, &notifId ) )
-                    {
-                        if( !_addEventId( &g_critical_profile, notifId ) )
-                        {
-                            isSuccess = FALSE;
-                        }
-                    }
-                }
             }
         }
 
@@ -786,9 +598,6 @@ RBOOL
             notifications_unsubscribe( RP_TAGS_NOTIFICATION_ADD_EXFIL_EVENT_REQ, NULL, add_exfil );
             notifications_unsubscribe( RP_TAGS_NOTIFICATION_DEL_EXFIL_EVENT_REQ, NULL, del_exfil );
             notifications_unsubscribe( RP_TAGS_NOTIFICATION_GET_EXFIL_EVENT_REQ, NULL, get_exfil );
-            notifications_unsubscribe( RP_TAGS_NOTIFICATION_ADD_CRITICAL_EVENT_REQ, NULL, add_critical );
-            notifications_unsubscribe( RP_TAGS_NOTIFICATION_DEL_CRITICAL_EVENT_REQ, NULL, del_critical );
-            notifications_unsubscribe( RP_TAGS_NOTIFICATION_GET_CRITICAL_EVENT_REQ, NULL, get_critical );
             notifications_unsubscribe( RP_TAGS_NOTIFICATION_HISTORY_DUMP_REQ, NULL, dumpHistory );
 
             for( i = 0; i < ARRAY_N_ELEM( g_state->collectors ); i++ )
@@ -808,8 +617,6 @@ RBOOL
             g_history_mutex = NULL;
             _deinitEventList( &g_exfil_profile );
             _deinitEventList( &g_exfil_adhoc );
-            _deinitEventList( &g_critical_profile );
-            _deinitEventList( &g_critical_adhoc );
         }
     }
 
@@ -837,9 +644,6 @@ RBOOL
             notifications_unsubscribe( RP_TAGS_NOTIFICATION_ADD_EXFIL_EVENT_REQ, NULL, add_exfil );
             notifications_unsubscribe( RP_TAGS_NOTIFICATION_DEL_EXFIL_EVENT_REQ, NULL, del_exfil );
             notifications_unsubscribe( RP_TAGS_NOTIFICATION_GET_EXFIL_EVENT_REQ, NULL, get_exfil );
-            notifications_unsubscribe( RP_TAGS_NOTIFICATION_ADD_CRITICAL_EVENT_REQ, NULL, add_critical );
-            notifications_unsubscribe( RP_TAGS_NOTIFICATION_DEL_CRITICAL_EVENT_REQ, NULL, del_critical );
-            notifications_unsubscribe( RP_TAGS_NOTIFICATION_GET_CRITICAL_EVENT_REQ, NULL, get_critical );
             notifications_unsubscribe( RP_TAGS_NOTIFICATION_HISTORY_DUMP_REQ, NULL, dumpHistory );
 
             for( i = 0; i < ARRAY_N_ELEM( g_state->collectors ); i++ )
@@ -872,8 +676,6 @@ RBOOL
             g_history_mutex = NULL;
             _deinitEventList( &g_exfil_profile );
             _deinitEventList( &g_exfil_adhoc );
-            _deinitEventList( &g_critical_profile );
-            _deinitEventList( &g_critical_adhoc );
         }
     }
 
