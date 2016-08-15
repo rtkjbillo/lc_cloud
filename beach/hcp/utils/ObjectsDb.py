@@ -443,14 +443,11 @@ class Host( object ):
 
     def isOnline( self ):
         isOnline = False
-        aid = str( self.aid )
-        info = self._be.hcp_getAgentStates( aid = aid )
-        if info.isSuccess and 'agents' in info.data and 0 != len( info.data[ 'agents' ] ):
-            info = info.data[ 'agents' ].values()[ 0 ]
-            ts = timeToTs( info[ 'date_last_seen' ] )
-            if ts >= time.time() - ( 60 * 10 ):
+        last = self.lastSeen()
+        if last is not None:
+            if last >= time.time() - ( 60 * 10 ):
                 isOnline = True
-
+        
         return isOnline
 
     def getHostName( self ):

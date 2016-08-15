@@ -73,7 +73,7 @@ class ModelView( Actor ):
             pass
 
         if aid is not None:
-            host = Host( msg.data[ 'id_or_host' ] )
+            host = Host( aid )
         else:
             hosts = Host.getHostsMatching( hostname = msg.data[ 'id_or_host' ] )
             if 0 != len( hosts ):
