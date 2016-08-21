@@ -112,7 +112,6 @@ RBOOL
                                     rpal_blob_getSize( buffer ), 
                                     g_hcpContext.isBeaconTimeToStop ) )
                 {
-                    rpal_debug_info( "sent frame of size %d", rpal_ntoh32( frameSize ) );
                     isSent = TRUE;
                 }
             }
@@ -150,7 +149,6 @@ RBOOL
                                timeoutSec ) )
         {
             frameSize = rpal_ntoh32( frameSize );
-            rpal_debug_info( "receiving frame of size %d", frameSize );
             if( FRAME_MAX_SIZE >= frameSize &&
                 NULL != ( frame = rpal_blob_create( frameSize, 0 ) ) &&
                 rpal_blob_add( frame, NULL, frameSize ) )

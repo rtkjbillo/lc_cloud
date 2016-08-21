@@ -10,7 +10,7 @@ profiles.StaticLibrary(
             env,
             Glob( '*.c' ),
             compmap,
-            'cryptoLib', 'obfuscationLib', 'MemoryModule', 'b64', 'z', 'curl', 'rpcm', 'Os'
+            'cryptoLib', 'obfuscationLib', 'MemoryModule', 'b64', 'z', 'rpcm', 'Os'
             )
 
 # EOF

@@ -466,6 +466,9 @@ static RBOOL
     {
         isSuccess = TRUE;
 
+        // We always schedule a boilerplate sync.
+        rThreadPool_scheduleRecurring( g_hbs_state.hThreadPool, HBS_SYNC_INTERVAL, issueSync, NULL, FALSE );
+
         for( i = 0; i < ARRAY_N_ELEM( g_hbs_state.collectors ); i++ )
         {
             if( g_hbs_state.collectors[ i ].isEnabled )
@@ -893,7 +896,6 @@ RPAL_THREAD_FUNC
         {
             // From the first sync, we'll schedule recurring ones.
             issueSync( g_hbs_state.isTimeToStop, NULL );
-            rThreadPool_scheduleRecurring( g_hbs_state.hThreadPool, HBS_SYNC_INTERVAL, issueSync, NULL, FALSE );
             break;
         }
     }
@@ -916,7 +918,6 @@ RPAL_THREAD_FUNC
                     }
                 }
 
-                rpal_debug_info( "sending frame with %d messages", rList_getNumElements( exfilList ) );
                 if( rpHcpI_sendHome( exfilList ) )
                 {
                     rList_free( exfilList );

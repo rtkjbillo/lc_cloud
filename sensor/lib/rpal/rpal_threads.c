@@ -981,7 +981,7 @@ RPVOID
                                 i = 0;
 
                                 while( i < nTimer &&
-                                        rpal_collection_next( ite, (RPVOID*)&task, NULL ) )
+                                       rpal_collection_next( ite, (RPVOID*)&task, NULL ) )
                                 {
                                     // The first part of the scheduled task is actually the timer
                                     // so we cheat a little bit to skip doing multiple allocations / lookups.
@@ -1010,8 +1010,8 @@ RPVOID
                         if( NULL != timers[ i ] && timers[ i ]->isReady )
                         {
                             rThreadPool_task( pool, 
-                                    ((_rThreadPoolScheduledTask*)timers[ i ])->task.taskFunction,
-                                    ((_rThreadPoolScheduledTask*)timers[ i ])->task.taskData );
+                                              ((_rThreadPoolScheduledTask*)timers[ i ])->task.taskFunction,
+                                              ((_rThreadPoolScheduledTask*)timers[ i ])->task.taskData );
                         }
                     }
                 }

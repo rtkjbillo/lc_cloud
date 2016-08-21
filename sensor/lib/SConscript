@@ -1,7 +1,6 @@
 Import( 'env' )
 Import( 'compmap' )
 for subdir in [
-        'libcurl',
         'rpal',
         'CUnit-2.1-2/CUnit',
         'mbedtls',

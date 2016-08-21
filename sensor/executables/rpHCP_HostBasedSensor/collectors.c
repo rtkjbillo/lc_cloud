@@ -356,6 +356,7 @@ RBOOL
     RPU8 pAtomId = NULL;
     Atom atom = { 0 };
     RU32 atomSize = 0;
+    RTIME ts = 0;
 
     if( NULL != event )
     {
@@ -366,6 +367,11 @@ RBOOL
         {
             atoms_getOneTime( &atom );
             rSequence_addBUFFER( event, RP_TAGS_HBS_THIS_ATOM, atom.id, sizeof( atom.id ) );
+        }
+
+        if( !rSequence_getTIMESTAMP( event, RP_TAGS_TIMESTAMP, &ts ) )
+        {
+            hbs_timestampEvent( event, 0 );
         }
 
         isSuccess = notifications_publish( eventType, event );

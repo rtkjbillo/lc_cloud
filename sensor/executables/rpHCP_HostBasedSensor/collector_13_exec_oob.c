@@ -453,7 +453,7 @@ RPVOID
     LibOsPerformanceProfile perfProfile = { 0 };
 
     perfProfile.enforceOnceIn = 1;
-    perfProfile.sanityCeiling = MSEC_FROM_SEC( 30 );
+    perfProfile.sanityCeiling = MSEC_FROM_SEC( 15 );
     perfProfile.lastTimeoutValue = MSEC_FROM_SEC( 1 );
     perfProfile.targetCpuPerformance = 0;
     perfProfile.globalTargetCpuPerformance = GLOBAL_CPU_USAGE_TARGET;
