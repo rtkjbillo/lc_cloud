@@ -2217,6 +2217,7 @@ RBOOL
 #else
         UNREFERENCED_PARAMETER( pWatch );
         UNREFERENCED_PARAMETER( size );
+        rpal_thread_sleep( MSEC_FROM_SEC(1) );
 #endif
     }
 

@@ -413,6 +413,8 @@ RPAL_THREAD_FUNC
         return NULL;
     }
 
+    rpal_debug_info( "issuing sync to cloud" );
+
     if( NULL != ( wrapper = rSequence_new() ) )
     {
         if( NULL != ( message = rSequence_new() ) )
@@ -736,6 +738,7 @@ RVOID
     // If it's an internal HBS message we'll process it right away.
     if( rSequence_getSEQUENCE( message, RP_TAGS_NOTIFICATION_SYNC, &sync ) )
     {
+        rpal_debug_info( "receiving hbs sync" );
         if( rSequence_getBUFFER( sync, RP_TAGS_HASH, &profileHash, &hashSize ) &&
             CRYPTOLIB_HASH_SIZE == hashSize &&
             rSequence_getLIST( sync, RP_TAGS_HBS_CONFIGURATIONS, &configurations ) )
@@ -744,6 +747,7 @@ RVOID
             {
                 if( rMutex_lock( g_hbs_state.mutex ) )
                 {
+                    rpal_debug_info( "sync has new profile, restarting collectors" );
                     rpal_memory_memcpy( g_hbs_state.currentConfigHash, profileHash, hashSize );
 
                     // We're going to shut down all collectors, swap the configs and restart them.
