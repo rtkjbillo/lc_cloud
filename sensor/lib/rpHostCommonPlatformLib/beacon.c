@@ -53,7 +53,7 @@ rBlob
 {
     rBlob blob = NULL;
     RPU8 buffer = NULL;
-    RU32 size = 0;
+    RU64 size = 0;
 
     if( NULL != messages &&
         NULL != ( blob = rpal_blob_create( 0, 0 ) ) )
@@ -73,7 +73,7 @@ rBlob
                                   rpal_blob_getBuffer( blob ), 
                                   rpal_blob_getSize( blob ) ) ||
               !rpal_blob_freeBufferOnly( blob ) ||
-              !rpal_blob_setBuffer( blob, buffer, size ) )
+              !rpal_blob_setBuffer( blob, buffer, (RU32)size ) )
             {
                 rpal_memory_free( buffer );
                 rpal_blob_free( blob );
@@ -139,7 +139,8 @@ RBOOL
     RU32 frameSize = 0;
     rBlob frame = NULL;
     RPU8 uncompressedFrame = NULL;
-    RU32 uncompressedSize = 0;
+    RU64 uncompressedSize = 0;
+    RU32 uncompErr = 0;
     RU32 bytesConsumed = 0;
 
     if( NULL != targetModuleId &&
@@ -169,16 +170,16 @@ RBOOL
                         if( FRAME_MAX_SIZE >= uncompressedSize &&
                             NULL != ( uncompressedFrame = rpal_memory_alloc( uncompressedSize ) ) )
                         {
-                            if( Z_OK == uncompress( uncompressedFrame,
-                                                    (uLongf*)&uncompressedSize,
-                                                    (RPU8)(rpal_blob_getBuffer( frame )) + sizeof(RU32),
-                                                    rpal_blob_getSize( frame ) ) )
+                            if( Z_OK == ( uncompErr = uncompress( uncompressedFrame,
+                                                                  (uLongf*)&uncompressedSize,
+                                                                  (RPU8)(rpal_blob_getBuffer( frame )) + sizeof(RU32),
+                                                                  rpal_blob_getSize( frame ) ) ) )
                             {
                                 *targetModuleId = *(RpHcp_ModuleId*)uncompressedFrame;
 
                                 if( rList_deserialise( pMessages, 
                                                        uncompressedFrame + sizeof( RpHcp_ModuleId ), 
-                                                       uncompressedSize, 
+                                                       (RU32)uncompressedSize, 
                                                        &bytesConsumed ) )
                                 {
                                     if( bytesConsumed + sizeof( RpHcp_ModuleId ) == uncompressedSize )
@@ -199,7 +200,7 @@ RBOOL
                             }
                             else
                             {
-                                rpal_debug_warning( "failed to decompress frame" );
+                                rpal_debug_warning( "failed to decompress frame: %d", uncompErr );
                             }
 
                             rpal_memory_free( uncompressedFrame );

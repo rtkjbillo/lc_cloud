@@ -25,6 +25,7 @@ limitations under the License.
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
+#include <sys/select.h>
 #include <netdb.h>
 #include <unistd.h>
 #endif
@@ -288,6 +289,7 @@ RBOOL
     fd_set sockets;
     struct timeval timeout = { 1, 0 };
     int waitVal = 0;
+    int n = 0;
 
     if( 0 != conn &&
         NULL != buffer &&
@@ -295,12 +297,13 @@ RBOOL
     {
         isSent = TRUE;
 
-        FD_ZERO( &sockets );
-        FD_SET( conn, &sockets );
-
         while( nSent < bufferSize && !rEvent_wait( stopEvent, 0 ) )
         {
-            waitVal = select( 1, NULL, &sockets, NULL, &timeout );
+            FD_ZERO( &sockets );
+            FD_SET( conn, &sockets );
+            n = (int)conn + 1;
+
+            waitVal = select( n, NULL, &sockets, NULL, &timeout );
 
             if( 0 == waitVal )
             {
@@ -343,15 +346,13 @@ RBOOL
     struct timeval timeout = { 1, 0 };
     int waitVal = 0;
     RTIME expire = 0;
+    int n = 0;
 
     if( 0 != conn &&
         NULL != buffer &&
         0 != bufferSize )
     {
         isReceived = TRUE;
-
-        FD_ZERO( &sockets );
-        FD_SET( conn, &sockets );
 
         if( 0 != timeoutSec )
         {
@@ -362,7 +363,11 @@ RBOOL
                !rEvent_wait( stopEvent, 0 ) && 
                ( 0 == timeoutSec || rpal_time_getLocal() <= expire ) )
         {
-            waitVal = select( 1, &sockets, NULL, NULL, &timeout );
+            FD_ZERO( &sockets );
+            FD_SET( conn, &sockets );
+            n = (int)conn + 1;
+
+            waitVal = select( n, &sockets, NULL, NULL, &timeout );
 
             if( 0 == waitVal )
             {
