@@ -64,6 +64,7 @@ class AdminEndpoint( Actor ):
         self.enrollments = self.getActorHandle( resources[ 'enrollments' ], timeout = 5, nRetries = 3 )
         self.moduleTasking = self.getActorHandle( resources[ 'module_tasking' ], timeout = 5, nRetries = 3 )
         self.hbsProfiles = self.getActorHandle( resources[ 'hbs_profiles' ], timeout = 5, nRetries = 3 )
+        self.taskingProxy = self.getActorHandle( resources[ 'tasking_proxy' ], timeout = 60, nRetries = 3 )
 
     def deinit( self ):
         pass
@@ -331,10 +332,24 @@ class AdminEndpoint( Actor ):
     @audited
     def cmd_hbs_taskAgent( self, msg ):
         request = msg.data
-        agent = AgentId( request[ 'agentid' ] ).asString()
-        task = request[ 'task' ]
+        agent = AgentId( request[ 'agentid' ] ).invariableToString()
+        task = rpcm( isDebug = self.log, 
+                     isDetailedDeserialize = True, 
+                     isHumanReadable = False ).quickDeserialise( request[ 'task' ],
+                                                                 isList = False )
 
-        self.db.execute( 'INSERT INTO hbs_queue ( aid, task ) VALUES ( %s, %s )',
-                         ( agent, bytearray( task ) ) )
-        
-        return ( True, )
+        #self.db.execute( 'INSERT INTO hbs_queue ( aid, task ) VALUES ( %s, %s )',
+        #                 ( agent, bytearray( task ) ) )
+        wrapper = rSequence().addList( self.symbols.hbs.CLOUD_NOTIFICATIONS, 
+                                       rList().addSequence( self.symbols.hbs.CLOUD_NOTIFICATION,
+                                                            task ) ).serialise( isDebug = self.log,
+                                                                                isHumanReadable = False  )
+
+        resp = self.taskingProxy.request( 'task', { 'aid' : agent, 
+                                                    'messages' : ( wrapper, ), 
+                                                    'module_id' : HcpModuleId.HBS } )
+
+        if resp.isSuccess:
+            return ( True, )
+        else:
+            return ( False, resp.error )

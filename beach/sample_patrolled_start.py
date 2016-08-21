@@ -29,48 +29,6 @@ STATE_DB = { 'url' : 'hcp-state-db',
              'password' : 'letmein' }
 
 #######################################
-# EndpointProcessor
-# This actor will process incoming
-# connections from the sensors.
-# Parameters:
-# deployment_key: The deployment key
-#    to enforce if needed, it helps
-#    to filter out sensors beaconing
-#    to you that are not related to
-#    your deployment.
-# _priv_key: the C2 private key.
-# handler_port_*: start and end port
-#    where incoming connections will
-#    be processed.
-# enrollment_token: secret token used
-#    to verify enrolled sensor identities.
-#######################################
-Patrol( 'EndpointProcessor',
-        initialInstances = 1,
-        maxInstances = None,
-        relaunchOnFailure = True,
-        onFailureCall = None,
-        scalingFactor = 1000,
-        actorArgs = ( 'c2/EndpointProcessor',
-                      'c2/endpoint/1.0' ),
-        actorKwArgs = {
-            'resources' : { 'analytics' : 'analytics/intake',
-                            'enrollments' : 'c2/enrollments',
-                            'states' : 'c2/states',
-                            'module_tasking' : 'c2/modulemanager',
-                            'hbs_profiles' : 'c2/hbsprofilemanager' },
-            'parameters' : { 'deployment_key' : None,
-                             'handler_port_start' : 80,
-                             'handler_port_end' : 80,
-                             'enrollment_token' : 'DEFAULT_HCP_ENROLLMENT_TOKEN',
-                             '_priv_key' : open( os.path.join( REPO_ROOT,
-                                                               'keys',
-                                                               'c2.priv.pem' ), 'r' ).read() },
-            'secretIdent' : 'beacon/09ba97ab-5557-4030-9db0-1dbe7f2b9cfd',
-            'trustedIdents' : [ 'stateupdater/d3c521c6-d5c6-4726-9b0c-84d0ac356409' ],
-            'n_concurrent' : 5 } )
-
-#######################################
 # EnrollmentManager
 # This actor is responsible for managing
 # enrollment requests from sensors.
@@ -155,12 +113,14 @@ Patrol( 'SensorDirectory',
         onFailureCall = None,
         scalingFactor = 10000,
         actorArgs = ( 'c2/SensorDirectory',
-                      [ 'c2/sensordir/1.0' ] ),
+                      [ 'c2/sensordir/1.0',
+                        'c2/states/sensordir/1.0' ] ),
         actorKwArgs = {
             'resources' : {},
             'parameters' : {},
             'secretIdent' : 'sensordir/3babff24-400b-4233-bcac-18f538a88fe1',
-            'trustedIdents' : [ 'beacon/09ba97ab-5557-4030-9db0-1dbe7f2b9cfd' ],
+            'trustedIdents' : [ 'beacon/09ba97ab-5557-4030-9db0-1dbe7f2b9cfd',
+                                'taskingproxy/794729aa-1ef5-4930-b377-48dda7b759a5' ],
             'n_concurrent' : 5,
             'isIsolated' : True } )
 
@@ -180,11 +140,11 @@ Patrol( 'TaskingProxy',
         actorArgs = ( 'c2/TaskingProxy',
                       [ 'c2/taskingproxy/1.0' ] ),
         actorKwArgs = {
-            'resources' : {},
+            'resources' : { 'sensor_dir' : 'c2/sensordir/' },
             'parameters' : {},
             'secretIdent' : 'taskingproxy/794729aa-1ef5-4930-b377-48dda7b759a5',
             'trustedIdents' : [ 'autotasking/a6cd8d9a-a90c-42ec-bd60-0519b6fb1f64',
-                                'modulemanager/1ecf1cd3-044d-434d-9134-b9b2c976ccad' ],
+                                'admin/dde768a4-8f27-4839-9e26-354066c8540e' ],
             'n_concurrent' : 5,
             'isIsolated' : True } )
 
@@ -251,7 +211,8 @@ Patrol( 'AdminEndpoint',
             'resources' : { 'auditing' : 'c2/auditing',
                             'enrollments' : 'c2/enrollments',
                             'module_tasking' : 'c2/modulemanager',
-                            'hbs_profiles' : 'c2/hbsprofilemanager' },
+                            'hbs_profiles' : 'c2/hbsprofilemanager',
+                            'tasking_proxy' : 'c2/taskingproxy/' },
             'parameters' : { 'db' : SCALE_DB,
                              'rate_limit_per_sec' : 200,
                              'max_concurrent' : 5,
@@ -295,6 +256,48 @@ Patrol( 'HbsProfileManager',
                                 'admin/dde768a4-8f27-4839-9e26-354066c8540e' ],
             'n_concurrent' : 5,
             'isIsolated' : True } )
+
+#######################################
+# EndpointProcessor
+# This actor will process incoming
+# connections from the sensors.
+# Parameters:
+# deployment_key: The deployment key
+#    to enforce if needed, it helps
+#    to filter out sensors beaconing
+#    to you that are not related to
+#    your deployment.
+# _priv_key: the C2 private key.
+# handler_port_*: start and end port
+#    where incoming connections will
+#    be processed.
+# enrollment_token: secret token used
+#    to verify enrolled sensor identities.
+#######################################
+Patrol( 'EndpointProcessor',
+        initialInstances = 1,
+        maxInstances = None,
+        relaunchOnFailure = True,
+        onFailureCall = None,
+        scalingFactor = 1000,
+        actorArgs = ( 'c2/EndpointProcessor',
+                      'c2/endpoint/1.0' ),
+        actorKwArgs = {
+            'resources' : { 'analytics' : 'analytics/intake',
+                            'enrollments' : 'c2/enrollments',
+                            'states' : 'c2/states/',
+                            'module_tasking' : 'c2/modulemanager',
+                            'hbs_profiles' : 'c2/hbsprofilemanager' },
+            'parameters' : { 'deployment_key' : None,
+                             'handler_port_start' : 80,
+                             'handler_port_end' : 80,
+                             'enrollment_token' : 'DEFAULT_HCP_ENROLLMENT_TOKEN',
+                             '_priv_key' : open( os.path.join( REPO_ROOT,
+                                                               'keys',
+                                                               'c2.priv.pem' ), 'r' ).read() },
+            'secretIdent' : 'beacon/09ba97ab-5557-4030-9db0-1dbe7f2b9cfd',
+            'trustedIdents' : [ 'taskingproxy/794729aa-1ef5-4930-b377-48dda7b759a5' ],
+            'n_concurrent' : 5 } )
 
 ###############################################################################
 # Analysis Intake

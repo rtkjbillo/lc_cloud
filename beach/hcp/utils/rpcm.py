@@ -86,6 +86,10 @@ class rSequence( dict ):
         self[ tag ] = { 'tag' : tag, 'value' : value, 'type' : rpcm.RPCM_LIST }
         return self
 
+    def serialise( self, isDebug = False, isHumanReadable = False ):
+        r = rpcm( isHumanReadable = isHumanReadable, isDebug = isDebug )
+        return r.serialise( self )
+
 class rList( list ):
     
     def addInt8( self, tag, value ):
@@ -143,6 +147,10 @@ class rList( list ):
     def addSequence( self, tag, value ):
         self.append( { 'tag' : tag, 'value' : value, 'type' : rpcm.RPCM_SEQUENCE } )
         return self
+
+    def serialise( self, isDebug = False, isHumanReadable = False ):
+        r = rpcm( isHumanReadable = isHumanReadable, isDebug = isDebug )
+        return r.serialise( self )
 
 class rpcm( object ):
     
@@ -608,6 +616,10 @@ class rpcm( object ):
             return self._parse_sequence( self.RPCM_SEQUENCE )
         
         self._isTracing = False
+
+    def quickDeserialise( self, buffer, isList = False, isTracing = False ):
+        self.setBuffer( buffer )
+        return self.deserialise( isList = isList, isTracing = isTracing )
     
     def serialise( self, seq ):
         self._data = ''

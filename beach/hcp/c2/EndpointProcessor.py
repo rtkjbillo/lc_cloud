@@ -98,14 +98,13 @@ class _ClientContext( object ):
         timeout = gevent.Timeout( timeout )
         timeout.start()
         try:
-            with self.lock:
-                data = ''
-                while size > len( data ):
-                    tmp = self.s.recv( size - len( data ) )
-                    if not tmp:
-                        raise DisconnectException( 'disconnect while receiving' )
-                        break
-                    data += tmp
+            data = ''
+            while size > len( data ):
+                tmp = self.s.recv( size - len( data ) )
+                if not tmp:
+                    raise DisconnectException( 'disconnect while receiving' )
+                    break
+                data += tmp
         except:
             raise
         finally:
@@ -335,7 +334,6 @@ class EndpointProcessor( Actor ):
                     self.log( "could not provide module sync: %s" % moduleUpdateResp.error )
 
     def handlerHbs( self, c, messages ):
-        self.log( "received %d hbs messages" % len( messages ) )
         for message in messages:
             # We treat sync messages slightly differently since they're only destined for
             # the platform and not for detection.
@@ -376,10 +374,17 @@ class EndpointProcessor( Actor ):
                                            int( time.time() ) ) )
 
     def taskClient( self, msg ):
-        aid = AgentId( msg[ 'aid' ] )
-        messages = msg[ 'messages' ]
-        moduleId = msg[ 'module_id' ]
-        c = self.currentClients.get( aid.invariableToString(), None )
+        aid = AgentId( msg.data[ 'aid' ] ).invariableToString()
+        messages = msg.data[ 'messages' ]
+        moduleId = msg.data[ 'module_id' ]
+        c = self.currentClients.get( aid, None )
         if c is not None:
-            c.sendFrame( moduleId, messages, timeout = 60 * 10 )
-        return ( True, )
+            outMessages = []
+            r = rpcm( isHumanReadable = False, isDebug = self.log, isDetailedDeserialize = True )
+            for message in messages:
+                r.setBuffer( message )
+                outMessages.append( r.deserialise( isList = False ) )
+            c.sendFrame( moduleId, outMessages, timeout = 60 * 10 )
+            return ( True, )
+        else:
+            return ( False, )
