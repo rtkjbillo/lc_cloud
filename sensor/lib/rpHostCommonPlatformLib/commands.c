@@ -184,8 +184,9 @@ RBOOL
                         if( NULL != modContext->isTimeToStop )
                         {
                             g_hcpContext.modules[ moduleIndex ].isTimeToStop  = modContext->isTimeToStop;
-                            g_hcpContext.modules[ moduleIndex ].func_recvMessage = (rpal_thread_func)MemoryGetProcAddress( g_hcpContext.modules[ moduleIndex ].hModule,
-                                                                                                                           (RPCHAR)recvMessage );
+                            g_hcpContext.modules[ moduleIndex ].func_recvMessage = 
+                                    (rpHCPModuleMsgEntry)MemoryGetProcAddress( g_hcpContext.modules[ moduleIndex ].hModule,
+                                                                               (RPCHAR)recvMessage );
                             g_hcpContext.modules[ moduleIndex ].hThread = rpal_thread_new( pEntry, modContext );
 
                             if( 0 != g_hcpContext.modules[ moduleIndex ].hThread )

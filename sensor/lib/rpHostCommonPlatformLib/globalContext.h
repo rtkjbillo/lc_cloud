@@ -35,6 +35,7 @@ limitations under the License.
 #define RP_HCP_CONTEXT_MODULE_TIMEOUT   (30*1000)
 #endif
 
+typedef RVOID( RPAL_THREAD_FUNC *rpHCPModuleMsgEntry )( rSequence message );
 
 typedef struct
 {
@@ -42,7 +43,7 @@ typedef struct
     rThread hThread;
     rEvent isTimeToStop;
     HMEMORYMODULE hModule;
-    RVOID( RPAL_THREAD_FUNC *func_recvMessage )( rSequence message );
+    rpHCPModuleMsgEntry func_recvMessage;
     rpHCPModuleContext context;
     CryptoLib_Hash hash;
     RBOOL isOsLoaded;

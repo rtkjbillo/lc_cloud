@@ -26,8 +26,11 @@ limitations under the License.
 #include <libOs/libOs.h>
 #include "commands.h"
 #include "crashHandling.h"
-
 #include <networkLib/networkLib.h>
+
+#if defined( RPAL_PLATFORM_LINUX ) || defined( RPAL_PLATFORM_MACOSX )
+#include <dlfcn.h>
+#endif
 
 #define RPAL_FILE_ID     50
 

@@ -484,10 +484,12 @@ RBOOL
                             g_hcpContext.modules[ moduleIndex ].isTimeToStop  = modContext->isTimeToStop;
                             OBFUSCATIONLIB_TOGGLE( recvMessage );
 #ifdef RPAL_PLATFORM_WINDOWS
-                            g_hcpContext.modules[ moduleIndex ].func_recvMessage = (rpal_thread_func)GetProcAddress( (HMODULE)g_hcpContext.modules[ moduleIndex ].hModule,
-                                                                                                                     (RPCHAR)recvMessage );
+                            g_hcpContext.modules[ moduleIndex ].func_recvMessage = 
+                                    (rpHCPModuleMsgEntry)GetProcAddress( (HMODULE)g_hcpContext.modules[ moduleIndex ].hModule,
+                                                                         (RPCHAR)recvMessage );
 #elif defined( RPAL_PLATFORM_LINUX ) || defined( RPAL_PLATFORM_MACOSX )
-                            g_hcpContext.modules[ moduleIndex ].func_recvMessage = (rpal_thread_func)dlsym( g_hcpContext.modules[ moduleIndex ].hModule, (RPCHAR)recvMessage );
+                            g_hcpContext.modules[ moduleIndex ].func_recvMessage = 
+                                    (rpHCPModuleMsgEntry)dlsym( g_hcpContext.modules[ moduleIndex ].hModule, (RPCHAR)recvMessage );
 #endif
                             OBFUSCATIONLIB_TOGGLE( recvMessage );
                             g_hcpContext.modules[ moduleIndex ].hThread = rpal_thread_new( pEntry, modContext );

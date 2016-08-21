@@ -23,7 +23,10 @@ limitations under the License.
 #include <windows_undocumented.h>
 #else
 #include <sys/types.h>
-#include <sys/sockets.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <netdb.h>
+#include <unistd.h>
 #endif
 
 #pragma warning( disable: 4127 ) // Disabling error on constant expression in condition

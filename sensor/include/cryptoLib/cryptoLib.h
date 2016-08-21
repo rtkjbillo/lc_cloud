@@ -83,7 +83,7 @@ CryptoLib_SymContext
         RU8 iv[ CRYPTOLIB_SYM_IV_SIZE ]
     );
 
-VOID
+RVOID
     CryptoLib_symFreeContext
     (
         CryptoLib_SymContext ctx

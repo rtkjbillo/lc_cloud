@@ -244,7 +244,7 @@ CryptoLib_SymContext
     return (CryptoLib_SymContext)ctx;
 }
 
-VOID
+RVOID
     CryptoLib_symFreeContext
     (
         CryptoLib_SymContext ctx
