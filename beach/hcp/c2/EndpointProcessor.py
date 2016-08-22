@@ -323,9 +323,9 @@ class EndpointProcessor( Actor ):
                                                  .addInt8( Symbols.hcp.MODULE_ID,
                                                            mod[ 0 ] )
                                                  .addBuffer( Symbols.base.BINARY,
-                                                             mod[ 1 ] )
+                                                             mod[ 2 ] )
                                                  .addBuffer( Symbols.base.SIGNATURE,
-                                                             mod[ 2 ] ) )
+                                                             mod[ 3 ] ) )
 
                     c.sendFrame( HcpModuleId.HCP, tasks )
                     self.log( 'load %d modules, unload %d modules' % ( len( changes[ 'load' ] ),
