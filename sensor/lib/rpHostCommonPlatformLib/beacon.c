@@ -53,7 +53,7 @@ rBlob
 {
     rBlob blob = NULL;
     RPU8 buffer = NULL;
-    RU64 size = 0;
+    RSIZET size = 0;
 
     if( NULL != messages &&
         NULL != ( blob = rpal_blob_create( 0, 0 ) ) )
@@ -139,7 +139,7 @@ RBOOL
     RU32 frameSize = 0;
     rBlob frame = NULL;
     RPU8 uncompressedFrame = NULL;
-    RU64 uncompressedSize = 0;
+    RSIZET uncompressedSize = 0;
     RU32 uncompErr = 0;
     RU32 bytesConsumed = 0;
 

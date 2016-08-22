@@ -22,6 +22,7 @@ limitations under the License.
 #ifdef RPAL_PLATFORM_MACOSX
     #define ACQUISITION_COMMS_NAME          "com.refractionpoint.hbs.acq"
 #elif defined( RPAL_PLATFORM_WINDOWS )
+    
     #define ACQUISITION_COMMS_NAME          _WCH("rp_hcp_hbs_acq")
     #define DEVICE_ID                       44223
     #define DEVICE_FUNCTION_CODE            0x400

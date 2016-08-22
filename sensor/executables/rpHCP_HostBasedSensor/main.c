@@ -469,7 +469,11 @@ static RBOOL
         isSuccess = TRUE;
 
         // We always schedule a boilerplate sync.
-        rThreadPool_scheduleRecurring( g_hbs_state.hThreadPool, HBS_SYNC_INTERVAL, issueSync, NULL, FALSE );
+        rThreadPool_scheduleRecurring( g_hbs_state.hThreadPool, 
+                                       HBS_SYNC_INTERVAL, 
+                                       (rpal_thread_pool_func)issueSync, 
+                                       NULL, 
+                                       FALSE );
 
         for( i = 0; i < ARRAY_N_ELEM( g_hbs_state.collectors ); i++ )
         {

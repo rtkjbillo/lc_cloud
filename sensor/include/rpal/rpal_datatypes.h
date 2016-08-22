@@ -31,9 +31,11 @@ limitations under the License.
     #ifdef RPAL_PLATFORM_KERNEL
         #include <ntddk.h>
     #else
-        #include <winsock2.h>
+        #define WIN32_LEAN_AND_MEAN
         #include <windows.h>
+        #include <winsock2.h>
         #include <windows_undocumented.h>
+        #include <winioctl.h>
     #endif
     #include <string.h>
     #include <stdlib.h>

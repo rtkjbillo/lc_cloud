@@ -19,8 +19,15 @@ limitations under the License.
 #define RPAL_FILE_ID    41
 
 #ifdef RPAL_PLATFORM_WINDOWS
-#include <iphlpapi.h>
-#include <windows_undocumented.h>
+    #ifdef RPAL_PLATFORM_WINDOWS_32
+        // Includes are made messier by the use of the DDK so we need
+        // some voodoo magic here.
+        #include <tcpmib.h>
+        #include <Iprtrmib.h>
+        #define _NETIOAPI_H_
+        #undef _WINSOCK2API_
+    #endif
+#include <IPHlpApi.h>
 #else
 #include <sys/types.h>
 #include <sys/socket.h>
