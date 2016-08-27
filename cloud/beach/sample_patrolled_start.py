@@ -100,6 +100,43 @@ Patrol( 'StateUpdater',
             'isIsolated' : True } )
 
 #######################################
+# PersistentTasking
+# This actor is responsible for updating
+# the current status of connections with
+# sensors.
+# Parameters:
+# db: the Cassandra seed nodes to
+#    connect to for storage.
+# rate_limit_per_sec: number of db ops
+#    per second, limiting to avoid
+#    db overload since C* is bad at that.
+# max_concurrent: number of concurrent
+#    db queries.
+# block_on_queue_size: stop queuing after
+#    n number of items awaiting ingestion.
+#######################################
+Patrol( 'PersistentTasking',
+        initialInstances = 1,
+        maxInstances = None,
+        relaunchOnFailure = True,
+        onFailureCall = None,
+        scalingFactor = 1000,
+        actorArgs = ( 'c2/PersistentTasking',
+                      [ 'c2/persistenttasking/1.0',
+                        'c2/states/persistenttasking/1.0' ] ),
+        actorKwArgs = {
+            'resources' : { 'tasking_proxy' : 'c2/taskingproxy/' },
+            'parameters' : { 'db' : SCALE_DB,
+                             'rate_limit_per_sec' : 200,
+                             'max_concurrent' : 5,
+                             'block_on_queue_size' : 100 },
+            'secretIdent' : 'persistenttasking/54158388-2b0b-47c0-9642-f90835b5057b',
+            'trustedIdents' : [ 'beacon/09ba97ab-5557-4030-9db0-1dbe7f2b9cfd',
+                                'admin/dde768a4-8f27-4839-9e26-354066c8540e' ],
+            'n_concurrent' : 5,
+            'isIsolated' : True } )
+
+#######################################
 # SensorDirectory
 # This actor is responsible for keeping
 # a list of which sensors are online and
@@ -122,7 +159,7 @@ Patrol( 'SensorDirectory',
             'trustedIdents' : [ 'beacon/09ba97ab-5557-4030-9db0-1dbe7f2b9cfd',
                                 'taskingproxy/794729aa-1ef5-4930-b377-48dda7b759a5' ],
             'n_concurrent' : 5,
-            'isIsolated' : True } )
+            'isIsolated' : False } )
 
 #######################################
 # TaskingProxy
@@ -144,9 +181,10 @@ Patrol( 'TaskingProxy',
             'parameters' : {},
             'secretIdent' : 'taskingproxy/794729aa-1ef5-4930-b377-48dda7b759a5',
             'trustedIdents' : [ 'autotasking/a6cd8d9a-a90c-42ec-bd60-0519b6fb1f64',
-                                'admin/dde768a4-8f27-4839-9e26-354066c8540e' ],
+                                'admin/dde768a4-8f27-4839-9e26-354066c8540e',
+                                'persistenttasking/54158388-2b0b-47c0-9642-f90835b5057b' ],
             'n_concurrent' : 5,
-            'isIsolated' : True } )
+            'isIsolated' : False } )
 
 #######################################
 # ModuleManager
@@ -212,14 +250,16 @@ Patrol( 'AdminEndpoint',
                             'enrollments' : 'c2/enrollments',
                             'module_tasking' : 'c2/modulemanager',
                             'hbs_profiles' : 'c2/hbsprofilemanager',
-                            'tasking_proxy' : 'c2/taskingproxy/' },
+                            'tasking_proxy' : 'c2/taskingproxy/',
+                            'persistent_tasks' : 'c2/persistenttasking/' },
             'parameters' : { 'db' : SCALE_DB,
                              'rate_limit_per_sec' : 200,
                              'max_concurrent' : 5,
                              'block_on_queue_size' : 100 },
             'secretIdent' : 'admin/dde768a4-8f27-4839-9e26-354066c8540e',
             'trustedIdents' : [ 'cli/955f6e63-9119-4ba6-a969-84b38bfbcc05' ],
-            'n_concurrent' : 5 } )
+            'n_concurrent' : 5,
+            'isIsolated' : True } )
 
 #######################################
 # HbsProfileManager
@@ -297,7 +337,8 @@ Patrol( 'EndpointProcessor',
                                                                'c2.priv.pem' ), 'r' ).read() },
             'secretIdent' : 'beacon/09ba97ab-5557-4030-9db0-1dbe7f2b9cfd',
             'trustedIdents' : [ 'taskingproxy/794729aa-1ef5-4930-b377-48dda7b759a5' ],
-            'n_concurrent' : 5 } )
+            'n_concurrent' : 5,
+            'isIsolated' : False } )
 
 ###############################################################################
 # Analysis Intake
