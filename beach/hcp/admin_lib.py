@@ -158,4 +158,4 @@ class BEAdmin( object ):
         final = r.serialise( rSequence().addBuffer( tags.base.BINARY, toSign )
                                         .addBuffer( tags.base.SIGNATURE, sig ) )
         
-        return self._query( 'hbs.task_agent', { 'task' : final, 'agentid' : str( a ) } )
+        return self._query( 'hbs.task_agent', { 'task' : final, 'agentid' : str( a ), 'expiry' : expiry } )

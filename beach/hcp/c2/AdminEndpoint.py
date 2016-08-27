@@ -65,6 +65,7 @@ class AdminEndpoint( Actor ):
         self.moduleTasking = self.getActorHandle( resources[ 'module_tasking' ], timeout = 5, nRetries = 3 )
         self.hbsProfiles = self.getActorHandle( resources[ 'hbs_profiles' ], timeout = 5, nRetries = 3 )
         self.taskingProxy = self.getActorHandle( resources[ 'tasking_proxy' ], timeout = 60, nRetries = 3 )
+        self.persistentTasks = self.getActorHandle( resources[ 'persistent_tasks' ], timeout = 5, nRetries = 3 )
 
     def deinit( self ):
         pass
@@ -332,14 +333,15 @@ class AdminEndpoint( Actor ):
     @audited
     def cmd_hbs_taskAgent( self, msg ):
         request = msg.data
+        expiry = request.get( 'expiry', None )
+        if expiry is None:
+            expiry = 0
         agent = AgentId( request[ 'agentid' ] ).invariableToString()
         task = rpcm( isDebug = self.log, 
                      isDetailedDeserialize = True, 
                      isHumanReadable = False ).quickDeserialise( request[ 'task' ],
                                                                  isList = False )
 
-        #self.db.execute( 'INSERT INTO hbs_queue ( aid, task ) VALUES ( %s, %s )',
-        #                 ( agent, bytearray( task ) ) )
         wrapper = rSequence().addList( self.symbols.hbs.CLOUD_NOTIFICATIONS, 
                                        rList().addSequence( self.symbols.hbs.CLOUD_NOTIFICATION,
                                                             task ) ).serialise( isDebug = self.log,
@@ -352,4 +354,10 @@ class AdminEndpoint( Actor ):
         if resp.isSuccess:
             return ( True, )
         else:
+            return ( False, resp.error )
+            if int( expiry ) > 0:
+                self.db.execute( 'INSERT INTO hbs_queue ( aid, task ) VALUES ( %s, %s ) USING TTL %s',
+                                 ( agent, bytearray( task ), expiry ) )
+                self.delay( 1, self.persistentTasks.broadcast, 'add', { 'aid' : agent } )
+                return ( True, { 'delayed' : True } )
             return ( False, resp.error )
