@@ -170,15 +170,6 @@ CREATE TABLE last_events
   PRIMARY KEY( agentid, type )
 ) WITH compaction = { 'class' : 'LeveledCompactionStrategy' } AND gc_grace_seconds = 86400;
 
-CREATE TABLE investigation_data
-(
-  invid varchar,
-  ts timeuuid,
-  eid varchar,
-  etype varchar,
-  PRIMARY KEY( invid, ts )
-) WITH compaction = { 'class' : 'SizeTieredCompactionStrategy' } AND gc_grace_seconds = 86400;
-
 CREATE TABLE ref_loc
 (
   id varchar,
@@ -188,23 +179,23 @@ CREATE TABLE ref_loc
   PRIMARY KEY( id, plat )
 ) WITH compaction = { 'class' : 'LeveledCompactionStrategy' } AND gc_grace_seconds = 86400;
 
-CREATE TABLE reports
+CREATE TABLE detects
 (
-  repid varchar,
+  did varchar,
   gen timestamp,
   source varchar,
   dtype varchar,
   events varchar,
   detect varchar,
 
-  PRIMARY KEY( repid )
+  PRIMARY KEY( did )
 ) WITH compaction = { 'class' : 'DateTieredCompactionStrategy' } AND gc_grace_seconds = 86400;
 
-CREATE TABLE report_timeline
+CREATE TABLE detect_timeline
 (
   d int,
   ts timeuuid,
-  repid varchar,
+  did varchar,
 
   PRIMARY KEY( d, ts )
 ) WITH compaction = { 'class' : 'DateTieredCompactionStrategy' } AND gc_grace_seconds = 86400;
@@ -234,3 +225,36 @@ CREATE TABLE atoms_lookup
   PRIMARY KEY( atomid, eid )
 ) WITH compaction = { 'class' : 'DateTieredCompactionStrategy' } AND gc_grace_seconds = 86400;
 
+CREATE TABLE investigation
+(
+  invid varchar,
+  gen timestamp,
+  closed timestamp,
+  nature int,
+  conclusion int,
+  why varchar,
+
+  PRIMARY KEY( invid )
+) WITH compaction = { 'class' : 'DateTieredCompactionStrategy' } AND gc_grace_seconds = 86400;
+
+CREATE TABLE inv_data
+(
+  invid varchar,
+  gen timeuuid,
+  why varchar,
+  data varchar,
+
+  PRIMARY KEY( invid, gen )
+) WITH compaction = { 'class' : 'DateTieredCompactionStrategy' } AND gc_grace_seconds = 86400;
+
+CREATE TABLE inv_task
+(
+  invid varchar,
+  gen timeuuid,
+  why varchar,
+  dest varchar,
+  data varchar,
+  sent int,
+
+  PRIMARY KEY( invid, gen )
+) WITH compaction = { 'class' : 'DateTieredCompactionStrategy' } AND gc_grace_seconds = 86400;

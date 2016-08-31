@@ -625,15 +625,15 @@ class Reporting( object ):
 
             def thisGen():
                 for d in xrange( 0, 255 ):
-                    for row in cls._db.execute( 'SELECT d, ts, repid FROM report_timeline WHERE d = %s AND %s%s' % ( d, ' AND '.join( filters ), limit ), filterValues ):
-                        for reprow in cls._db.execute( 'SELECT gen, repid, source, dtype, events, detect FROM reports WHERE repid = \'%s\'' % ( row[ 2 ],  ) ):
+                    for row in cls._db.execute( 'SELECT d, ts, did FROM detect_timeline WHERE d = %s AND %s%s' % ( d, ' AND '.join( filters ), limit ), filterValues ):
+                        for reprow in cls._db.execute( 'SELECT gen, did, source, dtype, events, detect FROM detects WHERE did = \'%s\'' % ( row[ 2 ],  ) ):
                             yield ( timeToTs( reprow[ 0 ] ) * 1000, reprow[ 1 ].upper(), reprow[ 2 ], reprow[ 3 ], reprow[ 4 ], reprow[ 5 ] )
 
 
             return thisGen()
         else:
             r = None
-            for row in cls._db.execute( 'SELECT gen, repid, source, dtype, events, detect FROM reports WHERE repid = \'%s\'' % ( id.upper(), ) ):
+            for row in cls._db.execute( 'SELECT gen, did, source, dtype, events, detect FROM detects WHERE did = \'%s\'' % ( id.upper(), ) ):
                 r = ( timeToTs( row[ 0 ] ) * 1000, row[ 1 ].upper(), row[ 2 ], row[ 3 ], row[ 4 ], row[ 5 ] )
             return r
 

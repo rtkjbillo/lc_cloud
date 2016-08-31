@@ -37,10 +37,10 @@ Return Values: %s
         sys.exit(-1)
 
 printStep( 'Upgrade max number of file descriptors.',
-           os.system( 'echo "* soft nofile 200000" >> /etc/security/limits.conf' ),
-           os.system( 'echo "* hard nofile 200000" >> /etc/security/limits.conf' ),
-           os.system( 'echo "root soft nofile 200000" >> /etc/security/limits.conf' ),
-           os.system( 'echo "root hard nofile 200000" >> /etc/security/limits.conf' ),
+           os.system( 'echo "* soft nofile 500000" >> /etc/security/limits.conf' ),
+           os.system( 'echo "* hard nofile 500000" >> /etc/security/limits.conf' ),
+           os.system( 'echo "root soft nofile 500000" >> /etc/security/limits.conf' ),
+           os.system( 'echo "root hard nofile 500000" >> /etc/security/limits.conf' ),
            os.system( 'echo "session required pam_limits.so" >> /etc/pam.d/common-session' ),
            os.system( 'echo "fs.file-max = 2097152" >> /etc/sysctl.conf'),
            os.system( 'sysctl -p' ) )

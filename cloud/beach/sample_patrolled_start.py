@@ -395,7 +395,8 @@ Patrol( 'AnalyticsModeling',
         onFailureCall = None,
         scalingFactor = 1000,
         actorArgs = ( 'analytics/AnalyticsModeling',
-                      'analytics/modeling/intake/1.0' ),
+                      [ 'analytics/modeling/intake/1.0',
+                        'analytics/modeling/inv/1.0' ] ),
         actorKwArgs = {
             'resources' : {},
             'parameters' : { 'db' : SCALE_DB,
@@ -516,7 +517,7 @@ Patrol( 'AnalyticsReporting',
                              'paging_dest' : [] },
             'secretIdent' : 'reporting/9ddcc95e-274b-4a49-a003-c952d12049b8',
             'trustedIdents' : [ 'analysis/038528f5-5135-4ca8-b79f-d6b8ffc53bf5',
-                                'hunt/8e0f55c0-6593-4747-9d02-a4937fa79517' ],
+                                'hunter/8e0f55c0-6593-4747-9d02-a4937fa79517' ],
             'n_concurrent' : 5,
             'isIsolated' : True } )
 
@@ -644,7 +645,7 @@ Patrol( 'AnalyticsModelView',
                              'max_concurrent' : 10,
                              'beach_config' : BEACH_CONFIG_FILE },
             'trustedIdents' : [ 'lc/0bf01f7e-62bd-4cc4-9fec-4c52e82eb903',
-                                'hunt/8e0f55c0-6593-4747-9d02-a4937fa79517',
+                                'hunter/8e0f55c0-6593-4747-9d02-a4937fa79517',
                                 'rest/be41bb0f-449a-45e9-87d8-ef4533336a2d' ],
             'n_concurrent' : 5,
             'isIsolated' : True } )
@@ -701,7 +702,7 @@ Patrol( 'AutoTasking',
                              'log_file' : './admin_cli.log' },
             'secretIdent' : 'autotasking/a6cd8d9a-a90c-42ec-bd60-0519b6fb1f64',
             'trustedIdents' : [ 'analysis/038528f5-5135-4ca8-b79f-d6b8ffc53bf5',
-                                'hunt/8e0f55c0-6593-4747-9d02-a4937fa79517' ],
+                                'hunter/8e0f55c0-6593-4747-9d02-a4937fa79517' ],
             'n_concurrent' : 5 } )
 
 #######################################
@@ -725,7 +726,7 @@ Patrol( 'HuntsManager',
             'resources' : {},
             'parameters' : { 'beach_config' : BEACH_CONFIG_FILE },
             'secretIdent' : 'huntsmanager/d666cbc3-38d5-4086-b9ce-c543625ee45c',
-            'trustedIdents' : [ 'hunt/8e0f55c0-6593-4747-9d02-a4937fa79517' ],
+            'trustedIdents' : [ 'hunter/8e0f55c0-6593-4747-9d02-a4937fa79517' ],
             'n_concurrent' : 5 } )
 
 #######################################
@@ -779,7 +780,7 @@ Patrol( 'VirusTotalActor',
             'parameters' : { 'qpm' : 4 },
             'secretIdent' : 'virustotal/697bfbf7-aa78-41f3-adb8-26f59bdba0da',
             'trustedIdents' : [ 'analysis/038528f5-5135-4ca8-b79f-d6b8ffc53bf5',
-                                'hunt/8e0f55c0-6593-4747-9d02-a4937fa79517' ],
+                                'hunter/8e0f55c0-6593-4747-9d02-a4937fa79517' ],
             'n_concurrent' : 1 } )
 
 #######################################
@@ -807,7 +808,7 @@ Patrol( 'StatsComputer',
                              'beach_config' : BEACH_CONFIG_FILE },
             'secretIdent' : 'stats/3088dc10-b40c-40f8-bf3a-d07be4758098',
             'trustedIdents' : [ 'analysis/038528f5-5135-4ca8-b79f-d6b8ffc53bf5',
-                                'hunt/8e0f55c0-6593-4747-9d02-a4937fa79517' ],
+                                'hunter/8e0f55c0-6593-4747-9d02-a4937fa79517' ],
             'n_concurrent' : 5,
             'isIsolated' : True } )
 
@@ -1247,30 +1248,43 @@ Patrol( 'MacReconTools',
 ###############################################################################
 # Hunts
 ###############################################################################
-Patrol( 'SampleHunt',
+Patrol( 'SampleHunter',
         initialInstances = 1,
         maxInstances = None,
         relaunchOnFailure = True,
         onFailureCall = None,
         scalingFactor = 10000,
-        actorArgs = ( 'analytics/hunt/SampleHunt',
-                      'analytics/hunt/samplehunt/1.0' ),
+        actorArgs = ( 'analytics/hunter/SampleHunter',
+                      'analytics/hunter/samplehunter/1.0' ),
         actorKwArgs = {
             'parameters' : {},
-            'secretIdent' : 'hunt/8e0f55c0-6593-4747-9d02-a4937fa79517',
+            'secretIdent' : 'hunter/8e0f55c0-6593-4747-9d02-a4937fa79517',
             'trustedIdents' : [ 'analysis/038528f5-5135-4ca8-b79f-d6b8ffc53bf5' ],
             'n_concurrent' : 5 } )
+# Patrol( 'SampleHunt',
+#         initialInstances = 1,
+#         maxInstances = None,
+#         relaunchOnFailure = True,
+#         onFailureCall = None,
+#         scalingFactor = 10000,
+#         actorArgs = ( 'analytics/hunt/SampleHunt',
+#                       'analytics/hunt/samplehunt/1.0' ),
+#         actorKwArgs = {
+#             'parameters' : {},
+#             'secretIdent' : 'hunt/8e0f55c0-6593-4747-9d02-a4937fa79517',
+#             'trustedIdents' : [ 'analysis/038528f5-5135-4ca8-b79f-d6b8ffc53bf5' ],
+#             'n_concurrent' : 5 } )
 
-Patrol( 'SuspectedDropperHunt',
-        initialInstances = 1,
-        maxInstances = None,
-        relaunchOnFailure = True,
-        onFailureCall = None,
-        scalingFactor = 5000,
-        actorArgs = ( 'analytics/hunt/SuspectedDropperHunt',
-                      'analytics/hunt/suspecteddropperhunt/1.0' ),
-        actorKwArgs = {
-            'parameters' : {},
-            'secretIdent' : 'hunt/8e0f55c0-6593-4747-9d02-a4937fa79517',
-            'trustedIdents' : [ 'analysis/038528f5-5135-4ca8-b79f-d6b8ffc53bf5' ],
-            'n_concurrent' : 5 } )
+# Patrol( 'SuspectedDropperHunt',
+#         initialInstances = 1,
+#         maxInstances = None,
+#         relaunchOnFailure = True,
+#         onFailureCall = None,
+#         scalingFactor = 5000,
+#         actorArgs = ( 'analytics/hunt/SuspectedDropperHunt',
+#                       'analytics/hunt/suspecteddropperhunt/1.0' ),
+#         actorKwArgs = {
+#             'parameters' : {},
+#             'secretIdent' : 'hunt/8e0f55c0-6593-4747-9d02-a4937fa79517',
+#             'trustedIdents' : [ 'analysis/038528f5-5135-4ca8-b79f-d6b8ffc53bf5' ],
+#             'n_concurrent' : 5 } )

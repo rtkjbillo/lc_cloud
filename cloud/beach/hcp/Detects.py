@@ -30,7 +30,7 @@ def GenerateDetectReport( nthReport, agentid, msgIds, cat, detect, summary = '',
              'msg_ids' : msgIds, 
              'cat' : cat, 
              'detect' : detect, 
-             'report_id' : reportId, 
+             'detect_id' : reportId, 
              'summary' : summary,
              'priority' : priority }
 
@@ -48,7 +48,7 @@ class StatelessActor ( Actor ):
     def init( self, parameters, resources ):
         if not hasattr( self, 'process' ):
             raise Exception( 'Stateless Actor has no "process" function' )
-        self._reporting = self.getActorHandle( resources.get( 'report', 'analytics/report' ) )
+        self._reporting = self.getActorHandle( resources.get( 'report', 'analytics/reporting' ) )
         self._tasking = CreateOnAccess( self.getActorHandle, 
                                         resources.get( 'autotasking', 'analytics/autotasking' ), 
                                         mode = 'affinity' )
@@ -95,10 +95,10 @@ class StatelessActor ( Actor ):
                                                detect,
                                                summary,
                                                priority )
-                self._reporting.shoot( 'report', report )
+                self._reporting.shoot( 'detect', report )
                 self._detects.broadcast( 'detect', report )
                 if taskings is not None and 0 != len( taskings ):
-                    self.task( routing[ 'agentid' ], taskings, expiry = ( 60 * 60 ), inv_id = report[ 'report_id' ] )
+                    self.task( routing[ 'agentid' ], taskings, expiry = ( 60 * 60 ), inv_id = report[ 'detect_id' ] )
                 i += 1
         return ( True, )
 
@@ -119,7 +119,7 @@ class StatefulActor ( Actor ):
             raise Exception( 'Stateful Actor has no associated shardingKey (or None)' )
 
         self._reporting = CreateOnAccess( self.getActorHandle, 
-                                          resources.get( 'report', 'analytics/report' ) )
+                                          resources.get( 'report', 'analytics/reporting' ) )
         self._tasking = CreateOnAccess( self.getActorHandle, 
                                         resources.get( 'autotasking', 'analytics/autotasking' ), 
                                         mode = 'affinity' )
@@ -187,7 +187,7 @@ class StatefulActor ( Actor ):
                                                [ x.event for x in reportContent ],
                                                reportPriority,
                                                reportSummary )
-                self._reporting.shoot( 'report', report )
+                self._reporting.shoot( 'detect', report )
                 self._detects.setdefault( reportType,
                                           self.getActorHandle( self._detectsEndpoint % reportType ) ).broadcast( 'detect', report )
             if not isStayAlive:

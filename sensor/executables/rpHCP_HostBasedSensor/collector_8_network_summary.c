@@ -126,8 +126,8 @@ RBOOL
                             {
                                 rSequence_addBUFFER( wrapper,
                                                      RP_TAGS_HBS_PARENT_ATOM,
-                                                     (RPU8)&parentAtom,
-                                                     sizeof( parentAtom ) );
+                                                     (RPU8)&parentAtom.id,
+                                                     sizeof( parentAtom.id ) );
                             }
 
                             hbs_timestampEvent( wrapper, 0 );

@@ -101,7 +101,7 @@ class AdminEndpoint( Actor ):
                     data[ 'agents' ][ str( tmpAid ) ] = tmpData
         elif 0 != len( aids ):
             for aid in aids:
-                filt = aid.asWhere( isSimpleOnly = False )
+                filt = aid.asWhere( isSimpleOnly = True )
                 for row in self.db.execute( 'SELECT org, subnet, unique, platform, enroll, alive, dead, hostname, ext_ip, int_ip FROM sensor_states WHERE %s' % filt[ 0 ], filt[ 1 ] ):
                     tmpAid = AgentId( ( row[ 0 ], row[ 1 ], row[ 2 ], row[ 3 ] ) )
                     tmpData = {}

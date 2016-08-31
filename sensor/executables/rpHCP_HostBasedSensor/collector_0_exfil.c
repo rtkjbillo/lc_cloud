@@ -302,7 +302,8 @@ RVOID
     rSequence tmpNotif = NULL;
 
     if( rpal_memory_isValid( notif ) &&
-        NULL != g_state )
+        NULL != g_state &&
+        !rEvent_wait( g_state->isTimeToStop, 0 ) )
     {
         if( _isEventIn( &g_exfil_profile, notifId ) ||
             _isEventIn( &g_exfil_adhoc, notifId ) )
@@ -323,6 +324,10 @@ RVOID
                         rSequence_free( wrapper );
                         rSequence_free( tmpNotif );
                     }
+                }
+                else
+                {
+                    rSequence_free( wrapper );
                 }
             }
         }
@@ -348,16 +353,19 @@ RVOID
 
     if( rMutex_lock( g_history_mutex ) )
     {
-        for( i = 0; i < ARRAY_N_ELEM( g_history ); i++ )
+        if( !rEvent_wait( g_state->isTimeToStop, 0 ) )
         {
-            if( rpal_memory_isValid( g_history[ i ] ) &&
-                NULL != ( tmp = rSequence_duplicate( g_history[ i ] ) ) )
+            for( i = 0; i < ARRAY_N_ELEM( g_history ); i++ )
             {
-                hbs_markAsRelated( notif, tmp );
-
-                if( !rQueue_add( g_state->outQueue, tmp, 0 ) )
+                if( rpal_memory_isValid( g_history[ i ] ) &&
+                    NULL != ( tmp = rSequence_duplicate( g_history[ i ] ) ) )
                 {
-                    rSequence_free( tmp );
+                    hbs_markAsRelated( notif, tmp );
+
+                    if( !rQueue_add( g_state->outQueue, tmp, 0 ) )
+                    {
+                        rSequence_free( tmp );
+                    }
                 }
             }
         }

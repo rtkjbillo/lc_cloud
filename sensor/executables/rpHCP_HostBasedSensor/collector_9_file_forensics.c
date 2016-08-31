@@ -86,6 +86,8 @@ RVOID
     {
         if( rSequence_getSTRINGW( event, RP_TAGS_FILE_PATH, &filePath ) )
         {
+            rSequence_unTaintRead( event );
+
             if( rSequence_getRU8( event, RP_TAGS_AVOID_TIMESTAMPS, &flag ) )
             {
                 isAvoidTimeStamps = ( 1 == flag ) ? TRUE : FALSE;
@@ -141,6 +143,8 @@ RVOID
     {
         if( rSequence_getSTRINGW( event, RP_TAGS_FILE_PATH, &filePath ) )
         {
+            rSequence_unTaintRead( event );
+
             if( rSequence_getRU8( event, RP_TAGS_SAFE_DELETE, &flag ) )
             {
                 isSafeDelete = ( 1 == flag ) ? TRUE : FALSE;
@@ -176,10 +180,12 @@ RVOID
         {
             if( !rpal_file_movew( filePathFrom, filePathTo ) )
             {
+                rSequence_unTaintRead( event );
                 rSequence_addRU32( event, RP_TAGS_ERROR, rpal_error_getLast() );
             }
         }
 
+        rSequence_unTaintRead( event );
         hbs_timestampEvent( event, 0 );
         hbs_publish( RP_TAGS_NOTIFICATION_FILE_MOV_REP, event );
     }
@@ -207,6 +213,8 @@ RVOID
             {
                 isAvoidTimeStamps = ( 1 == flag ) ? TRUE : FALSE;
             }
+
+            rSequence_unTaintRead( event );
 
             if( !CryptoLib_hashFileW( filePath, &hash, isAvoidTimeStamps ) )
             {
@@ -265,6 +273,8 @@ RVOID
         if( rSequence_getSTRINGW( event, RP_TAGS_DIRECTORY_PATH, &filePath ) &&
             rSequence_getSTRINGW( event, RP_TAGS_FILE_PATH, &fileSpec[ 0 ] ) )
         {
+            rSequence_unTaintRead( event );
+
             // dir depth is optional, but if provided, use it
             rSequence_getRU32( event, RP_TAGS_DIRECTORY_LIST_DEPTH, &depth );
 
@@ -308,6 +318,7 @@ RVOID
             rSequence_addRU32( event, RP_TAGS_ERROR, RPAL_ERROR_INVALID_NAME );
         }
 
+        rSequence_unTaintRead( event );
         hbs_timestampEvent( event, 0 );
         hbs_publish( RP_TAGS_NOTIFICATION_DIR_LIST_REP, event );
     }

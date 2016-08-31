@@ -29,7 +29,7 @@ class SampleHunt ( Hunt ):
             self.log( 'initial detect received' )
 
             source = context[ 'source' ].split( ' / ' )[ 0 ]
-            inv_id = context[ 'report_id' ]
+            inv_id = context[ 'detect_id' ]
             detect = context[ 'detect' ]
             pid = _x_( detect, '?/base.PROCESS_ID' )
 
