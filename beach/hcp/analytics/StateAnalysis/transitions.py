@@ -70,11 +70,12 @@ def RunningPidReset():
     return _runningPidReset
 
 def SensorRestart():
-    def _sensorRestart():
+    def _sensorRestart( history, event ):
         if( 'notification.STARTING_UP' == event.routing[ 'event_type' ] or
             'notification.SHUTTING_DOWN' == event.routing[ 'event_type' ] ):
             return True
         return False
+    return _sensorRestart
 
 def AlwaysReturn( bValue ):
     def _alwaysReturn( history, event ):

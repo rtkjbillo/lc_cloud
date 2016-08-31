@@ -41,13 +41,13 @@ class CEFDetectsOutput( Actor ):
         category = msg.data[ 'cat' ]
         source = msg.data[ 'source' ].split( ' / ' )
         detect = msg.data[ 'detect' ]
-        report_id = msg.data[ 'report_id' ].upper()
+        detect_id = msg.data[ 'detect_id' ].upper()
         summary = msg.data[ 'summary' ]
         priority = msg.data[ 'priority' ]
 
         record = 'CEF:0|refractionPOINT|LimaCharlie|1|%s|%s|%s|' % ( category, summary, priority )
         extension = { 'rpLCFullDetails' : detect,
-                      'rpLCLink' : 'http://%s/detect?id=%s' % ( self._lc_web, report_id ),
+                      'rpLCLink' : 'http://%s/detect?id=%s' % ( self._lc_web, detect_id ),
                       'rpLCHostnames' : ','.join( map( lambda x: Host( x ).getHostName(), source ) ) }
 
         # Try to parse out common datatypes

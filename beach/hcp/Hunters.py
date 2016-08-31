@@ -1,0 +1,187 @@
+# Copyright 2015 refractionPOINT
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+from beach.actor import Actor
+CreateOnAccess = Actor.importLib( 'utils/hcp_helpers', 'CreateOnAccess' )
+Event = Actor.importLib( 'utils/hcp_helpers', 'Event' )
+InvestigationNature = Actor.importLib( 'utils/hcp_helpers', 'InvestigationNature' )
+InvestigationConclusion = Actor.importLib( 'utils/hcp_helpers', 'InvestigationConclusion' )
+
+import time
+import uuid
+import traceback
+
+class _TaskResp ( object ):
+    def __init__( self, trxId, inv ):
+        self._trxId = trxId
+        self._inv = inv
+        self.responses = []
+        self._event = Event()
+    
+    def _add( self, newData ):
+        self.responses.append( newData )
+        self._event.set()
+    
+    def wait( self, timeout ):
+        return self._event.wait( timeout )
+
+    def done( self ):
+        self._inv.actor.unhandle( self._trxId )
+        self._inv.liveTrx.remove( self._trxId )
+
+class _Investigation ( object ):
+    def __init__( self, actorRef, detect, invId = None ):
+        self.actor = actorRef
+        self.invId = invId
+        self.taskId = 0
+        self.liveTrx = []
+        if invId is None:
+            invId = '%s/%s' % ( self.actor.__class__.__name__, str( uuid.uuid4() ) )
+        if not self.actor._registerToInvData( self.invId ):
+            raise Exception( 'could not register investigation' )
+        resp = self.actor._reporting.request( 'new_inv', 
+                                              { 'inv_id' : self.invId, 
+                                                'detect' : detect,
+                                                'ts' : time.time() } )
+        if not resp.isSuccess:
+            raise Exception( 'could not create investigation' )
+        self.conclude( 'Hunter %s starting investigation.' % self.actor.__class__.__name__,
+                       InvestigationNature.OPEN, 
+                       InvestigationConclusion.RUNNING )
+
+    def close( self ):
+        self.actor._unregisterToInvData( self.invId )
+        for trx in self.liveTrx:
+            self.actor.unhandle( trx )
+        resp = self.actor._reporting.request( 'close_inv', 
+                                              { 'inv_id' : self.invId,
+                                                'ts' : time.time() } )
+        if not resp.isSuccess:
+            raise Exception( 'error closing investigation' )
+
+    def task( self, why, dest, cmdsAndArgs ):
+        ret = None
+        if type( cmdsAndArgs[ 0 ] ) not in ( tuple, list ):
+            cmdsAndArgs = ( cmdsAndArgs, )
+        data = { 'dest' : dest, 'tasks' : cmdsAndArgs }
+
+        # Currently Hunters only operate live
+        data[ 'expiry' ] = 0
+        trxId = '%s//%s' % ( self.invId, taskId )
+        data[ 'inv_id' ] = trxId
+
+        taskId += 1
+
+        resp = self.actor._tasking.request( 'task', data, key = dest, timeout = 60, nRetries = 0 )
+        if resp.isSuccess:
+            self.log( "sent for tasking: %s" % ( str(cmdsAndArgs), ) )
+
+            ret = _TaskResp( trxId, self )
+
+            def _syncRecv( self, msg ):
+                ret._add( msg )
+                return ( True, )
+
+            self.actor.handle( trxId, _syncRecv )
+            self.liveTrx.append( trxId )
+        else:
+            self.log( "failed to send tasking" )
+
+        taskInfo = { 'inv_id' : self.invId,
+                     'ts' : time.time(),
+                     'task' : cmdsAndArgs,
+                     'why' : why,
+                     'dest' : dest,
+                     'is_sent' : resp.isSuccess }
+        if not resp.isSuccess:
+            taskInfo[ 'error' ] = resp.error
+
+        resp = self.actor._reporting.request( 'inv_task', taskInfo )
+        if not resp.isSuccess:
+            raise Exception( 'could not record tasking' )
+
+        return ret
+
+    def reportData( self, why, data = {} ):
+        resp = self.actor._reporting.request( 'report_inv', 
+                                              { 'inv_id' : self.invId,
+                                                'ts' : time.time(),
+                                                'data' : data,
+                                                'why' : why } )
+        if not resp.isSuccess:
+            raise Exception( 'error recording inv data' )
+
+    def conclude( self, why, inv_nature, inv_conclusion ):
+        resp = self.actor._reporting.request( 'conclude_inv', 
+                                              { 'inv_id' : self.invId,
+                                                'ts' : time.time(),
+                                                'why' : why,
+                                                'nature' : inv_nature,
+                                                'conclusion' : inv_conclusion } )
+        if not resp.isSuccess:
+            raise Exception( 'error recording inv conclusion' )
+
+class Hunter ( Actor ):
+    def init( self, parameters ):
+        if not hasattr( self, 'investigate' ):
+            raise Exception( 'Hunt requires an investigate( investigation, detect ) callback' )
+        self._registration = self.getActorHandle( 'analytics/huntsmanager' )
+        if hasattr( self, 'detects' ):
+            for detect in self.detects:
+                self._registerToDetect( detect )
+
+        self.handle( 'detect', self._handleDetects )
+
+        self._contexts = {}
+
+        self._reporting = CreateOnAccess( self.getActorHandle, 'analytics/reporting' )
+        self._tasking = CreateOnAccess( self.getActorHandle, 'analytics/autotasking', mode = 'affinity' )
+
+        # APIs made available for Hunts
+        self.Models = CreateOnAccess( self.getActorHandle, 'models' )
+        self.VirusTotal = CreateOnAccess( self.getActorHandle, 'analytics/virustotal' )
+
+    def _registerToDetect( self, detect ):
+        resp = self._registration.request( 'reg_detect', { 'uid' : self.name, 'name' : detect } )
+        return resp.isSuccess
+
+    def _registerToInvData( self, inv_id ):
+        resp = self._registration.request( 'reg_inv', { 'uid' : self.name, 'name' : inv_id } )
+        return resp.isSuccess
+
+    def _unregisterToDetect( self, detect ):
+        resp = self._registration.request( 'unreg_detect', { 'uid' : self.name, 'name' : detect } )
+        return resp.isSuccess
+
+    def _unregisterToInvData( self, inv_id ):
+        resp = self._registration.request( 'unreg_inv', { 'uid' : self.name, 'name' : inv_id } )
+        self._contexts[ inv_id ][ 1 ].acquire()
+        del( self._contexts[ inv_id ] )
+        return resp.isSuccess
+
+    def _handleDetects( self, msg ):
+        detect = msg.data
+        self.delay( 0, self.createInvestigation, inv_id = detect[ 'detect_id' ], detect = detect )
+        return ( True, )
+
+    def createInvestigation( self, inv_id = None, detect = {} ):
+        try:
+            inv = _Investigation( self, detect, invId = inv_id )
+            self.investigate( inv, detect )
+        except:
+            self.logCritical( traceback.format_exc() )
+        finally:
+            inv.close()
+
+    

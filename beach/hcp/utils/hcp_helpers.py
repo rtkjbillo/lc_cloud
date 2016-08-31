@@ -27,8 +27,22 @@ from beach.actor import Actor
 rSequence = Actor.importLib( 'rpcm', 'rSequence' )
 
 import gevent.lock
+import gevent.event
 
 import hmac, base64, struct, hashlib, time, string, random
+
+class Event ( object ):
+    def __init__( self ):
+        self._event = gevent.event.Event()
+
+    def wait( self, timeout = None ):
+        return self._event.wait( timeout )
+
+    def set( self ):
+        return self._event.set()
+
+    def clear( self ):
+        return self._event.clear()
 
 def _xm_( o, path, isWildcardDepth = False ):
     def _isDynamicType( e ):
@@ -175,6 +189,25 @@ class HbsCollectorId ( object ):
         17 : 'OS_TRACKER',
         18 : 'DOC_COLLECTOR'
     }
+
+class InvestigationNature:
+    OPEN = 0
+    FALSE_POSITIVE = 1
+    UNWANTED_SOFTWARE = 2
+    INSIDER_ACTIVITY = 3
+    COMMON_MALWARE = 4
+    ADVANCED_MALWARE = 5
+    INTRUDER = 6
+    DATA_LEAK = 7
+    TEST = 8
+
+class InvestigationConclusion:
+    RUNNING = 0
+    REQUIRES_HUMAN = 1
+    MITIGATED = 2
+    CONTAINED = 3
+    NO_ACTION_TAKEN = 4
+
 
 class TwoFactorAuth(object):
     def __init__( self, username = None, secret = None ):
@@ -437,10 +470,10 @@ class AgentId( object ):
         if self.unique != 0xFFFFFFFF:
             filt.append( 'unique = %s' )
             filtValues.append( self.unique )
+        if self.platform != 0xFF:
+            filt.append( 'platform = %s' )
+            filtValues.append( self.platform )
         if not isSimpleOnly:
-            if self.platform != 0xFF:
-                filt.append( 'platform = %s' )
-                filtValues.append( self.platform )
             if self.config != 0xFF:
                 filt.append( 'config = %s' )
                 filtValues.append( self.config )

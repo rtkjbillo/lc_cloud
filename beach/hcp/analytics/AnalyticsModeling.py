@@ -20,6 +20,7 @@ import base64
 import msgpack
 import datetime
 import random
+import traceback
 from sets import Set
 CassDb = Actor.importLib( '../utils/hcp_databases', 'CassDb' )
 CassPool = Actor.importLib( '../utils/hcp_databases', 'CassPool' )
@@ -188,18 +189,18 @@ class AnalyticsModeling( Actor ):
                 this_atom = None
             else:
                 try:
-                    this_atom = uuid.UUID( bytes = this_atom )
+                    this_atom = uuid.UUID( bytes = str( this_atom ) )
                 except:
-                    self.log( 'invalid atom: %s' % this_atom )
+                    self.log( 'invalid atom: %s / %s ( %s )' % ( this_atom, type( this_atom ), traceback.format_exc() ) )
 
         if parent_atom is not None:
             if parent_atom == null_atom:
                 parent_atom = None
             else:
                 try:
-                    parent_atom = uuid.UUID( bytes = parent_atom )
+                    parent_atom = uuid.UUID( bytes = str( parent_atom ) )
                 except:
-                    self.log( 'invalid atom: %s' % parent_atom )
+                    self.log( 'invalid atom: %s / %s ( %s )' % ( parent_atom, type( parent_atom ), traceback.format_exc() ) )
 
         if this_atom is not None:
             self.db.execute_async( self.statements[ 'atoms_lookup' ].bind( ( this_atom,

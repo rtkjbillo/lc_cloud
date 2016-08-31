@@ -28,7 +28,7 @@ class SuspectedDropperHunt ( Hunt ):
     def updateHunt( self, context, newMsg ):
         if newMsg is None:
             source = context[ 'source' ].split( ' / ' )[ 0 ]
-            inv_id = context[ 'report_id' ]
+            inv_id = context[ 'detect_id' ]
             detect = context[ 'detect' ]
             pid = _x_( detect, '?/base.PROCESS_ID' )
             filePath = _x_( detect, '?/base.FILE_PATH' )
