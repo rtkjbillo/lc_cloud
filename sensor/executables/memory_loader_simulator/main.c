@@ -1,6 +1,9 @@
 #include <rpal/rpal.h>
 #include <processLib/processLib.h>
 
+#ifdef RPAL_PLATFORM_LINUX
+#include <signal.h>
+#endif
 
 /*
  * This executable simulates a few different types of memory loading to be used to
