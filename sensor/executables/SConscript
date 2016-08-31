@@ -3,7 +3,8 @@ Import( 'compmap' )
 
 for subdir in [ 'rpHostCommonPlatformExe',
                 'rpHCP_HostBasedSensor',
-                'rpHCP_KernelAcquisition' ]:
+                'rpHCP_KernelAcquisition',
+                'memory_loader_simulator' ]:
     SConscript(
             dirs = [ subdir ],
             file = 'SConscript',
