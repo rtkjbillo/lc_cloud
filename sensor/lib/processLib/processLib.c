@@ -1208,6 +1208,15 @@ rList
                             break;
                         }
 
+                        // If PAGE_GUARD is set we report as ACCESS_DENIED.
+                        if( IS_FLAG_ENABLED( memInfo.Protect, PAGE_GUARD ) )
+                        {
+                            memInfo.Protect = 0;
+                        }
+
+                        // Ignore values above 0xFF as they're specialized values.
+                        DISABLE_FLAG( memInfo.Protect, 0xFFFFFF00 );
+
                         switch( memInfo.Protect )
                         {
                         case PAGE_EXECUTE:

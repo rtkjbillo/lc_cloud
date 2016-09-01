@@ -4,7 +4,8 @@ Import( 'compmap' )
 for subdir in [ 'rpHostCommonPlatformExe',
                 'rpHCP_HostBasedSensor',
                 'rpHCP_KernelAcquisition',
-                'memory_loader_simulator' ]:
+                'memory_loader_simulator',
+                'standalone_yara_scanner' ]:
     SConscript(
             dirs = [ subdir ],
             file = 'SConscript',
