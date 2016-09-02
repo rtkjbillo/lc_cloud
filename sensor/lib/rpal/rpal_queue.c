@@ -86,7 +86,7 @@ RBOOL
 
     _rPQueue q = (_rPQueue)queue;
 
-    if( NULL != queue )
+    if( rpal_memory_isValid( queue ) )
     {
         if( rMutex_lock( q->mutex ) )
         {
@@ -121,7 +121,7 @@ RBOOL
     RPVOID removeBuff = NULL;
     RU32 removeSize = 0;
 
-    if( NULL != queue )
+    if( rpal_memory_isValid( queue ) )
     {
         if( rMutex_lock( q->mutex ) )
         {
@@ -192,7 +192,7 @@ RBOOL
     _rPQueue q = (_rPQueue)queue;
     RU64 tmpTime = 0; // Oy I whish I had a WaitForMultipleObjects
 
-    if( NULL != queue )
+    if( rpal_memory_isValid( queue ) )
     {
         tmpTime = rpal_time_getLocal();
 
@@ -245,7 +245,7 @@ RBOOL
 
     _rPQueue q = (_rPQueue)queue;
 
-    if( NULL != queue )
+    if( rpal_memory_isValid( queue ) )
     {
         if( rMutex_lock( q->mutex ) )
         {
@@ -271,7 +271,7 @@ RBOOL
 
     _rPQueue q = (_rPQueue)queue;
 
-    if( NULL != queue )
+    if( rpal_memory_isValid( queue ) )
     {
         if( rMutex_lock( q->mutex ) )
         {
@@ -297,7 +297,7 @@ rEvent
 
     _rPQueue q = (_rPQueue)queue;
 
-    if( NULL != queue )
+    if( rpal_memory_isValid( queue ) )
     {
         if( rMutex_lock( q->mutex ) )
         {
@@ -321,7 +321,7 @@ RBOOL
 
     _rPQueue q = (_rPQueue)queue;
 
-    if( NULL != queue &&
+    if( rpal_memory_isValid( queue ) &&
         NULL != pSize )
     {
         if( rMutex_lock( q->mutex ) )

@@ -242,7 +242,7 @@ CREATE TABLE inv_data
   invid varchar,
   gen timeuuid,
   why varchar,
-  data varchar,
+  data blob,
 
   PRIMARY KEY( invid, gen )
 ) WITH compaction = { 'class' : 'DateTieredCompactionStrategy' } AND gc_grace_seconds = 86400;
@@ -253,7 +253,7 @@ CREATE TABLE inv_task
   gen timeuuid,
   why varchar,
   dest varchar,
-  data varchar,
+  data blob,
   sent int,
 
   PRIMARY KEY( invid, gen )

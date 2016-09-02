@@ -27,6 +27,7 @@ limitations under the License.
 #include "commands.h"
 #include "crashHandling.h"
 #include <networkLib/networkLib.h>
+#include "git_info.h"
 
 #if defined( RPAL_PLATFORM_LINUX ) || defined( RPAL_PLATFORM_MACOSX )
 #include <dlfcn.h>
@@ -304,6 +305,9 @@ rSequence
                         g_hcpContext.enrollmentToken,
                         g_hcpContext.enrollmentTokenSize );
                 }
+
+                // The current version running.
+                rSequence_addRU32( headers, RP_TAGS_PACKAGE_VERSION, GIT_REVISION );
 
                 // Deployment key as set in installer
                 if( NULL != g_hcpContext.deploymentKey )

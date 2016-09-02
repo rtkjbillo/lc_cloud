@@ -51,6 +51,7 @@
     <Import Project="..\..\property_sheets\windows_x86.props" />
     <Import Project="..\..\property_sheets\obfuscation.props" />
     <Import Project="..\..\property_sheets\CryptoLib.props" />
+    <Import Project="..\..\property_sheets\git_revision.props" />
   </ImportGroup>
   <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="PropertySheets">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
@@ -60,6 +61,7 @@
     <Import Project="..\..\property_sheets\windows_x86.props" />
     <Import Project="..\..\property_sheets\obfuscation.props" />
     <Import Project="..\..\property_sheets\CryptoLib.props" />
+    <Import Project="..\..\property_sheets\git_revision.props" />
   </ImportGroup>
   <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="PropertySheets">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
@@ -69,6 +71,7 @@
     <Import Project="..\..\property_sheets\windows_x64.props" />
     <Import Project="..\..\property_sheets\obfuscation.props" />
     <Import Project="..\..\property_sheets\CryptoLib.props" />
+    <Import Project="..\..\property_sheets\git_revision.props" />
   </ImportGroup>
   <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="PropertySheets">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
@@ -78,6 +81,7 @@
     <Import Project="..\..\property_sheets\windows_x64.props" />
     <Import Project="..\..\property_sheets\obfuscation.props" />
     <Import Project="..\..\property_sheets\CryptoLib.props" />
+    <Import Project="..\..\property_sheets\git_revision.props" />
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup>
@@ -133,6 +137,7 @@
     <ClInclude Include="crashHandling.h" />
     <ClInclude Include="crypto.h" />
     <ClInclude Include="deployments.h" />
+    <ClInclude Include="git_info.h" />
     <ClInclude Include="globalContext.h" />
     <ClInclude Include="obfuscated.h" />
   </ItemGroup>

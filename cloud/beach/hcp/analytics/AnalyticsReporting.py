@@ -87,7 +87,7 @@ class AnalyticsReporting( Actor ):
 
     def new_inv( self, msg ):
         invId = msg.data[ 'inv_id' ]
-        ts = msg.data[ 'ts' ]
+        ts = msg.data[ 'ts' ] * 1000
         detect = msg.data[ 'detect' ]
 
         self.db.execute( self.new_inv_stmt.bind( ( invId, ts ) ) )
@@ -95,15 +95,15 @@ class AnalyticsReporting( Actor ):
 
     def close_inv( self, msg ):
         invId = msg.data[ 'inv_id' ]
-        ts = msg.data[ 'ts' ]
+        ts = msg.data[ 'ts' ] * 1000
 
         self.db.execute( self.close_inv_stmt.bind( ( ts, invId ) ) )
         return ( True, )
 
     def inv_task( self, msg ):
         invId = msg.data[ 'inv_id' ]
-        ts = msg.data[ 'ts' ]
-        task = msg.data[ 'task' ]
+        ts = msg.data[ 'ts' ] * 1000
+        task = msgpack.packb( msg.data[ 'task' ] )
         why = msg.data[ 'why' ]
         dest = msg.data[ 'dest' ]
         isSent = msg.data[ 'is_sent' ]
@@ -113,8 +113,8 @@ class AnalyticsReporting( Actor ):
 
     def report_inv( self, msg ):
         invId = msg.data[ 'inv_id' ]
-        ts = msg.data[ 'ts' ]
-        data = msg.data[ 'data' ]
+        ts = msg.data[ 'ts' ] * 1000
+        data = msgpack.packb( msg.data[ 'data' ] )
         why = msg.data[ 'why' ]
 
         self.db.execute( self.report_inv_stmt.bind( ( invId, time_uuid.TimeUUID.with_timestamp( ts ), why, data ) ) )
@@ -122,7 +122,7 @@ class AnalyticsReporting( Actor ):
 
     def conclude_inv( self, msg ):
         invId = msg.data[ 'inv_id' ]
-        ts = msg.data[ 'ts' ]
+        ts = msg.data[ 'ts' ] * 1000
         why = msg.data[ 'why' ]
         nature = msg.data[ 'nature' ]
         conclusion = msg.data[ 'conclusion' ]

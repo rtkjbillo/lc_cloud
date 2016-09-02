@@ -78,25 +78,25 @@ class _Investigation ( object ):
 
         # Currently Hunters only operate live
         data[ 'expiry' ] = 0
-        trxId = '%s//%s' % ( self.invId, taskId )
+        trxId = '%s//%s' % ( self.invId, self.taskId )
         data[ 'inv_id' ] = trxId
 
-        taskId += 1
+        self.taskId += 1
 
         resp = self.actor._tasking.request( 'task', data, key = dest, timeout = 60, nRetries = 0 )
         if resp.isSuccess:
-            self.log( "sent for tasking: %s" % ( str(cmdsAndArgs), ) )
+            self.actor.log( "sent for tasking: %s" % ( str(cmdsAndArgs), ) )
 
             ret = _TaskResp( trxId, self )
 
-            def _syncRecv( self, msg ):
+            def _syncRecv( msg ):
                 ret._add( msg )
                 return ( True, )
 
             self.actor.handle( trxId, _syncRecv )
             self.liveTrx.append( trxId )
         else:
-            self.log( "failed to send tasking" )
+            self.actor.log( "failed to send tasking" )
 
         taskInfo = { 'inv_id' : self.invId,
                      'ts' : time.time(),

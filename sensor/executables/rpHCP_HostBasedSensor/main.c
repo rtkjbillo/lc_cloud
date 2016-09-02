@@ -26,6 +26,7 @@ limitations under the License.
 #include <kernelAcquisitionLib/kernelAcquisitionLib.h>
 #include "collectors.h"
 #include "keys.h"
+#include "git_info.h"
 
 #ifdef RPAL_PLATFORM_MACOSX
 #include <Security/Authorization.h>
@@ -426,6 +427,9 @@ RPAL_THREAD_FUNC
                                          g_hbs_state.currentConfigHash,
                                          sizeof( g_hbs_state.currentConfigHash ) ) )
                 {
+                    // The current version running.
+                    rSequence_addRU32( message, RP_TAGS_PACKAGE_VERSION, GIT_REVISION );
+
                     if( !sendSingleMessageHome( wrapper ) )
                     {
                         rpal_debug_warning( "failed to send sync" );
@@ -916,13 +920,17 @@ RPAL_THREAD_FUNC
         {
             if( NULL != ( exfilList = rList_new( RP_TAGS_MESSAGE, RPCM_SEQUENCE ) ) )
             {
-                while( rQueue_remove( g_hbs_state.outQueue, &exfilMessage, NULL, 0 ) &&
-                       HBS_MAX_OUBOUND_FRAME_SIZE > rList_getNumElements( exfilList ) )
+                while( rQueue_remove( g_hbs_state.outQueue, &exfilMessage, NULL, 0 ) )
                 {
                     if( !rList_addSEQUENCE( exfilList, exfilMessage ) )
                     {
                         rpal_debug_error( "dropping exfil message" );
                         rSequence_free( exfilMessage );
+                    }
+
+                    if( HBS_MAX_OUBOUND_FRAME_SIZE <= rList_getNumElements( exfilList ) )
+                    {
+                        break;
                     }
                 }
 
