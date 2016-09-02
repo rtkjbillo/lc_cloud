@@ -133,6 +133,9 @@
     <ProjectReference Include="..\..\lib\librpcm\librpcm.vcxproj">
       <Project>{211cf5f8-3282-4133-a974-2c6fabde66b3}</Project>
     </ProjectReference>
+    <ProjectReference Include="..\..\lib\MemoryModule\MemoryModule.vcxproj">
+      <Project>{f94005c9-8884-4bdb-af60-f6b07f6253cb}</Project>
+    </ProjectReference>
     <ProjectReference Include="..\..\lib\networkLib\networkLib.vcxproj">
       <Project>{ce91d7d4-2853-59a4-b328-cfeb4659323a}</Project>
     </ProjectReference>

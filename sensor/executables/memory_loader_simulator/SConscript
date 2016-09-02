@@ -12,6 +12,7 @@ profiles.Program(
             compmap,
             'processLib', 
             'Os',
+            'MemoryModule',
             )
 
 # EOF

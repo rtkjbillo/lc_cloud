@@ -1,8 +1,14 @@
 #include <rpal/rpal.h>
 #include <processLib/processLib.h>
+#include <MemoryModule/MemoryModule.h>
 
 #ifdef RPAL_PLATFORM_LINUX
 #include <signal.h>
+#endif
+
+#if defined(RPAL_PLATFORM_MACOSX) || defined(RPAL_PLATFORM_LINUX)
+#include <dlfcn.h>
+#include <sys/mman.h>
 #endif
 
 /*
@@ -60,10 +66,13 @@ RVOID
 
     )
 {
-    printf( "Usage: -m method -t target" );
-    printf( "-m method: the loading method to use, one of" );
-    printf( "\t1: simple loading, no mapping, not executable" );
-    printf( "-t target: the target file to load in memory" );
+    printf( "Usage: -m method -t target\n" );
+    printf( "-m method: the loading method to use, one of\n" );
+    printf( "\t1: simple loading, no mapping, not executable, INERT CODE\n" );
+    printf( "\t2: simple loading, no mapping, executable, INERT CODET\n" );
+    printf( "\t3: OS loading, mapped, executable, LIVE CODE WARNING!\n" );
+    printf( "\t4: manual loading, mapped, executable, LIVE CODE WARNING!\n" );
+    printf( "-t target: the target file to load in memory\n" );
 }
 
 int
@@ -88,7 +97,15 @@ RPAL_EXPORT
     // Method-specific variables.
     RPU8 loadedBuffer = NULL;
     RU32 loadedSize = 0;
-
+    RU32 protect = 0;
+    RU32 oldProtect = 0;
+    HMEMORYMODULE hMemoryLib = NULL;
+#ifdef RPAL_PLATFORM_WINDOWS
+    HANDLE hLib = NULL;
+#else
+    RPVOID hLib = NULL;
+    RPVOID mapping = NULL;
+#endif
     rpal_debug_info( "initializing..." );
     if( rpal_initialize( NULL, 0 ) )
     {
@@ -144,9 +161,72 @@ RPAL_EXPORT
         {
             // Method 1: simple load in memory of a buffer, no mapping, not executable.
             case 1:
+            case 2:
                 if( !rpal_file_read( target, (RPVOID*)&loadedBuffer, &loadedSize, FALSE ) )
                 {
                     rpal_debug_error( "Failed to load target file in buffer." );
+                }
+                else if( 2 == method )
+                {
+#ifdef RPAL_PLATFORM_WINDOWS
+                    protect = PAGE_EXECUTE_READWRITE;
+                    oldProtect = 0;
+                    if( !VirtualProtect( loadedBuffer, loadedSize, protect, (PDWORD)&oldProtect ) )
+                    {
+                        rpal_debug_warning( "Failed to make memory executable." );
+                    }
+#else
+                    mapping = mmap( NULL, 
+                        loadedSize, 
+                        PROT_EXEC | PROT_READ | PROT_WRITE,
+                        MAP_PRIVATE | MAP_ANONYMOUS,
+                        0, 0 );
+                    if( NULL != mapping )
+                    {
+                        rpal_memory_memcpy( mapping, loadedBuffer, loadedSize );
+                    }
+                    else
+                    {
+                        rpal_debug_error( "Failed to create executable mapping." );
+                    }
+
+                    rpal_memory_free( loadedBuffer );
+                    loadedBuffer = NULL;
+#endif
+                }
+                break;
+            case 3:
+#ifdef RPAL_PLATFORM_WINDOWS
+                hLib = LoadLibraryA( target );
+                if( NULL == hLib || INVALID_HANDLE_VALUE == hLib )
+                {
+                    rpal_debug_error( "Failed to load library: %d", GetLastError() );
+                }
+#else
+                if( NULL == ( hLib = dlopen( target, RTLD_NOW | RTLD_LOCAL ) ) )
+                {
+                    rpal_debug_error( "Failed to load library." );
+                }
+                if( NULL != mapping )
+                {
+                    munmap( mapping, loadedSize );
+                }
+#endif
+                break;
+            case 4:
+                if( !rpal_file_read( target, (RPVOID*)&loadedBuffer, &loadedSize, FALSE ) )
+                {
+                    rpal_debug_error( "Failed to read target file." );
+                }
+                else
+                {
+                    if( NULL == ( hMemoryLib = MemoryLoadLibrary( loadedBuffer, loadedSize ) ) )
+                    {
+                        rpal_debug_error( "Could not load library manually in memory." );
+                    }
+
+                    rpal_memory_free( loadedBuffer );
+                    loadedBuffer = NULL;
                 }
                 break;
         }
@@ -157,6 +237,15 @@ RPAL_EXPORT
 
         // Cleanup whatever is left in memory.
         rpal_memory_free( loadedBuffer );
+        MemoryFreeLibrary( hMemoryLib );
+#ifdef RPAL_PLATFORM_WINDOWS
+        if( NULL != hLib && INVALID_HANDLE_VALUE != hLib )
+        {
+            FreeLibrary( hLib );
+        }
+#else
+        if( NULL != hLib ) dlclose( hLib );
+#endif
 
         rpal_debug_info( "...exiting..." );
         rpal_Context_cleanup();

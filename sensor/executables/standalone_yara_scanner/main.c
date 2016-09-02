@@ -232,11 +232,11 @@ int
         NULL != message_data &&
         NULL != user_data )
     {
-        printf( "MATCH: %s @ %d base 0x%llx size 0x%llx\n", 
+        printf( "MATCH: %s @ %d base 0x%p size 0x%x\n", 
                 (char*)rule->identifier, 
                 context->pid, 
-                context->regionBase, 
-                context->regionSize );
+                NUMBER_TO_PTR( context->regionBase ), 
+                (RU32)context->regionSize );
     }
 
     return CALLBACK_CONTINUE;
@@ -350,7 +350,7 @@ RVOID
     RU32 scanError = 0;
     YaraMatchContext matchContext = { 0 };
 
-    if( processLib_getProcessMemory( pid, base, size, &buffer, TRUE ) )
+    if( processLib_getProcessMemory( pid, base, size, (RPVOID*)&buffer, TRUE ) )
     {
         matchContext.pid = pid;
         matchContext.regionBase = PTR_TO_INT64( base );
@@ -614,8 +614,8 @@ RPAL_EXPORT
 
         rpal_bloom_destroy( fileCache );
 
-        printf( "Finished scan in %u seconds: %u files, %u bytes from files, %u memory bytes scanned.\n", 
-                rpal_time_getLocal() - startTime,
+        printf( "Finished scan in %u seconds: %d files, %d bytes from files, %d memory bytes scanned.\n", 
+                (RU32)( rpal_time_getLocal() - startTime ),
                 stats.nFiles, stats.nFileBytes, stats.nMemBytes );
 
         rpal_debug_info( "...exiting..." );
