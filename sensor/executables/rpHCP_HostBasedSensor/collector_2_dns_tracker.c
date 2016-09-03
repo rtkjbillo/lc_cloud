@@ -122,7 +122,7 @@ RPVOID
 
     while( !rEvent_wait( isTimeToStop, 0 ) )
     {
-        libOs_timeoutWithProfile( &perfProfile, FALSE );
+        libOs_timeoutWithProfile( &perfProfile, FALSE, isTimeToStop );
 
         if( NULL != ( snapCur = rpal_blob_create( 0, 10 * sizeof( rec ) ) ) )
         {
@@ -191,7 +191,7 @@ RPVOID
         snapPrev = snapCur;
         snapCur = NULL;
 
-        libOs_timeoutWithProfile( &perfProfile, TRUE );
+        libOs_timeoutWithProfile( &perfProfile, TRUE, isTimeToStop );
     }
 
     if( NULL != snapPrev )

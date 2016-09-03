@@ -96,7 +96,7 @@ RPVOID
             if( NULL != ( newSnapshot = rpal_blob_create( 1000 * sizeof( _moduleHistEntry ),
                                                           1000 * sizeof( _moduleHistEntry ) ) ) )
             {
-                libOs_timeoutWithProfile( &perfProfile, FALSE );
+                libOs_timeoutWithProfile( &perfProfile, FALSE, isTimeToStop );
 
                 curProc = processes;
                 while( rpal_memory_isValid( isTimeToStop ) &&
@@ -116,7 +116,7 @@ RPVOID
                                !rEvent_wait( isTimeToStop, 0 ) &&
                                rList_getSEQUENCE( modules, RP_TAGS_DLL, &module ) )
                         {
-                            libOs_timeoutWithProfile( &perfProfile, TRUE );
+                            libOs_timeoutWithProfile( &perfProfile, TRUE, isTimeToStop );
 
                             if( rSequence_getPOINTER64( module,
                                                         RP_TAGS_BASE_ADDRESS, 

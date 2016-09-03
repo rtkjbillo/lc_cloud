@@ -108,7 +108,7 @@ RPVOID
     while( rpal_memory_isValid( isTimeToStop ) &&
            !rEvent_wait( isTimeToStop, 0 ) )
     {
-        libOs_timeoutWithProfile( &perfProfile, FALSE );
+        libOs_timeoutWithProfile( &perfProfile, FALSE, isTimeToStop );
 
         if( NULL != oldTcp4Table )
         {
@@ -302,7 +302,7 @@ RPVOID
             isFirstRun = FALSE;
         }
 
-        libOs_timeoutWithProfile( &perfProfile, TRUE );
+        libOs_timeoutWithProfile( &perfProfile, TRUE, isTimeToStop );
     }
 
     rpal_memory_free( currentTcp4Table );

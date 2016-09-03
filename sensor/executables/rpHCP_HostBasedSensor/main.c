@@ -430,6 +430,9 @@ RPAL_THREAD_FUNC
                     // The current version running.
                     rSequence_addRU32( message, RP_TAGS_PACKAGE_VERSION, GIT_REVISION );
 
+                    // Is kernel acquisition currently available?
+                    rSequence_addRU8( message, RP_TAGS_HCP_KERNEL_ACQ_AVAILABLE, (RU8)checkKernelAcquisition() );
+
                     if( !sendSingleMessageHome( wrapper ) )
                     {
                         rpal_debug_warning( "failed to send sync" );
@@ -449,9 +452,6 @@ RPAL_THREAD_FUNC
             rSequence_free( wrapper );
         }
     }
-
-    // We use this to regularly ping the kernel acquisition and see if we're good.
-    checkKernelAcquisition();
 
     return NULL;
 }

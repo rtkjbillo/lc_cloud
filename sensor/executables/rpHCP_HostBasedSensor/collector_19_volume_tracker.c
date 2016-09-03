@@ -83,7 +83,7 @@ static RPVOID
     
     while( !rEvent_wait( isTimeToStop, 0 ) )
     {
-        libOs_timeoutWithProfile( &perfProfile, FALSE );
+        libOs_timeoutWithProfile( &perfProfile, FALSE, isTimeToStop );
 
         if( NULL != ( snapshot = libOs_getVolumes() ) )
         {
@@ -95,7 +95,7 @@ static RPVOID
                 while( !rEvent_wait( isTimeToStop, 0 ) &&
                        rList_getSEQUENCE( snapshot, RP_TAGS_VOLUME, &volume ) )
                 {
-                    libOs_timeoutWithProfile( &perfProfile, TRUE );
+                    libOs_timeoutWithProfile( &perfProfile, TRUE, isTimeToStop );
 
                     if( NULL != ( serial = rpal_blob_create( 0, 0 ) ) )
                     {
@@ -133,7 +133,7 @@ static RPVOID
 
                     for( i = 0; i < nVolumes; i++ )
                     {
-                        libOs_timeoutWithProfile( &perfProfile, TRUE );
+                        libOs_timeoutWithProfile( &perfProfile, TRUE, isTimeToStop );
 
                         if( ( -1 ) == rpal_binsearch_array( newVolumes,
                                                             nNewVolumes,

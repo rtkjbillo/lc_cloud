@@ -216,7 +216,7 @@ RPVOID
             while( !rEvent_wait( isTimeToStop, 0 ) &&
                    rList_getRU32( threads, RP_TAGS_THREAD_ID, &threadId ) )
             {
-                libOs_timeoutWithProfile( perfProfile, FALSE );
+                libOs_timeoutWithProfile( perfProfile, FALSE, isTimeToStop );
 
                 // We get the modules for every thread right before getting the
                 // stack trace to limit time difference between both snapshots.
@@ -271,7 +271,7 @@ RPVOID
                     rList_free( mods );
                 }
 
-                libOs_timeoutWithProfile( perfProfile, TRUE );
+                libOs_timeoutWithProfile( perfProfile, TRUE, isTimeToStop );
             }
 
             rList_free( threads );
@@ -472,7 +472,7 @@ RPVOID
             {
                 lookForExecOobIn( isTimeToStop, proc->pid, originalRequest, &perfProfile );
 
-                libOs_timeoutWithProfile( &perfProfile, TRUE );
+                libOs_timeoutWithProfile( &perfProfile, TRUE, isTimeToStop );
 
                 proc++;
             }

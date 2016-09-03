@@ -1574,6 +1574,7 @@ RVOID
     (
         LibOsPerformanceProfile* perfProfile,
         RBOOL isEnforce,
+        rEvent isTimeToStop,
         RPCHAR from
     )
 {
@@ -1656,7 +1657,7 @@ RVOID
             {
                 perfProfile->counter = 0;
 
-                rpal_thread_sleep( perfProfile->lastTimeoutValue + perfProfile->globalTimeoutValue );
+                rEvent_wait( isTimeToStop, perfProfile->lastTimeoutValue + perfProfile->globalTimeoutValue );
             }
 
             perfProfile->counter++;

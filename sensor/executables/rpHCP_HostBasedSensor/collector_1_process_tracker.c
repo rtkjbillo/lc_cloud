@@ -316,7 +316,7 @@ static RVOID
            ( !kAcq_isAvailable() ||
              g_is_kernel_failure ) )
     {
-        libOs_timeoutWithProfile( &perfProfile, FALSE );
+        libOs_timeoutWithProfile( &perfProfile, FALSE, isTimeToStop );
 
         tmpSnapshot = currentSnapshot;
         currentSnapshot = previousSnapshot;
@@ -395,7 +395,7 @@ static RVOID
             }
         }
 
-        libOs_timeoutWithProfile( &perfProfile, TRUE );
+        libOs_timeoutWithProfile( &perfProfile, TRUE, isTimeToStop );
     }
 }
 
@@ -452,7 +452,7 @@ static RVOID
                              new_from_kernel[ i ].uid,
                              new_from_kernel[ i ].ts );
 
-            if( nProcessEntries >= ARRAY_N_ELEM( tracking_user ) - 1 )
+            if( nProcessEntries >= ARRAY_N_ELEM( tracking_user ) )
             {
                 continue;
             }
@@ -475,9 +475,12 @@ static RVOID
                                  0 );
                 if( nProcessEntries != i + 1 )
                 {
-                    rpal_memory_memmove( &(tracking_user[ i ]), &(tracking_user[ i + 1 ]), nProcessEntries - i + 1 );
+                    rpal_memory_memmove( &(tracking_user[ i ]), 
+                                         &(tracking_user[ i + 1 ]), 
+                                         ( nProcessEntries - ( i + 1 ) ) * sizeof( *tracking_user ) );
                 }
                 nProcessEntries--;
+                i--;
             }
         }
     }

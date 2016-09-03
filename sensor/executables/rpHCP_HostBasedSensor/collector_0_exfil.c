@@ -283,7 +283,10 @@ RVOID
                 }
             }
 
-            rpal_debug_info( "History size: +%d = %d KB", notifId, ( g_cur_size / 1024 ) );
+            if( ( 1024 * 1024 * 10 ) < g_cur_size )
+            {
+                rpal_debug_info( "History size: +%d = %d KB", notifId, ( g_cur_size / 1024 ) );
+            }
 
             rMutex_unlock( g_history_mutex );
         }

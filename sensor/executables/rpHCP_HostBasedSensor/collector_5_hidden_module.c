@@ -173,7 +173,7 @@ RPVOID
                        !rEvent_wait( isTimeToStop, 0 ) &&
                        ( isPrefetched || rList_getSEQUENCE( map, RP_TAGS_MEMORY_REGION, &region ) ) )
                 {
-                    libOs_timeoutWithProfile( perfProfile, FALSE );
+                    libOs_timeoutWithProfile( perfProfile, FALSE, isTimeToStop );
 
                     if( isPrefetched )
                     {
@@ -301,7 +301,7 @@ RPVOID
                                         break;
                                     }
 
-                                    libOs_timeoutWithProfile( perfProfile, TRUE );
+                                    libOs_timeoutWithProfile( perfProfile, TRUE, isTimeToStop );
                                 }
                             }
                         }
