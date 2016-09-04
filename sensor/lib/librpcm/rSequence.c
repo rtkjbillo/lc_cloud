@@ -244,6 +244,17 @@ RBOOL
 }
 
 RBOOL
+rSequence_addTIMEDELTA
+    (
+        rSequence seq,
+        rpcm_tag tag,
+        RU64 val
+    )
+{
+    return rSequence_addElement( seq, tag, RPCM_TIMEDELTA, &val, sizeof( val ) );
+}
+
+RBOOL
     rSequence_addSEQUENCE
     (
         rSequence seq,

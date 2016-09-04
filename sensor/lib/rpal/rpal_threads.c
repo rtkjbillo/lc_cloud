@@ -178,7 +178,11 @@ rThread
             hThread->pFunc = pStartFunction;
             hThread->isCanBeFreed = FALSE;
             hThread->isHasStarted = FALSE;
-            pthread_create( &hThread->hThread, NULL, (void*)&_rpal_thread_stub, hThread );
+            if( 0 != pthread_create( &hThread->hThread, NULL, (void*)&_rpal_thread_stub, hThread ) )
+            {
+                rpal_memory_free( hThread );
+                hThread = NULL;
+            }
 #endif
         }
     }
@@ -358,6 +362,7 @@ typedef struct
     RU32 nCurrentlyProcessing;
     RU32 threadTtl;
     RU32 nTotalTasksInPool;
+    rCollection tasksRunning;
 
     // Scheduling Related
     rCollection timers;
@@ -375,6 +380,8 @@ typedef struct
 {
     rpal_thread_pool_func taskFunction;
     RPVOID taskData;
+    RU32 fileId;
+    RU32 lineId;
 
 } _rThreadPoolTask;
 
@@ -382,15 +389,20 @@ typedef struct
 {
     rpal_timer timer;
     _rThreadPoolTask task;
+    RU32 fileId;
+    RU32 lineNum;
 
 } _rThreadPoolScheduledTask;
 
 typedef struct
 {
     rThread hThread;
+    rThreadID tid;
     rEvent timeToStopEvent;
     _rThreadPool* pPool;
     RU64 timeEnteredIdle;
+    RU32 fileId;
+    RU32 lineNum;
 
 } _rThreadPoolThread;
 
@@ -497,6 +509,19 @@ RBOOL
     return isClean;
 }
 
+static
+RBOOL
+    _ptrCmp
+    (
+        RPVOID elem,
+        RU32 elemSize,
+        RPVOID ref
+    )
+{
+    UNREFERENCED_PARAMETER( elemSize );
+    return elem == ref;
+}
+
 
 
 RU32
@@ -518,8 +543,8 @@ RU32
     
     if( NULL != pThread )
     {
-        
         thread = *pThread;
+        thread.tid = rpal_thread_self();
         
         rEvent_unset( thread.timeToStopEvent );
         
@@ -529,8 +554,12 @@ RU32
             {
                 if( rQueue_remove( thread.pPool->taskQueue, (RPVOID*)&task, NULL, MSEC_FROM_SEC( 1 ) ) )
                 {
+                    thread.fileId = task->fileId;
+                    thread.lineNum = task->lineId;
+
                     if( rMutex_lock( thread.pPool->counterMutex ) )
                     {
+                        rpal_collection_add( thread.pPool->tasksRunning, &thread, sizeof( &thread ) );
                         ++thread.pPool->nCurrentlyProcessing;
                         rMutex_unlock( thread.pPool->counterMutex );
                     }
@@ -547,6 +576,7 @@ RU32
                     {
                         --thread.pPool->nCurrentlyProcessing;
                         --thread.pPool->nTotalTasksInPool;
+                        rpal_collection_remove( thread.pPool->tasksRunning, NULL, NULL, _ptrCmp, &thread );
                         rMutex_unlock( thread.pPool->counterMutex );
                     }
                     thread.timeEnteredIdle = rpal_time_getLocal();
@@ -705,6 +735,7 @@ rThreadPool
             if( NULL != ( pool->counterMutex = rMutex_create() ) &&
                 rQueue_create( &(pool->taskQueue), (queue_free_func)_freePoolTask, 0 ) &&
                 rpal_collection_create( &(pool->timers), _freeTimer ) &&
+                rpal_collection_create(&(pool->tasksRunning), NULL ) &&
                 NULL != ( pool->timerMutex = rMutex_create() ) &&
                 NULL != ( pool->timerWakeup = rEvent_create( TRUE ) ) &&
                 NULL != ( pool->hThreads = rStack_new( sizeof( _rThreadPoolThread ) ) ) )
@@ -727,6 +758,7 @@ rThreadPool
                 }
 
                 rQueue_free( pool->taskQueue );
+                rpal_collection_free( pool->tasksRunning );
                 rpal_collection_free( pool->timers );
                 rStack_free( pool->hThreads, NULL );
                 rMutex_free( pool->timerMutex );
@@ -794,6 +826,7 @@ RVOID
         }
 
         rQueue_free( p->taskQueue );
+        rpal_collection_free( p->tasksRunning );
         rpal_collection_free( p->timers );
         rMutex_free( p->timerMutex );
         rEvent_free( p->timerWakeup );
@@ -849,11 +882,13 @@ RBOOL
 }
 
 RBOOL
-    rThreadPool_task
+    rThreadPool_taskEx
     (
         rThreadPool pool,
         rpal_thread_pool_func taskFunction,
-        RPVOID taskData
+        RPVOID taskData,
+        RU32 fileId,
+        RU32 lineNum
     )
 {
     RBOOL isSuccess = FALSE;
@@ -872,6 +907,8 @@ RBOOL
         {
             task->taskData = taskData;
             task->taskFunction = taskFunction;
+            task->fileId = fileId;
+            task->lineId = lineNum;
             
             if( rMutex_lock( p->counterMutex ) )
             {
@@ -902,10 +939,8 @@ RBOOL
 
                 // Check to see if we have the minimum of available threads
                 // and no more than the maximum.
-                while(
-                        ( (RS32)p->minThreads ) > ( (RS32)p->nThreads - (RS32)p->nTotalTasksInPool ) &&
-                        p->nThreads < p->maxThreads
-                        )
+                while( ( (RS32)p->minThreads ) > ( (RS32)p->nThreads - (RS32)p->nTotalTasksInPool ) &&
+                       p->nThreads < p->maxThreads )
                 {
                     if( _initNewThread( p ) )
                     {
@@ -1009,9 +1044,11 @@ RPVOID
                     {
                         if( NULL != timers[ i ] && timers[ i ]->isReady )
                         {
-                            rThreadPool_task( pool, 
-                                              ((_rThreadPoolScheduledTask*)timers[ i ])->task.taskFunction,
-                                              ((_rThreadPoolScheduledTask*)timers[ i ])->task.taskData );
+                            rThreadPool_taskEx( pool, 
+                                                ((_rThreadPoolScheduledTask*)timers[ i ])->task.taskFunction,
+                                                ((_rThreadPoolScheduledTask*)timers[ i ])->task.taskData,
+                                                ( (_rThreadPoolScheduledTask*)timers[ i ] )->fileId,
+                                                ( (_rThreadPoolScheduledTask*)timers[ i ] )->lineNum );
                         }
                     }
                 }
@@ -1045,7 +1082,9 @@ RBOOL
         RU64 timeValue,
         rpal_thread_pool_func taskFunction,
         RPVOID taskData,
-        RBOOL isRandomStartOffset
+        RBOOL isRandomStartOffset,
+        RU32 fileId,
+        RU32 lineNum
     )
 {
     RBOOL isSuccess = FALSE;
@@ -1061,6 +1100,8 @@ RBOOL
         {
             sTask->task.taskData = taskData;
             sTask->task.taskFunction = taskFunction;
+            sTask->fileId = fileId;
+            sTask->lineNum = lineNum;
 
             if( ( isAbsolute &&
                   rpal_timer_init_onetime( &(sTask->timer), timeValue ) ) ||
@@ -1103,28 +1144,32 @@ RBOOL
 }
 
 RBOOL
-    rThreadPool_scheduleOneTime
+    rThreadPool_scheduleOneTimeEx
     (
         rThreadPool pool,
         RU64 absoluteTime,
         rpal_thread_pool_func taskFunction,
-        RPVOID taskData
+        RPVOID taskData,
+        RU32 fileId,
+        RU32 lineNum
     )
 {
-    return _rThreadPool_schedule( pool, TRUE, absoluteTime, taskFunction, taskData, FALSE );
+    return _rThreadPool_schedule( pool, TRUE, absoluteTime, taskFunction, taskData, FALSE, fileId, lineNum );
 }
 
 RBOOL
-    rThreadPool_scheduleRecurring
+    rThreadPool_scheduleRecurringEx
     (
         rThreadPool pool,
         RU64 timeInterval,
         rpal_thread_pool_func taskFunction,
         RPVOID taskData,
-        RBOOL isRandomStartOffset
+        RBOOL isRandomStartOffset,
+        RU32 fileId,
+        RU32 lineNum
     )
 {
-    return _rThreadPool_schedule( pool, FALSE, timeInterval, taskFunction, taskData, isRandomStartOffset );
+    return _rThreadPool_schedule( pool, FALSE, timeInterval, taskFunction, taskData, isRandomStartOffset, fileId, lineNum );
 }
 
 RBOOL
@@ -1185,5 +1230,56 @@ RBOOL
     return isSuccess;
 }
 
+
+RBOOL
+    rThreadPool_getRunning
+    (
+        rThreadPool pool,
+        rThreadPoolTask** pTasks,
+        RU32* nTasks
+    )
+{
+    RBOOL isSuccess = FALSE;
+
+    _rThreadPool* p = (_rThreadPool*)pool;
+    rThreadPoolTask task = { 0 };
+    rCollectionIterator ite = NULL;
+    _rThreadPoolThread* thread = NULL;
+    rBlob buff = NULL;
+    RU32 n = 0;
+
+    if( NULL != pTasks &&
+        NULL != nTasks )
+    {
+        *pTasks = NULL;
+        *nTasks = 0;
+
+        if( rpal_collection_createIterator( p->tasksRunning, &ite ) )
+        {
+            if( NULL != ( buff = rpal_blob_create( 0, 0 ) ) )
+            {
+                while( rpal_collection_next( ite, (RPVOID*)&thread, NULL ) )
+                {
+                    task.tid = thread->tid;
+                    task.fileId = thread->fileId;
+                    task.lineNum = thread->lineNum;
+                    rpal_blob_add( buff, &task, sizeof( task ) );
+                    n++;
+                }
+
+                *pTasks = rpal_blob_getBuffer( buff );
+                *nTasks = n;
+
+                isSuccess = TRUE;
+
+                rpal_blob_freeWrapperOnly( buff );
+            }
+
+            rpal_collection_freeIterator( ite );
+        }
+    }
+
+    return isSuccess;
+}
 
 /* EOF */

@@ -1057,6 +1057,9 @@ RBOOL
                 rpal_debug_warning( "file IO error 0x%x", lStatus );
                 break;
 
+            case TRUST_E_SUBJECT_FORM_UNKNOWN:
+                break;
+
             default:
                 rpal_debug_warning( "error checking sig 0x%x", lStatus );
                 break;

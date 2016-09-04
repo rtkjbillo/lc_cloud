@@ -27,6 +27,7 @@ limitations under the License.
 #include "collectors.h"
 #include "keys.h"
 #include "git_info.h"
+#include <libOs/libOs.h>
 
 #ifdef RPAL_PLATFORM_MACOSX
 #include <Security/Authorization.h>
@@ -407,6 +408,13 @@ RPAL_THREAD_FUNC
     rSequence wrapper = NULL;
     rSequence message = NULL;
 
+    rThreadPoolTask* tasks = NULL;
+    RU32 nTasks = 0;
+    RU32 i = 0;
+    rList taskList = NULL;
+    rSequence task = NULL;
+    RTIME threadTime = 0;
+
     UNREFERENCED_PARAMETER( ctx );
 
     if( rEvent_wait( isTimeToStop, 0 ) )
@@ -432,6 +440,37 @@ RPAL_THREAD_FUNC
 
                     // Is kernel acquisition currently available?
                     rSequence_addRU8( message, RP_TAGS_HCP_KERNEL_ACQ_AVAILABLE, (RU8)checkKernelAcquisition() );
+
+                    // Add some timing context on running tasks.
+                    if( rThreadPool_getRunning( g_hbs_state.hThreadPool, &tasks, &nTasks ) )
+                    {
+                        if( NULL != ( taskList = rList_new( RP_TAGS_THREADS, RPCM_SEQUENCE ) ) )
+                        {
+                            for( i = 0; i < nTasks; i++ )
+                            {
+                                if( NULL != ( task = rSequence_new() ) )
+                                {
+                                    rSequence_addRU32( task, RP_TAGS_THREAD_ID, tasks[ i ].tid );
+                                    rSequence_addRU32( task, RP_TAGS_HCP_FILE_ID, tasks[ i ].fileId );
+                                    rSequence_addRU32( task, RP_TAGS_HCP_LINE_NUMBER, tasks[ i ].lineNum );
+                                    libOs_getThreadTime( tasks[ i ].tid, &threadTime );
+                                    rSequence_addTIMEDELTA( task, RP_TAGS_TIMEDELTA, threadTime );
+
+                                    if( !rList_addSEQUENCE( taskList, task ) )
+                                    {
+                                        rSequence_free( task );
+                                    }
+                                }
+                            }
+
+                            if( !rSequence_addLIST( message, RP_TAGS_THREADS, taskList ) )
+                            {
+                                rList_free( taskList );
+                            }
+                        }
+
+                        rpal_memory_free( tasks );
+                    }
 
                     if( !sendSingleMessageHome( wrapper ) )
                     {
