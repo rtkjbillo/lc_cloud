@@ -6,5 +6,4 @@ tmp_lc_root: /home/lc/limacharlie/
 local_lc_root: /home/lc/limacharlie/cloud/beach
 beach_config_file: sample_cluster.yaml
 cassandra_cluster_seeds: "127.0.0.1"
-mysql_password: letmein
 beach_log_level: 10

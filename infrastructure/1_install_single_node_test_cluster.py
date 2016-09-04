@@ -48,7 +48,7 @@ printStep( 'Updating repo and upgrading existing components.',
     os.system( 'apt-get upgrade -y' ) )
 
 printStep( 'Installing some basic packages required for Beach (mainly).',
-    os.system( 'apt-get install python-pip python-dev debconf-utils python-m2crypto python-pexpect python-mysqldb autoconf libtool git flex -y' ) )
+    os.system( 'apt-get install python-pip python-dev debconf-utils python-m2crypto python-pexpect autoconf libtool git flex -y' ) )
 
 printStep( 'Installing Beach.',
     os.system( 'pip install beach' ) )
@@ -67,21 +67,6 @@ os.system( 'apt-get install cassandra=2.2.3 -y' )
 printStep( 'Starting Cassandra after hotfix.',
            os.system( """sed -i 's/"$JVM_PATCH_VERSION" \\\< "25"/$JVM_PATCH_VERSION -lt 25/g' /etc/cassandra/cassandra-env.sh""" ),
            os.system( 'service cassandra start' ) )
-
-printStep( 'Installing MySql server (hcp-state-db).',
-    os.system( 'echo mysql-server mysql-server/root_password password letmein | sudo debconf-set-selections' ),
-    os.system( 'echo mysql-server mysql-server/root_password_again password letmein | sudo debconf-set-selections' ),
-    os.system( 'apt-get -y install mysql-server' ) )
-
-printStep( 'Initializing MySql schema.',
-    os.system( 'mysql --user=root --password=letmein < %s' % ( os.path.join( root,
-                                                                             'cloud',
-                                                                             'schema',
-                                                                             'state_db.sql' ), ) ) )
-
-printStep( 'Growing max_allowed_packet for MySql and restarting.',
-    os.system( "sed -i -e 's/max_allowed_packet.*=.*16M/max_allowed_packet = 64M/g' /etc/mysql/my.cnf" ),
-    os.system( "service mysql restart" ) )
 
 printStep( 'Initializing Cassandra schema.',
     os.system( 'cqlsh < %s' % ( os.path.join( root,
