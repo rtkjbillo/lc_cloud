@@ -225,6 +225,15 @@ CREATE TABLE atoms_lookup
   PRIMARY KEY( atomid, eid )
 ) WITH compaction = { 'class' : 'DateTieredCompactionStrategy' } AND gc_grace_seconds = 86400;
 
+CREATE TABLE investigation_data
+(
+  invid varchar,
+  ts timeuuid,
+  eid varchar,
+  etype varchar,
+  PRIMARY KEY( invid, ts )
+) WITH compaction = { 'class' : 'SizeTieredCompactionStrategy' } AND gc_grace_seconds = 86400;
+
 CREATE TABLE investigation
 (
   invid varchar,
