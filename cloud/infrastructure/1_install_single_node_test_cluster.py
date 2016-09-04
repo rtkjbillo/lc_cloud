@@ -104,7 +104,7 @@ printStep( 'Setting up the cloud tags.',
                                              'tools',
                                              'update_headers.py' ), ) ) )
 
-printSetp( 'Setup LC web ui dependencies.',
+printSetep( 'Setup LC web ui dependencies.',
     os.system( 'ln -s %s %s' % ( os.path.join( root,
                                                'cloud',
                                                'beach',
