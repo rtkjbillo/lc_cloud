@@ -1,5 +1,0 @@
----
-- hosts: state_db
-  roles:
-    - common
-    - state
