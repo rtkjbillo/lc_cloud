@@ -150,7 +150,7 @@ $var title = sensor_id
             jQuery('#status_indicator').css( 'color', 'red' );
             if( last_seen )
             {
-                jQuery('#last_seen').text( 'Last seen: ' + ts_to_time( last_seen ) );
+                jQuery('#last_seen').text( 'Last seen: ' + ts_to_time( last_seen * 1000 ) );
             }
         }
         else

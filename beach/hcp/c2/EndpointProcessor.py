@@ -335,8 +335,8 @@ class EndpointProcessor( Actor ):
 
     def handlerHbs( self, c, messages ):
         for message in messages:
-            # We treat sync messages slightly differently since they're only destined for
-            # the platform and not for detection.
+            # We treat sync messages slightly differently since they need to be actioned
+            # more directly.
             if 'notification.SYNC' in message:
                 self.log( "sync received from %s" % c.getAid() )
                 profileHash = message[ 'notification.SYNC' ].get( 'base.HASH', None )
@@ -356,16 +356,16 @@ class EndpointProcessor( Actor ):
                                                                                         realProfile ) )
                             c.sendFrame( HcpModuleId.HBS, ( syncProfile, ) )
                             self.log( "sync profile sent to %s" % c.getAid() )
-            else:
-                # Transmit the message to the analytics cloud.
-                routing = { 'agentid' : c.getAid(),
-                            'moduleid' : HcpModuleId.HBS,
-                            'event_type' : message.keys()[ 0 ],
-                            'event_id' : hashlib.sha256( str( uuid.uuid4() ) ).hexdigest() }
-                invId = message.values()[ 0 ].get( 'hbs.INVESTIGATION_ID', None )
-                if invId is not None:
-                    routing[ 'investigation_id' ] = invId
-                self.analyticsIntake.shoot( 'analyze', ( ( routing, message ), ) )
+                            
+            # Transmit the message to the analytics cloud.
+            routing = { 'agentid' : c.getAid(),
+                        'moduleid' : HcpModuleId.HBS,
+                        'event_type' : message.keys()[ 0 ],
+                        'event_id' : hashlib.sha256( str( uuid.uuid4() ) ).hexdigest() }
+            invId = message.values()[ 0 ].get( 'hbs.INVESTIGATION_ID', None )
+            if invId is not None:
+                routing[ 'investigation_id' ] = invId
+            self.analyticsIntake.shoot( 'analyze', ( ( routing, message ), ) )
 
     def timeSyncMessage( self ):
         return ( rSequence().addInt8( Symbols.base.OPERATION,
