@@ -46,6 +46,7 @@ RpHcp_ModuleId g_current_Module_id = 2;
 #define HBS_EXFIL_QUEUE_MAX_SIZE                (1024*1024*10)
 #define HBS_MAX_OUBOUND_FRAME_SIZE              (100)
 #define HBS_SYNC_INTERVAL                       (60*5)
+#define HBS_KACQ_RETRY_N_FRAMES                 (30)
 
 // Large blank buffer to be used to patch configurations post-build
 #define _HCP_DEFAULT_STATIC_STORE_SIZE                          (1024 * 50)
@@ -439,7 +440,7 @@ RPAL_THREAD_FUNC
                     rSequence_addRU32( message, RP_TAGS_PACKAGE_VERSION, GIT_REVISION );
 
                     // Is kernel acquisition currently available?
-                    rSequence_addRU8( message, RP_TAGS_HCP_KERNEL_ACQ_AVAILABLE, (RU8)checkKernelAcquisition() );
+                    rSequence_addRU8( message, RP_TAGS_HCP_KERNEL_ACQ_AVAILABLE, (RU8)kAcq_isAvailable() );
 
                     // Add some timing context on running tasks.
                     if( rThreadPool_getRunning( g_hbs_state.hThreadPool, &tasks, &nTasks ) )
@@ -844,6 +845,7 @@ RPAL_THREAD_FUNC
     rList exfilList = NULL;
     rSequence exfilMessage = NULL;
     rEvent newExfilEvents = NULL;
+    RU32 nFrames = 0;
 
     FORCE_LINK_THAT( HCP_IFACE );
 
@@ -1005,6 +1007,13 @@ RPAL_THREAD_FUNC
                     }
                 }
             }
+        }
+
+        if( !kAcq_isAvailable() &&
+            HBS_KACQ_RETRY_N_FRAMES < nFrames++ )
+        {
+            nFrames = 0;
+            checkKernelAcquisition();
         }
     }
 

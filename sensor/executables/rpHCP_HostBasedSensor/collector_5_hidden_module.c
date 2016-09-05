@@ -282,8 +282,8 @@ RPVOID
                                         {
                                             rSequence_addBUFFER( region, 
                                                                  RP_TAGS_HBS_PARENT_ATOM, 
-                                                                 (RPU8)&parentAtom, 
-                                                                 sizeof( parentAtom ) );
+                                                                 parentAtom.id, 
+                                                                 sizeof( parentAtom.id ) );
                                         }
 
                                         if( NULL != ( procInfo = processLib_getProcessInfo( processId, NULL ) ) )

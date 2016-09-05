@@ -230,8 +230,8 @@ int
             {
                 rSequence_addBUFFER( event, 
                                      RP_TAGS_HBS_PARENT_ATOM, 
-                                     (RPU8)&parentAtom, 
-                                     sizeof( parentAtom ) );
+                                     parentAtom.id, 
+                                     sizeof( parentAtom.id ) );
             }
 
             hbs_timestampEvent( event, curTime );

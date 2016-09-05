@@ -126,7 +126,7 @@ RBOOL
                             {
                                 rSequence_addBUFFER( wrapper,
                                                      RP_TAGS_HBS_PARENT_ATOM,
-                                                     (RPU8)&parentAtom.id,
+                                                     parentAtom.id,
                                                      sizeof( parentAtom.id ) );
                             }
 

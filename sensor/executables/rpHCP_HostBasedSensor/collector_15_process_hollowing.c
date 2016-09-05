@@ -524,8 +524,8 @@ RPVOID
                         {
                             rSequence_addBUFFER( processInfo, 
                                                  RP_TAGS_HBS_PARENT_ATOM, 
-                                                 (RPU8)&parentAtom, 
-                                                 sizeof( parentAtom ) );
+                                                 parentAtom.id, 
+                                                 sizeof( parentAtom.id ) );
                         }
 
                         hbs_markAsRelated( originalRequest, processInfo );
@@ -604,8 +604,8 @@ RPVOID
                             {
                                 rSequence_addBUFFER( processInfo, 
                                                      RP_TAGS_HBS_PARENT_ATOM, 
-                                                     (RPU8)&parentAtom, 
-                                                     sizeof( parentAtom ) );
+                                                     parentAtom.id, 
+                                                     sizeof( parentAtom.id ) );
                             }
 
                             hbs_markAsRelated( originalRequest, processInfo );
@@ -743,8 +743,8 @@ RVOID
                         {
                             rSequence_addBUFFER( process, 
                                                  RP_TAGS_HBS_PARENT_ATOM, 
-                                                 (RPU8)&parentAtom, 
-                                                 sizeof( parentAtom ) );
+                                                 parentAtom.id, 
+                                                 sizeof( parentAtom.id ) );
                         }
 
                         hbs_publish( RP_TAGS_NOTIFICATION_MODULE_MEM_DISK_MISMATCH,

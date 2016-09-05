@@ -1624,6 +1624,11 @@ RVOID
                 //rpal_debug_info( "DECREMENT: %d (%d)", perfProfile->lastTimeoutValue, currentPerformance );
             }
 
+            if( 0xFF != currentPerformance && 20 < currentPerformance )
+            {
+                rpal_debug_warning( "Thread running hot: %s / %d%%", from, currentPerformance );
+            }
+
             currentPerformance = libOs_getCurrentProcessCpuUsage();
             if( 0xFF == currentPerformance )
             {

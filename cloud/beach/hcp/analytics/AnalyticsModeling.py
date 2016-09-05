@@ -192,6 +192,7 @@ class AnalyticsModeling( Actor ):
                     this_atom = uuid.UUID( bytes = str( this_atom ) )
                 except:
                     self.log( 'invalid atom: %s / %s ( %s )' % ( this_atom, type( this_atom ), traceback.format_exc() ) )
+                    this_atom = None
 
         if parent_atom is not None:
             if parent_atom == null_atom:
@@ -201,6 +202,7 @@ class AnalyticsModeling( Actor ):
                     parent_atom = uuid.UUID( bytes = str( parent_atom ) )
                 except:
                     self.log( 'invalid atom: %s / %s ( %s )' % ( parent_atom, type( parent_atom ), traceback.format_exc() ) )
+                    parent_atom = None
 
         if this_atom is not None:
             self.db.execute_async( self.statements[ 'atoms_lookup' ].bind( ( this_atom,

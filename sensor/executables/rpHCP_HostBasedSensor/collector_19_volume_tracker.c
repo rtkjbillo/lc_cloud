@@ -55,7 +55,7 @@ static RS32
 }
 
 static RPVOID
-    trackerDiffThread
+    volumeTrackerDiffThread
     (
         rEvent isTimeToStop,
         RPVOID ctx
@@ -76,7 +76,7 @@ static RPVOID
 
     perfProfile.enforceOnceIn = 1;
     perfProfile.sanityCeiling = MSEC_FROM_SEC( 10 );
-    perfProfile.lastTimeoutValue = 10;
+    perfProfile.lastTimeoutValue = 2000;
     perfProfile.targetCpuPerformance = 0;
     perfProfile.globalTargetCpuPerformance = GLOBAL_CPU_USAGE_TARGET;
     perfProfile.timeoutIncrementPerSec = 1;
@@ -202,7 +202,7 @@ RBOOL
             }
         }
 
-        if( rThreadPool_task( hbsState->hThreadPool, trackerDiffThread, NULL ) )
+        if( rThreadPool_task( hbsState->hThreadPool, volumeTrackerDiffThread, NULL ) )
         {
             isSuccess = TRUE;
         }

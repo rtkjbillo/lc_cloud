@@ -198,8 +198,8 @@ RPVOID
                 {
                     rSequence_addBUFFER( notif, 
                                          RP_TAGS_HBS_PARENT_ATOM, 
-                                         (RPU8)&parentAtom, 
-                                         sizeof( parentAtom ) );
+                                         parentAtom.id, 
+                                         sizeof( parentAtom.id ) );
                 }
 
                 if( rSequence_addSTRINGN( notif, RP_TAGS_FILE_PATH, new_from_kernel[ i ].path ) &&

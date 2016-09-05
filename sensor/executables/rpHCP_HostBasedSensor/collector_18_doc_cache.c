@@ -107,6 +107,7 @@ RVOID
                 rpal_memory_memcpy( tmpAtom.id, pAtomId, sizeof( tmpAtom.id ) );
                 rSequence_unTaintRead( notif );
                 rSequence_removeElement( notif, RP_TAGS_HBS_THIS_ATOM, RPCM_BUFFER );
+                rSequence_removeElement( notif, RP_TAGS_HBS_PARENT_ATOM, RPCM_BUFFER );
                 rSequence_addBUFFER( notif, RP_TAGS_HBS_PARENT_ATOM, tmpAtom.id, sizeof( tmpAtom.id ) );
 
                 rSequence_addBUFFER( notif, RP_TAGS_HASH, (RPU8)&hash, sizeof( hash ) );
