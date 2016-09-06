@@ -26,7 +26,7 @@ limitations under the License.
 #include <libOs/libOs.h>
 #include <obsLib/obsLib.h>
 
-#define _SCRATCH_SIZE                   (1024*1024)
+#define _SCRATCH_SIZE                   (1024*512)
 #define _MIN_DISK_SAMPLE_SIZE           30
 #define _MAX_DISK_SAMPLE_SIZE           100
 #define _MIN_DISK_BIN_COVERAGE_PERCENT  50
@@ -44,7 +44,13 @@ limitations under the License.
 #define _MAX_CPU_WAIT                           (60)
 #define _CPU_WATERMARK                          (50)
 
+#ifdef RPAL_PLATFORM_LINUX
+#define _INITIAL_PROFILED_TIMEOUT               1000
+#define _PROFILE_INCREMENT                      100
+#else
 #define _INITIAL_PROFILED_TIMEOUT               10
+#define _PROFILE_INCREMENT                      1
+#endif
 #define _SANITY_CEILING                         MSEC_FROM_SEC( 2 )
 
 static rQueue g_newProcessNotifications = NULL;
@@ -427,7 +433,7 @@ rList
                         rpal_debug_info( "could not get file information, not checking" );
                     }
 
-                    rpal_debug_info( "process hollowing check found a match %d of %d / %d : %d in %d sec", 
+                    rpal_debug_info( "process hollowing check found a match in %d ( %d / %d ) from %d passes in %d sec", 
                                      pid,  
                                      nSamplesFound, 
                                      nSamplesTotal,
@@ -491,7 +497,7 @@ RPVOID
 
     perfProfile.targetCpuPerformance = 0;
     perfProfile.globalTargetCpuPerformance = GLOBAL_CPU_USAGE_TARGET;
-    perfProfile.timeoutIncrementPerSec = 1;
+    perfProfile.timeoutIncrementPerSec = _PROFILE_INCREMENT;
     perfProfile.enforceOnceIn = 7;
     perfProfile.lastTimeoutValue = _INITIAL_PROFILED_TIMEOUT;
     perfProfile.sanityCeiling = _SANITY_CEILING;
@@ -566,8 +572,8 @@ RPVOID
 
     perfProfile.targetCpuPerformance = 0;
     perfProfile.globalTargetCpuPerformance = GLOBAL_CPU_USAGE_TARGET;
-    perfProfile.timeoutIncrementPerSec = 1;
-    perfProfile.enforceOnceIn = 7;
+    perfProfile.timeoutIncrementPerSec = _PROFILE_INCREMENT;
+    perfProfile.enforceOnceIn = 1;
     perfProfile.lastTimeoutValue = _INITIAL_PROFILED_TIMEOUT;
     perfProfile.sanityCeiling = _SANITY_CEILING;
 
@@ -654,7 +660,7 @@ RPVOID
     perfProfile.targetCpuPerformance = 0;
     perfProfile.globalTargetCpuPerformance = GLOBAL_CPU_USAGE_TARGET;
     perfProfile.enforceOnceIn = 7;
-    perfProfile.timeoutIncrementPerSec = 1;
+    perfProfile.timeoutIncrementPerSec = _PROFILE_INCREMENT;
 
     while( !rEvent_wait( isTimeToStop, 0 ) )
     {
@@ -718,7 +724,7 @@ RVOID
     {
         perfProfile.targetCpuPerformance = 10;
         perfProfile.globalTargetCpuPerformance = GLOBAL_CPU_USAGE_TARGET_WHEN_TASKED;
-        perfProfile.timeoutIncrementPerSec = 1;
+        perfProfile.timeoutIncrementPerSec = _PROFILE_INCREMENT;
         perfProfile.enforceOnceIn = 7;
         perfProfile.lastTimeoutValue = _INITIAL_PROFILED_TIMEOUT;
         perfProfile.sanityCeiling = _SANITY_CEILING;

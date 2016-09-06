@@ -376,6 +376,9 @@ RBOOL
 
             waitVal = select( n, &sockets, NULL, NULL, &timeout );
 
+            timeout.tv_sec = 1;
+            timeout.tv_usec = 0;
+
             if( 0 == waitVal )
             {
                 FD_ZERO( &sockets );

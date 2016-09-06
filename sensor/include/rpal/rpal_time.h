@@ -30,6 +30,8 @@ limitations under the License.
 #define SEC_FROM_MSEC(msec)                         ((msec)/1000)
 #define MSEC_FROM_USEC(usec)                        ((usec)/1000)
 #define USEC_FROM_MSEC(sec)                         ((sec)*1000)
+#define USEC_FROM_SEC(sec)                          (USEC_FROM_MSEC(MSEC_FROM_SEC((sec))))
+#define USEC_FROM_NSEC(nsec)                        ((nsec)/1000)
 #define USEC_PER_MSEC                               (1000)
 #define NSEC_100_PER_MSEC                           (10000)
 #define NSEC_100_PER_USEC                           (10)

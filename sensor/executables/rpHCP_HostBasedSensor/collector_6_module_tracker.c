@@ -63,7 +63,7 @@ RS32
 
 static
 RPVOID
-    userModeDiff
+    modUserModeDiff
     (
         rEvent isTimeToStop
     )
@@ -246,7 +246,7 @@ static RBOOL
 }
 
 static RVOID
-    kernelModeDiff
+    modKernelModeDiff
     (
         rEvent isTimeToStop
     )
@@ -291,14 +291,14 @@ static RPVOID
             // We first attempt to get new modules through
             // the kernel mode acquisition driver
             rpal_debug_info( "running kernel acquisition module notification" );
-            kernelModeDiff( isTimeToStop );
+            modKernelModeDiff( isTimeToStop );
         }
         // If the kernel mode fails, or is not available, try
         // to revert to user mode
         else if( !rEvent_wait( isTimeToStop, 0 ) )
         {
             rpal_debug_info( "running usermode acquisition module notification" );
-            userModeDiff( isTimeToStop );
+            modUserModeDiff( isTimeToStop );
         }
     }
 

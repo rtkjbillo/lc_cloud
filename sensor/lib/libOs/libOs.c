@@ -53,6 +53,8 @@ limitations under the License.
 #include <sys/param.h>
 #include <sys/ucred.h>
 #include <sys/mount.h>
+#include <mach/clock.h>
+#include <mach/mach.h>
 #elif defined( RPAL_PLATFORM_LINUX )
 #include <mntent.h>
 #endif
@@ -1222,38 +1224,23 @@ RBOOL
 
     return *cpuTime > 0;
 #elif defined( RPAL_PLATFORM_MACOSX )
-    static RU64 numCPU = 0;
-    struct timeval now = { 0 };
-    RS32 iCPU = 0;
-    size_t len = 4;
-
-    if( 0 == numCPU )
+    static clock_serv_t cclock;
+    static RBOOL isInitialized = FALSE;
+    mach_timespec_t mts;
+    if( !isInitialized )
     {
-        if( 0 == sysctlbyname( "hw.ncpu", &iCPU, &len, NULL, 0 ) )
-        {
-            numCPU = (RU64)iCPU;
-        }
-        else
-        {
-            rpal_debug_error( "Cannot get the number of CPUs -- error code %u.", errno );
-            return FALSE;
-        }
+        host_get_clock_service( mach_host_self(), SYSTEM_CLOCK, &cclock );
+        isInitialized = TRUE;
     }
 
-    if( 0 == gettimeofday( &now, NULL ) )
+    clock_get_time( cclock, &mts );
+
+    if( NULL != cpuTime )
     {
-        if( NULL != cpuTime )
-        {
-            *cpuTime = numCPU * ( (RU64)now.tv_sec * 1000000 + (RU64)now.tv_usec );
-        }
-        return TRUE;
-    }
-    else
-    {
-        rpal_debug_error( "Cannot get the system time -- error code %u.", errno );
+        *cpuTime = USEC_FROM_NSEC( mts.tv_nsec ) + USEC_FROM_SEC( mts.tv_sec );
     }
 
-    return FALSE;
+    return TRUE;
 #else
     rpal_debug_not_implemented();
 #endif
@@ -1610,7 +1597,7 @@ RVOID
             }
             else if( currentPerformance > perfProfile->targetCpuPerformance )
             {
-                if( perfProfile->sanityCeiling > increment )
+                if( perfProfile->sanityCeiling > perfProfile->lastTimeoutValue + increment )
                 {
                     perfProfile->lastTimeoutValue += increment;
                     //rpal_debug_info( "INCREMENT: %d (%d)", perfProfile->lastTimeoutValue, currentPerformance );
@@ -1626,7 +1613,10 @@ RVOID
 
             if( 0xFF != currentPerformance && 20 < currentPerformance )
             {
-                rpal_debug_warning( "Thread running hot: %s / %d%%", from, currentPerformance );
+                rpal_debug_warning( "Thread running hot: %s / %d%% (%d)", 
+                                    from, 
+                                    currentPerformance, 
+                                    perfProfile->lastTimeoutValue );
             }
 
             currentPerformance = libOs_getCurrentProcessCpuUsage();

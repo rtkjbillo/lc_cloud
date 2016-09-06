@@ -682,7 +682,6 @@ RU32
                     }
 
                     rList_free( messages );
-
                 } while( !rEvent_wait( g_hcpContext.isBeaconTimeToStop, 0 ) );
 
                 rEvent_unset( g_hcpContext.isCloudOnline );

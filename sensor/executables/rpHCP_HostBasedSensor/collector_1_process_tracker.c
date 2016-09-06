@@ -287,7 +287,7 @@ static RBOOL
 }
 
 static RVOID
-    userModeDiff
+    procUserModeDiff
     (
         rEvent isTimeToStop
     )
@@ -307,7 +307,11 @@ static RVOID
 
     perfProfile.enforceOnceIn = 1;
     perfProfile.sanityCeiling = MSEC_FROM_SEC( 10 );
+#ifdef RPAL_PLATFORM_LINUX
+    perfProfile.lastTimeoutValue = 1000;
+#else
     perfProfile.lastTimeoutValue = 100;
+#endif
     perfProfile.targetCpuPerformance = 0;
     perfProfile.globalTargetCpuPerformance = GLOBAL_CPU_USAGE_TARGET;
     perfProfile.timeoutIncrementPerSec = 10;
@@ -400,7 +404,7 @@ static RVOID
 }
 
 static RVOID
-    kernelModeDiff
+    procKernelModeDiff
     (
         rEvent isTimeToStop
     )
@@ -503,14 +507,14 @@ static RPVOID
             // We first attempt to get new processes through
             // the kernel mode acquisition driver
             rpal_debug_info( "running kernel acquisition process notification" );
-            kernelModeDiff( isTimeToStop );
+            procKernelModeDiff( isTimeToStop );
         }
         // If the kernel mode fails, or is not available, try
         // to revert to user mode
         else if( !rEvent_wait( isTimeToStop, 0 ) )
         {
             rpal_debug_info( "running usermode acquisition process notification" );
-            userModeDiff( isTimeToStop );
+            procUserModeDiff( isTimeToStop );
         }
     }
 
