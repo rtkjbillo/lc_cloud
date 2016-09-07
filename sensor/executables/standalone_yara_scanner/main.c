@@ -39,8 +39,8 @@ typedef struct
 typedef struct
 {
     RU32 nFiles;
-    RU32 nFileBytes;
-    RU32 nMemBytes;
+    RU64 nFileBytes;
+    RU64 nMemBytes;
 } ScanStats;
 
 #ifdef RPAL_PLATFORM_WINDOWS
@@ -232,7 +232,7 @@ int
         NULL != message_data &&
         NULL != user_data )
     {
-        printf( "MATCH: %s @ %d base 0x%p size 0x%x\n", 
+        printf( "MATCH: " RF_STR_A " @ " RF_U32 " base " RF_PTR " size " RF_X32 "\n", 
                 (char*)rule->identifier, 
                 context->pid, 
                 NUMBER_TO_PTR( context->regionBase ), 
@@ -257,7 +257,7 @@ int
         NULL != message_data &&
         NULL != user_data )
     {
-        printf( "MATCH: %s @ %s\n",
+        printf( "MATCH: " RF_STR_A " @ " RF_STR_A "\n",
                 (char*)rule->identifier,
                 context->path );
     }
@@ -321,7 +321,7 @@ RVOID
                                                                    _yaraFileMatchCallback,
                                                                    &matchContext, 60 ) ) )
             {
-                rpal_debug_warning( "Error while scanning file %s: %d", matchContext.path, scanError );
+                rpal_debug_warning( "Error while scanning file " RF_STR_A ": " RF_X32, matchContext.path, scanError );
             }
 
             stats->nFiles++;
@@ -329,7 +329,7 @@ RVOID
         }
         else
         {
-            rpal_debug_warning( "Not scanning file %s, too big or zero: %d", matchContext.path, size );
+            rpal_debug_warning( "Not scanning file " RF_STR_A ", too big or zero: " RF_U32, matchContext.path, size );
         }
     }
 
@@ -363,16 +363,16 @@ RVOID
                                                               _yaraMemMatchCallback,
                                                               &matchContext, 60 ) ) )
         {
-            rpal_debug_warning( "Error while scanning mem: %d", scanError );
+            rpal_debug_warning( "Error while scanning mem: " RF_X32, scanError );
         }
 
-        stats->nMemBytes += (RU32)size;
+        stats->nMemBytes += size;
 
         rpal_memory_free( buffer );
     }
     else
     {
-        rpal_debug_warning( "Failed to get memory range %d - 0x%p : 0x%08x (%d).", pid, base, size, rpal_error_getLast() );
+        rpal_debug_warning( "Failed to get memory range " RF_U32 " - " RF_PTR " : " RF_X64 " (" RF_U32 ").", pid, base, size, rpal_error_getLast() );
     }
 }
 
@@ -414,7 +414,7 @@ RVOID
     }
     else if( isWithDisk )
     {
-        rpal_debug_warning( "Failed to get process info: %d.", rpal_error_getLast() );
+        rpal_debug_warning( "Failed to get process info: " RF_X32 ".", rpal_error_getLast() );
     }
 
     if( isWithDisk &&
@@ -436,7 +436,7 @@ RVOID
     }
     else if( isWithDisk )
     {
-        rpal_debug_warning( "Could not get process modules: %d.", rpal_error_getLast() );
+        rpal_debug_warning( "Could not get process modules: " RF_X32 ".", rpal_error_getLast() );
     }
 
     if( isWithMem &&
@@ -462,7 +462,7 @@ RVOID
     }
     else if( isWithMem )
     {
-        rpal_debug_warning( "Could not get memory map: %d.", rpal_error_getLast() );
+        rpal_debug_warning( "Could not get memory map: " RF_X32 ".", rpal_error_getLast() );
     }
 }
 
@@ -599,7 +599,7 @@ RPAL_EXPORT
         for( curProc = processes; 0 != curProc->pid; curProc++ )
         {
             if( thisProcessId == curProc->pid ) continue;
-            rpal_debug_info( "Scanning process id %d", curProc->pid );
+            rpal_debug_info( "Scanning process id " RF_U32, curProc->pid );
             scanProcess( &stats, curProc->pid, rules, fileCache, isScanDisk, isScanMemory );
         }
 
@@ -614,7 +614,7 @@ RPAL_EXPORT
 
         rpal_bloom_destroy( fileCache );
 
-        printf( "Finished scan in %u seconds: %d files, %d bytes from files, %d memory bytes scanned.\n", 
+        printf( "Finished scan in " RF_U32 " seconds: " RF_U32 " files, " RF_U64 " bytes from files, " RF_U64 " memory bytes scanned.\n", 
                 (RU32)( rpal_time_getLocal() - startTime ),
                 stats.nFiles, stats.nFileBytes, stats.nMemBytes );
 
@@ -625,7 +625,7 @@ RPAL_EXPORT
         memUsed = rpal_memory_totalUsed();
         if( 0 != memUsed )
         {
-            rpal_debug_critical( "Memory leak: %d bytes.\n", memUsed );
+            rpal_debug_critical( "Memory leak: " RF_U32 " bytes.\n", memUsed );
             rpal_memory_findMemory();
         }
 #else

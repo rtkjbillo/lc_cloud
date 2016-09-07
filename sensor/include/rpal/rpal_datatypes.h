@@ -95,6 +95,23 @@ limitations under the License.
     #define RNATIVE_LITERAL(str) _WCH(str)
     #define RNATIVE_IS_WIDE
 
+    // Printf format helpers
+    #define RF_STR_W        "%S"
+    #define RF_STR_A        "%s"
+    #define RF_STR_N        RF_STR_W
+    #define RF_U32          "%I32u"
+    #define RF_S32          "%I32d"
+    #define RF_X32          "%I32X"
+    #define RF_U64          "%I64u"
+    #define RF_S64          "%I64d"
+    #define RF_X64          "%I64X"
+    #define RF_SIZET        "%Iu"
+    #ifdef RPAL_PLATFORM_64_BIT
+        #define RF_PTR          "0x%016p"
+    #else
+        #define RF_PTR          "0x%08p"
+    #endif
+
 #elif defined( RPAL_PLATFORM_LINUX ) || defined( RPAL_PLATFORM_MACOSX )
     #include <stdint.h>
     #ifndef RPAL_PLATFORM_KERNEL
@@ -103,6 +120,7 @@ limitations under the License.
         #include <errno.h>
     #endif
     #include <string.h>
+    #include <inttypes.h>
 
     typedef int             RBOOL;
     typedef int*		RPBOOL;
@@ -144,6 +162,32 @@ limitations under the License.
     typedef RPCHAR          RNATIVESTR;
     #define RNATIVE_LITERAL(str) str
     #define RNATIVE_IS_BYTE
+
+    // Printf format helpers
+    #define RF_STR_W        "%ls"
+    #define RF_STR_A        "%s"
+    #define RF_STR_N        RF_STR_W
+    #ifdef RPAL_PLATFORM_MACOSX
+        #define RF_U32          "%u"
+        #define RF_S32          "%d"
+        #define RF_X32          "%X"
+        #define RF_U64          "%llu"
+        #define RF_S64          "%lld"
+        #define RF_X64          "%llx"
+    #else
+        #define RF_U32          "%I64u"
+        #define RF_S32          "%I64d"
+        #define RF_X32          "%X"
+        #define RF_U64          "%zu"
+        #define RF_S64          "%I64d"
+        #define RF_X64          "%I64X"
+    #endif
+    #define RF_SIZET        "%zu"
+    #ifdef RPAL_PLATFORM_64_BIT
+        #define RF_PTR          "0x%p"
+    #else
+        #define RF_PTR          "0x%p"
+    #endif
 #endif
 
 // Common values
