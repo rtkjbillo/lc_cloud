@@ -173,14 +173,14 @@ limitations under the License.
         #define RF_X32          "%X"
         #define RF_U64          "%llu"
         #define RF_S64          "%lld"
-        #define RF_X64          "%llx"
+        #define RF_X64          "%llX"
     #else
-        #define RF_U32          "%I64u"
-        #define RF_S32          "%I64d"
+        #define RF_U32          "%u"
+        #define RF_S32          "%d"
         #define RF_X32          "%X"
-        #define RF_U64          "%zu"
-        #define RF_S64          "%I64d"
-        #define RF_X64          "%I64X"
+        #define RF_U64          "%lu"
+        #define RF_S64          "%ld"
+        #define RF_X64          "%lX"
     #endif
     #define RF_SIZET        "%zu"
     #ifdef RPAL_PLATFORM_64_BIT

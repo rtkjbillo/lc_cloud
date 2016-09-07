@@ -599,6 +599,7 @@ RPAL_EXPORT
         for( curProc = processes; 0 != curProc->pid; curProc++ )
         {
             if( thisProcessId == curProc->pid ) continue;
+            if( rEvent_wait( g_timeToQuit, 0 ) ) break;
             rpal_debug_info( "Scanning process id " RF_U32, curProc->pid );
             scanProcess( &stats, curProc->pid, rules, fileCache, isScanDisk, isScanMemory );
         }
