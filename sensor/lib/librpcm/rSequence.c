@@ -170,7 +170,7 @@ RBOOL
     (
         rSequence seq,
         rpcm_tag tag,
-        RNATIVESTR string
+        RPNCHAR string
     )
 {
     return rSequence_addElement( seq, tag, RPCM_STRINGN, string, sizeof( string ) );
@@ -463,7 +463,7 @@ RBOOL
     (
         rSequence seq,
         rpcm_tag tag,
-        RNATIVESTR* pVal
+        RPNCHAR* pVal
     )
 {
     rpcm_type type = RPCM_STRINGN;

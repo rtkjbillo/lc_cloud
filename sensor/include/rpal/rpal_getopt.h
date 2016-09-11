@@ -29,19 +29,19 @@ Code given out at the 1985 UNIFORUM conference in Dallas.
 
 typedef struct
 {
-    RNATIVECHAR shortSwitch;
-    RNATIVESTR longSwitch;
+    RNCHAR shortSwitch;
+    RPNCHAR longSwitch;
     RBOOL hasArgument;
 
 } rpal_opt;
 
-RNATIVECHAR
+RNCHAR
     rpal_getopt
     (
         RS32 argc, 
-        RNATIVESTR* argv, 
+        RPNCHAR* argv, 
         rpal_opt opts[],
-        RNATIVESTR* pArgVal
+        RPNCHAR* pArgVal
     );
 
 

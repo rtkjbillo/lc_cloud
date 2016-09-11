@@ -31,8 +31,8 @@ limitations under the License.
 typedef struct
 {
     rStack stack;
-    RNATIVESTR dirExp;
-    RNATIVESTR* fileExp;
+    RPNCHAR dirExp;
+    RPNCHAR* fileExp;
     RU32 nMaxDepth;
 
 } _rDirCrawl, *_prDirCrawl;
@@ -45,7 +45,7 @@ typedef struct
 #elif defined( RPAL_PLATFORM_LINUX ) || defined( RPAL_PLATFORM_MACOSX )
     DIR* handle;
 #endif
-    RNATIVESTR dirPath;
+    RPNCHAR dirPath;
 } _rDir;
 
 typedef struct
@@ -79,13 +79,13 @@ typedef struct
 RBOOL
     rpal_file_delete
     (
-        RNATIVESTR filePath,
+        RPNCHAR filePath,
         RBOOL isSafeDelete
     )
 {
     RBOOL isDeleted = FALSE;
 
-    RNATIVESTR tmpPath = NULL;
+    RPNCHAR tmpPath = NULL;
 
     if( NULL != filePath )
     {
@@ -117,14 +117,14 @@ RBOOL
 RBOOL
     rpal_file_move
     (
-        RNATIVESTR srcFilePath,
-        RNATIVESTR dstFilePath
+        RPNCHAR srcFilePath,
+        RPNCHAR dstFilePath
     )
 {
     RBOOL isMoved = FALSE;
 
-    RNATIVESTR tmpPath1 = NULL;
-    RNATIVESTR tmpPath2 = NULL;
+    RPNCHAR tmpPath1 = NULL;
+    RPNCHAR tmpPath2 = NULL;
 
     if( NULL != srcFilePath && NULL != dstFilePath )
     {
@@ -151,13 +151,13 @@ RBOOL
 RBOOL
     rpal_file_getInfo
     (
-        RNATIVESTR filePath,
+        RPNCHAR filePath,
         rFileInfo* pFileInfo
     )
 {
     RBOOL isSuccess = FALSE;
     
-    RNATIVESTR expFilePath = NULL;
+    RPNCHAR expFilePath = NULL;
 
 #ifdef RPAL_PLATFORM_WINDOWS
     WIN32_FIND_DATAW findData = {0};
@@ -258,7 +258,7 @@ RBOOL
 RBOOL
     rpal_file_read
     (
-        RNATIVESTR filePath,
+        RPNCHAR filePath,
         RPVOID* pBuffer,
         RU32* pBufferSize,
         RBOOL isAvoidTimestamps
@@ -266,7 +266,7 @@ RBOOL
 {
     RBOOL isSuccess = FALSE;
 
-    RNATIVESTR tmpPath = NULL;
+    RPNCHAR tmpPath = NULL;
     RPVOID tmpFile = NULL;
     RU32 fileSize = 0;
 
@@ -511,7 +511,7 @@ RU32
 RU32
     rpal_file_getSize
     (
-        RNATIVESTR filePath,
+        RPNCHAR filePath,
         RBOOL isAvoidTimestamps
     )
 {
@@ -525,7 +525,7 @@ RU32
 RBOOL
     rpal_file_write
     (
-        RNATIVESTR filePath,
+        RPNCHAR filePath,
         RPVOID buffer,
         RU32 bufferSize,
         RBOOL isOverwrite
@@ -533,7 +533,7 @@ RBOOL
 {
     RBOOL isSuccess = FALSE;
 
-    RNATIVESTR tmpPath = NULL;
+    RPNCHAR tmpPath = NULL;
 
 #ifdef RPAL_PLATFORM_WINDOWS
     RU32 flags = 0;
@@ -601,19 +601,19 @@ RBOOL
 RBOOL
     rpal_file_pathToLocalSep
     (
-        RNATIVESTR path
+        RPNCHAR path
     )
 {
     RBOOL isSuccess = FALSE;
-    RNATIVECHAR search = 0;
-    RNATIVECHAR replace = 0;
+    RNCHAR search = 0;
+    RNCHAR replace = 0;
     RU32 i = 0;
 
     if( NULL != path )
     {
 #ifdef RPAL_PLATFORM_WINDOWS
-        search = RNATIVE_LITERAL('/');
-        replace = RNATIVE_LITERAL('\\');
+        search = _NC('/');
+        replace = _NC('\\');
 #else
         search = '\\';
         replace = '/';
@@ -636,8 +636,8 @@ RBOOL
 RBOOL
     rpal_file_getLinkDest
     (
-        RNATIVESTR linkPath,
-        RNATIVESTR* pDestination
+        RPNCHAR linkPath,
+        RPNCHAR* pDestination
     )
 {
     RBOOL isSuccess = FALSE;
@@ -709,13 +709,13 @@ RBOOL
     return isSuccess;
 }
 
-RNATIVESTR
+RPNCHAR
     rpal_file_filePathToFileName
     (
-        RNATIVESTR filePath
+        RPNCHAR filePath
     )
 {
-    RNATIVESTR fileName = NULL;
+    RPNCHAR fileName = NULL;
 
     RU32 len = 0;
 
@@ -751,8 +751,8 @@ static
 rDirCrawl
     _newCrawlDir
     (
-        RNATIVESTR rootExpr,
-        RNATIVESTR fileExpr[],
+        RPNCHAR rootExpr,
+        RPNCHAR fileExpr[],
         RU32 nMaxDepth
     )
 {
@@ -803,7 +803,7 @@ rDirCrawl
 RBOOL
     _strHasWildcards
     (
-        RNATIVESTR str
+        RPNCHAR str
     )
 {
     RBOOL isWild = FALSE;
@@ -815,8 +815,8 @@ RBOOL
 
     for( i = 0; i < len; i++ )
     {
-        if( RNATIVE_LITERAL('*') == str[ i ] ||
-            RNATIVE_LITERAL('?') == str[ i ] )
+        if( _NC('*') == str[ i ] ||
+            _NC('?') == str[ i ] )
         {
             isWild = TRUE;
             break;
@@ -829,8 +829,8 @@ RBOOL
 RBOOL
     _isFileInfoInCrawl
     (
-        RNATIVESTR dirExp,
-        RNATIVESTR fileExp[],
+        RPNCHAR dirExp,
+        RPNCHAR fileExp[],
         RU32 nMaxDepth,
         rFileInfo* pInfo,
         RBOOL isPartialOk
@@ -838,16 +838,16 @@ RBOOL
 {
     RBOOL isIncluded = FALSE;
 
-    RNATIVECHAR sep[] = RPAL_FILE_LOCAL_DIR_SEP_N;
+    RNCHAR sep[] = RPAL_FILE_LOCAL_DIR_SEP_N;
 
-    RNATIVESTR state1 = NULL;
-    RNATIVESTR state2 = NULL;
-    RNATIVESTR pPattern = NULL;
-    RNATIVESTR pPath = NULL;
+    RPNCHAR state1 = NULL;
+    RPNCHAR state2 = NULL;
+    RPNCHAR pPattern = NULL;
+    RPNCHAR pPath = NULL;
 
     RU32 curDepth = 0;
 
-    RNATIVESTR* tmpFileExp = NULL;
+    RPNCHAR* tmpFileExp = NULL;
 
     if( NULL != dirExp &&
         NULL != fileExp &&
@@ -996,16 +996,16 @@ RVOID
 rDirCrawl
     rpal_file_crawlStart
     (
-        RNATIVESTR rootExpr,
-        RNATIVESTR fileExpr[],
+        RPNCHAR rootExpr,
+        RPNCHAR fileExpr[],
         RU32 nMaxDepth
     )
 {
     _prDirCrawl pCrawl = NULL;
-    RNATIVESTR staticRoot = NULL;
-    RNATIVESTR tmpStr = NULL;
-    RNATIVESTR state = NULL;
-    RNATIVESTR sep = RPAL_FILE_LOCAL_DIR_SEP_N;
+    RPNCHAR staticRoot = NULL;
+    RPNCHAR tmpStr = NULL;
+    RPNCHAR state = NULL;
+    RPNCHAR sep = RPAL_FILE_LOCAL_DIR_SEP_N;
     rDir hDir = NULL;
     rFileInfo info = {0};
 
@@ -1167,7 +1167,7 @@ static
 RBOOL
     _freeStringWrapper
     (
-        RNATIVESTR str
+        RPNCHAR str
     )
 {
     RBOOL isSuccess = FALSE;
@@ -1203,14 +1203,14 @@ RVOID
 RBOOL
     rDir_open
     (
-        RNATIVESTR dirPath,
+        RPNCHAR dirPath,
         rDir* phDir
     )
 {
     RBOOL isSuccess = FALSE;
     _rDir* dir = NULL;
-    RNATIVECHAR sep[] = RPAL_FILE_LOCAL_DIR_SEP_N;
-    RNATIVESTR tmpDir = NULL;
+    RNCHAR sep[] = RPAL_FILE_LOCAL_DIR_SEP_N;
+    RPNCHAR tmpDir = NULL;
 
     if( NULL != dirPath &&
         NULL != phDir &&
@@ -1486,12 +1486,12 @@ RBOOL
 RBOOL
     rDir_create
     (
-        RNATIVESTR dirPath
+        RPNCHAR dirPath
     )
 {
     RBOOL isCreated = FALSE;
 
-    RNATIVESTR expDir = NULL;
+    RPNCHAR expDir = NULL;
 
     if( NULL != dirPath )
     {
@@ -1518,14 +1518,14 @@ RBOOL
 RBOOL
     rFile_open
     (
-        RNATIVESTR filePath,
+        RPNCHAR filePath,
         rFile* phFile,
         RU32 flags
     )
 {
     RBOOL isSuccess = FALSE;
     _rFile* hFile = NULL;
-    RNATIVESTR tmpPath = NULL;
+    RPNCHAR tmpPath = NULL;
 #ifdef RPAL_PLATFORM_WINDOWS
     RU32 osAccessFlags = 0;
     RU32 osCreateFlags = 0;
@@ -1882,7 +1882,7 @@ RBOOL
 rDirWatch
     rDirWatch_new
     (
-        RNATIVESTR dir,
+        RPNCHAR dir,
         RU32 watchFlags,
         RBOOL includeSubDirs
     )
@@ -1967,7 +1967,7 @@ RBOOL
     (
         rDirWatch watch,
         RU32 timeout,
-        RNATIVESTR* pFilePath,
+        RPNCHAR* pFilePath,
         RU32* pAction
     )
 {
@@ -2106,13 +2106,13 @@ static RBOOL
 
 #endif
 
-RNATIVESTR
+RPNCHAR
     rpal_file_clean
     (
-        RNATIVESTR filePath
+        RPNCHAR filePath
     )
 {
-    RNATIVESTR clean = NULL;
+    RPNCHAR clean = NULL;
 
     if( NULL != filePath )
     {

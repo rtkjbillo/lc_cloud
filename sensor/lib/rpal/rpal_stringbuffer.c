@@ -79,7 +79,7 @@ RBOOL
     rpal_stringbuffer_add
     (
         rString pStringBuffer,
-        RNATIVESTR pString
+        RPNCHAR pString
     )
 {
     RBOOL isSuccess = FALSE;
@@ -88,25 +88,25 @@ RBOOL
 
     if( rpal_memory_isValid( pStringBuffer ) )
     {
-        isSuccess = rpal_blob_add( (rBlob)pStr->blob, pString, rpal_string_strlen( pString ) * sizeof( RNATIVECHAR ) );
+        isSuccess = rpal_blob_add( (rBlob)pStr->blob, pString, rpal_string_strlen( pString ) * sizeof( RNCHAR ) );
     }
 
     return isSuccess;
 }
 
-RNATIVESTR
+RPNCHAR
     rpal_stringbuffer_getString
     (
         rString pStringBuffer
     )
 {
-    RNATIVESTR ret = NULL;
+    RPNCHAR ret = NULL;
 
     _rString* pStr = (_rString*)pStringBuffer;
     
     if( rpal_memory_isValid( pStringBuffer ) )
     {
-        ret = (RNATIVESTR)rpal_blob_getBuffer( (rBlob)( pStr->blob ) );
+        ret = (RPNCHAR)rpal_blob_getBuffer( (rBlob)( pStr->blob ) );
     }
 
     return ret;

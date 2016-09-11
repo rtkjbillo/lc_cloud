@@ -74,8 +74,8 @@ typedef struct
     RU32 ppid;
     RU32 uid;
     RU64 ts;
-    RNATIVECHAR path[ 513 ];
-    RNATIVECHAR cmdline[ 513 ];
+    RNCHAR path[ 513 ];
+    RNCHAR cmdline[ 513 ];
 
 } KernelAcqProcess;
 
@@ -90,7 +90,7 @@ typedef struct
     RU32 pid;
     RU32 uid;
     RU64 ts;
-    RNATIVECHAR path[ 513 ];
+    RNCHAR path[ 513 ];
 
 } KernelAcqFileIo;
 
@@ -100,7 +100,7 @@ typedef struct
     RPVOID baseAddress;
     RU64 imageSize;
     RU64 ts;
-    RNATIVECHAR path[ 513 ];
+    RNCHAR path[ 513 ];
 } KernelAcqModule;
 
 #endif

@@ -165,8 +165,8 @@ static RBOOL
         RU32 pid,
         RU32 ppid,
         RBOOL isStarting,
-        RNATIVESTR optFilePath,
-        RNATIVESTR optCmdLine,
+        RPNCHAR optFilePath,
+        RPNCHAR optCmdLine,
         RU32 optUserId,
         RU64 optTs
     )
@@ -175,7 +175,7 @@ static RBOOL
     rSequence info = NULL;
     rSequence parentInfo = NULL;
     RU32 tmpUid = 0;
-    RNATIVESTR cleanPath = NULL;
+    RPNCHAR cleanPath = NULL;
     Atom atom = { 0 };
     Atom parentAtom = { 0 };
 

@@ -34,10 +34,10 @@ static
 RBOOL
     _assemble_full_name
     (
-        RNATIVESTR out,
+        RPNCHAR out,
         RU32 outSize,
-        RNATIVESTR root,
-        RNATIVESTR file
+        RPNCHAR root,
+        RPNCHAR file
     )
 {
     RBOOL isSuccess = FALSE;
@@ -50,7 +50,7 @@ RBOOL
         rpal_memory_zero( out, outSize );
         rpal_string_strcat( out, root );
 
-        if( outSize > ( rpal_string_strlen( out ) + rpal_string_strlen( file ) ) * sizeof( RNATIVECHAR ) )
+        if( outSize > ( rpal_string_strlen( out ) + rpal_string_strlen( file ) ) * sizeof( RNCHAR ) )
         {
             rpal_string_strcat( out, file );
             isSuccess = TRUE;
@@ -68,14 +68,14 @@ RPVOID
     )
 {    
 #ifdef RPAL_PLATFORM_WINDOWS
-    RNATIVECHAR rootEnv[] = _WCH( "%SYSTEMDRIVE%\\" );
+    RNCHAR rootEnv[] = _WCH( "%SYSTEMDRIVE%\\" );
 #else
     RWCHAR rootEnv[] = _WCH( "/" );
 #endif
-    RNATIVECHAR fullName[ 1024 ] = { 0 };
+    RNCHAR fullName[ 1024 ] = { 0 };
     rDirWatch watch = NULL;
-    RNATIVESTR root = NULL;
-    RNATIVESTR fileName = NULL;
+    RPNCHAR root = NULL;
+    RPNCHAR fileName = NULL;
     RU32 apiAction = 0;
     rpcm_tag event = RP_TAGS_INVALID;
     rSequence notif = 0;
@@ -87,7 +87,7 @@ RPVOID
     if( g_is_delete_enabled ) mask |= RPAL_DIR_WATCH_CHANGE_FILE_NAME;
     if( g_is_modified_enabled ) mask |= RPAL_DIR_WATCH_CHANGE_LAST_WRITE;
 
-    if( rpal_string_expand( (RNATIVESTR)&rootEnv, &root ) &&
+    if( rpal_string_expand( (RPNCHAR)&rootEnv, &root ) &&
         NULL != ( watch = rDirWatch_new( root, mask, TRUE ) ) )
     {
         while( rpal_memory_isValid( isTimeToStop ) &&
@@ -121,7 +121,7 @@ RPVOID
                             event = RP_TAGS_NOTIFICATION_FILE_MODIFIED;
                         }
 
-                        if( rSequence_addSTRINGN( notif, RP_TAGS_FILE_PATH, (RNATIVESTR)&fullName ) &&
+                        if( rSequence_addSTRINGN( notif, RP_TAGS_FILE_PATH, (RPNCHAR)&fullName ) &&
                             hbs_timestampEvent( notif, curTime ) )
                         {
                             hbs_publish( event, notif );

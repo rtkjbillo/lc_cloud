@@ -34,7 +34,7 @@ static
 RVOID
     processCodeIdent
     (
-        RNATIVESTR name,
+        RPNCHAR name,
         CryptoLib_Hash* pFileHash,
         RU64 codeSize,
         rSequence originalEvent
@@ -44,7 +44,7 @@ RVOID
     {
         CryptoLib_Hash fileHash;
         RU64 codeSize;
-        RNATIVECHAR fileName[ RPAL_MAX_PATH ];
+        RNCHAR fileName[ RPAL_MAX_PATH ];
     } ident = { 0 };
 
     rSequence notif = NULL;
@@ -131,7 +131,7 @@ RVOID
         rSequence event
     )
 {
-    RNATIVESTR nameN = NULL;
+    RPNCHAR nameN = NULL;
     CryptoLib_Hash fileHash = { 0 };
     RU64 size = 0;
 
@@ -175,7 +175,7 @@ RVOID
         rSequence event
     )
 {
-    RNATIVESTR nameN = NULL;
+    RPNCHAR nameN = NULL;
     CryptoLib_Hash fileHash = { 0 };
     RU64 size = 0;
 
@@ -219,7 +219,7 @@ RVOID
         rSequence event
     )
 {
-    RNATIVESTR nameN = NULL;
+    RPNCHAR nameN = NULL;
     CryptoLib_Hash* pHash = NULL;
     CryptoLib_Hash localHash = { 0 };
     

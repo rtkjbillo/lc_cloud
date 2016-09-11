@@ -44,10 +44,10 @@ RBOOL
     rpal_stringbuffer_add
     (
         rString pStringBuffer,
-        RNATIVESTR pString
+        RPNCHAR pString
     );
 
-RNATIVESTR
+RPNCHAR
     rpal_stringbuffer_getString
     (
         rString pStringBuffer

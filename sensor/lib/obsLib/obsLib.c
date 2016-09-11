@@ -555,7 +555,7 @@ RBOOL
     obsLib_addStringPatternN
     (
         HObs hObs,
-        RNATIVESTR strPattern,
+        RPNCHAR strPattern,
         RBOOL isIncludeNullEnding,
         RBOOL isCaseInsensitive,
         RPVOID context

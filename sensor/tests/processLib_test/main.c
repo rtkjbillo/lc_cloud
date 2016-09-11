@@ -143,7 +143,7 @@ void
     processLibProcEntry* entries = NULL;
     RU32 entryIndex = 4;
     rSequence proc = NULL;
-    RNATIVESTR path = NULL;
+    RPNCHAR path = NULL;
 
     entries = processLib_getProcessEntries( TRUE );
 
@@ -175,7 +175,7 @@ void
     RU32 entryIndex = 4;
     rList mods = NULL;
     rSequence mod = NULL;
-    RNATIVESTR path = NULL;
+    RPNCHAR path = NULL;
 
     entries = processLib_getProcessEntries( TRUE );
 
@@ -252,7 +252,7 @@ void
     rSequence handle = NULL;
     RU32 nHandles = 0;
     RU32 nNamedHandles = 0;
-    RNATIVESTR handleName = NULL;
+    RPNCHAR handleName = NULL;
 
     handles = processLib_getHandles( 0, FALSE, NULL );
 

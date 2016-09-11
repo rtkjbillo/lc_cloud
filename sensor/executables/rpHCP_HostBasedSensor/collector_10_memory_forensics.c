@@ -327,8 +327,8 @@ RVOID
     rSequence modEntry = NULL;
     rSequence memEntry = NULL;
 
-    RNATIVESTR tmpModName = NULL;
-    RNATIVESTR tmpModPath = NULL;
+    RPNCHAR tmpModName = NULL;
+    RPNCHAR tmpModPath = NULL;
     RU64 memStart = 0;
     RU64 memSize = 0;
     RU64 modStart = 0;
@@ -498,7 +498,7 @@ RVOID
         rSequence event
     )
 {
-    RNATIVESTR needle = NULL;
+    RPNCHAR needle = NULL;
     rList handleList;
 
     UNREFERENCED_PARAMETER( eventType );

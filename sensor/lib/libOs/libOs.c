@@ -89,7 +89,7 @@ static
 RBOOL
     libOs_getFileSignature
     (
-        RNATIVESTR   pwfilePath,
+        RPNCHAR   pwfilePath,
         rSequence signature,
         RU32      operation,
         RBOOL*    pIsSigned,
@@ -107,7 +107,7 @@ RBOOL
 {
     RBOOL isLoaded = FALSE;
 
-    RWCHAR importCrypt32[] = RNATIVE_LITERAL( "crypt32.dll" );
+    RWCHAR importCrypt32[] = _NC( "crypt32.dll" );
     RCHAR import1[] = "CertNameToStrA";
     RCHAR import2[] = "CertFreeCertificateChainEngine";
     RCHAR import3[] = "CertFreeCertificateChain";
@@ -153,7 +153,7 @@ RBOOL
 {
     RBOOL isLoaded = FALSE;
 
-    RWCHAR importLibWintrust[] = RNATIVE_LITERAL( "wintrust.dll" );
+    RWCHAR importLibWintrust[] = _NC( "wintrust.dll" );
     RCHAR import1[] = "WinVerifyTrust";
     RCHAR import2[] = "WTHelperGetProvSignerFromChain";
     RCHAR import3[] = "WTHelperProvDataFromStateData";
@@ -983,7 +983,7 @@ static
 RBOOL
     libOs_getFileSignature
     (
-        RNATIVESTR pwfilePath,
+        RPNCHAR pwfilePath,
         rSequence  signature,
         RU32       operation,
         RBOOL*     pIsSigned,
@@ -1081,7 +1081,7 @@ RBOOL
 RBOOL
     libOs_getSignature
     (
-        RNATIVESTR  pwfilePath,
+        RPNCHAR  pwfilePath,
         rSequence* signature,
         RU32       operation,
         RBOOL*     pIsSigned,
@@ -1090,7 +1090,7 @@ RBOOL
     )
 {
     RBOOL isSucceed = FALSE;
-    RNATIVESTR tmpPath = NULL;
+    RPNCHAR tmpPath = NULL;
 
     if( NULL != signature &&
         NULL != pIsSigned  &&
@@ -2035,8 +2035,8 @@ static
 RBOOL
     _thorough_file_hash
     (
-        RNATIVESTR filePath,
-        RNATIVESTR* pEffectivePath,
+        RPNCHAR filePath,
+        RPNCHAR* pEffectivePath,
         CryptoLib_Hash* pHash
     )
 {
@@ -2225,10 +2225,10 @@ RVOID
     )
 {
     rSequence svcEntry = NULL;
-    RNATIVESTR entryDll = NULL;
-    RNATIVESTR entryExe = NULL;
+    RPNCHAR entryDll = NULL;
+    RPNCHAR entryExe = NULL;
     CryptoLib_Hash hash = { 0 };
-    RNATIVESTR effective = NULL;
+    RPNCHAR effective = NULL;
 
     while( rList_getSEQUENCE( svcList, RP_TAGS_SVC, &svcEntry ) )
     {
@@ -2378,7 +2378,7 @@ rList
 
     if( NULL != ( services = rList_new( RP_TAGS_SVC, RPCM_SEQUENCE ) ) )
     {
-        if( NULL != ( hCrawl = rpal_file_crawlStart( rootDir, (RNATIVESTR*)&fileExp, 0 ) ) )
+        if( NULL != ( hCrawl = rpal_file_crawlStart( rootDir, (RPNCHAR*)&fileExp, 0 ) ) )
         {
             while( rpal_file_crawlNextFile( hCrawl, &fileInfo ) )
             {
@@ -2457,7 +2457,7 @@ RVOID
     )
 {
     rSequence autoEntry = NULL;
-    RNATIVESTR entryExe = NULL;
+    RPNCHAR entryExe = NULL;
     CryptoLib_Hash hash = { 0 };
 
     while( rList_getSEQUENCE( autoList, RP_TAGS_AUTORUN, &autoEntry ) )

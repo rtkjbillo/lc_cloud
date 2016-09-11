@@ -139,7 +139,7 @@ RBOOL
 RBOOL 
     rpal_string_isprint 
     (
-        RNATIVECHAR ch
+        RNCHAR ch
     )
 {
 #ifdef RNATIVE_IS_WIDE
@@ -152,7 +152,7 @@ RBOOL
 RU8
     rpal_string_str_to_byte
     (
-        RNATIVESTR str
+        RPNCHAR str
     )
 {
     RU8 b = 0;
@@ -170,7 +170,7 @@ RVOID
     rpal_string_byte_to_str
     (
         RU8 b,
-        RNATIVECHAR c[ 2 ]
+        RNCHAR c[ 2 ]
     )
 {
     c[ 0 ] = _byteToHexRef[ (b & 0xF0) >> 4 ];
@@ -232,7 +232,7 @@ RU32
 RU32
     rpal_string_strlen
     (
-        RNATIVESTR str
+        RPNCHAR str
     )
 {
 #ifdef RNATIVE_IS_WIDE
@@ -277,14 +277,14 @@ RU32
 RU32
     rpal_string_strsize
     (
-        RNATIVESTR str
+        RPNCHAR str
     )
 {
     RU32 size = 0;
 
     if( NULL != str )
     {
-        size = (RU32)( rpal_string_strlen( str ) + 1 ) * sizeof( RNATIVECHAR );
+        size = (RU32)( rpal_string_strlen( str ) + 1 ) * sizeof( RNCHAR );
     }
 
     return size;
@@ -420,8 +420,8 @@ RBOOL
 RBOOL
     rpal_string_expand
     (
-        RNATIVESTR  str,
-        RNATIVESTR*  outStr
+        RPNCHAR  str,
+        RPNCHAR*  outStr
     )
 {
 #ifdef RNATIVE_IS_WIDE
@@ -570,7 +570,7 @@ RPCHAR
 }
 
 
-RNATIVESTR
+RPNCHAR
     rpal_string_wton
     (
         RPWCHAR str
@@ -583,7 +583,7 @@ RNATIVESTR
 #endif
 }
 
-RNATIVESTR
+RPNCHAR
     rpal_string_aton
     (
         RPCHAR str
@@ -599,7 +599,7 @@ RNATIVESTR
 RPWCHAR
     rpal_string_ntow
     (
-        RNATIVESTR str
+        RPNCHAR str
     )
 {
 #ifdef RNATIVE_IS_WIDE
@@ -612,7 +612,7 @@ RPWCHAR
 RPCHAR
     rpal_string_ntoa
     (
-        RNATIVESTR str
+        RPNCHAR str
     )
 {
 #ifdef RNATIVE_IS_WIDE
@@ -622,22 +622,22 @@ RPCHAR
 #endif
 }
 
-RNATIVESTR
+RPNCHAR
     rpal_string_strcat
     (
-        RNATIVESTR str,
-        RNATIVESTR toAdd
+        RPNCHAR str,
+        RPNCHAR toAdd
     )
 {
-    RNATIVESTR out = NULL;
+    RPNCHAR out = NULL;
     RU32 originalSize = 0;
     RU32 toAddSize = 0;
 
     if( NULL != str &&
         NULL != toAdd )
     {
-        originalSize = rpal_string_strlen( str ) * sizeof( RNATIVECHAR );
-        toAddSize = rpal_string_strlen( toAdd ) * sizeof( RNATIVECHAR );
+        originalSize = rpal_string_strlen( str ) * sizeof( RNCHAR );
+        toAddSize = rpal_string_strlen( toAdd ) * sizeof( RNCHAR );
         
 #if defined( RPAL_PLATFORM_LINUX ) || defined( RPAL_PLATFORM_MACOSX )
         // glibc is broken on unaligned strings so we must
@@ -661,21 +661,21 @@ RNATIVESTR
         
         if( NULL != out )
         {
-            out[ ( originalSize + toAddSize ) / sizeof( RNATIVECHAR ) ] = 0;
+            out[ ( originalSize + toAddSize ) / sizeof( RNCHAR ) ] = 0;
         }
     }
 
     return out;
 }
 
-RNATIVESTR
+RPNCHAR
     rpal_string_strstr
     (
-        RNATIVESTR haystack,
-        RNATIVESTR needle
+        RPNCHAR haystack,
+        RPNCHAR needle
     )
 {
-    RNATIVESTR out = NULL;
+    RPNCHAR out = NULL;
 
     if( NULL != haystack &&
         NULL != needle )
@@ -693,16 +693,16 @@ RNATIVESTR
     return out;
 }
 
-RNATIVESTR
+RPNCHAR
     rpal_string_stristr
     (
-        RNATIVESTR haystack,
-        RNATIVESTR needle
+        RPNCHAR haystack,
+        RPNCHAR needle
     )
 {
-    RNATIVESTR out = NULL;
-    RNATIVESTR tmpHaystack = NULL;
-    RNATIVESTR tmpNeedle = NULL;
+    RPNCHAR out = NULL;
+    RPNCHAR tmpHaystack = NULL;
+    RPNCHAR tmpNeedle = NULL;
 
     if( NULL != haystack &&
         NULL != needle )
@@ -738,11 +738,11 @@ RNATIVESTR
     return out;
 }
 
-RNATIVESTR
+RPNCHAR
     rpal_string_itos
     (
         RU32 num,
-        RNATIVESTR outBuff,
+        RPNCHAR outBuff,
         RU32 radix
     )
 {
@@ -818,10 +818,10 @@ RPCHAR
     return out;
 }
 
-RNATIVESTR
+RPNCHAR
     rpal_string_strdup
     (
-        RNATIVESTR str
+        RPNCHAR str
     )
 {
 #ifdef RNATIVE_IS_WIDE
@@ -1086,8 +1086,8 @@ RBOOL
 RBOOL
     rpal_string_match
     (
-        RNATIVESTR pattern,
-        RNATIVESTR str,
+        RPNCHAR pattern,
+        RPNCHAR str,
         RBOOL isCaseSensitive
     )
 {
@@ -1098,20 +1098,20 @@ RBOOL
 #endif
 }
 
-RNATIVESTR
+RPNCHAR
     rpal_string_strcatEx
     (
-        RNATIVESTR strToExpand,
-        RNATIVESTR strToCat
+        RPNCHAR strToExpand,
+        RPNCHAR strToCat
     )
 {
-    RNATIVESTR res = NULL;
+    RPNCHAR res = NULL;
     RU32 finalSize = 0;
 
     if( NULL != strToCat )
     {
         finalSize = ( rpal_string_strlen( strToExpand ) + 
-                      rpal_string_strlen( strToCat ) + 1 ) * sizeof( RNATIVECHAR );
+                      rpal_string_strlen( strToCat ) + 1 ) * sizeof( RNCHAR );
 
         strToExpand = rpal_memory_realloc( strToExpand, finalSize );
 
@@ -1129,15 +1129,15 @@ RNATIVESTR
     return res;
 }
 
-RNATIVESTR
+RPNCHAR
     rpal_string_strtok
     (
-        RNATIVESTR str,
-        RNATIVECHAR token,
-        RNATIVESTR* state
+        RPNCHAR str,
+        RNCHAR token,
+        RPNCHAR* state
     )
 {
-    RNATIVESTR nextToken = NULL;
+    RPNCHAR nextToken = NULL;
 
     if( NULL != state &&
         LOGICAL_XOR( NULL == str, NULL == *state ) )
@@ -1213,8 +1213,8 @@ RS32
 RS32
     rpal_string_strcmp
     (
-        RNATIVESTR str1,
-        RNATIVESTR str2
+        RPNCHAR str1,
+        RPNCHAR str2
     )
 {
     RS32 res = (-1);
@@ -1236,8 +1236,8 @@ RS32
 RS32
     rpal_string_stricmp
     (
-        RNATIVESTR str1,
-        RNATIVESTR str2
+        RPNCHAR str1,
+        RPNCHAR str2
     )
 {
     RS32 res = (-1);
@@ -1256,13 +1256,13 @@ RS32
     return res;
 }
 
-RNATIVESTR
+RPNCHAR
     rpal_string_toupper
     (
-        RNATIVESTR str
+        RPNCHAR str
     )
 {
-    RNATIVESTR ret = NULL;
+    RPNCHAR ret = NULL;
 
     if( NULL != str )
     {
@@ -1311,13 +1311,13 @@ RPCHAR
 }
 
 
-RNATIVESTR
+RPNCHAR
     rpal_string_tolower
     (
-        RNATIVESTR str
+        RPNCHAR str
     )
 {
-    RNATIVESTR ret = NULL;
+    RPNCHAR ret = NULL;
 
     if( NULL != str )
     {
@@ -1331,14 +1331,14 @@ RNATIVESTR
     return ret;
 }
 
-RNATIVESTR
+RPNCHAR
     rpal_string_strcpy
     (
-        RNATIVESTR dst,
-        RNATIVESTR src
+        RPNCHAR dst,
+        RPNCHAR src
     )
 {
-    RNATIVESTR res = NULL;
+    RPNCHAR res = NULL;
 
     if( NULL != dst &&
         NULL != src )
@@ -1361,12 +1361,12 @@ RNATIVESTR
 RBOOL
     rpal_string_stoi
     (
-        RNATIVESTR str,
+        RPNCHAR str,
         RU32* pNum
     )
 {
     RBOOL isSuccess = FALSE;
-    RNATIVESTR tmp = 0;
+    RPNCHAR tmp = 0;
 
     if( NULL != str &&
         NULL != pNum )
@@ -1391,9 +1391,9 @@ RPAL_PLATFORM_TODO(Confirm GLIBC doesnt break this with optimizations)
 RBOOL
     rpal_string_fill
     (
-        RNATIVESTR str,
+        RPNCHAR str,
         RU32 nChar,
-        RNATIVECHAR fillWith
+        RNCHAR fillWith
     )
 {
     RBOOL isFilledSomething = FALSE;
@@ -1417,8 +1417,8 @@ RBOOL
 RBOOL
     rpal_string_startswith
     (
-        RNATIVESTR haystack,
-        RNATIVESTR needle
+        RPNCHAR haystack,
+        RPNCHAR needle
     )
 {
     RBOOL isStartsWith = FALSE;
@@ -1426,7 +1426,7 @@ RBOOL
     if( NULL != haystack &&
         NULL != needle )
     {
-        if( 0 == rpal_memory_memcmp( haystack, needle, rpal_string_strlen( needle ) * sizeof( RNATIVECHAR ) ) )
+        if( 0 == rpal_memory_memcmp( haystack, needle, rpal_string_strlen( needle ) * sizeof( RNCHAR ) ) )
         {
             isStartsWith = TRUE;
         }
@@ -1438,14 +1438,14 @@ RBOOL
 RBOOL
     rpal_string_startswithi
     (
-        RNATIVESTR haystack,
-        RNATIVESTR needle
+        RPNCHAR haystack,
+        RPNCHAR needle
     )
 {
     RBOOL isStartsWith = FALSE;
     
-    RNATIVESTR tmpHaystack = NULL;
-    RNATIVESTR tmpNeedle = NULL;
+    RPNCHAR tmpHaystack = NULL;
+    RPNCHAR tmpNeedle = NULL;
     
     if( NULL != haystack &&
         NULL != needle )
@@ -1457,7 +1457,7 @@ RBOOL
                 tmpHaystack = rpal_string_tolower( tmpHaystack );
                 tmpNeedle = rpal_string_tolower( tmpNeedle );
                 
-                if( 0 == rpal_memory_memcmp( tmpHaystack, tmpNeedle, rpal_string_strlen( tmpNeedle ) * sizeof( RNATIVECHAR ) ) )
+                if( 0 == rpal_memory_memcmp( tmpHaystack, tmpNeedle, rpal_string_strlen( tmpNeedle ) * sizeof( RNCHAR ) ) )
                 {
                     isStartsWith = TRUE;
                 }
@@ -1475,8 +1475,8 @@ RBOOL
 RBOOL
     rpal_string_endswith
     (
-        RNATIVESTR haystack,
-        RNATIVESTR needle
+        RPNCHAR haystack,
+        RPNCHAR needle
     )
 {
     RBOOL isEndsWith = FALSE;
@@ -1487,7 +1487,7 @@ RBOOL
         if( 0 == rpal_memory_memcmp( haystack + rpal_string_strlen( haystack ) - 
                                                 rpal_string_strlen( needle ), 
                                      needle, 
-                                     rpal_string_strlen( needle ) * sizeof( RNATIVECHAR ) ) )
+                                     rpal_string_strlen( needle ) * sizeof( RNCHAR ) ) )
         {
             isEndsWith = TRUE;
         }
@@ -1499,8 +1499,8 @@ RBOOL
 RBOOL
     rpal_string_trim
     (
-        RNATIVESTR str,
-        RNATIVESTR charsToTrim
+        RPNCHAR str,
+        RPNCHAR charsToTrim
     )
 {
     RBOOL isSomethingTrimmed = FALSE;
@@ -1542,7 +1542,7 @@ RBOOL
 RBOOL
     rpal_string_charIsAscii
     (
-        RNATIVECHAR c
+        RNCHAR c
     )
 {
     RBOOL isAscii = FALSE;
@@ -1559,7 +1559,7 @@ RBOOL
 RBOOL
     rpal_string_charIsAlphaNum
     (
-        RNATIVECHAR c
+        RNCHAR c
     )
 {
     RBOOL isAlphaNum = FALSE;
@@ -1577,7 +1577,7 @@ RBOOL
 RBOOL
     rpal_string_charIsAlpha
     (
-        RNATIVECHAR c
+        RNCHAR c
     )
 {
     RBOOL isAlpha = FALSE;
@@ -1594,7 +1594,7 @@ RBOOL
 RBOOL
     rpal_string_charIsNum
     (
-        RNATIVECHAR c
+        RNCHAR c
     )
 {
     RBOOL isNum = FALSE;
@@ -1675,7 +1675,7 @@ RBOOL
 RBOOL
     rpal_string_charIsUpper
     (
-        RNATIVECHAR c
+        RNCHAR c
     )
 {
     RBOOL isUpper = FALSE;
@@ -1692,7 +1692,7 @@ RBOOL
 RBOOL
     rpal_string_charIsLower
     (
-        RNATIVECHAR c
+        RNCHAR c
     )
 {
     RBOOL isLower = FALSE;
@@ -1741,10 +1741,10 @@ RCHAR
     return (RCHAR)towupper( c );
 }
 
-RNATIVECHAR
+RNCHAR
     rpal_string_charToUpper
     (
-        RNATIVECHAR c
+        RNCHAR c
     )
 {
 #ifdef RNATIVE_IS_WIDE
@@ -1754,10 +1754,10 @@ RNATIVECHAR
 #endif
 }
 
-RNATIVECHAR
+RNCHAR
     rpal_string_charToLower
     (
-        RNATIVECHAR c
+        RNCHAR c
     )
 {
 #ifdef RNATIVE_IS_WIDE

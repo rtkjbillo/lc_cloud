@@ -134,7 +134,7 @@ RBOOL
 * @param   HObs    hObs
 *   The handle of the obs object to add to
 *
-* @param   RNATIVESTR  strPattern
+* @param   RPNCHAR  strPattern
 *   Pointer to the byte sequence to add (buffer)
 *
 * @param   RBOOL   isIncludeNullEnding
@@ -155,7 +155,7 @@ RBOOL
     obsLib_addStringPatternN
     (
         HObs hObs,
-        RNATIVESTR strPattern,
+        RPNCHAR strPattern,
         RBOOL isIncludeNullEnding,
         RBOOL isCaseInsensitive,
         RPVOID context

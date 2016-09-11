@@ -78,8 +78,8 @@ void
 	    rSequence signature  
 	)
 {
-	RNATIVESTR strBuffer = NULL;
-	RNATIVESTR wStrBuffer = NULL;
+	RPNCHAR strBuffer = NULL;
+	RPNCHAR wStrBuffer = NULL;
 	RU32   signatureStatus = 0;
 	RU32   byteBufferSize = 0;
 	RU8*   byteBuffer = NULL;
@@ -159,7 +159,7 @@ void
 {
     rList svcs = NULL;
     rSequence svc = NULL;
-    RNATIVESTR svcName = NULL;
+    RPNCHAR svcName = NULL;
 
     svcs = libOs_getServices( TRUE );
 

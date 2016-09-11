@@ -71,18 +71,18 @@ RVOID
         RPWCHAR* argv
     )
 {
-    RNATIVECHAR argFlag = 0;
-    RNATIVESTR argVal = NULL;
+    RNCHAR argFlag = 0;
+    RPNCHAR argVal = NULL;
     RU32 conf = 0;
-    RNATIVESTR primary = NULL;
-    RNATIVESTR secondary = NULL;
+    RPNCHAR primary = NULL;
+    RPNCHAR secondary = NULL;
     RU32 memUsed = 0;
 
-    rpal_opt switches[] = { { RNATIVE_LITERAL( 'h' ), RNATIVE_LITERAL( "help" ), FALSE },
-                            { RNATIVE_LITERAL( 'c' ), RNATIVE_LITERAL( "config" ), TRUE },
-                            { RNATIVE_LITERAL( 'p' ), RNATIVE_LITERAL( "primary" ), TRUE },
-                            { RNATIVE_LITERAL( 's' ), RNATIVE_LITERAL( "secondary" ), TRUE },
-                            { RNATIVE_LITERAL( 'm' ), RNATIVE_LITERAL( "manual" ), TRUE } };
+    rpal_opt switches[] = { { _NC( 'h' ), _NC( "help" ), FALSE },
+                            { _NC( 'c' ), _NC( "config" ), TRUE },
+                            { _NC( 'p' ), _NC( "primary" ), TRUE },
+                            { _NC( 's' ), _NC( "secondary" ), TRUE },
+                            { _NC( 'm' ), _NC( "manual" ), TRUE } };
 
     ServiceStatus.dwServiceType = SERVICE_WIN32_SHARE_PROCESS;
     ServiceStatus.dwCurrentState = SERVICE_START_PENDING;
@@ -111,21 +111,21 @@ RVOID
             {
                 switch( argFlag )
                 {
-                    case RNATIVE_LITERAL( 'c' ):
+                    case _NC( 'c' ):
                         if( rpal_string_stoi( argVal, &conf ) && ( ( conf & 0xFF ) == conf ) )
                         {
                             rpal_debug_info( "Setting config id: %d.", (RU8)conf );
                         }
                         break;
-                    case RNATIVE_LITERAL( 'p' ):
+                    case _NC( 'p' ):
                         primary = argVal;
                         rpal_debug_info( "Setting primary URL: %s.", primary );
                         break;
-                    case RNATIVE_LITERAL( 's' ):
+                    case _NC( 's' ):
                         secondary = argVal;
                         rpal_debug_info( "Setting secondary URL: %s.", secondary );
                         break;
-                    case RNATIVE_LITERAL( 'h' ):
+                    case _NC( 'h' ):
                     default:
     #ifdef RPAL_PLATFORM_DEBUG
                         printf( "Usage: %s [ -c configId ] [ -p primaryHomeUrl ] [ -s secondaryHomeUrl ] [ -m moduleToLoad ] [ -h ].", argv[ 0 ] );

@@ -32,7 +32,7 @@ RBOOL
 {
     RBOOL isEnhanced = FALSE;
 
-    RNATIVESTR filePath = NULL;
+    RPNCHAR filePath = NULL;
     rFileInfo finfo = { 0 };
 
     if( NULL != info )
@@ -73,7 +73,7 @@ RVOID
         rSequence event
     )
 {
-    RNATIVESTR filePath = NULL;
+    RPNCHAR filePath = NULL;
     RU8 flag = 0;
     RBOOL isAvoidTimeStamps = TRUE;
     RPU8 fileBuffer = NULL;
@@ -134,7 +134,7 @@ RVOID
         rSequence event
     )
 {
-    RNATIVESTR filePath = NULL;
+    RPNCHAR filePath = NULL;
     RU8 flag = 0;
     RBOOL isSafeDelete = FALSE;
     UNREFERENCED_PARAMETER( eventType );
@@ -169,8 +169,8 @@ RVOID
         rSequence event
     )
 {
-    RNATIVESTR filePathFrom = NULL;
-    RNATIVESTR filePathTo = NULL;
+    RPNCHAR filePathFrom = NULL;
+    RPNCHAR filePathTo = NULL;
     UNREFERENCED_PARAMETER( eventType );
 
     if( rpal_memory_isValid( event ) )
@@ -199,7 +199,7 @@ RVOID
         rSequence event
     )
 {
-    RNATIVESTR filePath = NULL;
+    RPNCHAR filePath = NULL;
     CryptoLib_Hash hash = { 0 };
     RU8 flag = 0;
     RBOOL isAvoidTimeStamps = TRUE;
@@ -259,8 +259,8 @@ RVOID
         rSequence event
     )
 {
-    RNATIVESTR filePath = NULL;
-    RNATIVESTR fileSpec[] = { NULL, NULL };
+    RPNCHAR filePath = NULL;
+    RPNCHAR fileSpec[] = { NULL, NULL };
     rDirCrawl hDir = NULL;
     rFileInfo finfo = { 0 };
     rList entries = NULL;

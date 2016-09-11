@@ -85,9 +85,9 @@ void
 static SERVICE_STATUS g_svc_status = { 0 };
 static SERVICE_STATUS_HANDLE g_svc_status_handle = NULL;
 static RU8 g_svc_conf = 0;
-static RNATIVESTR g_svc_primary = NULL;
-static RNATIVESTR g_svc_secondary = NULL;
-static RNATIVESTR g_svc_mod = NULL;
+static RPNCHAR g_svc_primary = NULL;
+static RPNCHAR g_svc_secondary = NULL;
+static RPNCHAR g_svc_mod = NULL;
 static RU32 g_svc_mod_id = 0;
 
 static
@@ -395,53 +395,53 @@ VOID WINAPI
 
 RPAL_NATIVE_MAIN
 {
-    RNATIVECHAR argFlag = 0;
-    RNATIVESTR argVal = NULL;
+    RNCHAR argFlag = 0;
+    RPNCHAR argVal = NULL;
     RU32 conf = 0;
-    RNATIVESTR primary = NULL;
-    RNATIVESTR secondary = NULL;
-    RNATIVESTR tmpMod = NULL;
+    RPNCHAR primary = NULL;
+    RPNCHAR secondary = NULL;
+    RPNCHAR tmpMod = NULL;
     RU32 tmpModId = 0;
     RU32 memUsed = 0;
     RBOOL asService = FALSE;
 
-    rpal_opt switches[] = { { RNATIVE_LITERAL( 'h' ), RNATIVE_LITERAL( "help" ), FALSE },
-                            { RNATIVE_LITERAL( 'c' ), RNATIVE_LITERAL( "config" ), TRUE },
-                            { RNATIVE_LITERAL( 'p' ), RNATIVE_LITERAL( "primary" ), TRUE },
-                            { RNATIVE_LITERAL( 's' ), RNATIVE_LITERAL( "secondary" ), TRUE },
-                            { RNATIVE_LITERAL( 'm' ), RNATIVE_LITERAL( "manual" ), TRUE },
-                            { RNATIVE_LITERAL( 'n' ), RNATIVE_LITERAL( "moduleId" ), TRUE }
+    rpal_opt switches[] = { { _NC( 'h' ), _NC( "help" ), FALSE },
+                            { _NC( 'c' ), _NC( "config" ), TRUE },
+                            { _NC( 'p' ), _NC( "primary" ), TRUE },
+                            { _NC( 's' ), _NC( "secondary" ), TRUE },
+                            { _NC( 'm' ), _NC( "manual" ), TRUE },
+                            { _NC( 'n' ), _NC( "moduleId" ), TRUE }
 #ifdef RPAL_PLATFORM_WINDOWS
                             ,
-                            { RNATIVE_LITERAL( 'i' ), RNATIVE_LITERAL( "install" ), FALSE },
-                            { RNATIVE_LITERAL( 'r' ), RNATIVE_LITERAL( "uninstall" ), FALSE },
-                            { RNATIVE_LITERAL( 'w' ), RNATIVE_LITERAL( "service" ), FALSE }
+                            { _NC( 'i' ), _NC( "install" ), FALSE },
+                            { _NC( 'r' ), _NC( "uninstall" ), FALSE },
+                            { _NC( 'w' ), _NC( "service" ), FALSE }
 #endif
                           };
 
     if( rpal_initialize( NULL, 0 ) )
     {
-        while( (RNATIVECHAR)-1 != ( argFlag = rpal_getopt( argc, argv, switches, &argVal ) ) )
+        while( (RNCHAR)-1 != ( argFlag = rpal_getopt( argc, argv, switches, &argVal ) ) )
         {
             switch( argFlag )
             {
-                case RNATIVE_LITERAL( 'c' ):
+                case _NC( 'c' ):
                     rpal_string_stoi( argVal, &conf );
                     rpal_debug_info( "Setting config id: %d.", conf );
                     break;
-                case RNATIVE_LITERAL( 'p' ):
+                case _NC( 'p' ):
                     primary = argVal;
                     rpal_debug_info( "Setting primary URL: %s.", primary );
                     break;
-                case RNATIVE_LITERAL( 's' ):
+                case _NC( 's' ):
                     secondary = argVal;
                     rpal_debug_info( "Setting secondary URL: %s.", secondary );
                     break;
-                case RNATIVE_LITERAL( 'm' ):
+                case _NC( 'm' ):
                     tmpMod = rpal_string_strdup( argVal );
                     rpal_debug_info( "Manually loading module: %s.", argVal );
                     break;
-                case RNATIVE_LITERAL( 'n' ):
+                case _NC( 'n' ):
                     if( rpal_string_stoi( argVal, &tmpModId ) )
                     {
                         rpal_debug_info( "Manually loaded module id is: %d", tmpModId );
@@ -452,17 +452,17 @@ RPAL_NATIVE_MAIN
                     }
                     break;
 #ifdef RPAL_PLATFORM_WINDOWS
-                case RNATIVE_LITERAL( 'i' ):
+                case _NC( 'i' ):
                     return installService();
                     break;
-                case RNATIVE_LITERAL( 'r' ):
+                case _NC( 'r' ):
                     return uninstallService();
                     break;
-                case RNATIVE_LITERAL( 'w' ):
+                case _NC( 'w' ):
                     asService = TRUE;
                     break;
 #endif
-                case RNATIVE_LITERAL( 'h' ):
+                case _NC( 'h' ):
                 default:
 #ifdef RPAL_PLATFORM_DEBUG
                     printf( "Usage: %s [ -c configId ] [ -p primaryHomeUrl ] [ -s secondaryHomeUrl ] [ -m moduleToLoad ] [ -h ].\n", argv[ 0 ] );

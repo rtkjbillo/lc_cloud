@@ -16,21 +16,21 @@ limitations under the License.
 
 #include <rpal/rpal_getopt.h>
 
-#define DASH RNATIVE_LITERAL( '-' )
+#define DASH _NC( '-' )
 
-RNATIVECHAR 
+RNCHAR 
     rpal_getopt
     (
         RS32 argc, 
-        RNATIVESTR* argv, 
+        RPNCHAR* argv, 
         rpal_opt opts[],
-        RNATIVESTR* pArgVal
+        RPNCHAR* pArgVal
     )
 {
     static RS32 optind = 1;
-    RNATIVECHAR nCmd = 0;
-    RNATIVESTR pLongCmd = NULL;
-    RNATIVECHAR retVal = (RNATIVECHAR)-1;
+    RNCHAR nCmd = 0;
+    RPNCHAR pLongCmd = NULL;
+    RNCHAR retVal = (RNCHAR)-1;
     rpal_opt* pOpt = NULL;
     
     if( NULL != argv &&
@@ -73,7 +73,7 @@ RNATIVECHAR
                         retVal = pOpt->shortSwitch;
                     }
 
-                    if( (RNATIVECHAR)-1 != retVal )
+                    if( (RNCHAR)-1 != retVal )
                     {
                         if( !pOpt->hasArgument )
                         {
@@ -87,7 +87,7 @@ RNATIVECHAR
                         }
                         else
                         {
-                            retVal = (RNATIVECHAR)-1;
+                            retVal = (RNCHAR)-1;
                             *pArgVal = NULL;
                             optind++;
                         }

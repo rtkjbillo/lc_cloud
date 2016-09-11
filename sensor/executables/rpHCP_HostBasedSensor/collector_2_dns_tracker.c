@@ -38,7 +38,7 @@ typedef struct
     RU16 type;
     RU16 unused;
     RU32 flags;
-    RNATIVESTR name;
+    RPNCHAR name;
 
 } _dnsRecord;
 

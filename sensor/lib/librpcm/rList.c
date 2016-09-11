@@ -176,7 +176,7 @@ RBOOL
     rList_addSTRINGN
     (
         rList list,
-        RNATIVESTR string
+        RPNCHAR string
     )
 {
     return rList_addElement( list, RPCM_STRINGN, string, sizeof( string ) );
@@ -432,7 +432,7 @@ RBOOL
     (
         rList list,
         rpcm_tag tag,
-        RNATIVESTR* pVal
+        RPNCHAR* pVal
     )
 {
     rpcm_type type = RPCM_STRINGN;

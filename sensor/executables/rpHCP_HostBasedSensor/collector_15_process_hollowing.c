@@ -159,7 +159,7 @@ static
 HObs
     _getModuleDiskStringSample
     (
-        RNATIVESTR modulePath,
+        RPNCHAR modulePath,
         RU32* pLastScratch,
         rEvent isTimeToStop,
         LibOsPerformanceProfile* perfProfile
@@ -333,7 +333,7 @@ rList
 
     rList modules = NULL;
     rSequence module = NULL;
-    RNATIVESTR modulePath = NULL;
+    RPNCHAR modulePath = NULL;
     RU32 fileSize = 0;
     RU64 moduleBase = 0;
     RU64 moduleSize = 0;

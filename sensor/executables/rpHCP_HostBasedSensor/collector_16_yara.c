@@ -533,7 +533,7 @@ RPVOID
 {
     rSequence event = NULL;
     RU32 timeout = 0;
-    RNATIVESTR pathN = NULL;
+    RPNCHAR pathN = NULL;
     RPCHAR pathA = NULL;
     YaraMatchContext matchContext = { 0 };
     RU32 scanError = 0;
@@ -645,7 +645,7 @@ RVOID
 {
     RU32 pid = 0;
     RPCHAR fileA = NULL;
-    RNATIVESTR procN = NULL;
+    RPNCHAR procN = NULL;
 
     RPWCHAR fileW = NULL;
     RPWCHAR procW = NULL;
@@ -658,7 +658,7 @@ RVOID
     processLibProcEntry* curProc = NULL;
     RU32 scanError = 0;
     rSequence processInfo = NULL;
-    RNATIVESTR tmpN = NULL;
+    RPNCHAR tmpN = NULL;
 
     UNREFERENCED_PARAMETER( eventType );
 

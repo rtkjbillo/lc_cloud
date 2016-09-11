@@ -37,7 +37,7 @@ static rMutex g_cacheMutex = NULL;
 
 typedef struct
 {
-    RNATIVESTR expr;
+    RPNCHAR expr;
     CryptoLib_Hash* pHash;
 
 } DocSearchContext;
@@ -61,7 +61,7 @@ RVOID
         rSequence notif
     )
 {
-    RNATIVESTR fileN = NULL;
+    RPNCHAR fileN = NULL;
     RPU8 fileContent = NULL;
     RU32 fileSize = 0;
     CryptoLib_Hash hash = { 0 };
@@ -76,7 +76,7 @@ RVOID
         if( rSequence_getSTRINGN( notif, RP_TAGS_FILE_PATH, &fileN ) &&
             obsLib_setTargetBuffer( g_matcher,
                                     fileN, 
-                                    ( rpal_string_strlen( fileN ) + 1 ) * sizeof( RNATIVECHAR ) ) &&
+                                    ( rpal_string_strlen( fileN ) + 1 ) * sizeof( RNCHAR ) ) &&
             obsLib_nextHit( g_matcher, NULL, NULL ) )
         {
             // This means it's a file of interest.
@@ -167,7 +167,7 @@ RBOOL
     )
 {
     RBOOL isMatch = FALSE;
-    RNATIVESTR filePathN = NULL;
+    RPNCHAR filePathN = NULL;
     RPCHAR tmpA = NULL;
     RPWCHAR tmpW = NULL;
     CryptoLib_Hash* pHash = NULL;
@@ -271,13 +271,13 @@ RBOOL
     _addPattern
     (
         HObs matcher,
-        RNATIVESTR pattern,
+        RPNCHAR pattern,
         RBOOL isSuffix
     )
 {
     RBOOL isSuccess = FALSE;
     RBOOL isCaseInsensitive = FALSE;
-    RNATIVESTR tmpN = NULL;
+    RPNCHAR tmpN = NULL;
 #ifdef RPAL_PLATFORM_WINDOWS
     // On Windows files and paths are not case sensitive.
     isCaseInsensitive = TRUE;
@@ -311,7 +311,7 @@ RBOOL
     rList patterns = NULL;
     RPCHAR strA = NULL;
     RPWCHAR strW = NULL;
-    RNATIVESTR tmpN = NULL;
+    RPNCHAR tmpN = NULL;
     RU32 maxSize = 0;
 
     if( NULL != hbsState )
@@ -339,7 +339,7 @@ RBOOL
                     if( NULL == config )
                     {
                         // As a default we'll cache all new files
-                        obsLib_addPattern( g_matcher, (RPU8)RNATIVE_LITERAL( "" ), sizeof( RNATIVECHAR ), NULL );
+                        obsLib_addPattern( g_matcher, (RPU8)_NC( "" ), sizeof( RNCHAR ), NULL );
                     }
                     else
                     {

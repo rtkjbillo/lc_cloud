@@ -90,9 +90,9 @@ limitations under the License.
     typedef float           RFLOAT;
     typedef double          RDOUBLE;
 
-    typedef RWCHAR          RNATIVECHAR;
-    typedef RPWCHAR         RNATIVESTR;
-    #define RNATIVE_LITERAL(str) _WCH(str)
+    typedef RWCHAR          RNCHAR;
+    typedef RPWCHAR         RPNCHAR;
+    #define _NC(str)        _WCH(str)
     #define RNATIVE_IS_WIDE
 
     // Printf format helpers
@@ -158,9 +158,9 @@ limitations under the License.
     typedef float           RFLOAT;
     typedef double          RDOUBLE;
 
-    typedef RCHAR           RNATIVECHAR;
-    typedef RPCHAR          RNATIVESTR;
-    #define RNATIVE_LITERAL(str) str
+    typedef RCHAR           RNCHAR;
+    typedef RPCHAR          RPNCHAR;
+    #define _NC(str)        str
     #define RNATIVE_IS_BYTE
 
     // Printf format helpers

@@ -1750,7 +1750,7 @@ rList
     (
         RU32 processId,
         RBOOL isOnlyReturnNamed,
-        RNATIVESTR optSubstring
+        RPNCHAR optSubstring
     )
 {
     rList handles = NULL;
@@ -2368,7 +2368,7 @@ rList
     PIMAGEHLP_SYMBOL64 pSymbol = NULL;
     RU32 symbolSize = sizeof( IMAGEHLP_SYMBOL64 ) + ( RPAL_MAX_PATH * sizeof( TCHAR ) );
 
-    RWCHAR importLib[] = { RNATIVE_LITERAL( "DbgHelp.dll" ) };
+    RWCHAR importLib[] = { _NC( "DbgHelp.dll" ) };
     RCHAR import1[] = { "SymInitialize" };
     RCHAR import2[] = { "StackWalk64" };
     RCHAR import3[] = { "SymGetSymFromAddr64" };

@@ -22,7 +22,7 @@ limitations under the License.
 RBOOL 
     rpal_string_isprint 
     (
-        RNATIVECHAR ch
+        RNCHAR ch
     );
 
 RBOOL
@@ -40,20 +40,20 @@ RBOOL
 RU8
     rpal_string_str_to_byte
     (
-        RNATIVESTR str
+        RPNCHAR str
     );
 
 RVOID
     rpal_string_byte_to_str
     (
         RU8 b,
-        RNATIVECHAR c[ 2 ]
+        RNCHAR c[ 2 ]
     );
 
 RU32
     rpal_string_strlen
     (
-        RNATIVESTR str
+        RPNCHAR str
     );
 
 RU32
@@ -71,7 +71,7 @@ RU32
 RU32
     rpal_string_strsize
     (
-        RNATIVESTR str
+        RPNCHAR str
     );
 
 
@@ -104,8 +104,8 @@ RBOOL
 RBOOL
     rpal_string_expand
     (
-        RNATIVESTR  str,
-        RNATIVESTR*  outStr
+        RPNCHAR  str,
+        RPNCHAR*  outStr
     );
 
 RPWCHAR
@@ -123,60 +123,60 @@ RPCHAR
 RPWCHAR
     rpal_string_ntow
     (
-        RNATIVESTR str
+        RPNCHAR str
     );
 
 RPCHAR
     rpal_string_ntoa
     (
-        RNATIVESTR str
+        RPNCHAR str
     );
 
-RNATIVESTR
+RPNCHAR
     rpal_string_wton
     (
         RPWCHAR str
     );
 
-RNATIVESTR
+RPNCHAR
     rpal_string_aton
     (
         RPCHAR str
     );
 
-RNATIVESTR
+RPNCHAR
     rpal_string_strcat
     (
-        RNATIVESTR str,
-        RNATIVESTR toAdd
+        RPNCHAR str,
+        RPNCHAR toAdd
     );
 
-RNATIVESTR
+RPNCHAR
     rpal_string_strstr
     (
-        RNATIVESTR haystack,
-        RNATIVESTR needle
+        RPNCHAR haystack,
+        RPNCHAR needle
     );
 
-RNATIVESTR
+RPNCHAR
     rpal_string_stristr
     (
-        RNATIVESTR haystack,
-        RNATIVESTR needle
+        RPNCHAR haystack,
+        RPNCHAR needle
     );
 
-RNATIVESTR
+RPNCHAR
     rpal_string_itos
     (
         RU32 num,
-        RNATIVESTR outBuff,
+        RPNCHAR outBuff,
         RU32 radix
     );
 
-RNATIVESTR
+RPNCHAR
     rpal_string_strdup
     (
-        RNATIVESTR str
+        RPNCHAR str
     );
 
 RPWCHAR
@@ -194,8 +194,8 @@ RPCHAR
 RBOOL
     rpal_string_match
     (
-        RNATIVESTR pattern,
-        RNATIVESTR str,
+        RPNCHAR pattern,
+        RPNCHAR str,
         RBOOL isCaseSensitive
     );
 
@@ -215,26 +215,26 @@ RBOOL
         RBOOL isCaseSensitive
     );
 
-RNATIVESTR
+RPNCHAR
     rpal_string_strcatEx
     (
-        RNATIVESTR strToExpand,
-        RNATIVESTR strToCat
+        RPNCHAR strToExpand,
+        RPNCHAR strToCat
     );
 
-RNATIVESTR
+RPNCHAR
     rpal_string_strtok
     (
-        RNATIVESTR str,
-        RNATIVECHAR token,
-        RNATIVESTR* state
+        RPNCHAR str,
+        RNCHAR token,
+        RPNCHAR* state
     );
 
 RS32
     rpal_string_strcmp
     (
-        RNATIVESTR str1,
-        RNATIVESTR str2
+        RPNCHAR str1,
+        RPNCHAR str2
     );
 
 RS32
@@ -254,20 +254,20 @@ RS32
 RS32
     rpal_string_stricmp
     (
-        RNATIVESTR str1,
-        RNATIVESTR str2
+        RPNCHAR str1,
+        RPNCHAR str2
     );
 
-RNATIVESTR
+RPNCHAR
     rpal_string_toupper
     (
-        RNATIVESTR str
+        RPNCHAR str
     );
 
-RNATIVESTR
+RPNCHAR
     rpal_string_tolower
     (
-        RNATIVESTR str
+        RPNCHAR str
     );
 
 RPWCHAR
@@ -282,89 +282,89 @@ RPCHAR
         RPCHAR str
     );
 
-RNATIVESTR
+RPNCHAR
     rpal_string_strcpy
     (
-        RNATIVESTR dst,
-        RNATIVESTR src
+        RPNCHAR dst,
+        RPNCHAR src
     );
 
 RBOOL
     rpal_string_stoi
     (
-        RNATIVESTR str,
+        RPNCHAR str,
         RU32* pNum
     );
     
 RBOOL
     rpal_string_fill
     (
-        RNATIVESTR str,
+        RPNCHAR str,
         RU32 nChar,
-        RNATIVECHAR fillWith
+        RNCHAR fillWith
     );
     
 RBOOL
     rpal_string_startswith
     (
-        RNATIVESTR haystack,
-        RNATIVESTR needle
+        RPNCHAR haystack,
+        RPNCHAR needle
     );
 RBOOL
     rpal_string_startswithi
     (
-        RNATIVESTR haystack,
-        RNATIVESTR needle
+        RPNCHAR haystack,
+        RPNCHAR needle
     );
 
 RBOOL
     rpal_string_endswith
     (
-        RNATIVESTR haystack,
-        RNATIVESTR needle
+        RPNCHAR haystack,
+        RPNCHAR needle
     );
 
 RBOOL
     rpal_string_trim
     (
-        RNATIVESTR str,
-        RNATIVESTR charsToTrim
+        RPNCHAR str,
+        RPNCHAR charsToTrim
     );
 
 RBOOL
     rpal_string_charIsAscii
     (
-        RNATIVECHAR c
+        RNCHAR c
     );
 
 RBOOL
     rpal_string_charIsAlphaNum
     (
-        RNATIVECHAR c
+        RNCHAR c
     );
 
 RBOOL
     rpal_string_charIsAlpha
     (
-        RNATIVECHAR c
+        RNCHAR c
     );
 
 RBOOL
     rpal_string_charIsNum
     (
-        RNATIVECHAR c
+        RNCHAR c
     );
 
 RBOOL
     rpal_string_charIsUpper
     (
-        RNATIVECHAR c
+        RNCHAR c
     );
 
 RBOOL
     rpal_string_charIsLower
     (
-        RNATIVECHAR c
+        RNCHAR c
     );
 
 RBOOL
@@ -391,16 +391,16 @@ RBOOL
         RCHAR c
     );
 
-RNATIVECHAR
+RNCHAR
     rpal_string_charToUpper
     (
-        RNATIVECHAR c
+        RNCHAR c
     );
 
-RNATIVECHAR
+RNCHAR
     rpal_string_charToLower
     (
-        RNATIVECHAR c
+        RNCHAR c
     );
 
 RWCHAR

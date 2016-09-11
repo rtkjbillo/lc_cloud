@@ -47,6 +47,6 @@ DECLARE_MATCH( MATCHING_PARENT_PID_REMOVE );
 //==============================================================================
 //  COMMON GENERATOR MACROS
 //==============================================================================
-#define NATIVE_STRING_LITERAL(progName) { 0, RPCM_STRINGN, 0, RNATIVE_LITERAL( progName ) }
+#define NATIVE_STRING_LITERAL(progName) { 0, RPCM_STRINGN, 0, _NC( progName ) }
 #define EXECUTABLE_MATCHES(progName) { RPCM_STRINGN, PATH_ROOT_FILE, NULL, NATIVE_STRING_LITERAL(progName), TRUE, 0, 0, FALSE, FALSE, FALSE }
 #define AND_MATCH(...)  { NUMARGS( __VA_ARGS__ ), { __VA_ARGS__ } }

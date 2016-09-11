@@ -173,7 +173,7 @@ void test_SerialiseAndDeserialise(void)
 
     CU_ASSERT_TRUE_FATAL( rSequence_serialise( seq, blob ) );
 
-    rpal_file_write( RNATIVE_LITERAL( "rpcm_test_seq" ), rpal_blob_getBuffer( blob ), rpal_blob_getSize( blob ), TRUE );
+    rpal_file_write( _NC( "rpcm_test_seq" ), rpal_blob_getBuffer( blob ), rpal_blob_getSize( blob ), TRUE );
 
     rSequence_free( seq );
     seq = NULL;

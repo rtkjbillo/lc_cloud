@@ -78,14 +78,14 @@ RVOID
 RPAL_NATIVE_MAIN
 {
     RU32 memUsed = 0;
-    RNATIVECHAR argFlag = 0;
-    RNATIVESTR argVal = NULL;
+    RNCHAR argFlag = 0;
+    RPNCHAR argVal = NULL;
 
-    rpal_opt switches[] = { { RNATIVE_LITERAL( 't' ), RNATIVE_LITERAL( "target" ), TRUE },
-                            { RNATIVE_LITERAL( 'm' ), RNATIVE_LITERAL( "method" ), TRUE } };
+    rpal_opt switches[] = { { _NC( 't' ), _NC( "target" ), TRUE },
+                            { _NC( 'm' ), _NC( "method" ), TRUE } };
 
     // Execution Environment
-    RNATIVESTR target = NULL;
+    RPNCHAR target = NULL;
     RU32 method = 0;
 
     // Method-specific variables.

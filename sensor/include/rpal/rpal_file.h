@@ -34,8 +34,8 @@ typedef struct
     RU64 modificationTime;
     RU64 lastAccessTime;
     RU64 size;
-    RNATIVECHAR filePath[ RPAL_MAX_PATH ];
-    RNATIVESTR fileName;
+    RNCHAR filePath[ RPAL_MAX_PATH ];
+    RPNCHAR fileName;
 
 } rFileInfo;
 
@@ -80,35 +80,35 @@ enum rFileSeek
 RBOOL
     rpal_file_delete
     (
-        RNATIVESTR filePath,
+        RPNCHAR filePath,
         RBOOL isSafeDelete
     );
 
 RBOOL
     rpal_file_move
     (
-        RNATIVESTR srcFilePath,
-        RNATIVESTR dstFilePath
+        RPNCHAR srcFilePath,
+        RPNCHAR dstFilePath
     );
 
 RBOOL
     rpal_file_getInfo
     (
-        RNATIVESTR filePath,
+        RPNCHAR filePath,
         rFileInfo* pFileInfo
     );
 
 RBOOL
     rpal_file_getInfo
     (
-        RNATIVESTR filePath,
+        RPNCHAR filePath,
         rFileInfo* pFileInfo
     );
 
 RBOOL
     rpal_file_read
     (
-        RNATIVESTR filePath,
+        RPNCHAR filePath,
         RPVOID* pBuffer,
         RU32* pBufferSize,
         RBOOL isAvoidTimestamps
@@ -131,14 +131,14 @@ RU32
 RU32
     rpal_file_getSize
     (
-        RNATIVESTR filePath,
+        RPNCHAR filePath,
         RBOOL isAvoidTimestamps
     );
 
 RBOOL
     rpal_file_write
     (
-        RNATIVESTR filePath,
+        RPNCHAR filePath,
         RPVOID buffer,
         RU32 bufferSize,
         RBOOL isOverwrite
@@ -147,22 +147,22 @@ RBOOL
 RBOOL
     rpal_file_pathToLocalSep
     (
-        RNATIVESTR path
+        RPNCHAR path
     );
 
 RBOOL
     rpal_file_getLinkDest
     (
-        RNATIVESTR linkPath,
-        RNATIVESTR* pDestination
+        RPNCHAR linkPath,
+        RPNCHAR* pDestination
     );
 
 
 rDirCrawl
     rpal_file_crawlStart
     (
-        RNATIVESTR rootExpr,
-        RNATIVESTR fileExpr[],
+        RPNCHAR rootExpr,
+        RPNCHAR fileExpr[],
         RU32 nMaxDepth
     );
 
@@ -179,16 +179,16 @@ RVOID
         rDirCrawl hDirCrawl
     );
 
-RNATIVESTR
+RPNCHAR
     rpal_file_filePathToFileName
     (
-        RNATIVESTR filePath
+        RPNCHAR filePath
     );
 
 RBOOL
     rDir_open
     (
-        RNATIVESTR dirPath,
+        RPNCHAR dirPath,
         rDir* phDir
     );
 
@@ -208,13 +208,13 @@ RBOOL
 RBOOL
     rDir_create
     (
-        RNATIVESTR dirPath
+        RPNCHAR dirPath
     );
 
 RBOOL
     rFile_open
     (
-        RNATIVESTR filePath,
+        RPNCHAR filePath,
         rFile* phFile,
         RU32 flags
     );
@@ -278,7 +278,7 @@ RBOOL
 rDirWatch
     rDirWatch_new
     (
-        RNATIVESTR dir,
+        RPNCHAR dir,
         RU32 watchFlags,
         RBOOL includeSubDirs
     );
@@ -294,14 +294,14 @@ RBOOL
     (
         rDirWatch watch,
         RU32 timeout,
-        RNATIVESTR* pFilePath,
+        RPNCHAR* pFilePath,
         RU32* pAction
     );
 
-RNATIVESTR
+RPNCHAR
     rpal_file_clean
     (
-        RNATIVESTR filePath
+        RPNCHAR filePath
     );
 
 #endif

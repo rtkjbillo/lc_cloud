@@ -147,7 +147,7 @@ RBOOL
 
     OBFUSCATIONLIB_TOGGLE( store );
 
-    if( rpal_file_read( (RNATIVESTR)store, (RPVOID)&storeFile, &storeFileSize, FALSE ) )
+    if( rpal_file_read( (RPNCHAR)store, (RPVOID)&storeFile, &storeFileSize, FALSE ) )
     {
         if( sizeof( rpHCPIdentStore ) <= storeFileSize )
         {
@@ -166,7 +166,7 @@ RBOOL
             else
             {
                 rpal_debug_warning( "inconsistent ident store, reseting" );
-                rpal_file_delete( (RNATIVESTR)store, FALSE );
+                rpal_file_delete( (RPNCHAR)store, FALSE );
             }
         }
 
@@ -220,8 +220,8 @@ RBOOL
     rpHostCommonPlatformLib_launch
     (
         RU8 configHint,
-        RNATIVESTR primaryHomeUrl,
-        RNATIVESTR secondaryHomeUrl
+        RPNCHAR primaryHomeUrl,
+        RPNCHAR secondaryHomeUrl
     )
 {
     RBOOL isInitSuccessful = FALSE;
@@ -426,7 +426,7 @@ RBOOL
 RBOOL
     rpHostCommonPlatformLib_load
     (
-        RNATIVESTR modulePath,
+        RPNCHAR modulePath,
         RU32 moduleId
     )
 {

@@ -193,8 +193,8 @@ static RBOOL
     rSequence notif = NULL;
     RU32 pathLength = 0;
     RU32 i = 0;
-    RNATIVESTR dirSep = RPAL_FILE_LOCAL_DIR_SEP_N;
-    RNATIVESTR cleanPath = NULL;
+    RPNCHAR dirSep = RPAL_FILE_LOCAL_DIR_SEP_N;
+    RPNCHAR cleanPath = NULL;
     Atom parentAtom = { 0 };
     
     if( NULL != module )
