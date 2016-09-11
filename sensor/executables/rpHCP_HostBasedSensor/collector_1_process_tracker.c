@@ -184,24 +184,12 @@ static RBOOL
         optTs = rpal_time_getGlobalPreciseTime();
     }
 
-    // The most time sensitive thing to do is register the atom and
-    // to query the parent atom.
+    // The most time sensitive thing to do is register the atom.
     if( isStarting )
     {
         atom.key.category = RP_TAGS_NOTIFICATION_NEW_PROCESS;
         atom.key.process.pid = pid;
         atoms_register( &atom );
-        parentAtom.key.category = RP_TAGS_NOTIFICATION_NEW_PROCESS;
-        parentAtom.key.process.pid = ppid;
-        atoms_query( &parentAtom, optTs );
-    }
-    else
-    {
-        parentAtom.key.category = RP_TAGS_NOTIFICATION_NEW_PROCESS;
-        parentAtom.key.process.pid = pid;
-        atoms_query( &parentAtom, optTs );
-        atoms_remove( &parentAtom, optTs );
-        atoms_getOneTime( &atom );
     }
 
     // We prime the information with whatever was provided
@@ -237,8 +225,26 @@ static RBOOL
     {
         rSequence_addRU32( info, RP_TAGS_PROCESS_ID, pid );
         rSequence_addRU32( info, RP_TAGS_PARENT_PROCESS_ID, ppid );
+        rSequence_getRU32( info, RP_TAGS_PARENT_PROCESS_ID, &ppid ); // Get whichever ppid came first
         hbs_timestampEvent( info, optTs );
         rSequence_addBUFFER( info, RP_TAGS_HBS_THIS_ATOM, atom.id, sizeof( atom.id ) );
+
+        // We should have reliable information on ppid now (sometimes ppid is not available before
+        // querying the process info.
+        if( isStarting )
+        {
+            parentAtom.key.category = RP_TAGS_NOTIFICATION_NEW_PROCESS;
+            parentAtom.key.process.pid = ppid;
+            atoms_query( &parentAtom, optTs );
+        }
+        else
+        {
+            parentAtom.key.category = RP_TAGS_NOTIFICATION_NEW_PROCESS;
+            parentAtom.key.process.pid = pid;
+            atoms_query( &parentAtom, optTs );
+            atoms_remove( &parentAtom, optTs );
+            atoms_getOneTime( &atom );
+        }
 
         if( isStarting )
         {
