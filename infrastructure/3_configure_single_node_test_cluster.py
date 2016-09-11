@@ -98,8 +98,8 @@ for binary in binaries:
 
             if binary.startswith( 'hbs_' ):
                 printStep( 'Tasking HBS %s to all relevant sensors.' % binary,
-                    execInBackend( '''hcp_addModule -i 1 -d %s -b %s -s %s
-                                      hcp_addTasking -m %s -i 1 -s %s''' % ( binary,
+                    execInBackend( '''hcp_addModule -i 2 -d %s -b %s -s %s
+                                      hcp_addTasking -m %s -i 2 -s %s''' % ( binary,
                                                                              os.path.join( root, 'prebuilt_binaries', binary ),
                                                                              os.path.join( root, 'prebuilt_binaries', binary + '.sig' ),
                                                                              targetAgent,
