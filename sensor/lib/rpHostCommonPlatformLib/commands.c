@@ -184,9 +184,13 @@ RBOOL
                         if( NULL != modContext->isTimeToStop )
                         {
                             g_hcpContext.modules[ moduleIndex ].isTimeToStop  = modContext->isTimeToStop;
+
+                            OBFUSCATIONLIB_TOGGLE( recvMessage );
                             g_hcpContext.modules[ moduleIndex ].func_recvMessage = 
                                     (rpHCPModuleMsgEntry)MemoryGetProcAddress( g_hcpContext.modules[ moduleIndex ].hModule,
                                                                                (RPCHAR)recvMessage );
+                            OBFUSCATIONLIB_TOGGLE( recvMessage );
+
                             g_hcpContext.modules[ moduleIndex ].hThread = rpal_thread_new( pEntry, modContext );
 
                             if( 0 != g_hcpContext.modules[ moduleIndex ].hThread )

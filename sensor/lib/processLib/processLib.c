@@ -628,12 +628,6 @@ rSequence
                 rpal_memory_free( infoFile );
             }
         }
-
-        // Clean up just in case
-        if( NULL != name )
-        {
-            rpal_memory_free( name );
-        }
     }
 #elif defined( RPAL_PLATFORM_MACOSX )
     int mib[] = { CTL_KERN, KERN_PROC, KERN_PROC_PID, 0 };

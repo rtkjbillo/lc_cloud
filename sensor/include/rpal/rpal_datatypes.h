@@ -120,7 +120,6 @@ limitations under the License.
         #include <errno.h>
     #endif
     #include <string.h>
-    #include <inttypes.h>
 
     typedef int             RBOOL;
     typedef int*		RPBOOL;
