@@ -45,7 +45,7 @@ RBOOL
 
     OBFUSCATIONLIB_TOGGLE( store );
 
-    storeFileSize = rpal_file_getSizew( (RPWCHAR)store, FALSE );
+    storeFileSize = rpal_file_getSize( (RNATIVESTR)store, FALSE );
 
     if( (RU32)(-1) != storeFileSize )
     {
@@ -55,7 +55,7 @@ RBOOL
         if( NULL != pCrashContext &&
             NULL != pCrashContextSize )
         {
-            if( rpal_file_readw( (RPWCHAR)store, (RPVOID)&storeFile, &storeFileSize, FALSE ) )
+            if( rpal_file_read( (RNATIVESTR)store, (RPVOID)&storeFile, &storeFileSize, FALSE ) )
             {
                 rpal_debug_info( "acquired the crash context" );
 
@@ -88,7 +88,7 @@ RBOOL
     if( NULL != crashContext &&
         0 != crashContextSize )
     {
-        if( rpal_file_writew( (RPWCHAR)store, crashContext, crashContextSize, TRUE ) )
+        if( rpal_file_write( (RNATIVESTR)store, crashContext, crashContextSize, TRUE ) )
         {
             rpal_debug_info( "crash context successfully set with %d bytes", crashContextSize );
             isSet = TRUE;
@@ -117,7 +117,7 @@ RBOOL
 
     OBFUSCATIONLIB_TOGGLE( store );
 
-    if( rpal_file_deletew( (RPWCHAR)store, TRUE ) )
+    if( rpal_file_delete( (RNATIVESTR)store, TRUE ) )
     {
         rpal_debug_info( "crash context deleted from disk" );
         isSuccess = TRUE;
@@ -144,7 +144,7 @@ RU32
 
     OBFUSCATIONLIB_TOGGLE( store );
 
-    size = rpal_file_getSizew( (RPWCHAR)store, FALSE );
+    size = rpal_file_getSize( (RNATIVESTR)store, FALSE );
     rpal_debug_info( "crash context size: %d bytes", size );
     OBFUSCATIONLIB_TOGGLE( store );
 

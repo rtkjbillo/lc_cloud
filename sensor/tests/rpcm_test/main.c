@@ -173,7 +173,7 @@ void test_SerialiseAndDeserialise(void)
 
     CU_ASSERT_TRUE_FATAL( rSequence_serialise( seq, blob ) );
 
-    rpal_file_write( "rpcm_test_seq", rpal_blob_getBuffer( blob ), rpal_blob_getSize( blob ), TRUE );
+    rpal_file_write( RNATIVE_LITERAL( "rpcm_test_seq" ), rpal_blob_getBuffer( blob ), rpal_blob_getSize( blob ), TRUE );
 
     rSequence_free( seq );
     seq = NULL;
@@ -431,7 +431,7 @@ void test_EstimateSize( void )
     CU_ASSERT_TRUE( rList_addRU32( list, 4 ) );
     CU_ASSERT_TRUE( rSequence_addLIST( seq, 66, list ) );
 
-    CU_ASSERT_EQUAL( rSequence_getEstimateSize( seq ), 100 );
+    CU_ASSERT_EQUAL( rSequence_getEstimateSize( seq ), 112 );
 
     rSequence_free( seq );
 }

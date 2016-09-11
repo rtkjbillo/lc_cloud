@@ -118,17 +118,8 @@ RU8 _hexToByteRef[ 0xFF ] = { 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 
 static
 RCHAR _byteToHexRef[ 0x10 ] = { '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C', 'D', 'E', 'F' };
 
-RBOOL 
-    rpal_string_isprint 
-    (
-        RCHAR ch
-    )
-{
-    return isprint( ch );
-}
-
 RBOOL
-    rpal_string_iswprint
+    rpal_string_isprintW
     (
         RWCHAR ch
     )
@@ -136,11 +127,32 @@ RBOOL
     return iswprint( ch );
 }
 
+RBOOL
+    rpal_string_isprintA
+    (
+        RCHAR ch
+    )
+{
+    return isprint( ch );
+}
+
+RBOOL 
+    rpal_string_isprint 
+    (
+        RNATIVECHAR ch
+    )
+{
+#ifdef RNATIVE_IS_WIDE
+    return rpal_string_isprintW( ch );
+#else
+    return rpal_string_isprintA( ch );
+#endif
+}
 
 RU8
     rpal_string_str_to_byte
     (
-        RPCHAR str
+        RNATIVESTR str
     )
 {
     RU8 b = 0;
@@ -158,7 +170,7 @@ RVOID
     rpal_string_byte_to_str
     (
         RU8 b,
-        RCHAR c[ 2 ]
+        RNATIVECHAR c[ 2 ]
     )
 {
     c[ 0 ] = _byteToHexRef[ (b & 0xF0) >> 4 ];
@@ -166,33 +178,7 @@ RVOID
 }
 
 RU32
-    rpal_string_strlen
-    (
-        RPCHAR str
-    )
-{
-    RU32 size = 0;
-
-    if( NULL != str )
-    {
-#if defined( RPAL_PLATFORM_LINUX ) || defined( RPAL_PLATFORM_MACOSX )
-        // The glibc implementation is broken on non-alignmed pointers
-        // which is not acceptable, FFS.
-        while( 0 != *str )
-        {
-            size++;
-            str++;
-        }
-#else
-        size = (RU32)strlen( str );
-#endif
-    }
-
-    return size;
-}
-
-RU32
-    rpal_string_strlenw
+    rpal_string_strlenW
     (
         RPWCHAR str
     )
@@ -218,20 +204,7 @@ RU32
 }
 
 RU32
-    rpal_string_strlenn
-    (
-        RNATIVESTR str
-    )
-{
-#ifdef RNATIVE_IS_WIDE
-    return rpal_string_strlenw( str );
-#else
-    return rpal_string_strlen( str );
-#endif
-}
-
-RU32
-    rpal_string_strsize
+    rpal_string_strlenA
     (
         RPCHAR str
     )
@@ -240,14 +213,37 @@ RU32
 
     if( NULL != str )
     {
-        size = (RU32)( rpal_string_strlen( str ) + 1 ) * sizeof( RCHAR );
+#if defined( RPAL_PLATFORM_LINUX ) || defined( RPAL_PLATFORM_MACOSX )
+        // The glibc implementation is broken on non-alignmed pointers
+        // which is not acceptable, FFS.
+        while( 0 != *str )
+        {
+            size++;
+            str++;
+        }
+#else
+        size = (RU32)strlen( str );
+#endif
     }
 
     return size;
 }
 
 RU32
-    rpal_string_strsizew
+    rpal_string_strlen
+    (
+        RNATIVESTR str
+    )
+{
+#ifdef RNATIVE_IS_WIDE
+    return rpal_string_strlenW( str );
+#else
+    return rpal_string_strlenA( str );
+#endif
+}
+
+RU32
+    rpal_string_strsizeW
     (
         RPWCHAR str
     )
@@ -256,68 +252,49 @@ RU32
 
     if( NULL != str )
     {
-        size = (RU32)( rpal_string_strlenw( str ) + 1 ) * sizeof( RWCHAR );
+        size = (RU32)( rpal_string_strlenW( str ) + 1 ) * sizeof( RWCHAR );
     }
 
     return size;
 }
 
-RBOOL
-    rpal_string_expand
+RU32
+    rpal_string_strsizeA
     (
-        RPCHAR  str,
-        RPCHAR*  outStr
+        RPCHAR str
     )
 {
-    RBOOL isSuccess = FALSE;
+    RU32 size = 0;
 
-    if( NULL != str &&
-        NULL != outStr )
+    if( NULL != str )
     {
-#ifdef RPAL_PLATFORM_WINDOWS
-        RPCHAR tmp = NULL;
-        RU32 size = 0;
-        
-        size = ExpandEnvironmentStringsA( str, NULL, 0 );
-        
-        if( 0 != size )
-        {
-            tmp = rpal_memory_alloc( ( size + 1 ) * sizeof( RCHAR ) );
-
-            if( rpal_memory_isValid( tmp ) )
-            {
-                size = ExpandEnvironmentStringsA( str, tmp, size );
-
-                if( 0 != size &&
-                    rpal_memory_isValid( tmp ) )
-                {
-                    isSuccess = TRUE;
-
-                    *outStr = tmp;
-                }
-                else
-                {
-                    rpal_memory_free( tmp );
-                }
-            }
-        }
-#elif defined( RPAL_PLATFORM_LINUX ) || defined( RPAL_PLATFORM_MACOSX )
-RPAL_PLATFORM_TODO(String expansion in NIX environment requires custom solution)
-        if( NULL != ( *outStr = rpal_string_strdupa( str ) ) )
-        {
-            isSuccess = TRUE;
-        }
-#endif
+        size = (RU32)( rpal_string_strlenA( str ) + 1 ) * sizeof( RCHAR );
     }
 
-    return isSuccess;
+    return size;
+}
+
+RU32
+    rpal_string_strsize
+    (
+        RNATIVESTR str
+    )
+{
+    RU32 size = 0;
+
+    if( NULL != str )
+    {
+        size = (RU32)( rpal_string_strlen( str ) + 1 ) * sizeof( RNATIVECHAR );
+    }
+
+    return size;
 }
 
 
 RBOOL
-    rpal_string_expandw
+    rpal_string_expandW
     (
-        RPWCHAR  str,
+        RPWCHAR str,
         RPWCHAR*  outStr
     )
 {
@@ -330,10 +307,10 @@ RBOOL
         RPWCHAR tmp = NULL;
         RU32 size = 0;
         RU32 len = 0;
-        
+
         if( _WCH( '"' ) == str[ 0 ] )
         {
-            len = rpal_string_strlenw( str );
+            len = rpal_string_strlen( str );
 
             if( _WCH( '"' == str[ len - 1 ] ) )
             {
@@ -344,7 +321,7 @@ RBOOL
         }
 
         size = ExpandEnvironmentStringsW( str, NULL, 0 );
-        
+
         if( 0 != size )
         {
             tmp = rpal_memory_alloc( ( size + 1 ) * sizeof( RWCHAR ) );
@@ -367,8 +344,7 @@ RBOOL
             }
         }
 #elif defined( RPAL_PLATFORM_LINUX ) || defined( RPAL_PLATFORM_MACOSX )
-RPAL_PLATFORM_TODO(String expansion in NIX environment requires custom solution)
-        if( NULL != ( *outStr = rpal_string_strdupw( str ) ) )
+        if( NULL != ( *outStr = rpal_string_strdupW( str ) ) )
         {
             isSuccess = TRUE;
         }
@@ -376,6 +352,83 @@ RPAL_PLATFORM_TODO(String expansion in NIX environment requires custom solution)
     }
 
     return isSuccess;
+}
+
+RBOOL
+    rpal_string_expandA
+    (
+        RPCHAR  str,
+        RPCHAR*  outStr
+    )
+{
+    RBOOL isSuccess = FALSE;
+
+    if( NULL != str &&
+        NULL != outStr )
+    {
+#ifdef RPAL_PLATFORM_WINDOWS
+        RPCHAR tmp = NULL;
+        RU32 size = 0;
+        RU32 len = 0;
+
+        if( '"' == str[ 0 ] )
+        {
+            len = rpal_string_strlenA( str );
+
+            if( '"' == str[ len - 1 ] )
+            {
+                str[ len - 1 ] = 0;
+            }
+
+            str++;
+        }
+
+        size = ExpandEnvironmentStringsA( str, NULL, 0 );
+
+        if( 0 != size )
+        {
+            tmp = rpal_memory_alloc( ( size + 1 ) * sizeof( RCHAR ) );
+
+            if( rpal_memory_isValid( tmp ) )
+            {
+                size = ExpandEnvironmentStringsA( str, tmp, size );
+
+                if( 0 != size &&
+                    rpal_memory_isValid( tmp ) )
+                {
+                    isSuccess = TRUE;
+
+                    *outStr = tmp;
+                }
+                else
+                {
+                    rpal_memory_free( tmp );
+                }
+            }
+        }
+#elif defined( RPAL_PLATFORM_LINUX ) || defined( RPAL_PLATFORM_MACOSX )
+        if( NULL != ( *outStr = rpal_string_strdupA( str ) ) )
+        {
+            isSuccess = TRUE;
+        }
+#endif
+    }
+
+    return isSuccess;
+}
+
+RBOOL
+    rpal_string_expand
+    (
+        RNATIVESTR  str,
+        RNATIVESTR*  outStr
+    )
+{
+#ifdef RNATIVE_IS_WIDE
+    return rpal_string_expandW( str, outStr );
+#else
+    return rpal_string_expandA( str, outStr );
+#endif
 }
 
 RPWCHAR
@@ -405,7 +458,7 @@ RPWCHAR
         if( ! IS_PTR_ALIGNED( str ) )
         {
             // Got to realign, let's waste time and mmeory
-            tmp = rpal_string_strdupa( str );
+            tmp = rpal_string_strdup( str );
         }
         nChar = (RU32)mbstowcs( NULL, NULL != tmp ? tmp : str, 0 );
 #endif
@@ -475,7 +528,7 @@ RPCHAR
         if( ! IS_PTR_ALIGNED( str ) )
         {
             // Got to realign, let's waste time and mmeory
-            tmp = rpal_string_strdupw( str );
+            tmp = rpal_string_strdupW( str );
         }
         
         size = (RU32)wcstombs( NULL, NULL != tmp ? tmp : str, 0 );
@@ -516,64 +569,75 @@ RPCHAR
     return ascii;
 }
 
-RPCHAR
-    rpal_string_strcata
+
+RNATIVESTR
+    rpal_string_wton
     (
-        RPCHAR str,
-        RPCHAR toAdd
+        RPWCHAR str
     )
 {
-    RPCHAR out = NULL;
-    RU32 originalSize = 0;
-    RU32 toAddSize = 0;
-
-    if( NULL != str &&
-        NULL != toAdd )
-    {
-        originalSize = rpal_string_strlen( str ) * sizeof( RCHAR );
-        toAddSize = rpal_string_strlen( toAdd ) * sizeof( RCHAR );
-        
-#if defined( RPAL_PLATFORM_LINUX ) || defined( RPAL_PLATFORM_MACOSX )
-        // glibc is broken on unaligned strings so we must
-        // fix their shit for them.
-        if( ! IS_PTR_ALIGNED( str ) )
-        {
-            rpal_memory_memcpy( str + originalSize, toAdd, toAddSize );
-            out = str;
-        }
-        else
-        {
+#ifdef RNATIVE_IS_WIDE
+    return rpal_string_strdup( str );
+#else
+    return rpal_string_wtoa( str );
 #endif
-            out = strcat( str, toAdd );
-#if defined( RPAL_PLATFORM_LINUX ) || defined( RPAL_PLATFORM_MACOSX )
-        }
-#endif
-        
-        if( NULL != out )
-        {
-            out[ ( originalSize + toAddSize ) / sizeof( RCHAR ) ] = 0;
-        }
-    }
+}
 
-    return out;
+RNATIVESTR
+    rpal_string_aton
+    (
+        RPCHAR str
+    )
+{
+#ifdef RNATIVE_IS_WIDE
+    return rpal_string_atow( str );
+#else
+    return rpal_string_strdup( str );
+#endif
 }
 
 RPWCHAR
-    rpal_string_strcatw
+    rpal_string_ntow
     (
-        RPWCHAR str,
-        RPWCHAR toAdd
+        RNATIVESTR str
     )
 {
-    RPWCHAR out = NULL;
+#ifdef RNATIVE_IS_WIDE
+    return rpal_string_strdup( str );
+#else
+    return rpal_string_atow( str );
+#endif
+}
+
+RPCHAR
+    rpal_string_ntoa
+    (
+        RNATIVESTR str
+    )
+{
+#ifdef RNATIVE_IS_WIDE
+    return rpal_string_wtoa( str );
+#else
+    return rpal_string_strdup( str );
+#endif
+}
+
+RNATIVESTR
+    rpal_string_strcat
+    (
+        RNATIVESTR str,
+        RNATIVESTR toAdd
+    )
+{
+    RNATIVESTR out = NULL;
     RU32 originalSize = 0;
     RU32 toAddSize = 0;
 
     if( NULL != str &&
         NULL != toAdd )
     {
-        originalSize = rpal_string_strlenw( str ) * sizeof( RWCHAR );
-        toAddSize = rpal_string_strlenw( toAdd ) * sizeof( RWCHAR );
+        originalSize = rpal_string_strlen( str ) * sizeof( RNATIVECHAR );
+        toAddSize = rpal_string_strlen( toAdd ) * sizeof( RNATIVECHAR );
         
 #if defined( RPAL_PLATFORM_LINUX ) || defined( RPAL_PLATFORM_MACOSX )
         // glibc is broken on unaligned strings so we must
@@ -586,27 +650,32 @@ RPWCHAR
         else
         {
 #endif
+#ifdef RNATIVE_IS_WIDE
             out = wcscat( str, toAdd );
+#else
+            out = strcat( str, toAdd );
+#endif
 #if defined( RPAL_PLATFORM_LINUX ) || defined( RPAL_PLATFORM_MACOSX )
         }
 #endif
+        
         if( NULL != out )
         {
-            out[ ( originalSize + toAddSize ) / sizeof( RWCHAR ) ] = 0;
+            out[ ( originalSize + toAddSize ) / sizeof( RNATIVECHAR ) ] = 0;
         }
     }
 
     return out;
 }
 
-RPCHAR
+RNATIVESTR
     rpal_string_strstr
     (
-        RPCHAR haystack,
-        RPCHAR needle
+        RNATIVESTR haystack,
+        RNATIVESTR needle
     )
 {
-    RPCHAR out = NULL;
+    RNATIVESTR out = NULL;
 
     if( NULL != haystack &&
         NULL != needle )
@@ -614,58 +683,40 @@ RPCHAR
 #if defined( RPAL_PLATFORM_LINUX ) || defined( RPAL_PLATFORM_MACOSX )
         RPAL_PLATFORM_TODO(Confirm GLIBC doesnt break this with optimizations);
 #endif
-        out = strstr( haystack, needle );
-    }
-
-    return out;
-}
-
-RPWCHAR
-    rpal_string_strstrw
-    (
-        RPWCHAR haystack,
-        RPWCHAR needle
-    )
-{
-    RPWCHAR out = NULL;
-
-    if( NULL != haystack &&
-        NULL != needle )
-    {
-#if defined( RPAL_PLATFORM_LINUX ) || defined( RPAL_PLATFORM_MACOSX )
-        RPAL_PLATFORM_TODO(Confirm GLIBC doesnt break this with optimizations);
-#endif
+#ifdef RNATIVE_IS_WIDE
         out = wcsstr( haystack, needle );
+#else
+        out = strstr( haystack, needle );
+#endif
     }
 
     return out;
 }
 
-
-RPWCHAR
-    rpal_string_stristrw
+RNATIVESTR
+    rpal_string_stristr
     (
-        RPWCHAR haystack,
-        RPWCHAR needle
+        RNATIVESTR haystack,
+        RNATIVESTR needle
     )
 {
-    RPWCHAR out = NULL;
-    RPWCHAR tmpHaystack = NULL;
-    RPWCHAR tmpNeedle = NULL;
+    RNATIVESTR out = NULL;
+    RNATIVESTR tmpHaystack = NULL;
+    RNATIVESTR tmpNeedle = NULL;
 
     if( NULL != haystack &&
         NULL != needle )
     {
-        tmpHaystack = rpal_string_strdupw( haystack );
-        tmpNeedle = rpal_string_strdupw( needle );
+        tmpHaystack = rpal_string_strdup( haystack );
+        tmpNeedle = rpal_string_strdup( needle );
 
         if( NULL != tmpHaystack &&
             NULL != tmpNeedle )
         {
-            tmpHaystack = rpal_string_toupperw( tmpHaystack );
-            tmpNeedle = rpal_string_toupperw( tmpNeedle );
+            tmpHaystack = rpal_string_toupper( tmpHaystack );
+            tmpNeedle = rpal_string_toupper( tmpNeedle );
 
-            out = rpal_string_strstrw( tmpHaystack, tmpNeedle );
+            out = rpal_string_strstr( tmpHaystack, tmpNeedle );
 
             if( NULL != out )
             {
@@ -687,17 +738,16 @@ RPWCHAR
     return out;
 }
 
-
-RPCHAR
-    rpal_string_itoa
+RNATIVESTR
+    rpal_string_itos
     (
         RU32 num,
-        RPCHAR outBuff,
+        RNATIVESTR outBuff,
         RU32 radix
     )
 {
 #ifdef RPAL_PLATFORM_WINDOWS
-    return _itoa( num, outBuff, radix );
+    return _itow( num, outBuff, radix );
 #elif defined( RPAL_PLATFORM_LINUX ) || defined( RPAL_PLATFORM_MACOSX )
     if( 10 == radix )
     {
@@ -718,91 +768,197 @@ RPCHAR
 #endif
 }
 
-
 RPWCHAR
-    rpal_string_itow
+    rpal_string_strdupW
     (
-        RU32 num,
-        RPWCHAR outBuff,
-        RU32 radix
-    )
-{
-#ifdef RPAL_PLATFORM_WINDOWS
-    return _itow( num, outBuff, radix );
-#elif defined( RPAL_PLATFORM_LINUX ) || defined( RPAL_PLATFORM_MACOSX )
-    if( 10 == radix )
-    {
-        if( 0 < swprintf( outBuff, (RSIZET)(-1), _WCH("%d"), num ) )
-        {
-            return outBuff;
-        }
-    }
-    else if( 16 == radix )
-    {
-        if( 0 < swprintf( outBuff, (RSIZET)(-1), _WCH("%X"), num ) )
-        {
-            return outBuff;
-        }
-    }
-
-    return NULL;
-#endif
-}
-
-
-RPCHAR
-    rpal_string_strdupa
-    (
-        RPCHAR strA
-    )
-{
-    RPCHAR out = NULL;
-    RU32 len = 0;
-
-    if( NULL != strA )
-    {
-        len = rpal_string_strlen( strA );
-
-        out = rpal_memory_alloc( len + sizeof( RCHAR ) );
-
-        if( rpal_memory_isValid( out ) )
-        {
-            rpal_memory_memcpy( out, strA, len );
-            out[ len ] = 0;
-        }
-    }
-
-    return out;
-}
-
-
-RPWCHAR
-    rpal_string_strdupw
-    (
-        RPWCHAR strW
+        RPWCHAR str
     )
 {
     RPWCHAR out = NULL;
     RU32 len = 0;
 
-    if( NULL != strW )
+    if( NULL != str )
     {
-        len = rpal_string_strlenw( strW );
+        len = rpal_string_strlenW( str ) * sizeof( RWCHAR );
 
-        out = rpal_memory_alloc( ( len + 1 ) * sizeof( RWCHAR ) );
+        out = rpal_memory_alloc( len + sizeof( RWCHAR ) );
 
         if( rpal_memory_isValid( out ) )
         {
-            rpal_memory_memcpy( out, strW, len * sizeof( RWCHAR ) );
-            out[ len ] = 0;
+            rpal_memory_memcpy( out, str, len );
+            out[ len / sizeof( RWCHAR ) ] = 0;
         }
     }
 
     return out;
 }
 
+RPCHAR
+    rpal_string_strdupA
+    (
+        RPCHAR str
+    )
+{
+    RPCHAR out = NULL;
+    RU32 len = 0;
+
+    if( NULL != str )
+    {
+        len = rpal_string_strlenA( str ) * sizeof( RCHAR );
+
+        out = rpal_memory_alloc( len + sizeof( RCHAR ) );
+
+        if( rpal_memory_isValid( out ) )
+        {
+            rpal_memory_memcpy( out, str, len );
+            out[ len / sizeof( RCHAR ) ] = 0;
+        }
+    }
+
+    return out;
+}
+
+RNATIVESTR
+    rpal_string_strdup
+    (
+        RNATIVESTR str
+    )
+{
+#ifdef RNATIVE_IS_WIDE
+    return rpal_string_strdupW( str );
+#else
+    return rpal_string_strdupA( str );
+#endif
+}
+
 RBOOL
-    rpal_string_match
+    rpal_string_matchW
+    (
+        RPWCHAR pattern,
+        RPWCHAR str,
+        RBOOL isCaseSensitive
+    )
+{
+    // Taken and modified from:
+    // http://www.codeproject.com/Articles/19694/String-Wildcard-Matching-and
+
+    enum State
+    {
+        Exact,      	// exact match
+        Any,        	// ?
+        AnyRepeat,    	// *
+        AnyAtLeastOne,  // +
+        Escaped         // [backslash] 
+    };
+
+    RWCHAR *s = str;
+    RWCHAR *p = pattern;
+    RWCHAR *q = 0;
+    RU32 state = 0;
+
+    RBOOL match = TRUE;
+
+    while( match && *p )
+    {
+        if( *p == _WCH( '*' ) )
+        {
+            state = AnyRepeat;
+            q = p + 1;
+        }
+        else if( *p == _WCH( '?' ) )
+        {
+            state = Any;
+        }
+        else if( *p == _WCH( '\\' ) )
+        {
+            state = Exact;
+            // Only escape if the next character is a wildcard
+            // otherwise it's just a normal backslash, avoids
+            // some common problems when user forgets to double
+            // backslash a path seperator for example.
+            if( *( p + 1 ) == _WCH( '?' ) ||
+                *( p + 1 ) == _WCH( '*' ) ||
+                *( p + 1 ) == _WCH( '+' ) ||
+                *( p + 1 ) == _WCH( '\\' ) )
+            {
+                p++;
+            }
+        }
+        else if( *p == _WCH( '+' ) )
+        {
+            state = AnyRepeat;
+
+            if( 0 != *s )
+            {
+                q = p + 1;
+                s++;
+            }
+            else
+            {
+                // Ensures we essentially fail the match
+                q = p;
+            }
+        }
+        else
+        {
+            state = Exact;
+        }
+
+        if( *s == 0 ) { break; }
+
+        switch( state )
+        {
+            case Exact:
+                if( !isCaseSensitive )
+                {
+                    match = ( rpal_string_charToLowerW( *s ) ==
+                              rpal_string_charToLowerW( *p ) );
+                }
+                else
+                {
+                    match = *s == *p;
+                }
+                s++;
+                p++;
+                break;
+
+            case Any:
+                match = TRUE;
+                s++;
+                p++;
+                break;
+
+            case AnyRepeat:
+                match = TRUE;
+                s++;
+
+                if( *s == *q )
+                {
+                    if( rpal_string_matchW( q, s, isCaseSensitive ) )
+                    {
+                        p++;
+                    }
+                }
+                break;
+        }
+    }
+
+    if( state == AnyRepeat )
+    {
+        return ( *s == *q );
+    }
+    else if( state == Any )
+    {
+        return ( *s == *p );
+    }
+    else
+    {
+        return match && ( *s == *p );
+    }
+}
+
+RBOOL
+    rpal_string_matchA
     (
         RPCHAR pattern,
         RPCHAR str,
@@ -812,7 +968,8 @@ RBOOL
     // Taken and modified from:
     // http://www.codeproject.com/Articles/19694/String-Wildcard-Matching-and
 
-    enum State {
+    enum State
+    {
         Exact,      	// exact match
         Any,        	// ?
         AnyRepeat,    	// *
@@ -832,7 +989,7 @@ RBOOL
         if( *p == '*' )
         {
             state = AnyRepeat;
-            q = p+1;
+            q = p + 1;
         }
         else if( *p == '?' )
         {
@@ -841,7 +998,17 @@ RBOOL
         else if( *p == '\\' )
         {
             state = Exact;
-            p++;
+            // Only escape if the next character is a wildcard
+            // otherwise it's just a normal backslash, avoids
+            // some common problems when user forgets to double
+            // backslash a path seperator for example.
+            if( *( p + 1 ) == '?' ||
+                *( p + 1 ) == '*' ||
+                *( p + 1 ) == '+' ||
+                *( p + 1 ) == '\\' )
+            {
+                p++;
+            }
         }
         else if( *p == '+' )
         {
@@ -849,7 +1016,7 @@ RBOOL
 
             if( 0 != *s )
             {
-                q = p+1;
+                q = p + 1;
                 s++;
             }
             else
@@ -863,15 +1030,15 @@ RBOOL
             state = Exact;
         }
 
-        if( *s == 0 ){ break; }
+        if( *s == 0 ) { break; }
 
         switch( state )
         {
             case Exact:
                 if( !isCaseSensitive )
                 {
-                    match = ( rpal_string_charToLower( *s ) == 
-                              rpal_string_charToLower( *p ) );
+                    match = ( rpal_string_charToLowerA( *s ) ==
+                              rpal_string_charToLowerA( *p ) );
                 }
                 else
                 {
@@ -893,139 +1060,7 @@ RBOOL
 
                 if( *s == *q )
                 {
-                    if( rpal_string_match( q, s, isCaseSensitive ) )
-                    {
-                        p++;
-                    }
-                }
-                break;
-        }
-    }
-
-    if( state == AnyRepeat )
-    {
-        return ( *s == *q );
-    }
-    else if( state == Any )
-    {
-        return ( *s == *p );
-    }
-    else
-    {
-        return match && ( *s == *p );
-    }
-}
-
-
-RBOOL
-    rpal_string_matchw
-    (
-        RPWCHAR pattern,
-        RPWCHAR str,
-        RBOOL isCaseSensitive
-    )
-{
-    // Taken and modified from:
-    // http://www.codeproject.com/Articles/19694/String-Wildcard-Matching-and
-
-    enum State {
-        Exact,      	// exact match
-        Any,        	// ?
-        AnyRepeat,    	// *
-        AnyAtLeastOne,  // +
-        Escaped         // [backslash]
-    };
-
-    RWCHAR *s = str;
-    RWCHAR *p = pattern;
-    RWCHAR *q = 0;
-    RU32 state = 0;
-
-    RBOOL match = TRUE;
-
-    if( NULL == pattern ||
-        NULL == str )
-    {
-        return FALSE;
-    }
-
-    while( match && *p )
-    {
-        if( *p == _WCH('*') )
-        {
-            state = AnyRepeat;
-            q = p+1;
-        }
-        else if( *p == _WCH('?') )
-        {
-            state = Any;
-        }
-        else if( *p == _WCH('\\') )
-        {
-            state = Exact;
-            // Only escape if the next character is a wildcard
-            // otherwise it's just a normal backslash, avoids
-            // some common problems when user forgets to double
-            // backslash a path seperator for example.
-            if( *(p+1) == _WCH('?') ||
-                *(p+1) == _WCH('*') ||
-                *(p+1) == _WCH('+') ||
-                *(p+1) == _WCH('\\') )
-            {
-                p++;
-            }
-        }
-        else if( *p == _WCH('+') )
-        {
-            state = AnyRepeat;
-
-            if( 0 != *s )
-            {
-                q = p+1;
-                s++;
-            }
-            else
-            {
-                // Ensures we essentially fail the match
-                q = p;
-            }
-        }
-        else
-        {
-            state = Exact;
-        }
-
-        if( *s == 0 ){ break; }
-
-        switch( state )
-        {
-            case Exact:
-                if( !isCaseSensitive )
-                {
-                    match = ( rpal_string_wcharToLower( *s ) ==
-                              rpal_string_wcharToLower( *p ) );
-                }
-                else
-                {
-                    match = *s == *p;
-                }
-                s++;
-                p++;
-                break;
-
-            case Any:
-                match = TRUE;
-                s++;
-                p++;
-                break;
-
-            case AnyRepeat:
-                match = TRUE;
-                s++;
-
-                if( *s == *q )
-                {
-                    if( rpal_string_matchw( q, s, isCaseSensitive ) )
+                    if( rpal_string_matchA( q, s, isCaseSensitive ) )
                     {
                         p++;
                     }
@@ -1049,7 +1084,7 @@ RBOOL
 }
 
 RBOOL
-    rpal_string_matchn
+    rpal_string_match
     (
         RNATIVESTR pattern,
         RNATIVESTR str,
@@ -1057,32 +1092,32 @@ RBOOL
     )
 {
 #ifdef RNATIVE_IS_WIDE
-    return rpal_string_matchw( pattern, str, isCaseSensitive );
+    return rpal_string_matchW( pattern, str, isCaseSensitive );
 #else
-    return rpal_string_match( pattern, str, isCaseSensitive );
+    return rpal_string_matchA( pattern, str, isCaseSensitive );
 #endif
 }
 
-RPCHAR
-    rpal_string_strcatExA
+RNATIVESTR
+    rpal_string_strcatEx
     (
-        RPCHAR strToExpand,
-        RPCHAR strToCat
+        RNATIVESTR strToExpand,
+        RNATIVESTR strToCat
     )
 {
-    RPCHAR res = NULL;
+    RNATIVESTR res = NULL;
     RU32 finalSize = 0;
 
     if( NULL != strToCat )
     {
         finalSize = ( rpal_string_strlen( strToExpand ) + 
-                      rpal_string_strlen( strToCat ) + 1 ) * sizeof( RCHAR );
+                      rpal_string_strlen( strToCat ) + 1 ) * sizeof( RNATIVECHAR );
 
         strToExpand = rpal_memory_realloc( strToExpand, finalSize );
 
         if( NULL != strToExpand )
         {
-            res = rpal_string_strcata( strToExpand, strToCat );
+            res = rpal_string_strcat( strToExpand, strToCat );
 
             if( !rpal_memory_isValid( res ) )
             {
@@ -1094,91 +1129,15 @@ RPCHAR
     return res;
 }
 
-RPWCHAR
-    rpal_string_strcatExW
+RNATIVESTR
+    rpal_string_strtok
     (
-        RPWCHAR strToExpand,
-        RPWCHAR strToCat
+        RNATIVESTR str,
+        RNATIVECHAR token,
+        RNATIVESTR* state
     )
 {
-    RPWCHAR res = NULL;
-    RU32 finalSize = 0;
-
-    if( NULL != strToCat )
-    {
-        finalSize = ( rpal_string_strlenw( strToExpand ) + 
-                      rpal_string_strlenw( strToCat ) + 1 ) * sizeof( RWCHAR );
-
-        strToExpand = rpal_memory_realloc( strToExpand, finalSize );
-
-        if( NULL != strToExpand )
-        {
-            res = rpal_string_strcatw( strToExpand, strToCat );
-
-            if( !rpal_memory_isValid( res ) )
-            {
-                res = NULL;
-            }
-        }
-    }
-
-    return res;
-}
-
-RPCHAR
-    rpal_string_strtoka
-    (
-        RPCHAR str,
-        RCHAR token,
-        RPCHAR* state
-    )
-{
-    RPCHAR nextToken = NULL;
-
-    if( NULL != state &&
-        LOGICAL_XOR( NULL == str, NULL == *state ) )
-    {
-        if( NULL != str )
-        {
-            nextToken = str;
-            *state = str;
-        }
-        else
-        {
-            nextToken = *state;
-            nextToken++;
-            **state = token;
-            (*state)++;
-        }
-
-        while( 0 != **state &&
-                token != **state )
-        {
-            (*state)++;
-        }
-
-        if( token == **state )
-        {
-            **state = 0;
-        }
-        else
-        {
-            *state = NULL;
-        }
-    }
-
-    return nextToken;
-}
-
-RPWCHAR
-    rpal_string_strtokw
-    (
-        RPWCHAR str,
-        RWCHAR token,
-        RPWCHAR* state
-    )
-{
-    RPWCHAR nextToken = NULL;
+    RNATIVESTR nextToken = NULL;
 
     if( NULL != state &&
         LOGICAL_XOR( NULL == str, NULL == *state ) )
@@ -1216,20 +1175,17 @@ RPWCHAR
 }
 
 RS32
-    rpal_string_strcmpw
+    rpal_string_strcmpW
     (
         RPWCHAR str1,
         RPWCHAR str2
     )
 {
-    RS32 res = (-1);
+    RS32 res = ( -1 );
 
     if( NULL != str1 &&
         NULL != str2 )
     {
-#if defined( RPAL_PLATFORM_LINUX ) || defined( RPAL_PLATFORM_MACOSX )
-        RPAL_PLATFORM_TODO(Confirm GLIBC doesnt break this with optimizations);
-#endif
         res = wcscmp( str1, str2 );
     }
 
@@ -1237,32 +1193,28 @@ RS32
 }
 
 RS32
-    rpal_string_strcmpa
+    rpal_string_strcmpA
     (
         RPCHAR str1,
         RPCHAR str2
     )
 {
-    RS32 res = (-1);
+    RS32 res = ( -1 );
 
     if( NULL != str1 &&
         NULL != str2 )
     {
-#if defined( RPAL_PLATFORM_LINUX ) || defined( RPAL_PLATFORM_MACOSX )
-        RPAL_PLATFORM_TODO(Confirm GLIBC doesnt break this with optimizations);
-#endif
         res = strcmp( str1, str2 );
     }
 
     return res;
 }
 
-
 RS32
-    rpal_string_stricmpa
+    rpal_string_strcmp
     (
-        RPCHAR str1,
-        RPCHAR str2
+        RNATIVESTR str1,
+        RNATIVESTR str2
     )
 {
     RS32 res = (-1);
@@ -1270,11 +1222,11 @@ RS32
     if( NULL != str1 &&
         NULL != str2 )
     {
-#ifdef RPAL_PLATFORM_WINDOWS
-        res = stricmp( str1, str2 );
-#elif defined( RPAL_PLATFORM_LINUX ) || defined( RPAL_PLATFORM_MACOSX )
-        RPAL_PLATFORM_TODO(Confirm GLIBC doesnt break this with optimizations)
-        res = strcasecmp( str1, str2 );
+#ifdef RNATIVE_IS_WIDE
+        res = rpal_string_strcmpW( str1, str2 );   
+#else
+        RPAL_PLATFORM_TODO( Confirm GLIBC doesnt break this with optimizations );
+        res = rpal_string_strcmpA( str1, str2 );
 #endif
     }
 
@@ -1282,10 +1234,10 @@ RS32
 }
 
 RS32
-    rpal_string_stricmpw
+    rpal_string_stricmp
     (
-        RPWCHAR str1,
-        RPWCHAR str2
+        RNATIVESTR str1,
+        RNATIVESTR str2
     )
 {
     RS32 res = (-1);
@@ -1297,63 +1249,36 @@ RS32
         res = wcsicmp( str1, str2 );
 #elif defined( RPAL_PLATFORM_LINUX ) || defined( RPAL_PLATFORM_MACOSX )
         RPAL_PLATFORM_TODO(Confirm GLIBC doesnt break this with optimizations)
-        res = wcscasecmp( str1, str2 );
+        res = strcasecmp( str1, str2 );
 #endif
     }
 
     return res;
 }
 
-RPCHAR
-    rpal_string_touppera
+RNATIVESTR
+    rpal_string_toupper
     (
-        RPCHAR str
+        RNATIVESTR str
     )
 {
-    RPCHAR ret = NULL;
+    RNATIVESTR ret = NULL;
 
     if( NULL != str )
     {
-        ret = strupr( str );
-    }
-
-    return ret;
-}
-
-RPWCHAR
-    rpal_string_toupperw
-    (
-        RPWCHAR str
-    )
-{
-    RPWCHAR ret = NULL;
-
-    if( NULL != str )
-    {
+#ifdef RPAL_PLATFORM_WINDOWS
         ret = wcsupr( str );
+#elif defined( RPAL_PLATFORM_LINUX ) || defined( RPAL_PLATFORM_MACOSX )
+        ret = strupr( str );
+#endif
     }
 
     return ret;
 }
 
-RPCHAR
-    rpal_string_tolowera
-    (
-        RPCHAR str
-    )
-{
-    RPCHAR ret = NULL;
-
-    if( NULL != str )
-    {
-        ret = strlwr( str );
-    }
-
-    return ret;
-}
 
 RPWCHAR
-    rpal_string_tolowerw
+    rpal_string_tolowerW
     (
         RPWCHAR str
     )
@@ -1368,42 +1293,53 @@ RPWCHAR
     return ret;
 }
 
+
 RPCHAR
-    rpal_string_strcpya
+    rpal_string_tolowerA
     (
-        RPCHAR dst,
-        RPCHAR src
+        RPCHAR str
     )
 {
-    RPCHAR res = NULL;
+    RPCHAR ret = NULL;
 
-    if( NULL != dst &&
-        NULL != src )
+    if( NULL != str )
     {
-        res = dst;
-
-        while( 0 != *src )
-        {
-            *dst = *src;
-            src++;
-            dst++;
-        }
-
-        *dst = 0;
+        ret = strlwr( str );
     }
 
-    return res;
+    return ret;
 }
 
-RPWCHAR
-    rpal_string_strcpyw
+
+RNATIVESTR
+    rpal_string_tolower
     (
-        RPWCHAR dst,
-        RPWCHAR src
+        RNATIVESTR str
     )
 {
-    RPWCHAR res = NULL;
-    
+    RNATIVESTR ret = NULL;
+
+    if( NULL != str )
+    {
+#ifdef RNATIVE_IS_WIDE
+        ret = rpal_string_tolowerW( str );
+#else
+        ret = rpal_string_tolowerA( str );
+#endif
+    }
+
+    return ret;
+}
+
+RNATIVESTR
+    rpal_string_strcpy
+    (
+        RNATIVESTR dst,
+        RNATIVESTR src
+    )
+{
+    RNATIVESTR res = NULL;
+
     if( NULL != dst &&
         NULL != src )
     {
@@ -1423,22 +1359,24 @@ RPWCHAR
 }
 
 RBOOL
-    rpal_string_atoi
+    rpal_string_stoi
     (
-        RPCHAR str,
+        RNATIVESTR str,
         RU32* pNum
     )
 {
     RBOOL isSuccess = FALSE;
-    RPCHAR tmp = 0;
+    RNATIVESTR tmp = 0;
 
     if( NULL != str &&
         NULL != pNum )
     {
-#if defined( RPAL_PLATFORM_LINUX ) || defined( RPAL_PLATFORM_MACOSX )
+#ifdef RPAL_PLATFORM_WINDOWS
+        *pNum = (RU32)wcstol( str, &tmp, 10 );
+#elif defined( RPAL_PLATFORM_LINUX ) || defined( RPAL_PLATFORM_MACOSX )
 RPAL_PLATFORM_TODO(Confirm GLIBC doesnt break this with optimizations)
-#endif
         *pNum = (RU32)strtol( str, &tmp, 10 );
+#endif
         
         if( NULL != tmp &&
             0 == *tmp )
@@ -1451,41 +1389,14 @@ RPAL_PLATFORM_TODO(Confirm GLIBC doesnt break this with optimizations)
 }
 
 RBOOL
-    rpal_string_wtoi
+    rpal_string_fill
     (
-        RPWCHAR str,
-        RU32* pNum
-    )
-{
-    RBOOL isSuccess = FALSE;
-    RPWCHAR tmp = 0;
-
-    if( NULL != str &&
-        NULL != pNum )
-    {
-#if defined( RPAL_PLATFORM_LINUX ) || defined( RPAL_PLATFORM_MACOSX )
-RPAL_PLATFORM_TODO(Confirm GLIBC doesnt break this with optimizations)
-#endif
-        *pNum = (RU32)wcstol( str, &tmp, 10 );
-        if( NULL != tmp &&
-            0 == *tmp )
-        {
-            isSuccess = TRUE;
-        }
-    }
-
-    return isSuccess;
-}
-
-RBOOL
-    rpal_string_filla
-    (
-        RPCHAR str,
+        RNATIVESTR str,
         RU32 nChar,
-        RCHAR fillWith
+        RNATIVECHAR fillWith
     )
 {
-    RBOOL isFilledSomerthing = FALSE;
+    RBOOL isFilledSomething = FALSE;
     RU32 i = 0;
 
     if( NULL != str )
@@ -1494,46 +1405,20 @@ RBOOL
         {
             if( 0 == str[ i ] )
             {
-                isFilledSomerthing = TRUE;
+                isFilledSomething = TRUE;
                 str[ i ] = fillWith;
             }
         }
     }
 
-    return isFilledSomerthing;
+    return isFilledSomething;
 }
 
 RBOOL
-    rpal_string_fillw
+    rpal_string_startswith
     (
-        RPWCHAR str,
-        RU32 nChar,
-        RWCHAR fillWith
-    )
-{
-    RBOOL isFilledSomerthing = FALSE;
-    RU32 i = 0;
-
-    if( NULL != str )
-    {
-        for( i = 0; i < nChar; i++ )
-        {
-            if( 0 == str[ i ] )
-            {
-                isFilledSomerthing = TRUE;
-                str[ i ] = fillWith;
-            }
-        }
-    }
-
-    return isFilledSomerthing;
-}
-
-RBOOL
-    rpal_string_startswitha
-    (
-        RPCHAR haystack,
-        RPCHAR needle
+        RNATIVESTR haystack,
+        RNATIVESTR needle
     )
 {
     RBOOL isStartsWith = FALSE;
@@ -1541,29 +1426,7 @@ RBOOL
     if( NULL != haystack &&
         NULL != needle )
     {
-        if( 0 == rpal_memory_memcmp( haystack, needle, rpal_string_strlen( needle ) * sizeof( RCHAR ) ) )
-        {
-            isStartsWith = TRUE;
-        }
-    }
-    
-    return isStartsWith;
-}
-
-
-RBOOL
-    rpal_string_startswithw
-    (
-        RPWCHAR haystack,
-        RPWCHAR needle
-    )
-{
-    RBOOL isStartsWith = FALSE;
-    
-    if( NULL != haystack &&
-        NULL != needle )
-    {
-        if( 0 == rpal_memory_memcmp( haystack, needle, rpal_string_strlenw( needle ) * sizeof( RWCHAR ) ) )
+        if( 0 == rpal_memory_memcmp( haystack, needle, rpal_string_strlen( needle ) * sizeof( RNATIVECHAR ) ) )
         {
             isStartsWith = TRUE;
         }
@@ -1573,66 +1436,28 @@ RBOOL
 }
 
 RBOOL
-    rpal_string_startswithia
+    rpal_string_startswithi
     (
-        RPCHAR haystack,
-        RPCHAR needle
+        RNATIVESTR haystack,
+        RNATIVESTR needle
     )
 {
     RBOOL isStartsWith = FALSE;
     
-    RPCHAR tmpHaystack = NULL;
-    RPCHAR tmpNeedle = NULL;
+    RNATIVESTR tmpHaystack = NULL;
+    RNATIVESTR tmpNeedle = NULL;
     
     if( NULL != haystack &&
         NULL != needle )
     {
-        if( NULL != ( tmpHaystack = rpal_string_strdupa( haystack ) ) )
+        if( NULL != ( tmpHaystack = rpal_string_strdup( haystack ) ) )
         {
-            if( NULL != ( tmpNeedle = rpal_string_strdupa( needle ) ) )
+            if( NULL != ( tmpNeedle = rpal_string_strdup( needle ) ) )
             {
-                tmpHaystack = rpal_string_tolowera( tmpHaystack );
-                tmpNeedle = rpal_string_tolowera( tmpNeedle );
+                tmpHaystack = rpal_string_tolower( tmpHaystack );
+                tmpNeedle = rpal_string_tolower( tmpNeedle );
                 
-                if( 0 == rpal_memory_memcmp( tmpHaystack, tmpNeedle, rpal_string_strlen( tmpNeedle ) * sizeof( RCHAR ) ) )
-                {
-                    isStartsWith = TRUE;
-                }
-                
-                rpal_memory_free( tmpNeedle );
-            }
-            
-            rpal_memory_free( tmpHaystack );
-        }
-    }
-    
-    return isStartsWith;
-}
-
-
-RBOOL
-    rpal_string_startswithiw
-    (
-        RPWCHAR haystack,
-        RPWCHAR needle
-    )
-{
-    RBOOL isStartsWith = FALSE;
-    
-    RPWCHAR tmpHaystack = NULL;
-    RPWCHAR tmpNeedle = NULL;
-    
-    if( NULL != haystack &&
-        NULL != needle )
-    {
-        if( NULL != ( tmpHaystack = rpal_string_strdupw( haystack ) ) )
-        {
-            if( NULL != ( tmpNeedle = rpal_string_strdupw( needle ) ) )
-            {
-                tmpHaystack = rpal_string_tolowerw( tmpHaystack );
-                tmpNeedle = rpal_string_tolowerw( tmpNeedle );
-                
-                if( 0 == rpal_memory_memcmp( tmpHaystack, tmpNeedle, rpal_string_strlenw( tmpNeedle ) * sizeof( RWCHAR ) ) )
+                if( 0 == rpal_memory_memcmp( tmpHaystack, tmpNeedle, rpal_string_strlen( tmpNeedle ) * sizeof( RNATIVECHAR ) ) )
                 {
                     isStartsWith = TRUE;
                 }
@@ -1648,10 +1473,10 @@ RBOOL
 }
 
 RBOOL
-    rpal_string_endswitha
+    rpal_string_endswith
     (
-        RPCHAR haystack,
-        RPCHAR needle
+        RNATIVESTR haystack,
+        RNATIVESTR needle
     )
 {
     RBOOL isEndsWith = FALSE;
@@ -1662,7 +1487,7 @@ RBOOL
         if( 0 == rpal_memory_memcmp( haystack + rpal_string_strlen( haystack ) - 
                                                 rpal_string_strlen( needle ), 
                                      needle, 
-                                     rpal_string_strlen( needle ) * sizeof( RCHAR ) ) )
+                                     rpal_string_strlen( needle ) * sizeof( RNATIVECHAR ) ) )
         {
             isEndsWith = TRUE;
         }
@@ -1672,35 +1497,10 @@ RBOOL
 }
 
 RBOOL
-    rpal_string_endswithw
+    rpal_string_trim
     (
-        RPWCHAR haystack,
-        RPWCHAR needle
-    )
-{
-    RBOOL isEndsWith = FALSE;
-    
-    if( NULL != haystack &&
-        NULL != needle )
-    {
-        if( 0 == rpal_memory_memcmp( haystack + rpal_string_strlenw( haystack ) - 
-                                                rpal_string_strlenw( needle ), 
-                                     needle, 
-                                     rpal_string_strlenw( needle ) * sizeof( RWCHAR ) ) )
-        {
-            isEndsWith = TRUE;
-        }
-    }
-    
-    return isEndsWith;
-}
-
-
-RBOOL
-    rpal_string_trima
-    (
-        RPCHAR str,
-        RPCHAR charsToTrim
+        RNATIVESTR str,
+        RNATIVESTR charsToTrim
     )
 {
     RBOOL isSomethingTrimmed = FALSE;
@@ -1739,54 +1539,10 @@ RBOOL
     return isSomethingTrimmed;
 }
 
-
-RBOOL
-    rpal_string_trimw
-    (
-        RPWCHAR str,
-        RPWCHAR charsToTrim
-    )
-{
-    RBOOL isSomethingTrimmed = FALSE;
-
-    RS32 i = 0;
-    RU32 j = 0;
-    RU32 nChars = 0;
-
-    if( NULL != str &&
-        NULL != charsToTrim )
-    {
-        nChars = rpal_string_strlenw( charsToTrim );
-
-        if( 0 != nChars )
-        {
-            for( i = rpal_string_strlenw( str ) - 1; i >= 0; i-- )
-            {
-                for( j = 0; j < nChars; j++ )
-                {
-                    if( charsToTrim[ j ] == str[ i ] )
-                    {
-                        isSomethingTrimmed = TRUE;
-                        str[ i ] = 0;
-                        break;
-                    }
-                }
-
-                if( !isSomethingTrimmed )
-                {
-                    break;
-                }
-            }
-        }
-    }
-
-    return isSomethingTrimmed;
-}
-
 RBOOL
     rpal_string_charIsAscii
     (
-        RCHAR c
+        RNATIVECHAR c
     )
 {
     RBOOL isAscii = FALSE;
@@ -1803,7 +1559,7 @@ RBOOL
 RBOOL
     rpal_string_charIsAlphaNum
     (
-        RCHAR c
+        RNATIVECHAR c
     )
 {
     RBOOL isAlphaNum = FALSE;
@@ -1821,7 +1577,7 @@ RBOOL
 RBOOL
     rpal_string_charIsAlpha
     (
-        RCHAR c
+        RNATIVECHAR c
     )
 {
     RBOOL isAlpha = FALSE;
@@ -1838,7 +1594,7 @@ RBOOL
 RBOOL
     rpal_string_charIsNum
     (
-        RCHAR c
+        RNATIVECHAR c
     )
 {
     RBOOL isNum = FALSE;
@@ -1851,10 +1607,75 @@ RBOOL
     return isNum;
 }
 
+
+RBOOL
+    rpal_string_charIsUpperW
+    (
+        RWCHAR c
+    )
+{
+    RBOOL isUpper = FALSE;
+
+    if( ( 0x41 <= c && 0x5A >= c ) )
+    {
+        isUpper = TRUE;
+    }
+
+    return isUpper;
+}
+
+RBOOL
+    rpal_string_charIsLowerW
+    (
+        RWCHAR c
+    )
+{
+    RBOOL isLower = FALSE;
+
+    if( ( 0x61 <= c && 0x7A >= c ) )
+    {
+        isLower = TRUE;
+    }
+
+    return isLower;
+}
+
+RBOOL
+    rpal_string_charIsUpperA
+    (
+        RCHAR c
+    )
+{
+    RBOOL isUpper = FALSE;
+
+    if( ( 0x41 <= c && 0x5A >= c ) )
+    {
+        isUpper = TRUE;
+    }
+
+    return isUpper;
+}
+
+RBOOL
+    rpal_string_charIsLowerA
+    (
+        RCHAR c
+    )
+{
+    RBOOL isLower = FALSE;
+
+    if( ( 0x61 <= c && 0x7A >= c ) )
+    {
+        isLower = TRUE;
+    }
+
+    return isLower;
+}
+
 RBOOL
     rpal_string_charIsUpper
     (
-        RCHAR c
+        RNATIVECHAR c
     )
 {
     RBOOL isUpper = FALSE;
@@ -1871,7 +1692,7 @@ RBOOL
 RBOOL
     rpal_string_charIsLower
     (
-        RCHAR c
+        RNATIVECHAR c
     )
 {
     RBOOL isLower = FALSE;
@@ -1884,53 +1705,8 @@ RBOOL
     return isLower;
 }
 
-RBOOL
-    rpal_string_wcharIsUpper
-    (
-        RWCHAR c
-    )
-{
-    RBOOL isUpper = FALSE;
-
-    isUpper = iswupper( c );
-
-    return isUpper;
-}
-
-
-RBOOL
-    rpal_string_wcharIsLower
-    (
-        RWCHAR c
-    )
-{
-    RBOOL isLower = FALSE;
-
-    isLower = iswlower( c );
-
-    return isLower;
-}
-
-RCHAR
-    rpal_string_charToUpper
-    (
-        RCHAR c
-    )
-{
-    return (RCHAR)toupper( c );
-}
-
-RCHAR
-    rpal_string_charToLower
-    (
-        RCHAR c
-    )
-{
-    return (RCHAR)tolower( c );
-}
-
 RWCHAR
-    rpal_string_wcharToUpper
+    rpal_string_charToUpperW
     (
         RWCHAR c
     )
@@ -1939,10 +1715,54 @@ RWCHAR
 }
 
 RWCHAR
-    rpal_string_wcharToLower
+    rpal_string_charToLowerW
     (
         RWCHAR c
     )
 {
     return (RWCHAR)towlower( c );
+}
+
+RCHAR
+    rpal_string_charToUpperA
+    (
+        RCHAR c
+    )
+{
+    return (RCHAR)toupper( c );
+}
+
+RCHAR
+    rpal_string_charToLowerA
+    (
+        RCHAR c
+    )
+{
+    return (RCHAR)towupper( c );
+}
+
+RNATIVECHAR
+    rpal_string_charToUpper
+    (
+        RNATIVECHAR c
+    )
+{
+#ifdef RNATIVE_IS_WIDE
+    return rpal_string_charToUpperW( c );
+#else
+    return rpal_string_charToUpperA( c );
+#endif
+}
+
+RNATIVECHAR
+    rpal_string_charToLower
+    (
+        RNATIVECHAR c
+    )
+{
+#ifdef RNATIVE_IS_WIDE
+    return rpal_string_charToLowerW( c );
+#else
+    return rpal_string_charToLowerA( c );
+#endif
 }

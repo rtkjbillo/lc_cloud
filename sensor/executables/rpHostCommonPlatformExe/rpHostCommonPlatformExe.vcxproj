@@ -26,19 +26,19 @@
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
-    <CharacterSet>MultiByte</CharacterSet>
+    <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
-    <CharacterSet>MultiByte</CharacterSet>
+    <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
-    <CharacterSet>MultiByte</CharacterSet>
+    <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
-    <CharacterSet>MultiByte</CharacterSet>
+    <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
   <ImportGroup Label="ExtensionSettings">
@@ -120,9 +120,6 @@
   <ItemGroup>
     <ProjectReference Include="..\..\lib\cryptoLib\cryptoLib.vcxproj">
       <Project>{533b36b9-e781-4132-baa7-33bf68de7013}</Project>
-    </ProjectReference>
-    <ProjectReference Include="..\..\lib\libb64\libb64.vcxproj">
-      <Project>{e46202fa-faf8-41b2-9e08-6c3e4ae99d91}</Project>
     </ProjectReference>
     <ProjectReference Include="..\..\lib\libOs\libOs.vcxproj">
       <Project>{b344474d-101c-4eeb-ac48-40f1d5489bfd}</Project>

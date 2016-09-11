@@ -63,7 +63,7 @@ BOOL
         // will kill us very shortly, so let's just clean up
         // the CC so we don't report a pointless "crash".
         OBFUSCATIONLIB_TOGGLE( store );
-        rpal_file_deletew( (RPWCHAR)store, FALSE );
+        rpal_file_delete( (RPWCHAR)store, FALSE );
         OBFUSCATIONLIB_TOGGLE( store );
     }
 
@@ -147,7 +147,7 @@ RBOOL
 
     OBFUSCATIONLIB_TOGGLE( store );
 
-    if( rpal_file_readw( (RPWCHAR)store, (RPVOID)&storeFile, &storeFileSize, FALSE ) )
+    if( rpal_file_read( (RNATIVESTR)store, (RPVOID)&storeFile, &storeFileSize, FALSE ) )
     {
         if( sizeof( rpHCPIdentStore ) <= storeFileSize )
         {
@@ -166,7 +166,7 @@ RBOOL
             else
             {
                 rpal_debug_warning( "inconsistent ident store, reseting" );
-                rpal_file_deletew( (RPWCHAR)store, FALSE );
+                rpal_file_delete( (RNATIVESTR)store, FALSE );
             }
         }
 
@@ -220,8 +220,8 @@ RBOOL
     rpHostCommonPlatformLib_launch
     (
         RU8 configHint,
-        RPCHAR primaryHomeUrl,
-        RPCHAR secondaryHomeUrl
+        RNATIVESTR primaryHomeUrl,
+        RNATIVESTR secondaryHomeUrl
     )
 {
     RBOOL isInitSuccessful = FALSE;
@@ -269,7 +269,7 @@ RBOOL
                 if( rSequence_getSTRINGA( staticConfig, RP_TAGS_HCP_PRIMARY_URL, &tmpStr ) &&
                     rSequence_getRU16( staticConfig, RP_TAGS_HCP_PRIMARY_PORT, &tmpPort ) )
                 {
-                    g_hcpContext.primaryUrl = rpal_string_strdupa( tmpStr );
+                    g_hcpContext.primaryUrl = rpal_string_strdupA( tmpStr );
                     g_hcpContext.primaryPort = tmpPort;
                     rpal_debug_info( "loading primary url from static config" );
                 }
@@ -277,7 +277,7 @@ RBOOL
                 if( rSequence_getSTRINGA( staticConfig, RP_TAGS_HCP_SECONDARY_URL, &tmpStr ) &&
                     rSequence_getRU16( staticConfig, RP_TAGS_HCP_SECONDARY_PORT, &tmpPort ) )
                 {
-                    g_hcpContext.secondaryUrl = rpal_string_strdupa( tmpStr );
+                    g_hcpContext.secondaryUrl = rpal_string_strdupA( tmpStr );
                     g_hcpContext.secondaryPort = tmpPort;
                     rpal_debug_info( "loading secondary url from static config" );
                 }
@@ -301,7 +301,7 @@ RBOOL
 
                 if( rSequence_getSTRINGA( staticConfig, RP_TAGS_HCP_DEPLOYMENT_KEY, &tmpStr ) )
                 {
-                    g_hcpContext.deploymentKey = rpal_string_strdupa( tmpStr );
+                    g_hcpContext.deploymentKey = rpal_string_strdupA( tmpStr );
                     rpal_debug_info( "loading deployment key from static config" );
                 }
 
@@ -318,7 +318,7 @@ RBOOL
                     rpal_memory_free( g_hcpContext.primaryUrl );
                     g_hcpContext.primaryUrl = NULL;
                 }
-                g_hcpContext.primaryUrl = rpal_string_strdupa( primaryHomeUrl );
+                g_hcpContext.primaryUrl = rpal_string_ntoa( primaryHomeUrl );
             }
 
             if( NULL != secondaryHomeUrl &&
@@ -329,7 +329,7 @@ RBOOL
                     rpal_memory_free( g_hcpContext.secondaryUrl );
                     g_hcpContext.secondaryUrl = NULL;
                 }
-                g_hcpContext.secondaryUrl = rpal_string_strdupa( secondaryHomeUrl );
+                g_hcpContext.secondaryUrl = rpal_string_ntoa( secondaryHomeUrl );
             }
 
             g_hcpContext.enrollmentToken = NULL;
@@ -426,7 +426,7 @@ RBOOL
 RBOOL
     rpHostCommonPlatformLib_load
     (
-        RPWCHAR modulePath,
+        RNATIVESTR modulePath,
         RU32 moduleId
     )
 {
@@ -450,12 +450,7 @@ RBOOL
 #ifdef RPAL_PLATFORM_WINDOWS
                 g_hcpContext.modules[ moduleIndex ].hModule = LoadLibraryW( modulePath );
 #elif defined( RPAL_PLATFORM_LINUX ) || defined( RPAL_PLATFORM_MACOSX )
-                RPCHAR tmpPath = NULL;
-                if( NULL != ( tmpPath = rpal_string_wtoa( modulePath ) ) )
-                {
-                    g_hcpContext.modules[ moduleIndex ].hModule = dlopen( tmpPath, RTLD_NOW | RTLD_LOCAL );
-                    rpal_memory_free( tmpPath );
-                }
+                g_hcpContext.modules[ moduleIndex ].hModule = dlopen( modulePath, RTLD_NOW | RTLD_LOCAL );
 #endif
                 if( NULL != g_hcpContext.modules[ moduleIndex ].hModule )
                 {

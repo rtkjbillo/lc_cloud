@@ -23,8 +23,8 @@ RBOOL
     rpHostCommonPlatformLib_launch
     (
         RU8 configHint,
-        RPCHAR primaryHomeUrl,
-        RPCHAR secondaryHomeUrl
+        RNATIVESTR primaryHomeUrl,
+        RNATIVESTR secondaryHomeUrl
     );
 
 RBOOL
@@ -36,7 +36,7 @@ RBOOL
 RBOOL
     rpHostCommonPlatformLib_load
     (
-        RPWCHAR modulePath,
+        RNATIVESTR modulePath,
         RU32 moduleId
     );
 

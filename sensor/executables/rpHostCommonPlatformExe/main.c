@@ -80,14 +80,14 @@ void
 #ifdef RPAL_PLATFORM_WINDOWS
 
 
-#define _SERVICE_NAME "rphcpsvc"
+#define _SERVICE_NAME _WCH( "rphcpsvc" )
 #define _SERVICE_NAMEW _WCH( "rphcpsvc" )
 static SERVICE_STATUS g_svc_status = { 0 };
 static SERVICE_STATUS_HANDLE g_svc_status_handle = NULL;
 static RU8 g_svc_conf = 0;
-static RPCHAR g_svc_primary = NULL;
-static RPCHAR g_svc_secondary = NULL;
-static RPWCHAR g_svc_mod = NULL;
+static RNATIVESTR g_svc_primary = NULL;
+static RNATIVESTR g_svc_secondary = NULL;
+static RNATIVESTR g_svc_mod = NULL;
 static RU32 g_svc_mod_id = 0;
 
 static
@@ -113,7 +113,7 @@ RU32
     {
         if( ARRAY_N_ELEM( curPath ) > GetModuleFileNameW( hModule, curPath, ARRAY_N_ELEM( curPath ) ) )
         {
-            if( rpal_file_movew( curPath, destPath ) )
+            if( rpal_file_move( curPath, destPath ) )
             {
                 if( NULL != ( hScm = OpenSCManagerA( NULL, NULL, SC_MANAGER_CREATE_SERVICE ) ) )
                 {
@@ -251,7 +251,7 @@ RU32
 
     rpal_thread_sleep( MSEC_FROM_SEC( 1 ) );
 
-    if( rpal_file_deletew( destPath, FALSE ) )
+    if( rpal_file_delete( destPath, FALSE ) )
     {
         rpal_debug_info( "service executable deleted" );
     }
@@ -310,13 +310,13 @@ VOID WINAPI
     )
 {
     RU32 memUsed = 0;
-    RCHAR svcName[] = { _SERVICE_NAME };
+    RWCHAR svcName[] = { _SERVICE_NAME };
 
     UNREFERENCED_PARAMETER( dwArgc );
     UNREFERENCED_PARAMETER( lpszArgv );
 
 
-    if( NULL == ( g_svc_status_handle = RegisterServiceCtrlHandlerA( svcName, SvcCtrlHandler ) ) )
+    if( NULL == ( g_svc_status_handle = RegisterServiceCtrlHandlerW( svcName, SvcCtrlHandler ) ) )
     {
         return;
     }
@@ -393,62 +393,56 @@ VOID WINAPI
 #endif
 
 
-int
-RPAL_EXPORT
-    main
-    (
-        int argc,
-        char* argv[]
-    )
+RPAL_NATIVE_MAIN
 {
-    RCHAR argFlag = 0;
-    RPCHAR argVal = NULL;
+    RNATIVECHAR argFlag = 0;
+    RNATIVESTR argVal = NULL;
     RU32 conf = 0;
-    RPCHAR primary = NULL;
-    RPCHAR secondary = NULL;
-    RPWCHAR tmpMod = NULL;
+    RNATIVESTR primary = NULL;
+    RNATIVESTR secondary = NULL;
+    RNATIVESTR tmpMod = NULL;
     RU32 tmpModId = 0;
     RU32 memUsed = 0;
     RBOOL asService = FALSE;
 
-    rpal_opt switches[] = { { 'h', "help", FALSE },
-                            { 'c', "config", TRUE },
-                            { 'p', "primary", TRUE },
-                            { 's', "secondary", TRUE },
-                            { 'm', "manual", TRUE },
-                            { 'n', "moduleId", TRUE }
+    rpal_opt switches[] = { { RNATIVE_LITERAL( 'h' ), RNATIVE_LITERAL( "help" ), FALSE },
+                            { RNATIVE_LITERAL( 'c' ), RNATIVE_LITERAL( "config" ), TRUE },
+                            { RNATIVE_LITERAL( 'p' ), RNATIVE_LITERAL( "primary" ), TRUE },
+                            { RNATIVE_LITERAL( 's' ), RNATIVE_LITERAL( "secondary" ), TRUE },
+                            { RNATIVE_LITERAL( 'm' ), RNATIVE_LITERAL( "manual" ), TRUE },
+                            { RNATIVE_LITERAL( 'n' ), RNATIVE_LITERAL( "moduleId" ), TRUE }
 #ifdef RPAL_PLATFORM_WINDOWS
                             ,
-                            { 'i', "install", FALSE },
-                            { 'r', "uninstall", FALSE },
-                            { 'w', "service", FALSE }
+                            { RNATIVE_LITERAL( 'i' ), RNATIVE_LITERAL( "install" ), FALSE },
+                            { RNATIVE_LITERAL( 'r' ), RNATIVE_LITERAL( "uninstall" ), FALSE },
+                            { RNATIVE_LITERAL( 'w' ), RNATIVE_LITERAL( "service" ), FALSE }
 #endif
                           };
 
     if( rpal_initialize( NULL, 0 ) )
     {
-        while( -1 != ( argFlag = rpal_getopt( argc, argv, switches, &argVal ) ) )
+        while( (RNATIVECHAR)-1 != ( argFlag = rpal_getopt( argc, argv, switches, &argVal ) ) )
         {
             switch( argFlag )
             {
-                case 'c':
-                    rpal_string_atoi( argVal, &conf );
+                case RNATIVE_LITERAL( 'c' ):
+                    rpal_string_stoi( argVal, &conf );
                     rpal_debug_info( "Setting config id: %d.", conf );
                     break;
-                case 'p':
+                case RNATIVE_LITERAL( 'p' ):
                     primary = argVal;
                     rpal_debug_info( "Setting primary URL: %s.", primary );
                     break;
-                case 's':
+                case RNATIVE_LITERAL( 's' ):
                     secondary = argVal;
                     rpal_debug_info( "Setting secondary URL: %s.", secondary );
                     break;
-                case 'm':
-                    tmpMod = rpal_string_atow( argVal );
+                case RNATIVE_LITERAL( 'm' ):
+                    tmpMod = rpal_string_strdup( argVal );
                     rpal_debug_info( "Manually loading module: %s.", argVal );
                     break;
-                case 'n':
-                    if( rpal_string_atoi( argVal, &tmpModId ) )
+                case RNATIVE_LITERAL( 'n' ):
+                    if( rpal_string_stoi( argVal, &tmpModId ) )
                     {
                         rpal_debug_info( "Manually loaded module id is: %d", tmpModId );
                     }
@@ -458,17 +452,17 @@ RPAL_EXPORT
                     }
                     break;
 #ifdef RPAL_PLATFORM_WINDOWS
-                case 'i':
+                case RNATIVE_LITERAL( 'i' ):
                     return installService();
                     break;
-                case 'r':
+                case RNATIVE_LITERAL( 'r' ):
                     return uninstallService();
                     break;
-                case 'w':
+                case RNATIVE_LITERAL( 'w' ):
                     asService = TRUE;
                     break;
 #endif
-                case 'h':
+                case RNATIVE_LITERAL( 'h' ):
                 default:
 #ifdef RPAL_PLATFORM_DEBUG
                     printf( "Usage: %s [ -c configId ] [ -p primaryHomeUrl ] [ -s secondaryHomeUrl ] [ -m moduleToLoad ] [ -h ].\n", argv[ 0 ] );
@@ -492,8 +486,8 @@ RPAL_EXPORT
 #ifdef RPAL_PLATFORM_WINDOWS
         if( asService )
         {
-            RCHAR svcName[] = { _SERVICE_NAME };
-            SERVICE_TABLE_ENTRYA DispatchTable[] =
+            RWCHAR svcName[] = { _SERVICE_NAME };
+            SERVICE_TABLE_ENTRYW DispatchTable[] =
             {
                 { NULL, (LPSERVICE_MAIN_FUNCTION)ServiceMain },
                 { NULL, NULL }
@@ -506,7 +500,7 @@ RPAL_EXPORT
             g_svc_secondary = secondary;
             g_svc_mod = tmpMod;
             g_svc_mod_id = tmpModId;
-            if( !StartServiceCtrlDispatcherA( DispatchTable ) )
+            if( !StartServiceCtrlDispatcherW( DispatchTable ) )
             {
                 return GetLastError();
             }

@@ -224,9 +224,25 @@ limitations under the License.
 #ifdef RPAL_PLATFORM_WINDOWS
     #define RPAL_EXPORT         __declspec(dllexport)
     #define RPAL_DONT_EXPORT
+    #define RPAL_NATIVE_MAIN \
+int\
+    RPAL_EXPORT\
+        wmain\
+        (\
+            int argc,\
+            RWCHAR* argv[]\
+        )
 #elif defined( RPAL_PLATFORM_LINUX ) || defined( RPAL_PLATFORM_MACOSX )
     #define RPAL_EXPORT         __attribute__((visibility("default")))
     #define RPAL_DONT_EXPORT    __attribute__((visibility("hidden")))
+    #define RPAL_NATIVE_MAIN \
+int\
+    RPAL_EXPORT\
+        main\
+        (\
+            int argc,\
+            RCHAR* argv[]\
+        )
 #endif
 
 //=============================================================================

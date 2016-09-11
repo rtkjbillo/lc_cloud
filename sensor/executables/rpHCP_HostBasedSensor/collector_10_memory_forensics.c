@@ -51,7 +51,7 @@ RVOID
     // start with ascii strings...
     while( pCurr < pEnd )
     {
-        isChar = rpal_string_isprint( *pCurr );
+        isChar = rpal_string_isprintA( *pCurr );
 
         if( NULL == pStartStr && isChar )  // found the begining of a string
         {
@@ -78,7 +78,7 @@ RVOID
     pwEnd = pwCurr + ( size / 2 );
     while( pwCurr < pwEnd )
     {
-        isWChar = rpal_string_iswprint( *pwCurr );
+        isWChar = rpal_string_isprintW( *pwCurr );
 
         if( NULL == pwStartStr && isWChar )  // found the begining of a string
         {
@@ -118,7 +118,7 @@ RBOOL
         rList_resetIterator( searchStrings );
         while( rList_getSTRINGW( searchStrings, RP_TAGS_STRING, &strVal ) )
         {
-            if( rpal_string_matchw( strVal, str, TRUE ) )
+            if( rpal_string_matchW( strVal, str, TRUE ) )
             {
                 found = TRUE;
                 break;
@@ -204,7 +204,7 @@ RVOID
     pwEnd = pwCurr + ( size / 2 );
     while( pwCurr < pwEnd )
     {
-        isWChar = rpal_string_iswprint( *pwCurr );
+        isWChar = rpal_string_isprintW( *pwCurr );
 
         if( NULL == pwStartStr && isWChar )  // found the begining of a string
         {
@@ -327,8 +327,8 @@ RVOID
     rSequence modEntry = NULL;
     rSequence memEntry = NULL;
 
-    RPWCHAR tmpModName = NULL;
-    RPWCHAR tmpModPath = NULL;
+    RNATIVESTR tmpModName = NULL;
+    RNATIVESTR tmpModPath = NULL;
     RU64 memStart = 0;
     RU64 memSize = 0;
     RU64 modStart = 0;
@@ -364,8 +364,8 @@ RVOID
                                     if( memStart >= modStart && memStart <= ( modStart + modSize ) )
                                     {
                                         // Match, we get just the basic info
-                                        rSequence_getSTRINGW( modEntry, RP_TAGS_MODULE_NAME, &tmpModName );
-                                        rSequence_getSTRINGW( modEntry, RP_TAGS_FILE_PATH, &tmpModPath );
+                                        rSequence_getSTRINGN( modEntry, RP_TAGS_MODULE_NAME, &tmpModName );
+                                        rSequence_getSTRINGN( modEntry, RP_TAGS_FILE_PATH, &tmpModPath );
                                         break;
                                     }
                                 }
@@ -383,11 +383,11 @@ RVOID
 
                             if( NULL != tmpModName )
                             {
-                                rSequence_addSTRINGW( memEntry, RP_TAGS_MODULE_NAME, tmpModName );
+                                rSequence_addSTRINGN( memEntry, RP_TAGS_MODULE_NAME, tmpModName );
                             }
                             if( NULL != tmpModPath )
                             {
-                                rSequence_addSTRINGW( memEntry, RP_TAGS_FILE_PATH, tmpModPath );
+                                rSequence_addSTRINGN( memEntry, RP_TAGS_FILE_PATH, tmpModPath );
                             }
                         }
                     }
@@ -498,14 +498,14 @@ RVOID
         rSequence event
     )
 {
-    RPWCHAR needle = NULL;
+    RNATIVESTR needle = NULL;
     rList handleList;
 
     UNREFERENCED_PARAMETER( eventType );
 
     if( rpal_memory_isValid( event ) )
     {
-        if( rSequence_getSTRINGW( event, RP_TAGS_HANDLE_NAME, &needle ) )
+        if( rSequence_getSTRINGN( event, RP_TAGS_HANDLE_NAME, &needle ) )
         {
             rSequence_unTaintRead( event );
 

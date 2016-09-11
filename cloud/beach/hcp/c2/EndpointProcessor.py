@@ -159,7 +159,7 @@ class _ClientContext( object ):
         data += zlib.compress( hcpData )
         data = self.sendAes.update( self._pad( data ) )
         #data += self.sendAes.final()
-        self.parent.log( 'sending frame of size %d' % len( data ) )
+        #self.parent.log( 'sending frame of size %d' % len( data ) )
         self.sendData( struct.pack( '>I', len( data ) ) + data, timeout = timeout )
 
 class EndpointProcessor( Actor ):

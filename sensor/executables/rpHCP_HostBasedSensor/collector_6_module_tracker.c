@@ -213,9 +213,9 @@ static RBOOL
             rSequence_addPOINTER64( notif, RP_TAGS_BASE_ADDRESS, (RU64)module->baseAddress );
             rSequence_addRU64( notif, RP_TAGS_MEMORY_SIZE, module->imageSize );
 
-            if( 0 != ( pathLength = rpal_string_strlenn( module->path ) ) )
+            if( 0 != ( pathLength = rpal_string_strlen( module->path ) ) )
             {
-                cleanPath = rpal_file_cleann( module->path );
+                cleanPath = rpal_file_clean( module->path );
                 rSequence_addSTRINGN( notif, RP_TAGS_FILE_PATH, cleanPath ? cleanPath : module->path );
                 rpal_memory_free( cleanPath );
 

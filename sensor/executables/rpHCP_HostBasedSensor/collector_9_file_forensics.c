@@ -32,14 +32,14 @@ RBOOL
 {
     RBOOL isEnhanced = FALSE;
 
-    RPWCHAR filePath = NULL;
+    RNATIVESTR filePath = NULL;
     rFileInfo finfo = { 0 };
 
     if( NULL != info )
     {
-        if( rSequence_getSTRINGW( info, RP_TAGS_FILE_PATH, &filePath ) )
+        if( rSequence_getSTRINGN( info, RP_TAGS_FILE_PATH, &filePath ) )
         {
-            if( rpal_file_getInfow( filePath, &finfo ) )
+            if( rpal_file_getInfo( filePath, &finfo ) )
             {
                 rSequence_unTaintRead( info );
                 if( rSequence_addTIMESTAMP( info, RP_TAGS_ACCESS_TIME, finfo.lastAccessTime ) &&
@@ -73,7 +73,7 @@ RVOID
         rSequence event
     )
 {
-    RPWCHAR filePath = NULL;
+    RNATIVESTR filePath = NULL;
     RU8 flag = 0;
     RBOOL isAvoidTimeStamps = TRUE;
     RPU8 fileBuffer = NULL;
@@ -84,7 +84,7 @@ RVOID
 
     if( rpal_memory_isValid( event ) )
     {
-        if( rSequence_getSTRINGW( event, RP_TAGS_FILE_PATH, &filePath ) )
+        if( rSequence_getSTRINGN( event, RP_TAGS_FILE_PATH, &filePath ) )
         {
             rSequence_unTaintRead( event );
 
@@ -93,7 +93,7 @@ RVOID
                 isAvoidTimeStamps = ( 1 == flag ) ? TRUE : FALSE;
             }
 
-            fileSize = rpal_file_getSizew( filePath, isAvoidTimeStamps );
+            fileSize = rpal_file_getSize( filePath, isAvoidTimeStamps );
             rSequence_addRU32( event, RP_TAGS_FILE_SIZE, fileSize );
 
             if( rSequence_getRU32( event, RP_TAGS_MAX_SIZE, &maxSize ) &&
@@ -105,7 +105,7 @@ RVOID
 
             if( isRetrieve )
             {
-                if( rpal_file_readw( filePath, (RPVOID*)&fileBuffer, &fileSize, isAvoidTimeStamps ) )
+                if( rpal_file_read( filePath, (RPVOID*)&fileBuffer, &fileSize, isAvoidTimeStamps ) )
                 {
                     rSequence_addBUFFER( event, RP_TAGS_FILE_CONTENT, fileBuffer, fileSize );
                     rpal_memory_free( fileBuffer );
@@ -134,14 +134,14 @@ RVOID
         rSequence event
     )
 {
-    RPWCHAR filePath = NULL;
+    RNATIVESTR filePath = NULL;
     RU8 flag = 0;
     RBOOL isSafeDelete = FALSE;
     UNREFERENCED_PARAMETER( eventType );
 
     if( rpal_memory_isValid( event ) )
     {
-        if( rSequence_getSTRINGW( event, RP_TAGS_FILE_PATH, &filePath ) )
+        if( rSequence_getSTRINGN( event, RP_TAGS_FILE_PATH, &filePath ) )
         {
             rSequence_unTaintRead( event );
 
@@ -150,7 +150,7 @@ RVOID
                 isSafeDelete = ( 1 == flag ) ? TRUE : FALSE;
             }
 
-            if( !rpal_file_deletew( filePath, isSafeDelete ) )
+            if( !rpal_file_delete( filePath, isSafeDelete ) )
             {
                 rSequence_addRU32( event, RP_TAGS_ERROR, rpal_error_getLast() );
             }
@@ -169,16 +169,16 @@ RVOID
         rSequence event
     )
 {
-    RPWCHAR filePathFrom = NULL;
-    RPWCHAR filePathTo = NULL;
+    RNATIVESTR filePathFrom = NULL;
+    RNATIVESTR filePathTo = NULL;
     UNREFERENCED_PARAMETER( eventType );
 
     if( rpal_memory_isValid( event ) )
     {
-        if( rSequence_getSTRINGW( event, RP_TAGS_SOURCE, &filePathFrom ) &&
-            rSequence_getSTRINGW( event, RP_TAGS_DESTINATION, &filePathTo ) )
+        if( rSequence_getSTRINGN( event, RP_TAGS_SOURCE, &filePathFrom ) &&
+            rSequence_getSTRINGN( event, RP_TAGS_DESTINATION, &filePathTo ) )
         {
-            if( !rpal_file_movew( filePathFrom, filePathTo ) )
+            if( !rpal_file_move( filePathFrom, filePathTo ) )
             {
                 rSequence_unTaintRead( event );
                 rSequence_addRU32( event, RP_TAGS_ERROR, rpal_error_getLast() );
@@ -199,7 +199,7 @@ RVOID
         rSequence event
     )
 {
-    RPWCHAR filePath = NULL;
+    RNATIVESTR filePath = NULL;
     CryptoLib_Hash hash = { 0 };
     RU8 flag = 0;
     RBOOL isAvoidTimeStamps = TRUE;
@@ -207,7 +207,7 @@ RVOID
 
     if( rpal_memory_isValid( event ) )
     {
-        if( rSequence_getSTRINGW( event, RP_TAGS_FILE_PATH, &filePath ) )
+        if( rSequence_getSTRINGN( event, RP_TAGS_FILE_PATH, &filePath ) )
         {
             if( rSequence_getRU8( event, RP_TAGS_AVOID_TIMESTAMPS, &flag ) )
             {
@@ -216,7 +216,7 @@ RVOID
 
             rSequence_unTaintRead( event );
 
-            if( !CryptoLib_hashFileW( filePath, &hash, isAvoidTimeStamps ) )
+            if( !CryptoLib_hashFile( filePath, &hash, isAvoidTimeStamps ) )
             {
                 rSequence_addRU32( event, RP_TAGS_ERROR, rpal_error_getLast() );
             }
@@ -259,8 +259,8 @@ RVOID
         rSequence event
     )
 {
-    RPWCHAR filePath = NULL;
-    RPWCHAR fileSpec[] = { NULL, NULL };
+    RNATIVESTR filePath = NULL;
+    RNATIVESTR fileSpec[] = { NULL, NULL };
     rDirCrawl hDir = NULL;
     rFileInfo finfo = { 0 };
     rList entries = NULL;
@@ -270,8 +270,8 @@ RVOID
 
     if( rpal_memory_isValid( event ) )
     {
-        if( rSequence_getSTRINGW( event, RP_TAGS_DIRECTORY_PATH, &filePath ) &&
-            rSequence_getSTRINGW( event, RP_TAGS_FILE_PATH, &fileSpec[ 0 ] ) )
+        if( rSequence_getSTRINGN( event, RP_TAGS_DIRECTORY_PATH, &filePath ) &&
+            rSequence_getSTRINGN( event, RP_TAGS_FILE_PATH, &fileSpec[ 0 ] ) )
         {
             rSequence_unTaintRead( event );
 
@@ -286,7 +286,7 @@ RVOID
 
                     while( rpal_file_crawlNextFile( hDir, &finfo ) && NULL != ( dirEntry = rSequence_new() ) )
                     {
-                        if( rSequence_addSTRINGW( dirEntry, RP_TAGS_FILE_NAME, finfo.fileName ) &&
+                        if( rSequence_addSTRINGN( dirEntry, RP_TAGS_FILE_NAME, finfo.fileName ) &&
                             rSequence_addTIMESTAMP( dirEntry, RP_TAGS_ACCESS_TIME, finfo.lastAccessTime ) &&
                             rSequence_addTIMESTAMP( dirEntry, RP_TAGS_CREATION_TIME, finfo.creationTime ) &&
                             rSequence_addTIMESTAMP( dirEntry, RP_TAGS_MODIFICATION_TIME, finfo.modificationTime ) &&

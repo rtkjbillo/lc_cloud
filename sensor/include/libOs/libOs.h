@@ -116,7 +116,7 @@ RBOOL
 RBOOL
     libOs_getSignature
 	(
-	    RPWCHAR    pwfilePath,
+	    RNATIVESTR  pwfilePath,
 		rSequence* signature,
 		RU32       operation,
 		RBOOL*     pIsSigned,

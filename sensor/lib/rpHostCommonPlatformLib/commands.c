@@ -351,7 +351,7 @@ RBOOL
                             // Enrollment V2
                             identStore.agentId = tmpId;
                             identStore.enrollmentTokenSize = tokenSize;
-                            if( rFile_open( (RPWCHAR)store, &hStore, RPAL_FILE_OPEN_ALWAYS | RPAL_FILE_OPEN_WRITE ) )
+                            if( rFile_open( (RNATIVESTR)store, &hStore, RPAL_FILE_OPEN_ALWAYS | RPAL_FILE_OPEN_WRITE ) )
                             {
                                 if( rFile_write( hStore, sizeof( identStore ), &identStore ) &&
                                     rFile_write( hStore, tokenSize, token ) )
@@ -385,10 +385,10 @@ RBOOL
                         else
                         {
                             // Enrollment V1
-                            if( rpal_file_writew( (RPWCHAR)store, 
-                                                  &g_hcpContext.currentId, 
-                                                  sizeof( g_hcpContext.currentId ), 
-                                                  TRUE ) )
+                            if( rpal_file_write( (RNATIVESTR)store, 
+                                                 &g_hcpContext.currentId, 
+                                                 sizeof( g_hcpContext.currentId ), 
+                                                 TRUE ) )
                             {
                                 rpal_debug_info( "agentid set to %x.%x.%x.%x.%x", 
                                                  g_hcpContext.currentId.id.orgId, 

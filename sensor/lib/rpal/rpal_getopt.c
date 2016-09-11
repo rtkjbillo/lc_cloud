@@ -16,20 +16,21 @@ limitations under the License.
 
 #include <rpal/rpal_getopt.h>
 
+#define DASH RNATIVE_LITERAL( '-' )
 
-RCHAR 
+RNATIVECHAR 
     rpal_getopt
     (
         RS32 argc, 
-        RPCHAR* argv, 
+        RNATIVESTR* argv, 
         rpal_opt opts[],
-        RPCHAR* pArgVal
+        RNATIVESTR* pArgVal
     )
 {
     static RS32 optind = 1;
-    RCHAR nCmd = 0;
-    RPCHAR pLongCmd = NULL;
-    RCHAR retVal = -1;
+    RNATIVECHAR nCmd = 0;
+    RNATIVESTR pLongCmd = NULL;
+    RNATIVECHAR retVal = (RNATIVECHAR)-1;
     rpal_opt* pOpt = NULL;
     
     if( NULL != argv &&
@@ -38,16 +39,16 @@ RCHAR
     {
         if( argc > optind &&
             argv[ optind ] &&
-            ( '-' == *argv[optind] ||
-              ( '-' == argv[optind][0] &&
-                '-' == argv[optind][1] ) ) )
+            ( DASH == *argv[ optind ] ||
+            ( DASH  == argv[ optind ][ 0 ] &&
+              DASH == argv[ optind ][ 1 ] ) ) )
         {
-            if( '-' == argv[optind][0] &&
-                '-' == argv[optind][1] )
+            if( DASH == argv[ optind ][ 0 ] &&
+                DASH == argv[ optind ][ 1 ] )
             {
                 pLongCmd = argv[ optind ] + 2;
             }
-            else if( '-' == *argv[optind] )
+            else if( DASH == *argv[ optind ] )
             {
 		        nCmd = *( ( argv[ optind ] + 1 ) );
             }
@@ -67,12 +68,12 @@ RCHAR
                     }
                     else if( NULL != pLongCmd &&
                              NULL != pOpt->longSwitch &&
-                             0 == rpal_string_strcmpa( pLongCmd, pOpt->longSwitch ) )
+                             0 == rpal_string_strcmp( pLongCmd, pOpt->longSwitch ) )
                     {
                         retVal = pOpt->shortSwitch;
                     }
 
-                    if( -1 != retVal )
+                    if( (RNATIVECHAR)-1 != retVal )
                     {
                         if( !pOpt->hasArgument )
                         {
@@ -86,7 +87,7 @@ RCHAR
                         }
                         else
                         {
-                            retVal = -1;
+                            retVal = (RNATIVECHAR)-1;
                             *pArgVal = NULL;
                             optind++;
                         }

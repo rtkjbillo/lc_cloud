@@ -159,7 +159,7 @@ static
 HObs
     _getModuleDiskStringSample
     (
-        RPWCHAR modulePath,
+        RNATIVESTR modulePath,
         RU32* pLastScratch,
         rEvent isTimeToStop,
         LibOsPerformanceProfile* perfProfile
@@ -333,8 +333,7 @@ rList
 
     rList modules = NULL;
     rSequence module = NULL;
-    RPWCHAR modulePathW = NULL;
-    RPCHAR modulePathA = NULL;
+    RNATIVESTR modulePath = NULL;
     RU32 fileSize = 0;
     RU64 moduleBase = 0;
     RU64 moduleSize = 0;
@@ -357,110 +356,91 @@ rList
             libOs_timeoutWithProfile( perfProfile, FALSE, isTimeToStop );
             runTime = rpal_time_getLocal();
 
-            modulePathW = NULL;
-            modulePathA = NULL;
+            modulePath = NULL;
             lastScratchIndex = 0;
 
-            if( ( rSequence_getSTRINGW( module, 
+            if( ( rSequence_getSTRINGN( module, 
                                         RP_TAGS_FILE_PATH, 
-                                        &modulePathW ) ||
-                  rSequence_getSTRINGA( module,
-                                        RP_TAGS_FILE_PATH,
-                                        &modulePathA ) ) &&
+                                        &modulePath ) ) &&
                 rSequence_getPOINTER64( module, RP_TAGS_BASE_ADDRESS, &moduleBase ) &&
                 rSequence_getRU64( module, RP_TAGS_MEMORY_SIZE, &moduleSize ) )
             {
-                if( NULL != modulePathA && 
-                    NULL == modulePathW )
+                if( 0 != ( fileSize = rpal_file_getSize( modulePath, TRUE ) ) )
                 {
-                    modulePathW = rpal_string_atow( modulePathA );
-                }
+                    nSamplesFound = 0;
+                    nSamplesTotal = 0;
+                    tmpSamplesFound = (RU32)( -1 );
 
-                if( NULL != modulePathW )
-                {
-                    if( 0 != ( fileSize = rpal_file_getSizew( modulePathW, TRUE ) ) )
+                    while( !rEvent_wait( isTimeToStop, 0 ) &&
+                            NULL != ( diskSample = _getModuleDiskStringSample( modulePath,
+                                                                                &lastScratchIndex,
+                                                                                isTimeToStop,
+                                                                                perfProfile ) ) )
                     {
-                        nSamplesFound = 0;
-                        nSamplesTotal = 0;
-                        tmpSamplesFound = (RU32)( -1 );
+                        libOs_timeoutWithProfile( perfProfile, TRUE, isTimeToStop );
 
-                        while( !rEvent_wait( isTimeToStop, 0 ) &&
-                               NULL != ( diskSample = _getModuleDiskStringSample( modulePathW,
-                                                                                  &lastScratchIndex,
-                                                                                  isTimeToStop,
-                                                                                  perfProfile ) ) )
+                        tmpSamplesSize = obsLib_getNumPatterns( diskSample );
+
+                        if( 0 != tmpSamplesSize )
                         {
-                            libOs_timeoutWithProfile( perfProfile, TRUE, isTimeToStop );
+                            tmpSamplesFound = _checkMemoryForStringSample( diskSample,
+                                                                            pid,
+                                                                            NUMBER_TO_PTR( moduleBase ),
+                                                                            moduleSize,
+                                                                            isTimeToStop,
+                                                                            perfProfile );
+                            obsLib_free( diskSample );
 
-                            tmpSamplesSize = obsLib_getNumPatterns( diskSample );
-
-                            if( 0 != tmpSamplesSize )
+                            if( (RU32)( -1 ) == tmpSamplesFound )
                             {
-                                tmpSamplesFound = _checkMemoryForStringSample( diskSample,
-                                                                               pid,
-                                                                               NUMBER_TO_PTR( moduleBase ),
-                                                                               moduleSize,
-                                                                               isTimeToStop,
-                                                                               perfProfile );
-                                obsLib_free( diskSample );
-
-                                if( (RU32)( -1 ) == tmpSamplesFound )
-                                {
-                                    break;
-                                }
-
-                                nSamplesFound += tmpSamplesFound;
-                                nSamplesTotal += tmpSamplesSize;
-
-                                if( _MIN_DISK_SAMPLE_SIZE <= nSamplesTotal &&
-                                    ( _MIN_SAMPLE_MATCH_PERCENT < ( (RFLOAT)nSamplesFound /
-                                                                    nSamplesTotal ) * 100 ) &&
-                                    _MIN_DISK_BIN_COVERAGE_PERCENT <= (RFLOAT)( ( lastScratchIndex *
-                                                                                  _SCRATCH_SIZE ) /
-                                                                                fileSize ) * 100 )
-                                {
-                                    break;
-                                }
+                                break;
                             }
-                            else
+
+                            nSamplesFound += tmpSamplesFound;
+                            nSamplesTotal += tmpSamplesSize;
+
+                            if( _MIN_DISK_SAMPLE_SIZE <= nSamplesTotal &&
+                                ( _MIN_SAMPLE_MATCH_PERCENT < ( (RFLOAT)nSamplesFound /
+                                                                nSamplesTotal ) * 100 ) &&
+                                _MIN_DISK_BIN_COVERAGE_PERCENT <= (RFLOAT)( ( lastScratchIndex *
+                                                                                _SCRATCH_SIZE ) /
+                                                                            fileSize ) * 100 )
                             {
-                                obsLib_free( diskSample );
+                                break;
                             }
                         }
+                        else
+                        {
+                            obsLib_free( diskSample );
+                        }
                     }
-                    else
-                    {
-                        rpal_debug_info( "could not get file information, not checking" );
-                    }
+                }
+                else
+                {
+                    rpal_debug_info( "could not get file information, not checking" );
+                }
 
-                    rpal_debug_info( "process hollowing check found a match in %d ( %d / %d ) from %d passes in %d sec", 
-                                     pid,  
-                                     nSamplesFound, 
-                                     nSamplesTotal,
-                                     lastScratchIndex,
-                                     rpal_time_getLocal() - runTime );
+                rpal_debug_info( "process hollowing check found a match in %d ( %d / %d ) from %d passes in %d sec", 
+                                    pid,  
+                                    nSamplesFound, 
+                                    nSamplesTotal,
+                                    lastScratchIndex,
+                                    rpal_time_getLocal() - runTime );
                     
-                    if( !rEvent_wait( isTimeToStop, 0 ) &&
-                        (RU32)(-1) != tmpSamplesFound &&
-                        _MIN_DISK_SAMPLE_SIZE <= nSamplesTotal &&
-                        ( ( (RFLOAT)nSamplesFound / nSamplesTotal ) * 100 ) < _MIN_SAMPLE_MATCH_PERCENT )
-                    {
-                        rpal_debug_info( "sign of process hollowing found in process %d", pid );
+                if( !rEvent_wait( isTimeToStop, 0 ) &&
+                    (RU32)(-1) != tmpSamplesFound &&
+                    _MIN_DISK_SAMPLE_SIZE <= nSamplesTotal &&
+                    ( ( (RFLOAT)nSamplesFound / nSamplesTotal ) * 100 ) < _MIN_SAMPLE_MATCH_PERCENT )
+                {
+                    rpal_debug_info( "sign of process hollowing found in process %d", pid );
 
-                        if( NULL != ( hollowedModule = rSequence_duplicate( module ) ) )
+                    if( NULL != ( hollowedModule = rSequence_duplicate( module ) ) )
+                    {
+                        if( !rList_addSEQUENCE( hollowedModules, hollowedModule ) )
                         {
-                            if( !rList_addSEQUENCE( hollowedModules, hollowedModule ) )
-                            {
-                                rSequence_free( hollowedModule );
-                            }
+                            rSequence_free( hollowedModule );
                         }
                     }
-                }
-
-                if( NULL != modulePathA &&
-                    NULL != modulePathW )
-                {
-                    rpal_memory_free( modulePathW );
                 }
             }
             else

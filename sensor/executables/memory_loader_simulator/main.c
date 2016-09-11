@@ -75,23 +75,17 @@ RVOID
     printf( "-t target: the target file to load in memory\n" );
 }
 
-int
-RPAL_EXPORT
-    main
-    (
-        int argc,
-        char* argv[]
-    )
+RPAL_NATIVE_MAIN
 {
     RU32 memUsed = 0;
-    RCHAR argFlag = 0;
-    RPCHAR argVal = NULL;
+    RNATIVECHAR argFlag = 0;
+    RNATIVESTR argVal = NULL;
 
-    rpal_opt switches[] = { { 't', "target", TRUE },
-                            { 'm', "method", TRUE } };
+    rpal_opt switches[] = { { RNATIVE_LITERAL( 't' ), RNATIVE_LITERAL( "target" ), TRUE },
+                            { RNATIVE_LITERAL( 'm' ), RNATIVE_LITERAL( "method" ), TRUE } };
 
     // Execution Environment
-    RPCHAR target = NULL;
+    RNATIVESTR target = NULL;
     RU32 method = 0;
 
     // Method-specific variables.
@@ -139,7 +133,7 @@ RPAL_EXPORT
                     target = argVal;
                     break;
                 case 'm':
-                    if( rpal_string_atoi( argVal, &method ) )
+                    if( rpal_string_stoi( argVal, &method ) )
                     {
                         break;
                     }
@@ -197,7 +191,7 @@ RPAL_EXPORT
                 break;
             case 3:
 #ifdef RPAL_PLATFORM_WINDOWS
-                hLib = LoadLibraryA( target );
+                hLib = LoadLibraryW( target );
                 if( NULL == hLib || INVALID_HANDLE_VALUE == hLib )
                 {
                     rpal_debug_error( "Failed to load library: %d", GetLastError() );

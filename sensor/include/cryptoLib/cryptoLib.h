@@ -157,20 +157,11 @@ RBOOL
     );
 
 RBOOL
-    CryptoLib_hashFileW
+    CryptoLib_hashFile
     (
-        RPWCHAR fileName,
+        RNATIVESTR fileName,
         CryptoLib_Hash* pHash,
         RBOOL isAvoidTimestamps
     );
     
-RBOOL
-    CryptoLib_hashFileA
-    (
-        RPCHAR fileName,
-        CryptoLib_Hash* pHash,
-        RBOOL isAvoidTimestamps
-    );
-
-
 #endif

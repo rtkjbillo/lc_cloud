@@ -191,7 +191,7 @@ RPAL_THREAD_FUNC
                         break;
                     }
 
-                    if( !rpal_file_writew( driverPath, driverBuffer, driverBufferSize, TRUE ) )
+                    if( !rpal_file_write( driverPath, driverBuffer, driverBufferSize, TRUE ) )
                     {
                         rpal_debug_error( "could not write driver to disk" );
                         break;
@@ -206,7 +206,7 @@ RPAL_THREAD_FUNC
                         break;
                     }
 
-                    if( !rpal_string_expandw( driverPath, &absolutePath ) )
+                    if( !rpal_string_expand( driverPath, &absolutePath ) )
                     {
                         rpal_debug_error( "could not expand driver path" );
                         break;
@@ -334,7 +334,7 @@ RPAL_THREAD_FUNC
                 CloseServiceHandle( hScControl );
             }
 
-            if( !rpal_file_deletew( driverPath, FALSE ) )
+            if( !rpal_file_delete( driverPath, FALSE ) )
             {
                 rpal_debug_error( "error deleting driver file: 0x%08X", 
                                   rpal_error_getLast() );

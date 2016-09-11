@@ -25,8 +25,8 @@ void test_memoryLeaks(void)
 
 void test_strings(void)
 {
-    RCHAR tmpString[] = "C:\\WINDOWS\\SYSTEM32\\SVCHOST.EXE";
-    CU_ASSERT_EQUAL( rpal_string_strlen( tmpString ), sizeof( tmpString ) - 1 );
+    RNATIVECHAR tmpString[] = RNATIVE_LITERAL( "C:\\WINDOWS\\SYSTEM32\\SVCHOST.EXE" );
+    CU_ASSERT_EQUAL( rpal_string_strlen( tmpString ), ARRAY_N_ELEM( tmpString ) - 1 );
 }
 
 void test_events(void)
@@ -271,84 +271,84 @@ void test_circularbuffer(void)
 
 void test_strtok(void)
 {
-    RWCHAR testStr[] = { _WCH("/this/is/a/test/path") };
-    RWCHAR token = _WCH('/');
-    RPWCHAR state = NULL;
-    RPWCHAR tmp = NULL;
+    RNATIVECHAR testStr[] = { RNATIVE_LITERAL( "/this/is/a/test/path" ) };
+    RNATIVECHAR token = RNATIVE_LITERAL( '/' );
+    RNATIVESTR state = NULL;
+    RNATIVESTR tmp = NULL;
 
-    tmp = rpal_string_strtokw( testStr, token, &state );
+    tmp = rpal_string_strtok( testStr, token, &state );
     CU_ASSERT_PTR_NOT_EQUAL( tmp, NULL );
 
-    CU_ASSERT_EQUAL( rpal_string_strcmpw( tmp, _WCH("") ), 0 );
+    CU_ASSERT_EQUAL( rpal_string_strcmp( tmp, RNATIVE_LITERAL( "" ) ), 0 );
 
-    tmp = rpal_string_strtokw( NULL, token, &state );
+    tmp = rpal_string_strtok( NULL, token, &state );
     CU_ASSERT_PTR_NOT_EQUAL( tmp, NULL );
 
-    CU_ASSERT_EQUAL( rpal_string_strcmpw( tmp, _WCH("this") ), 0 );
+    CU_ASSERT_EQUAL( rpal_string_strcmp( tmp, RNATIVE_LITERAL( "this" ) ), 0 );
     
-    tmp = rpal_string_strtokw( NULL, token, &state );
+    tmp = rpal_string_strtok( NULL, token, &state );
     CU_ASSERT_PTR_NOT_EQUAL( tmp, NULL );
 
-    CU_ASSERT_EQUAL( rpal_string_strcmpw( tmp, _WCH("is") ), 0 );
+    CU_ASSERT_EQUAL( rpal_string_strcmp( tmp, RNATIVE_LITERAL( "is" ) ), 0 );
     
-    tmp = rpal_string_strtokw( NULL, token, &state );
+    tmp = rpal_string_strtok( NULL, token, &state );
     CU_ASSERT_PTR_NOT_EQUAL( tmp, NULL );
 
-    CU_ASSERT_EQUAL( rpal_string_strcmpw( tmp, _WCH("a") ), 0 );
+    CU_ASSERT_EQUAL( rpal_string_strcmp( tmp, RNATIVE_LITERAL( "a" ) ), 0 );
     
-    tmp = rpal_string_strtokw( NULL, token, &state );
+    tmp = rpal_string_strtok( NULL, token, &state );
     CU_ASSERT_PTR_NOT_EQUAL( tmp, NULL );
 
-    CU_ASSERT_EQUAL( rpal_string_strcmpw( tmp, _WCH("test") ), 0 );
+    CU_ASSERT_EQUAL( rpal_string_strcmp( tmp, RNATIVE_LITERAL( "test" ) ), 0 );
     
-    tmp = rpal_string_strtokw( NULL, token, &state );
+    tmp = rpal_string_strtok( NULL, token, &state );
     CU_ASSERT_PTR_NOT_EQUAL( tmp, NULL );
 
-    CU_ASSERT_EQUAL( rpal_string_strcmpw( tmp, _WCH("path") ), 0 );
+    CU_ASSERT_EQUAL( rpal_string_strcmp( tmp, RNATIVE_LITERAL( "path" ) ), 0 );
 
     
-    tmp = rpal_string_strtokw( NULL, token, &state );
+    tmp = rpal_string_strtok( NULL, token, &state );
     CU_ASSERT_PTR_EQUAL( tmp, NULL );
 
-    CU_ASSERT_EQUAL( rpal_string_strcmpw( testStr, _WCH("/this/is/a/test/path") ), 0 );
+    CU_ASSERT_EQUAL( rpal_string_strcmp( testStr, RNATIVE_LITERAL("/this/is/a/test/path") ), 0 );
 }
 
 void test_strmatch(void)
 {
-    RPWCHAR pattern1 = _WCH("this?complex*pattern?");
-    RPWCHAR pattern2 = _WCH("this?complex*pattern+");
-    RPWCHAR pattern3 = _WCH("this?complex+pattern*");
-    RPWCHAR pattern4 = _WCH("this\\?escaped\\pattern");
+    RNATIVESTR pattern1 = RNATIVE_LITERAL("this?complex*pattern?");
+    RNATIVESTR pattern2 = RNATIVE_LITERAL( "this?complex*pattern+" );
+    RNATIVESTR pattern3 = RNATIVE_LITERAL( "this?complex+pattern*" );
+    RNATIVESTR pattern4 = RNATIVE_LITERAL( "this\\?escaped\\pattern" );
 
-    RPWCHAR test1 = _WCH("thiscomplexpattern");
-    RPWCHAR test2 = _WCH("this1complex1234pattern");
-    RPWCHAR test3 = _WCH("this2complex123456pattern1");
-    RPWCHAR test4 = _WCH("this2complex123456pattern123");
-    RPWCHAR test5 = _WCH("this1complexpattern");
+    RNATIVESTR test1 = RNATIVE_LITERAL( "thiscomplexpattern" );
+    RNATIVESTR test2 = RNATIVE_LITERAL( "this1complex1234pattern" );
+    RNATIVESTR test3 = RNATIVE_LITERAL( "this2complex123456pattern1" );
+    RNATIVESTR test4 = RNATIVE_LITERAL( "this2complex123456pattern123" );
+    RNATIVESTR test5 = RNATIVE_LITERAL( "this1complexpattern" );
 
-    RPWCHAR test6 = _WCH("this?escaped\\pattern");
-    RPWCHAR test7 = _WCH("this1escapedpattern");
+    RNATIVESTR test6 = RNATIVE_LITERAL( "this?escaped\\pattern" );
+    RNATIVESTR test7 = RNATIVE_LITERAL( "this1escapedpattern" );
 
-    CU_ASSERT_FALSE( rpal_string_matchw( pattern1, test1, TRUE ) );
-    CU_ASSERT_FALSE( rpal_string_matchw( pattern1, test2, TRUE ) );
-    CU_ASSERT_TRUE( rpal_string_matchw( pattern1, test3, TRUE ) );
-    CU_ASSERT_FALSE( rpal_string_matchw( pattern1, test4, TRUE ) );
-    CU_ASSERT_FALSE( rpal_string_matchw( pattern1, test5, TRUE ) );
+    CU_ASSERT_FALSE( rpal_string_match( pattern1, test1, TRUE ) );
+    CU_ASSERT_FALSE( rpal_string_match( pattern1, test2, TRUE ) );
+    CU_ASSERT_TRUE( rpal_string_match( pattern1, test3, TRUE ) );
+    CU_ASSERT_FALSE( rpal_string_match( pattern1, test4, TRUE ) );
+    CU_ASSERT_FALSE( rpal_string_match( pattern1, test5, TRUE ) );
 
-    CU_ASSERT_FALSE( rpal_string_matchw( pattern2, test1, TRUE ) );
-    CU_ASSERT_FALSE( rpal_string_matchw( pattern2, test2, TRUE ) );
-    CU_ASSERT_TRUE( rpal_string_matchw( pattern2, test3, TRUE ) );
-    CU_ASSERT_TRUE( rpal_string_matchw( pattern2, test4, TRUE ) );
-    CU_ASSERT_FALSE( rpal_string_matchw( pattern2, test5, TRUE ) );
+    CU_ASSERT_FALSE( rpal_string_match( pattern2, test1, TRUE ) );
+    CU_ASSERT_FALSE( rpal_string_match( pattern2, test2, TRUE ) );
+    CU_ASSERT_TRUE( rpal_string_match( pattern2, test3, TRUE ) );
+    CU_ASSERT_TRUE( rpal_string_match( pattern2, test4, TRUE ) );
+    CU_ASSERT_FALSE( rpal_string_match( pattern2, test5, TRUE ) );
 
-    CU_ASSERT_FALSE( rpal_string_matchw( pattern3, test1, TRUE ) );
-    CU_ASSERT_TRUE( rpal_string_matchw( pattern3, test2, TRUE ) );
-    CU_ASSERT_TRUE( rpal_string_matchw( pattern3, test3, TRUE ) );
-    CU_ASSERT_TRUE( rpal_string_matchw( pattern3, test4, TRUE ) );
-    CU_ASSERT_FALSE( rpal_string_matchw( pattern3, test5, TRUE ) );
+    CU_ASSERT_FALSE( rpal_string_match( pattern3, test1, TRUE ) );
+    CU_ASSERT_TRUE( rpal_string_match( pattern3, test2, TRUE ) );
+    CU_ASSERT_TRUE( rpal_string_match( pattern3, test3, TRUE ) );
+    CU_ASSERT_TRUE( rpal_string_match( pattern3, test4, TRUE ) );
+    CU_ASSERT_FALSE( rpal_string_match( pattern3, test5, TRUE ) );
 
-    CU_ASSERT_TRUE( rpal_string_matchw( pattern4, test6, TRUE ) );
-    CU_ASSERT_FALSE( rpal_string_matchw( pattern4, test7, TRUE ) );
+    CU_ASSERT_TRUE( rpal_string_match( pattern4, test6, TRUE ) );
+    CU_ASSERT_FALSE( rpal_string_match( pattern4, test7, TRUE ) );
 }
 
 void test_dir(void)
@@ -356,7 +356,7 @@ void test_dir(void)
     rDir hDir = NULL;
     rFileInfo info = {0};
 
-    CU_ASSERT_TRUE( rDir_open( _WCH("./"), &hDir ) );
+    CU_ASSERT_TRUE( rDir_open( RNATIVE_LITERAL( "./" ), &hDir ) );
     CU_ASSERT_PTR_NOT_EQUAL_FATAL( hDir, NULL );
 
     while( rDir_next( hDir, &info ) )
@@ -380,15 +380,15 @@ void test_crawler(void)
     RPWCHAR fileArr[] = { _WCH("*.dll"), _WCH("*.exe"), NULL };
     hCrawl = rpal_file_crawlStart( _WCH("C:\\test\\"), fileArr, 2 );
 #elif defined( RPAL_PLATFORM_LINUX )
-    RPWCHAR fileArr[] = { _WCH("*.pub"), _WCH("*.txt"), NULL };
-    hCrawl = rpal_file_crawlStart( _WCH("/home/server/"), fileArr, 2 );
+    RNATIVESTR fileArr[] = { RNATIVE_LITERAL("*.pub"), RNATIVE_LITERAL("*.txt"), NULL };
+    hCrawl = rpal_file_crawlStart( RNATIVE_LITERAL("/home/server/"), fileArr, 2 );
 #endif
     CU_ASSERT_PTR_NOT_EQUAL_FATAL( hCrawl, NULL );
     
     while( rpal_file_crawlNextFile( hCrawl, &info ) )
     {
         rpal_debug_info( "FILE" );
-        printf( "%S\n", info.filePath );
+        printf( RF_STR_A "\n", info.filePath );
     }
     
     rpal_file_crawlStop( hCrawl );
@@ -401,10 +401,10 @@ void test_file(void)
     RWCHAR testBuff[] = _WCH("testing...");
     RWCHAR outBuff[ ARRAY_N_ELEM( testBuff ) ] = {0};
 
-    CU_ASSERT_TRUE_FATAL( rFile_open( _WCH("./testfile.dat"), &hFile, RPAL_FILE_OPEN_ALWAYS | RPAL_FILE_OPEN_WRITE ) );
+    CU_ASSERT_TRUE_FATAL( rFile_open( RNATIVE_LITERAL("./testfile.dat"), &hFile, RPAL_FILE_OPEN_ALWAYS | RPAL_FILE_OPEN_WRITE ) );
     CU_ASSERT_TRUE( rFile_write( hFile, sizeof( testBuff ), &testBuff ) );
     rFile_close( hFile );
-    CU_ASSERT_TRUE_FATAL( rFile_open( _WCH("./testfile.dat"), &hFile, RPAL_FILE_OPEN_EXISTING | RPAL_FILE_OPEN_READ ) );
+    CU_ASSERT_TRUE_FATAL( rFile_open( RNATIVE_LITERAL( "./testfile.dat" ), &hFile, RPAL_FILE_OPEN_EXISTING | RPAL_FILE_OPEN_READ ) );
     CU_ASSERT_TRUE( rFile_read( hFile, sizeof( outBuff ), &outBuff ) );
     rFile_close( hFile );
     CU_ASSERT_EQUAL( rpal_memory_memcmp( testBuff, outBuff, sizeof( testBuff ) ), 0 );

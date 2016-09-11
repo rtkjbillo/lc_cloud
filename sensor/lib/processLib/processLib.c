@@ -93,7 +93,6 @@ RBOOL
 #elif defined( RPAL_PLATFORM_LINUX )
     RCHAR procDir[] = "/proc/%d";
     RCHAR tmpFile[ RPAL_MAX_PATH ] = {0};
-    RPWCHAR wFile = NULL;
     RS32 size = 0;
     rDir hProc = NULL;
         
@@ -102,15 +101,10 @@ RBOOL
     if( size > 0 &&
         size < sizeof( tmpFile ) )
     {
-        if( NULL != ( wFile = rpal_string_atow( (RPCHAR)tmpFile ) ) )
+        if( rDir_open( tmpFile, &hProc ) )
         {
-            if( rDir_open( wFile, &hProc ) )
-            {
-                isInUse = TRUE;
-                rDir_close( hProc );
-            }
-                
-            rpal_memory_free( wFile );
+            isInUse = TRUE;
+            rDir_close( hProc );
         }
     }
 #elif defined( RPAL_PLATFORM_MACOSX )
@@ -459,19 +453,11 @@ rSequence
                     {
                         // By definition the fullOwner buffer always has enough room if the accounts
                         // query were successful.
-                        rpal_string_strcpyw( fullOwner, ownerDomain );
-                        rpal_string_strcatw( fullOwner, _WCH( "\\" ) );
-                        rpal_string_strcatw( fullOwner, ownerName );
+                        rpal_string_strcpy( fullOwner, ownerDomain );
+                        rpal_string_strcat( fullOwner, _WCH( "\\" ) );
+                        rpal_string_strcat( fullOwner, ownerName );
                         rSequence_addSTRINGW( procInfo, RP_TAGS_USER_NAME, fullOwner );
                     }
-                    else
-                    {
-                        lastError = GetLastError();
-                    }
-                }
-                else
-                {
-                    lastError = GetLastError();
                 }
 
                 CloseHandle( hToken );
@@ -505,8 +491,7 @@ rSequence
     RCHAR procStatusDir[] = "/proc/%d/status";
     RCHAR procCmdLineDir[] = "/proc/%d/cmdline";
     RCHAR tmpFile[ RPAL_MAX_PATH ] = {0};
-    RPWCHAR wFile = NULL;
-    RPWCHAR exeFile = NULL;
+    RPCHAR exeFile = NULL;
     RPCHAR infoFile = NULL;
     RPCHAR info = NULL;
     RPCHAR state = NULL;
@@ -519,14 +504,14 @@ rSequence
     RU32 threads = 0;
 
     RCHAR nameHeader[] = "Name:";
-    RPWCHAR name = NULL;
+    RPCHAR name = NULL;
 
     RCHAR uidHeader[] = "Uid:";
     RU32 uid = (RU32)(-1);
     struct passwd* user_info = NULL;
 
-    RWCHAR  preLinkTag[] = _WCH( ".#prelink#." );
-    RPWCHAR preLinkIndex = NULL;
+    RCHAR  preLinkTag[] = ".#prelink#.";
+    RPCHAR preLinkIndex = NULL;
     
     RU32 i = 0;
         
@@ -541,19 +526,19 @@ rSequence
         {
             if( rpal_file_read( tmpFile, (RPVOID*)&infoFile, &size, FALSE ) )
             {
-                info = rpal_string_strtoka( infoFile, '\n', &state );
+                info = rpal_string_strtok( infoFile, '\n', &state );
                 while( NULL != info )
                 {
                     if( 0 == rpal_memory_memcmp( info, ppidHeader, sizeof( ppidHeader ) - sizeof( RCHAR ) ) )
                     {
-                        if( rpal_string_atoi( info + sizeof( ppidHeader ), &ppid ) )
+                        if( rpal_string_stoi( info + sizeof( ppidHeader ), &ppid ) )
                         {
                             rSequence_addRU32( procInfo, RP_TAGS_PARENT_PROCESS_ID, ppid );
                         }
                     }
                     else if( 0 == rpal_memory_memcmp( info, threadsHeader, sizeof( threadsHeader ) - sizeof( RCHAR ) ) )
                     {
-                        if( rpal_string_atoi( info + sizeof( threadsHeader ), &threads ) )
+                        if( rpal_string_stoi( info + sizeof( threadsHeader ), &threads ) )
                         {
                             rSequence_addRU32( procInfo, RP_TAGS_THREADS, threads );
                         }
@@ -570,7 +555,7 @@ rSequence
                             }
                         }
                         
-                        if( rpal_string_atoi( info + sizeof( uidHeader ), &uid ) )
+                        if( rpal_string_stoi( info + sizeof( uidHeader ), &uid ) )
                         {
                             rSequence_addRU32( procInfo, RP_TAGS_USER_ID, uid );
 
@@ -585,7 +570,7 @@ rSequence
                     }
                     else if( 0 == rpal_memory_memcmp( info, nameHeader, sizeof( nameHeader ) - sizeof( RCHAR ) ) )
                     {
-                        name = rpal_string_atow( (RPCHAR)info + sizeof( nameHeader ) );  
+                        name = (RPCHAR)info + sizeof( nameHeader );
                     }
                                 
                     if( 0 != threads && 0 != ppid && (RU32)(-1) != uid && NULL != name )
@@ -594,7 +579,7 @@ rSequence
                         break;
                     }
                     
-                    info = rpal_string_strtoka( NULL, '\n', &state );
+                    info = rpal_string_strtok( NULL, '\n', &state );
                 }
                 
                 rpal_memory_free( infoFile );
@@ -605,27 +590,21 @@ rSequence
         if( size > 0
             && size < sizeof( tmpFile ) )
         {
-            if( NULL != ( wFile = rpal_string_atow( (RPCHAR)tmpFile ) ) )
+            if( rpal_file_getLinkDest( (RPCHAR)tmpFile, &exeFile ) )
             {
-                if( rpal_file_getLinkDest( wFile, &exeFile ) )
+                preLinkIndex = rpal_string_strstr( exeFile, preLinkTag );
+                if( NULL != preLinkIndex )
                 {
-                    preLinkIndex = rpal_string_strstrw( exeFile, preLinkTag );
-                    if( NULL != preLinkIndex )
-                    {
-                        *preLinkIndex = _WCH( '\0' );
-                    }
+                    *preLinkIndex = '\0';
+                }
 
-                    rSequence_addSTRINGW( procInfo, RP_TAGS_FILE_PATH, exeFile );
-                    rpal_memory_free( exeFile );
-                }
-                else if( NULL != name )
-                {
-                    rSequence_addSTRINGW( procInfo, RP_TAGS_FILE_PATH, name );
-                    rpal_memory_free( name );
-                    name = NULL;
-                }
-                
-                rpal_memory_free( wFile );
+                rSequence_addSTRINGA( procInfo, RP_TAGS_FILE_PATH, exeFile );
+                rpal_memory_free( exeFile );
+            }
+            else if( NULL != name )
+            {
+                rSequence_addSTRINGA( procInfo, RP_TAGS_FILE_PATH, name );
+                name = NULL;
             }
         }
         
@@ -716,7 +695,7 @@ rSequence
                         {
                             cmdline = exe + rpal_string_strlen( exe ) + 1;
 
-                            if( NULL != ( fullcmdline = rpal_stringbuffer_new( 0, 0, FALSE ) ) )
+                            if( NULL != ( fullcmdline = rpal_stringbuffer_new( 0, 0 ) ) )
                             {
                                 while( i < size )
                                 {
@@ -741,7 +720,9 @@ rSequence
                                     }
                                 }
 
-                                rSequence_addSTRINGA( procInfo, RP_TAGS_COMMAND_LINE, rpal_stringbuffer_getString( fullcmdline ) );
+                                rSequence_addSTRINGA( procInfo,
+                                                      RP_TAGS_COMMAND_LINE, 
+                                                      rpal_stringbuffer_getString( fullcmdline ) );
                             }
 
                             rpal_stringbuffer_free( fullcmdline );
@@ -782,7 +763,8 @@ rList
     HANDLE hSnap = NULL;
     MODULEENTRY32W modEntry = {0};
 
-    while( INVALID_HANDLE_VALUE == ( hSnap = CreateToolhelp32Snapshot( TH32CS_SNAPMODULE32 | TH32CS_SNAPMODULE, processId ) ) &&
+    while( INVALID_HANDLE_VALUE == ( hSnap = CreateToolhelp32Snapshot( TH32CS_SNAPMODULE32 | TH32CS_SNAPMODULE,
+                                                                       processId ) ) &&
            ERROR_BAD_LENGTH == GetLastError() )
     {
         rpal_thread_sleep( 10 );
@@ -842,21 +824,29 @@ rList
         RU64 curStart = 0;
         
         size = rpal_string_snprintf( (RPCHAR)&tmpFile, sizeof( tmpFile ), (RPCHAR)&procMapDir, processId );
-        if( size > 0
-                && size < sizeof( tmpFile ) )
+        if( size > 0 &&
+            size < sizeof( tmpFile ) )
         {
             if( rpal_file_read( tmpFile, (RPVOID*)&infoFile, &size, FALSE ) )
             {
                 if( NULL != ( modules = rList_new( RP_TAGS_DLL, RPCM_SEQUENCE ) ) )
                 {
-                    info = rpal_string_strtoka( infoFile, '\n', &state );
+                    info = rpal_string_strtok( infoFile, '\n', &state );
                     while( NULL != info )
                     {
-                        size = rpal_string_sscanf( info, (RPCHAR)entryHeader, &addrStart, &addrEnd, permissions, &offset, device, &inode, mapPath );
+                        size = rpal_string_sscanf( info, 
+                                                   (RPCHAR)entryHeader, 
+                                                   &addrStart, 
+                                                   &addrEnd, 
+                                                   permissions, 
+                                                   &offset, 
+                                                   device, 
+                                                   &inode, 
+                                                   mapPath );
                         if( 7 == size &&
                            '[' != mapPath[ 0 ] ) // Ignore if it starts with [ since it means it's not a file
                         {
-                            if( ( 0 != curPath[0] ) && 0 != rpal_string_strcmpa( mapPath, curPath ) )
+                            if( ( 0 != curPath[0] ) && 0 != rpal_string_strcmp( mapPath, curPath ) )
                             {
                                 if( NULL != module )
                                 {
@@ -882,11 +872,7 @@ rList
                                         rSequence_addRU32( module, RP_TAGS_PROCESS_ID, processId );
                                         rSequence_addPOINTER64( module, RP_TAGS_BASE_ADDRESS, addrStart );
 
-                                        if( NULL != ( mapPathW = rpal_string_atow( mapPath ) ) )
-                                        {
-                                            rSequence_addSTRINGW( module, RP_TAGS_FILE_PATH, mapPathW );
-                                            rpal_memory_free( mapPathW );
-                                        }
+                                        rSequence_addSTRINGA( module, RP_TAGS_FILE_PATH, mapPath );
 
                                         rpal_memory_memcpy( curPath, mapPath, sizeof( curPath ) );
                                         curStart = addrStart;
@@ -900,7 +886,7 @@ rList
                             }
                         }
                         
-                        info = rpal_string_strtoka( NULL, '\n', &state );
+                        info = rpal_string_strtok( NULL, '\n', &state );
                     }
                     
                     // Process the last module in the list
@@ -964,7 +950,7 @@ rList
 processLibProcEntry*
     processLib_getProcessEntries
     (
-		RBOOL isBruteForce
+        RBOOL isBruteForce
     )
 {
     processLibProcEntry* procs = NULL;
@@ -975,67 +961,67 @@ processLibProcEntry*
     DWORD exitCode = 0;
     RU32 processId = 0;
     HANDLE hProcess = NULL;
-	
-	HANDLE hSnapshot = NULL;
+    
+    HANDLE hSnapshot = NULL;
     PROCESSENTRY32W procEntry = {0};
     procEntry.dwSize = sizeof( procEntry );
     
-	if( isBruteForce )
-	{
-		for( processId = 4; processId <= 65536; processId +=  4 )
-		{
-			hProcess = OpenProcess( SYNCHRONIZE | PROCESS_QUERY_INFORMATION, FALSE, processId );
-		
-			if( ( NULL != hProcess &&
-				  INVALID_HANDLE_VALUE != hProcess ) ||
-				ERROR_INVALID_PARAMETER != GetLastError() )
-			{
-				// If we got a handle we can do a second check to make sure
-				// the process is still running.
-				if( NULL != hProcess &&
-					INVALID_HANDLE_VALUE != hProcess )
-				{
-					if( GetExitCodeProcess( hProcess, (LPDWORD)&exitCode ) &&
-						STILL_ACTIVE != exitCode )
-					{
-						CloseHandle( hProcess );
-						continue;
-					}
-	
-					if( WAIT_OBJECT_0 == WaitForSingleObject( hProcess, 0 ) )
-					{
-						CloseHandle( hProcess );
-						continue;
-					}
-				}
-		
-				tmpEntry.pid = processId;
-		
-				nEntries++;
-		
-				procs = rpal_memory_realloc( procs, ( nEntries + 1 ) * sizeof( processLibProcEntry ) );
-				
-				if( NULL != procs )
-				{
-					procs[ nEntries - 1 ] = tmpEntry;
-					procs[ nEntries ].pid = 0;
-				}
-		
-				rpal_memory_zero( &tmpEntry, sizeof( tmpEntry ) );
-		
-				if( NULL != hProcess &&
-					INVALID_HANDLE_VALUE != hProcess )
-				{
-					CloseHandle( hProcess );
-				}
-			}
-		}
-	}
-	else
-	{
-		if( INVALID_HANDLE_VALUE != ( hSnapshot = CreateToolhelp32Snapshot( TH32CS_SNAPPROCESS, 0 ) ) )
+    if( isBruteForce )
+    {
+        for( processId = 4; processId <= 65536; processId +=  4 )
         {
-			if( Process32FirstW( hSnapshot, &procEntry ) )
+            hProcess = OpenProcess( SYNCHRONIZE | PROCESS_QUERY_INFORMATION, FALSE, processId );
+        
+            if( ( NULL != hProcess &&
+                  INVALID_HANDLE_VALUE != hProcess ) ||
+                ERROR_INVALID_PARAMETER != GetLastError() )
+            {
+                // If we got a handle we can do a second check to make sure
+                // the process is still running.
+                if( NULL != hProcess &&
+                    INVALID_HANDLE_VALUE != hProcess )
+                {
+                    if( GetExitCodeProcess( hProcess, (LPDWORD)&exitCode ) &&
+                        STILL_ACTIVE != exitCode )
+                    {
+                        CloseHandle( hProcess );
+                        continue;
+                    }
+    
+                    if( WAIT_OBJECT_0 == WaitForSingleObject( hProcess, 0 ) )
+                    {
+                        CloseHandle( hProcess );
+                        continue;
+                    }
+                }
+        
+                tmpEntry.pid = processId;
+        
+                nEntries++;
+        
+                procs = rpal_memory_realloc( procs, ( nEntries + 1 ) * sizeof( processLibProcEntry ) );
+                
+                if( NULL != procs )
+                {
+                    procs[ nEntries - 1 ] = tmpEntry;
+                    procs[ nEntries ].pid = 0;
+                }
+        
+                rpal_memory_zero( &tmpEntry, sizeof( tmpEntry ) );
+        
+                if( NULL != hProcess &&
+                    INVALID_HANDLE_VALUE != hProcess )
+                {
+                    CloseHandle( hProcess );
+                }
+            }
+        }
+    }
+    else
+    {
+        if( INVALID_HANDLE_VALUE != ( hSnapshot = CreateToolhelp32Snapshot( TH32CS_SNAPPROCESS, 0 ) ) )
+        {
+            if( Process32FirstW( hSnapshot, &procEntry ) )
             {
                 do
                 {
@@ -1043,50 +1029,50 @@ processLibProcEntry*
                     {
                         continue;
                     }
-					
-					nEntries++;
-					
-					if( NULL != ( procs = rpal_memory_realloc( procs, ( nEntries + 1 ) * sizeof( processLibProcEntry ) ) ) )
-					{
-						procs[ nEntries - 1 ].pid = procEntry.th32ProcessID;
-						procs[ nEntries ].pid = 0;
-					}
+                    
+                    nEntries++;
+                    
+                    if( NULL != ( procs = rpal_memory_realloc( procs, ( nEntries + 1 ) * sizeof( processLibProcEntry ) ) ) )
+                    {
+                        procs[ nEntries - 1 ].pid = procEntry.th32ProcessID;
+                        procs[ nEntries ].pid = 0;
+                    }
                 }
                 while( Process32NextW( hSnapshot, &procEntry ) );
             }
 
             CloseHandle( hSnapshot );
-		}
-	}
+        }
+    }
 #elif defined( RPAL_PLATFORM_LINUX )
-    RWCHAR procDir[] = _WCH( "/proc/" );
+    RCHAR procDir[] = "/proc/";
     rDir hProcDir = NULL;
     rFileInfo finfo = {0};
-	
-	// No difference between brute force and API at the moment
+    
+    // No difference between brute force and API at the moment
         
-    if( rDir_open( (RPWCHAR)&procDir, &hProcDir ) )
+    if( rDir_open( (RPCHAR)&procDir, &hProcDir ) )
     {
-		while( rDir_next( hProcDir, &finfo ) )
-		{
-				// Look in /proc for directories that are just a number (process IDs)
-				if( rpal_string_wtoi( (RPWCHAR)finfo.fileName, &tmpEntry.pid )
-						&& 0 != tmpEntry.pid )
-				{
-						nEntries++;
+        while( rDir_next( hProcDir, &finfo ) )
+        {
+            // Look in /proc for directories that are just a number (process IDs)
+            if( rpal_string_stoi( (RPCHAR)finfo.fileName, &tmpEntry.pid ) &&
+                0 != tmpEntry.pid )
+            {
+                nEntries++;
 
-						procs = rpal_memory_realloc( procs, ( nEntries + 1 ) * sizeof( processLibProcEntry ) );
-						if( NULL != procs )
-						{
-								procs[ nEntries - 1 ] = tmpEntry;
-								procs[ nEntries ].pid = 0;
-						}
-		
-						rpal_memory_zero( &tmpEntry, sizeof( tmpEntry ) );
-				}
-		}
-		
-		rDir_close( hProcDir );
+                procs = rpal_memory_realloc( procs, ( nEntries + 1 ) * sizeof( processLibProcEntry ) );
+                if( NULL != procs )
+                {
+                    procs[ nEntries - 1 ] = tmpEntry;
+                    procs[ nEntries ].pid = 0;
+                }
+        
+                rpal_memory_zero( &tmpEntry, sizeof( tmpEntry ) );
+            }
+        }
+        
+        rDir_close( hProcDir );
     }
 #elif defined( RPAL_PLATFORM_MACOSX )
     int mib[] = { CTL_KERN, KERN_PROC, KERN_PROC_ALL };
@@ -1095,63 +1081,61 @@ processLibProcEntry*
     int ret = 0;
     int i = 0;
 
-	if( isBruteForce )
-	{
-        rpal_debug_info( "starting pid brute force" );
-		// Lots of possible PIDs in OSX: 99999
-		for( i = 1; i < 99999; i++ )
-		{
-			if( processLib_isPidInUse( i ) )
-			{
-				size++;
-		
-				procs = rpal_memory_realloc( procs, ( size + 1 ) * sizeof( processLibProcEntry ) );
-				
-				if( NULL != procs )
-				{
-					procs[ size - 1 ].pid = i;
-					procs[ size ].pid = 0;
-				}
-			}
-		}
-        rpal_debug_info( "finished pid brute force" );
-	}
-	else
-	{
-		if( 0 == ( ret = sysctl( mib, ARRAY_N_ELEM( mib ), infos, &size, NULL, 0 ) ) )
-		{
-			if( NULL != ( infos = rpal_memory_alloc( size ) ) )
-			{
-				while( 0 != ( ret = sysctl( mib, ARRAY_N_ELEM( mib ), infos, &size, NULL, 0 ) ) && ENOMEM == errno )
-				{
-					if( NULL == ( infos = rpal_memory_realloc( infos, size ) ) )
-					{
-						break;
-					}
-				}
-			}
-		}
-	
-		if( 0 == ret && NULL != infos )
-		{
-			// Number of procs
-			size = size / sizeof( struct kinfo_proc );
-			if( NULL != ( procs = rpal_memory_alloc( ( size + 1 ) * sizeof( processLibProcEntry ) ) ) )
-			{
-				for( i = 0; i < size; i++ )
-				{
-					procs[ i ].pid = infos[ i ].kp_proc.p_pid;
-				}
-	
-				procs[ size ].pid = 0;
-			}
-		}
-	
-		if( NULL != infos )
-		{
-			rpal_memory_free( infos );
-		}
-	}
+    if( isBruteForce )
+    {
+        // Lots of possible PIDs in OSX: 99999
+        for( i = 1; i < 99999; i++ )
+        {
+            if( processLib_isPidInUse( i ) )
+            {
+                size++;
+        
+                procs = rpal_memory_realloc( procs, ( size + 1 ) * sizeof( processLibProcEntry ) );
+                
+                if( NULL != procs )
+                {
+                    procs[ size - 1 ].pid = i;
+                    procs[ size ].pid = 0;
+                }
+            }
+        }
+    }
+    else
+    {
+        if( 0 == ( ret = sysctl( mib, ARRAY_N_ELEM( mib ), infos, &size, NULL, 0 ) ) )
+        {
+            if( NULL != ( infos = rpal_memory_alloc( size ) ) )
+            {
+                while( 0 != ( ret = sysctl( mib, ARRAY_N_ELEM( mib ), infos, &size, NULL, 0 ) ) && ENOMEM == errno )
+                {
+                    if( NULL == ( infos = rpal_memory_realloc( infos, size ) ) )
+                    {
+                        break;
+                    }
+                }
+            }
+        }
+    
+        if( 0 == ret && NULL != infos )
+        {
+            // Number of procs
+            size = size / sizeof( struct kinfo_proc );
+            if( NULL != ( procs = rpal_memory_alloc( ( size + 1 ) * sizeof( processLibProcEntry ) ) ) )
+            {
+                for( i = 0; i < size; i++ )
+                {
+                    procs[ i ].pid = infos[ i ].kp_proc.p_pid;
+                }
+    
+                procs[ size ].pid = 0;
+            }
+        }
+    
+        if( NULL != infos )
+        {
+            rpal_memory_free( infos );
+        }
+    }
 #else
     rpal_debug_not_implemented();
 #endif
@@ -1293,7 +1277,7 @@ rList
         {
             if( NULL != ( map = rList_new( RP_TAGS_MEMORY_REGION, RPCM_SEQUENCE ) ) )
             {
-                info = rpal_string_strtoka( infoFile, '\n', &state );
+                info = rpal_string_strtok( infoFile, '\n', &state );
                 while( NULL != info )
                 {
                     size = rpal_string_sscanf( info, (RPCHAR)entryHeader, &addrStart, &addrEnd, permissions, &offset, device, &inode, mapPath );
@@ -1363,7 +1347,7 @@ rList
 
                     }
 
-                    info = rpal_string_strtoka( NULL, '\n', &state );
+                    info = rpal_string_strtok( NULL, '\n', &state );
                 }
             }
            
@@ -1531,43 +1515,38 @@ RBOOL
             if( snpf_size > 0
                 && snpf_size < sizeof( tmpFile ) )
             {
-                if( NULL != ( tmpFileW = rpal_string_atow( (RPCHAR)&tmpFile ) ) )
+                if( rFile_open( (RPCHAR)&tmpFile, &memFile, RPAL_FILE_OPEN_READ | RPAL_FILE_OPEN_EXISTING ) )
                 {
-                    if( rFile_open( tmpFileW, &memFile, RPAL_FILE_OPEN_READ|RPAL_FILE_OPEN_EXISTING ) )
+                    if( rFile_seek( memFile, (RU64)baseAddr, rFileSeek_SET ) )
                     {
-                        if( rFile_seek( memFile, (RU64)baseAddr, rFileSeek_SET ) )
+                        if( rFile_read( memFile, (RU32)size, *pBuffer ) )
                         {
-                            if( rFile_read( memFile, (RU32)size, *pBuffer ) )
-                            {
-                                isSuccess = TRUE;
-                            }
+                            isSuccess = TRUE;
                         }
-
-                        if( !isSuccess )
-                        {
-                            if( isBridgeGaps )
-                            {
-                                isSuccess = TRUE;
-
-                                pPageOffset = baseAddr;
-                                pBufferOffset = *pBuffer;
-                                while( pPageOffset < ( (RPU8)baseAddr + size ) )
-                                {
-                                    if( rFile_seek( memFile, (RU64)pPageOffset, rFileSeek_SET ) )
-                                    {
-                                        rFile_read( memFile, pageSize, pBufferOffset );
-                                    }
-
-                                    pPageOffset += pageSize;
-                                    pBufferOffset += pageSize;
-                                }
-                            }
-                        }
-
-                        rFile_close( memFile );
                     }
 
-                    rpal_memory_free( tmpFileW );
+                    if( !isSuccess )
+                    {
+                        if( isBridgeGaps )
+                        {
+                            isSuccess = TRUE;
+
+                            pPageOffset = baseAddr;
+                            pBufferOffset = *pBuffer;
+                            while( pPageOffset < ( (RPU8)baseAddr + size ) )
+                            {
+                                if( rFile_seek( memFile, (RU64)pPageOffset, rFileSeek_SET ) )
+                                {
+                                    rFile_read( memFile, pageSize, pBufferOffset );
+                                }
+
+                                pPageOffset += pageSize;
+                                pBufferOffset += pageSize;
+                            }
+                        }
+                    }
+
+                    rFile_close( memFile );
                 }
             }
 #elif defined( RPAL_PLATFORM_MACOSX )
@@ -1678,7 +1657,7 @@ static POBJECT_NAME_INFORMATION
 {
     POBJECT_NAME_INFORMATION info = NULL;
     HANDLE hThread = NULL;
-	RBOOL doFreeResources = TRUE;
+    RBOOL doFreeResources = TRUE;
 
     _fileHandleCheckCtx ctx = {0};
 
@@ -1689,47 +1668,47 @@ static POBJECT_NAME_INFORMATION
         if( NULL != ( hThread = CreateThread( NULL, 0, (LPTHREAD_START_ROUTINE)_threadGetWin32HandleName, &ctx, 0, NULL ) ) )
         {
             if( WAIT_OBJECT_0 == WaitForSingleObject( ctx.hEventDone, 1000 ) )
-			{
-	            info = ctx._fileHandleNameInfo;
-				doFreeResources = TRUE;
-			}
-			else
+            {
+                info = ctx._fileHandleNameInfo;
+                doFreeResources = TRUE;
+            }
+            else
             {
                 // The possibly hanging call takes too long, so we interrupt
-				// its execution. We do this by terminating the thread we
-				// launched it on. On Windows 7, this works, but it does leak
-				// part of the resources the thread allocates itself.
-				//
-				// 1. Terminate the thread.
-				// 2. Wait for it to complete (TerminateThread only
-				//    signals termination and returns before the terminated
-				//    thread has indeed stopped running).
-				// 3. Free the resources of the thread as best as we can.
-				//
-				rpal_debug_warning( "getHandles - Must terminate helper thread 0x%p.", hThread );
+                // its execution. We do this by terminating the thread we
+                // launched it on. On Windows 7, this works, but it does leak
+                // part of the resources the thread allocates itself.
+                //
+                // 1. Terminate the thread.
+                // 2. Wait for it to complete (TerminateThread only
+                //    signals termination and returns before the terminated
+                //    thread has indeed stopped running).
+                // 3. Free the resources of the thread as best as we can.
+                //
+                rpal_debug_warning( "getHandles - Must terminate helper thread 0x%p.", hThread );
                 if( TerminateThread( hThread, STATUS_TIMEOUT ) )
                 {
-					// Observation suggests the terminated thread comes back
-					// almost instantly. We still put a long timeout as a
-					// best-effort approach to ensure recuperating resources.
-					// Should that fail, we leave the thread to leak.
-					if( WAIT_OBJECT_0 == WaitForSingleObject( hThread, 60000 ) )
-					{
-						doFreeResources = TRUE;
-					}
-					else
-					{
-						rpal_debug_error( "Leak a thread and an event even after forced termination." );
-						doFreeResources = FALSE;
-					}
+                    // Observation suggests the terminated thread comes back
+                    // almost instantly. We still put a long timeout as a
+                    // best-effort approach to ensure recuperating resources.
+                    // Should that fail, we leave the thread to leak.
+                    if( WAIT_OBJECT_0 == WaitForSingleObject( hThread, 60000 ) )
+                    {
+                        doFreeResources = TRUE;
+                    }
+                    else
+                    {
+                        rpal_debug_error( "Leak a thread and an event even after forced termination." );
+                        doFreeResources = FALSE;
+                    }
 
                 }
-				else
-				{
-					// Cannot terminate the thread.
-					rpal_debug_warning( "Unable to terminate thread 0x%p -- it leaks.", hThread );
-					doFreeResources = FALSE;
-				}
+                else
+                {
+                    // Cannot terminate the thread.
+                    rpal_debug_warning( "Unable to terminate thread 0x%p -- it leaks.", hThread );
+                    doFreeResources = FALSE;
+                }
 //            	rSequence notif = rSequence_new();
 //				doFreeResources = FALSE;
 //				if( 
@@ -1747,19 +1726,19 @@ static POBJECT_NAME_INFORMATION
 //				{
 //					notifications_publish( RP_TAGS_NOTIFICATION_BLOCKED_WINDOWS_THREAD, notif );
 //				}
-			}
+            }
 
-			// We close the handle to the thread in all cases: if the thread
-			// is still alive, this bears no consequence.
-			CloseHandle( hThread );
+            // We close the handle to the thread in all cases: if the thread
+            // is still alive, this bears no consequence.
+            CloseHandle( hThread );
         }
 
-		if( doFreeResources )
-		{
-			// The event is freed only if the thread effectively terminated,
-			// or did not start in the first place.
-			CloseHandle( ctx.hEventDone );
-		}
+        if( doFreeResources )
+        {
+            // The event is freed only if the thread effectively terminated,
+            // or did not start in the first place.
+            CloseHandle( ctx.hEventDone );
+        }
     }
 
     return info;
@@ -1771,7 +1750,7 @@ rList
     (
         RU32 processId,
         RBOOL isOnlyReturnNamed,
-        RPWCHAR optSubstring
+        RNATIVESTR optSubstring
     )
 {
     rList handles = NULL;
@@ -1890,7 +1869,7 @@ rList
                                 {
                                     rSequence_addSTRINGW( handle, RP_TAGS_HANDLE_TYPE, pObjType->TypeName.Buffer );
 
-                                    if( 0 == rpal_string_strcmpw( pObjType->TypeName.Buffer, strFile ) )
+                                    if( 0 == rpal_string_strcmp( pObjType->TypeName.Buffer, strFile ) )
                                     {
                                         isBlockable = TRUE;
                                     }
@@ -1933,7 +1912,7 @@ rList
                                 }
 
                                 if( ( isOnlyReturnNamed && !gotMinInfo ) || // If only named are requested but we have no name...
-                                    ( NULL != optSubstring && ( !gotMinInfo || NULL == rpal_string_strstrw( pObjName->NameBuffer, optSubstring ) ) ) ||
+                                    ( NULL != optSubstring && ( !gotMinInfo || NULL == rpal_string_strstr( pObjName->NameBuffer, optSubstring ) ) ) ||
                                     // If handles with a name containing a substring was requested and it doesn't fit...
                                     !rSequence_addRU16( handle, RP_TAGS_HANDLE_VALUE, pSysHandleInfo->Handles[ i ].HandleValue ) ||
                                     !rSequence_addRU32( handle, RP_TAGS_PROCESS_ID, pSysHandleInfo->Handles[ i ].UniqueProcessId ) ||
@@ -1994,22 +1973,22 @@ void
             // For a complet list of attributes :
             // https://developer.apple.com/library/mac/documentation/Darwin/Reference/Manpages/man5/launchd.plist.5.html
             case LAUNCH_DATA_STRING:
-                if( 0 == rpal_string_strcmpa( attrName, "Program" ) )
+                if( 0 == rpal_string_strcmp( attrName, "Program" ) )
                 {
                     rSequence_addSTRINGA( svc, RP_TAGS_EXECUTABLE, (const RPCHAR)launch_data_get_string( data ) );
                 }
-                else if( 0 == rpal_string_strcmpa( attrName, "Label" ) )
+                else if( 0 == rpal_string_strcmp( attrName, "Label" ) )
                 {
                     rSequence_addSTRINGA( svc, RP_TAGS_SVC_NAME, (const RPCHAR)launch_data_get_string( data ) );
                 }
-                else if( 0 == rpal_string_strcmpa( attrName, "ProcessType" ) )
+                else if( 0 == rpal_string_strcmp( attrName, "ProcessType" ) )
                 {
                     rSequence_addSTRINGA( svc, RP_TAGS_SVC_TYPE, (const RPCHAR)launch_data_get_string( data ) );
                 }
                 break;
 
             case LAUNCH_DATA_ARRAY:
-                if( 0 == rpal_string_strcmpa( attrName, "ProgramArguments" ) )
+                if( 0 == rpal_string_strcmp( attrName, "ProgramArguments" ) )
                 {
                     // Get first argument ( executable path )
                     launch_data_t iterator = launch_data_array_get_index( data, 0 );
@@ -2022,7 +2001,7 @@ void
                 break;
 
             case LAUNCH_DATA_INTEGER:
-                if( 0 == rpal_string_strcmpa( attrName, "PID" ) )
+                if( 0 == rpal_string_strcmp( attrName, "PID" ) )
                 {
                     rSequence_addRU64( svc, RP_TAGS_EXECUTABLE, (RU64)launch_data_get_string( data ) );
                 }
@@ -2126,7 +2105,7 @@ rList
     processLib_getProcessEnvironment_from
     (
         RU32 pid,
-		RU32 from
+        RU32 from
     )
 {
     rList vars = NULL;
@@ -2165,7 +2144,7 @@ rList
     RPWCHAR tmpVar = NULL;
 #endif
 
-    if( NULL != ( vars = rList_new_from( RP_TAGS_ENVIRONMENT_VARIABLE, RPCM_STRINGW, from ) ) )
+    if( NULL != ( vars = rList_new_from( RP_TAGS_ENVIRONMENT_VARIABLE, RPCM_STRINGN, from ) ) )
     {
 #ifdef RPAL_PLATFORM_LINUX
         fileSize = rpal_string_snprintf( (RPCHAR)&filePath, sizeof( filePath ), (RPCHAR)&filePathTemplate, pid );         
@@ -2200,12 +2179,7 @@ rList
 
                         if( NULL != curEnvVar )
                         {
-                            if( NULL != ( tmpVar = rpal_string_atow( curEnvVar ) ) )
-                            {
-                                rList_addSTRINGW( vars, tmpVar );
-                                rpal_memory_free( tmpVar );
-                                tmpVar = NULL;
-                            }
+                            rList_addSTRINGA( vars, curEnvVar );
 
                             curEnvVar = (RPCHAR)fileContent + contentIt;
                         }
@@ -2317,7 +2291,7 @@ rList
                                         {
                                             // Start of a valid string
                                             rList_addSTRINGW( vars, tmpVar );
-                                            tmpVar += rpal_string_strlenw( tmpVar );
+                                            tmpVar += rpal_string_strlen( tmpVar );
                                         }
                                         else if( 0 == *( tmpVar + 1 ) )
                                         {
@@ -2394,7 +2368,7 @@ rList
     PIMAGEHLP_SYMBOL64 pSymbol = NULL;
     RU32 symbolSize = sizeof( IMAGEHLP_SYMBOL64 ) + ( RPAL_MAX_PATH * sizeof( TCHAR ) );
 
-    RCHAR importLib[] = { "DbgHelp.dll" };
+    RWCHAR importLib[] = { RNATIVE_LITERAL( "DbgHelp.dll" ) };
     RCHAR import1[] = { "SymInitialize" };
     RCHAR import2[] = { "StackWalk64" };
     RCHAR import3[] = { "SymGetSymFromAddr64" };
@@ -2427,8 +2401,8 @@ rList
     
     if ( NULL != hProcess &&
          NULL != hThread &&
-         ( NULL != ( hDbgHelp = GetModuleHandleA( importLib ) ) ||
-           NULL != ( hDbgHelp = LoadLibraryA( importLib ) ) ) &&
+         ( NULL != ( hDbgHelp = GetModuleHandleW( importLib ) ) ||
+           NULL != ( hDbgHelp = LoadLibraryW( importLib ) ) ) &&
          ( NULL != ( fpSymInitialize = (SymInitialize_f)GetProcAddress( hDbgHelp, import1 ) ) ) &&
          ( NULL != ( fpStackWalk64 = (StackWalk64_f)GetProcAddress( hDbgHelp, import2 ) ) ) &&
          ( NULL != ( fpSymGetSymFromAddr64 = (SymGetSymFromAddr64_f)GetProcAddress( hDbgHelp, import3 ) ) ) &&

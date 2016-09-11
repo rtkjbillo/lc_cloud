@@ -363,12 +363,12 @@ RBOOL
         if( RPCM_STRINGA == elemToCheck->type &&
             RPCM_STRINGA == elemRef->type )
         {
-            isMatch = rpal_string_match( elemRef->value, elemToCheck->value, FALSE );
+            isMatch = rpal_string_matchA( elemRef->value, elemToCheck->value, FALSE );
         }
         else if( RPCM_STRINGW == elemToCheck->type &&
                  RPCM_STRINGW == elemRef->type )
         {
-            isMatch = rpal_string_matchw( elemRef->value, elemToCheck->value, FALSE );
+            isMatch = rpal_string_matchW( elemRef->value, elemToCheck->value, FALSE );
         }
     }
 

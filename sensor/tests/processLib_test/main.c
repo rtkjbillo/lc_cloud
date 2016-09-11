@@ -141,9 +141,9 @@ void
     )
 {
     processLibProcEntry* entries = NULL;
-    RU32 entryIndex = 0;
+    RU32 entryIndex = 4;
     rSequence proc = NULL;
-    RPWCHAR path = NULL;
+    RNATIVESTR path = NULL;
 
     entries = processLib_getProcessEntries( TRUE );
 
@@ -155,10 +155,10 @@ void
 
     CU_ASSERT_PTR_NOT_EQUAL( proc, NULL );
 
-    CU_ASSERT_TRUE( rSequence_getSTRINGW( proc, RP_TAGS_FILE_PATH, &path ) );
+    CU_ASSERT_TRUE( rSequence_getSTRINGN( proc, RP_TAGS_FILE_PATH, &path ) );
 
     CU_ASSERT_PTR_NOT_EQUAL( path, NULL );
-    CU_ASSERT_NOT_EQUAL( rpal_string_strlenw( path ), 0 );
+    CU_ASSERT_NOT_EQUAL( rpal_string_strlen( path ), 0 );
 
     rSequence_free( proc );
 
@@ -172,10 +172,10 @@ void
     )
 {
     processLibProcEntry* entries = NULL;
-    RU32 entryIndex = 0;
+    RU32 entryIndex = 4;
     rList mods = NULL;
     rSequence mod = NULL;
-    RPWCHAR path = NULL;
+    RNATIVESTR path = NULL;
 
     entries = processLib_getProcessEntries( TRUE );
 
@@ -189,10 +189,10 @@ void
 
     CU_ASSERT_TRUE( rList_getSEQUENCE( mods, RP_TAGS_DLL, &mod ) );
 
-    CU_ASSERT_TRUE( rSequence_getSTRINGW( mod, RP_TAGS_FILE_PATH, &path ) );
+    CU_ASSERT_TRUE( rSequence_getSTRINGN( mod, RP_TAGS_FILE_PATH, &path ) );
 
     CU_ASSERT_PTR_NOT_EQUAL( path, NULL );
-    CU_ASSERT_NOT_EQUAL( rpal_string_strlenw( path ), 0 );
+    CU_ASSERT_NOT_EQUAL( rpal_string_strlen( path ), 0 );
 
     rSequence_free( mods );
 
@@ -206,7 +206,7 @@ void
     )
 {
     processLibProcEntry* entries = NULL;
-    RU32 entryIndex = 0;
+    RU32 entryIndex = 4;
     rList regions = NULL;
     rSequence region = NULL;
     RU32 nRegions = 0;
@@ -252,7 +252,7 @@ void
     rSequence handle = NULL;
     RU32 nHandles = 0;
     RU32 nNamedHandles = 0;
-    RPWCHAR handleName = NULL;
+    RNATIVESTR handleName = NULL;
 
     handles = processLib_getHandles( 0, FALSE, NULL );
 
@@ -275,8 +275,8 @@ void
     {
         nNamedHandles++;
 
-        CU_ASSERT_TRUE( rSequence_getSTRINGW( handle, RP_TAGS_HANDLE_NAME, &handleName ) );
-        CU_ASSERT_TRUE( 0 != rpal_string_strlenw( handleName ) );
+        CU_ASSERT_TRUE( rSequence_getSTRINGN( handle, RP_TAGS_HANDLE_NAME, &handleName ) );
+        CU_ASSERT_TRUE( 0 != rpal_string_strlen( handleName ) );
     }
 
     CU_ASSERT_TRUE( nNamedHandles < nHandles );

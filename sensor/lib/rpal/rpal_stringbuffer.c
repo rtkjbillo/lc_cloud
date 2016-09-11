@@ -21,7 +21,6 @@ limitations under the License.
 typedef struct
 {
     rBlob blob;
-    RBOOL isWide;
 
 } _rString;
 
@@ -29,8 +28,7 @@ rString
     rpal_stringbuffer_new
     (
         RU32 initialSize,
-        RU32 growBy,
-        RBOOL isWide
+        RU32 growBy
     )
 {
     _rString* pStr = NULL;
@@ -39,8 +37,6 @@ rString
 
     if( rpal_memory_isValid( pStr ) )
     {
-        pStr->isWide = isWide;
-
         pStr->blob = rpal_blob_create( initialSize, growBy );
 
         if( NULL == pStr->blob )
@@ -83,78 +79,35 @@ RBOOL
     rpal_stringbuffer_add
     (
         rString pStringBuffer,
-        RPCHAR pString
+        RNATIVESTR pString
     )
 {
     RBOOL isSuccess = FALSE;
 
     _rString* pStr = (_rString*)pStringBuffer;
 
-    if( rpal_memory_isValid( pStringBuffer ) &&
-        !pStr->isWide )
+    if( rpal_memory_isValid( pStringBuffer ) )
     {
-        isSuccess = rpal_blob_add( (rBlob)pStr->blob, pString, rpal_string_strlen( pString ) );
+        isSuccess = rpal_blob_add( (rBlob)pStr->blob, pString, rpal_string_strlen( pString ) * sizeof( RNATIVECHAR ) );
     }
 
     return isSuccess;
 }
 
-RBOOL
-    rpal_stringbuffer_addw
-    (
-        rString pStringBuffer,
-        RPWCHAR pString
-    )
-{
-    RBOOL isSuccess = FALSE;
-
-    _rString* pStr = (_rString*)pStringBuffer;
-
-    if( rpal_memory_isValid( pStringBuffer ) &&
-        pStr->isWide )
-    {
-        isSuccess = rpal_blob_add( (rBlob)pStr->blob, pString, rpal_string_strlenw( pString ) * sizeof( RWCHAR ) );
-    }
-
-    return isSuccess;
-}
-
-RPCHAR
+RNATIVESTR
     rpal_stringbuffer_getString
     (
         rString pStringBuffer
     )
 {
-    RPCHAR ret = NULL;
+    RNATIVESTR ret = NULL;
 
     _rString* pStr = (_rString*)pStringBuffer;
     
-    if( rpal_memory_isValid( pStringBuffer ) &&
-        !pStr->isWide )
+    if( rpal_memory_isValid( pStringBuffer ) )
     {
-        ret = (RPCHAR)rpal_blob_getBuffer( (rBlob)( pStr->blob ) );
+        ret = (RNATIVESTR)rpal_blob_getBuffer( (rBlob)( pStr->blob ) );
     }
 
     return ret;
 }
-
-
-RPWCHAR
-    rpal_stringbuffer_getStringw
-    (
-        rString pStringBuffer
-    )
-{
-    RPWCHAR ret = NULL;
-
-    _rString* pStr = (_rString*)pStringBuffer;
-    
-    if( rpal_memory_isValid( pStringBuffer ) &&
-        pStr->isWide )
-    {
-        ret = (RPWCHAR)rpal_blob_getBuffer( (rBlob)( pStr->blob ) );
-    }
-
-    return ret;
-}
-

@@ -75,14 +75,14 @@ RBOOL
     SetPrivilege
     (
         HANDLE hToken, 
-        LPCTSTR lpszPrivilege, 
+        RNATIVESTR lpszPrivilege, 
         BOOL bEnablePrivilege
     )
 {
     LUID luid;
     RBOOL bRet = FALSE;
 
-    if( LookupPrivilegeValue( NULL, lpszPrivilege, &luid ) )
+    if( LookupPrivilegeValueW( NULL, lpszPrivilege, &luid ) )
     {
         TOKEN_PRIVILEGES tp;
 
@@ -108,7 +108,7 @@ static
 RBOOL
     Get_Privilege
     (
-        RPCHAR privName
+        RNATIVESTR privName
     )
 {
     RBOOL isSuccess = FALSE;
@@ -306,12 +306,12 @@ RVOID
 #ifdef RNATIVE_IS_WIDE
     matchContext.path = rpal_string_wtoa( path );
 #else
-    matchContext.path = rpal_string_strdupa( path );
+    matchContext.path = rpal_string_strdup( path );
 #endif
     
-    if( rpal_bloom_addIfNew( fileCache, matchContext.path, rpal_string_strlen( matchContext.path ) ) )
+    if( rpal_bloom_addIfNew( fileCache, matchContext.path, rpal_string_strlenA( matchContext.path ) ) )
     {
-        size = rpal_file_getSize( matchContext.path, FALSE );
+        size = rpal_file_getSizeA( matchContext.path, FALSE );
 
         if( 0 != size && ( 1024 * 1024 * 50 ) >= size )
         {
@@ -466,24 +466,18 @@ RVOID
     }
 }
 
-int
-RPAL_EXPORT
-    main
-    (
-        int argc,
-        char* argv[]
-    )
+RPAL_NATIVE_MAIN
 {
     RU32 memUsed = 0;
-    RCHAR argFlag = 0;
-    RPCHAR argVal = NULL;
+    RNATIVECHAR argFlag = 0;
+    RNATIVESTR argVal = NULL;
 
-    rpal_opt switches[] = { { 'f', "yaracfile", TRUE },
-                            { 'm', "memory", FALSE },
-                            { 'd', "disk", FALSE } };
+    rpal_opt switches[] = { { RNATIVE_LITERAL( 'f' ), RNATIVE_LITERAL( "yaracfile" ), TRUE },
+                            { RNATIVE_LITERAL( 'm' ), RNATIVE_LITERAL( "memory" ), FALSE },
+                            { RNATIVE_LITERAL( 'd' ), RNATIVE_LITERAL( "disk" ), FALSE } };
 
     // Execution Environment
-    RPCHAR compiledYaraFile = NULL;
+    RNATIVESTR compiledYaraFile = NULL;
     RBOOL isScanMemory = FALSE;
     RBOOL isScanDisk = FALSE;
     RPU8 ruleFile = NULL;
@@ -503,7 +497,7 @@ RPAL_EXPORT
     {
         // Initialize boilerplate runtime.
 #ifdef RPAL_PLATFORM_WINDOWS
-        RCHAR strSeDebug[] = "SeDebugPrivilege";
+        RNATIVECHAR strSeDebug[] = RNATIVE_LITERAL( "SeDebugPrivilege" );
         if( !Get_Privilege( strSeDebug ) )
         {
             rpal_debug_error( "could not get debug privilege, are we running as admin?" );
@@ -546,17 +540,17 @@ RPAL_EXPORT
 #endif
 
         // Parse arguments on the type of simulation requested.
-        while( -1 != ( argFlag = rpal_getopt( argc, argv, switches, &argVal ) ) )
+        while( (RNATIVECHAR)(-1) != ( argFlag = rpal_getopt( argc, argv, switches, &argVal ) ) )
         {
             switch( argFlag )
             {
-                case 'f':
+                case RNATIVE_LITERAL( 'f' ):
                     compiledYaraFile = argVal;
                     break;
-                case 'm':
+                case RNATIVE_LITERAL( 'm' ):
                     isScanMemory = TRUE;
                     break;
-                case 'd':
+                case RNATIVE_LITERAL( 'd' ):
                     isScanDisk = TRUE;
                     break;
                 default:

@@ -34,10 +34,10 @@ static
 RBOOL
     _assemble_full_name
     (
-        RPWCHAR out,
+        RNATIVESTR out,
         RU32 outSize,
-        RPWCHAR root,
-        RPWCHAR file
+        RNATIVESTR root,
+        RNATIVESTR file
     )
 {
     RBOOL isSuccess = FALSE;
@@ -48,11 +48,11 @@ RBOOL
         NULL != file )
     {
         rpal_memory_zero( out, outSize );
-        rpal_string_strcatw( out, root );
+        rpal_string_strcat( out, root );
 
-        if( outSize > ( rpal_string_strlenw( out ) + rpal_string_strlenw( file ) ) * sizeof( RWCHAR ) )
+        if( outSize > ( rpal_string_strlen( out ) + rpal_string_strlen( file ) ) * sizeof( RNATIVECHAR ) )
         {
-            rpal_string_strcatw( out, file );
+            rpal_string_strcat( out, file );
             isSuccess = TRUE;
         }
     }
@@ -68,14 +68,14 @@ RPVOID
     )
 {    
 #ifdef RPAL_PLATFORM_WINDOWS
-    RWCHAR rootEnv[] = _WCH( "%SYSTEMDRIVE%\\" );
+    RNATIVECHAR rootEnv[] = _WCH( "%SYSTEMDRIVE%\\" );
 #else
     RWCHAR rootEnv[] = _WCH( "/" );
 #endif
-    RWCHAR fullName[ 1024 ] = { 0 };
+    RNATIVECHAR fullName[ 1024 ] = { 0 };
     rDirWatch watch = NULL;
-    RPWCHAR root = NULL;
-    RPWCHAR fileName = NULL;
+    RNATIVESTR root = NULL;
+    RNATIVESTR fileName = NULL;
     RU32 apiAction = 0;
     rpcm_tag event = RP_TAGS_INVALID;
     rSequence notif = 0;
@@ -87,7 +87,7 @@ RPVOID
     if( g_is_delete_enabled ) mask |= RPAL_DIR_WATCH_CHANGE_FILE_NAME;
     if( g_is_modified_enabled ) mask |= RPAL_DIR_WATCH_CHANGE_LAST_WRITE;
 
-    if( rpal_string_expandw( (RPWCHAR)&rootEnv, &root ) &&
+    if( rpal_string_expand( (RNATIVESTR)&rootEnv, &root ) &&
         NULL != ( watch = rDirWatch_new( root, mask, TRUE ) ) )
     {
         while( rpal_memory_isValid( isTimeToStop ) &&
@@ -121,7 +121,7 @@ RPVOID
                             event = RP_TAGS_NOTIFICATION_FILE_MODIFIED;
                         }
 
-                        if( rSequence_addSTRINGW( notif, RP_TAGS_FILE_PATH, (RPWCHAR)&fullName ) &&
+                        if( rSequence_addSTRINGN( notif, RP_TAGS_FILE_PATH, (RNATIVESTR)&fullName ) &&
                             hbs_timestampEvent( notif, curTime ) )
                         {
                             hbs_publish( event, notif );

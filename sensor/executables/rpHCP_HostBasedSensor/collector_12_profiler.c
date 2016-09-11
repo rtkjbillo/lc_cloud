@@ -102,7 +102,7 @@ RS32
     if( NULL != p1 && NULL != p2 &&
         NULL != *p1 && NULL != *p2 )
     {
-        ret = rpal_string_strcmpw( *p1, *p2 );
+        ret = rpal_string_strcmpW( *p1, *p2 );
     }
 
     return ret;
@@ -159,7 +159,7 @@ RBOOL
         p->lastSeen = now;
         p->gensSeen = 0;
         p->gensToStability = _PROFILE_BASE_CHANGE_TICKETS;
-        if( NULL != ( p->key = rpal_string_strdupw( key ) ) )
+        if( NULL != ( p->key = rpal_string_strdupW( key ) ) )
         {
             if( NULL != ( p->relations = rpal_btree_create( sizeof( RPVOID ), 
                                                             (rpal_btree_comp_f)_cmp_stringw, 

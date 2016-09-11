@@ -91,18 +91,18 @@ static RBOOL
             CloseHandle( hSnapshot );
         }
 #elif defined( RPAL_PLATFORM_LINUX )
-        RWCHAR procDir[] = _WCH( "/proc/" );
+        RCHAR procDir[] = "/proc/";
         rDir hProcDir = NULL;
         rFileInfo finfo = {0};
 
-        if( rDir_open( (RPWCHAR)&procDir, &hProcDir ) )
+        if( rDir_open( (RPCHAR)&procDir, &hProcDir ) )
         {
             isSuccess = TRUE;
 
             while( rDir_next( hProcDir, &finfo ) &&
                    MAX_SNAPSHOT_SIZE > i )
             {
-                if( rpal_string_wtoi( (RPWCHAR)finfo.fileName, &( toSnapshot[ i ].pid ) )
+                if( rpal_string_stoi( (RPCHAR)finfo.fileName, &( toSnapshot[ i ].pid ) )
                     && 0 != toSnapshot[ i ].pid )
                 {
                     i++;
@@ -207,16 +207,16 @@ static RBOOL
     // We prime the information with whatever was provided
     // to us by the kernel acquisition. If not available
     // we generate using the UM only way.
-    if( 0 != rpal_string_strlenn( optFilePath ) &&
+    if( 0 != rpal_string_strlen( optFilePath ) &&
         ( NULL != info ||
           NULL != ( info = rSequence_new() ) ) )
     {
-        cleanPath = rpal_file_cleann( optFilePath );
+        cleanPath = rpal_file_clean( optFilePath );
         rSequence_addSTRINGN( info, RP_TAGS_FILE_PATH, cleanPath ? cleanPath : optFilePath );
         rpal_memory_free( cleanPath );
     }
 
-    if( 0 != rpal_string_strlenn( optCmdLine ) &&
+    if( 0 != rpal_string_strlen( optCmdLine ) &&
         ( NULL != info ||
           NULL != ( info = rSequence_new() ) ) )
     {

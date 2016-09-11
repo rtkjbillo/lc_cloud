@@ -1217,10 +1217,13 @@ RBOOL
     RBOOL isSuccess = FALSE;
 
     _rThreadPool* p = (_rThreadPool*)pool;
+    RU32 queueSize = 0;
 
     if( NULL != pool && rMutex_lock( p->counterMutex ) )
     {
-        if( 0 == p->nCurrentlyProcessing )
+        rQueue_getSize( p->taskQueue, &queueSize );
+
+        if( 0 == p->nCurrentlyProcessing && 0 == queueSize )
         {
             isSuccess = TRUE;
         }

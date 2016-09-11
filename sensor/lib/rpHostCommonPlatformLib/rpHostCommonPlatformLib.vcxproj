@@ -145,17 +145,11 @@
     <ProjectReference Include="..\cryptoLib\cryptoLib.vcxproj">
       <Project>{533b36b9-e781-4132-baa7-33bf68de7013}</Project>
     </ProjectReference>
-    <ProjectReference Include="..\libb64\libb64.vcxproj">
-      <Project>{e46202fa-faf8-41b2-9e08-6c3e4ae99d91}</Project>
-    </ProjectReference>
     <ProjectReference Include="..\libOs\libOs.vcxproj">
       <Project>{b344474d-101c-4eeb-ac48-40f1d5489bfd}</Project>
     </ProjectReference>
     <ProjectReference Include="..\librpcm\librpcm.vcxproj">
       <Project>{211cf5f8-3282-4133-a974-2c6fabde66b3}</Project>
-    </ProjectReference>
-    <ProjectReference Include="..\liburl\liburl.vcxproj">
-      <Project>{1e843a0e-719b-472e-b865-b48886ebe0c8}</Project>
     </ProjectReference>
     <ProjectReference Include="..\MemoryModule\MemoryModule.vcxproj">
       <Project>{f94005c9-8884-4bdb-af60-f6b07f6253cb}</Project>

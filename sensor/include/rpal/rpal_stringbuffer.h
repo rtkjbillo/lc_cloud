@@ -25,8 +25,7 @@ rString
     rpal_stringbuffer_new
     (
         RU32 initialSize,
-        RU32 growBy,
-        RBOOL isWide
+        RU32 growBy
     );
 
 RVOID
@@ -45,27 +44,13 @@ RBOOL
     rpal_stringbuffer_add
     (
         rString pStringBuffer,
-        RPCHAR pString
+        RNATIVESTR pString
     );
 
-RBOOL
-    rpal_stringbuffer_addw
-    (
-        rString pStringBuffer,
-        RPWCHAR pString
-    );
-
-RPCHAR
+RNATIVESTR
     rpal_stringbuffer_getString
     (
         rString pStringBuffer
     );
-
-RPWCHAR
-    rpal_stringbuffer_getStringw
-    (
-        rString pStringBuffer
-    );
-
 
 #endif

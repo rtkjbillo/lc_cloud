@@ -533,8 +533,8 @@ RPVOID
 {
     rSequence event = NULL;
     RU32 timeout = 0;
-    RPWCHAR strW = NULL;
-    RPCHAR strA = NULL;
+    RNATIVESTR pathN = NULL;
+    RPCHAR pathA = NULL;
     YaraMatchContext matchContext = { 0 };
     RU32 scanError = 0;
     rBloom knownFiles = NULL;
@@ -550,50 +550,37 @@ RPVOID
     {
         if( rQueue_remove( g_async_files_to_scan, (RPVOID*)&event, NULL, MSEC_FROM_SEC( 2 ) ) )
         {
-            if( rSequence_getSTRINGW( event, RP_TAGS_FILE_PATH, &strW ) )
+            if( rSequence_getSTRINGN( event, RP_TAGS_FILE_PATH, &pathN ) &&
+                rpal_bloom_addIfNew( knownFiles, pathN, rpal_string_strlen( pathN ) ) )
             {
-                strA = rpal_string_wtoa( strW );
-            }
-            else
-            {
-                rSequence_getSTRINGA( event, RP_TAGS_FILE_PATH, &strA );
-            }
-
-            if( NULL != strA &&
-                rpal_bloom_addIfNew( knownFiles, strA, rpal_string_strlen( strA ) ) )
-            {
-                rpal_debug_info( "yara scanning %s", strA );
+                rpal_debug_info( "yara scanning " RF_STR_N, pathN );
                 matchContext.fileInfo = event;
 
-                if( rMutex_lock( g_global_rules_mutex ) )
+                if( NULL != ( pathA = rpal_string_ntoa( pathN ) ) )
                 {
-                    if( NULL != g_global_rules )
+                    if( rMutex_lock( g_global_rules_mutex ) )
                     {
-                        rpal_debug_info( "scanning continuous file with yara" );
-                        if( ERROR_SUCCESS != ( scanError = yr_rules_scan_file( g_global_rules,
-                                                                               strA,
-                                                                               SCAN_FLAGS_FAST_MODE,
-                                                                               _yaraFileMatchCallback,
-                                                                               &matchContext,
-                                                                               60 ) ) )
+                        if( NULL != g_global_rules )
                         {
-                            rpal_debug_warning( "Yara file scan error: %d", scanError );
+                            rpal_debug_info( "scanning continuous file with yara" );
+                            if( ERROR_SUCCESS != ( scanError = yr_rules_scan_file( g_global_rules,
+                                                                                   pathA,
+                                                                                   SCAN_FLAGS_FAST_MODE,
+                                                                                   _yaraFileMatchCallback,
+                                                                                   &matchContext,
+                                                                                   60 ) ) )
+                            {
+                                rpal_debug_warning( "Yara file scan error: %d", scanError );
+                            }
                         }
+
+                        rMutex_unlock( g_global_rules_mutex );
                     }
 
-                    rMutex_unlock( g_global_rules_mutex );
+                    rpal_memory_free( pathA );
                 }
             }
 
-            if( NULL != strA && NULL != strW )
-            {
-                // If both are allocated it means we got a strW and converted to A
-                // so we must free the strA version.
-                rpal_memory_free( strA );
-            }
-
-            strA = NULL;
-            strW = NULL;
             rSequence_free( event );
 
             timeout = _TIMEOUT_BETWEEN_FILE_SCANS;
@@ -657,8 +644,10 @@ RVOID
     )
 {
     RU32 pid = 0;
-    RPWCHAR fileW = NULL;
     RPCHAR fileA = NULL;
+    RNATIVESTR procN = NULL;
+
+    RPWCHAR fileW = NULL;
     RPWCHAR procW = NULL;
     RPCHAR procA = NULL;
     RPU8 rulesBuffer = NULL;
@@ -669,18 +658,29 @@ RVOID
     processLibProcEntry* curProc = NULL;
     RU32 scanError = 0;
     rSequence processInfo = NULL;
-    RPWCHAR tmpW = NULL;
-    RPCHAR tmpA = NULL;
+    RNATIVESTR tmpN = NULL;
 
     UNREFERENCED_PARAMETER( eventType );
 
     if( rpal_memory_isValid( event ) )
     {
         rSequence_getRU32( event, RP_TAGS_PROCESS_ID, &pid );
-        rSequence_getSTRINGW( event, RP_TAGS_FILE_PATH, &fileW );
-        rSequence_getSTRINGA( event, RP_TAGS_FILE_PATH, &fileA );
-        rSequence_getSTRINGW( event, RP_TAGS_PROCESS, &procW );
-        rSequence_getSTRINGA( event, RP_TAGS_PROCESS, &procA );
+        if( rSequence_getSTRINGW( event, RP_TAGS_FILE_PATH, &fileW ) )
+        {
+            fileA = rpal_string_wtoa( fileW );
+        }
+        else if( rSequence_getSTRINGA( event, RP_TAGS_FILE_PATH, &fileA ) )
+        {
+            fileA = rpal_string_strdupA( fileA );
+        }
+        else if( rSequence_getSTRINGW( event, RP_TAGS_PROCESS, &procW ) )
+        {
+            procN = rpal_string_wton( procW );
+        }
+        else if( rSequence_getSTRINGA( event, RP_TAGS_PROCESS, &procA ) )
+        {
+            procN = rpal_string_aton( procA );
+        }
 
         if( rSequence_getBUFFER( event, RP_TAGS_RULES, &rulesBuffer, &rulesBufferSize ) )
         {
@@ -689,16 +689,6 @@ RVOID
 
         if( NULL != rules )
         {
-            if( NULL != fileW )
-            {
-                fileA = rpal_string_wtoa( fileW );
-            }
-
-            if( NULL != procW )
-            {
-                procA = rpal_string_wtoa( procW );
-            }
-
             if( NULL != fileA )
             {
                 rpal_debug_info( "scanning file with yara" );
@@ -715,7 +705,7 @@ RVOID
                     rpal_debug_warning( "Yara file scan error: %d", scanError );
                 }
             }
-            else if( NULL != procA )
+            else if( NULL != procN )
             {
                 // Scan processes matching
                 if( NULL != ( processes = processLib_getProcessEntries( TRUE ) ) )
@@ -725,33 +715,17 @@ RVOID
                     {
                         if( NULL != ( processInfo = processLib_getProcessInfo( curProc->pid, NULL ) ) )
                         {
-                            if( rSequence_getSTRINGW( processInfo, RP_TAGS_FILE_PATH, &tmpW ) ||
-                                rSequence_getSTRINGA( processInfo, RP_TAGS_FILE_PATH, &tmpA ) )
+                            if( rSequence_getSTRINGN( processInfo, RP_TAGS_FILE_PATH, &tmpN ) )
                             {
-                                if( NULL != tmpW )
+                                if( rpal_string_match( procN, tmpN, RPAL_PLATFORM_FS_CASE_SENSITIVITY ) )
                                 {
-                                    tmpA = rpal_string_wtoa( tmpW );
-                                }
+                                    matchContext.pid = curProc->pid;
+                                    matchContext.processInfo = processInfo;
 
-                                if( NULL != tmpA )
-                                {
-                                    if( rpal_string_match( procA, tmpA, RPAL_PLATFORM_FS_CASE_SENSITIVITY ) )
-                                    {
-                                        matchContext.pid = curProc->pid;
-                                        matchContext.processInfo = processInfo;
-
-                                        scanError = _scanProcessWith( curProc->pid,
-                                                                      &matchContext,
-                                                                      rules,
-                                                                      NULL );
-                                    }
-                                }
-
-                                if( NULL != tmpW && NULL != tmpA )
-                                {
-                                    // If both are allocated it means we got a strW and converted to A
-                                    // so we must free the strA version.
-                                    rpal_memory_free( tmpA );
+                                    scanError = _scanProcessWith( curProc->pid,
+                                                                    &matchContext,
+                                                                    rules,
+                                                                    NULL );
                                 }
                             }
 
@@ -791,21 +765,6 @@ RVOID
                 }
             }
 
-
-            if( NULL != fileW && NULL != fileA )
-            {
-                // If both are allocated it means we got a strW and converted to A
-                // so we must free the strA version.
-                rpal_memory_free( fileA );
-            }
-
-            if( NULL != procW && NULL != procA )
-            {
-                // If both are allocated it means we got a strW and converted to A
-                // so we must free the strA version.
-                rpal_memory_free( procA );
-            }
-
             yr_rules_destroy( rules );
         }
         else
@@ -816,6 +775,9 @@ RVOID
                                      RPAL_ERROR_NOT_SUPPORTED, 
                                      "can't parse" );
         }
+
+        rpal_memory_free( fileA );
+        rpal_memory_free( procN );
     }
 
     rpal_debug_info( "finished on demand yara scan" );

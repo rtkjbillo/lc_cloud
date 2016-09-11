@@ -125,6 +125,43 @@ RBOOL
     );
 
 /**
+* Add a native string to an obs object.
+*
+* Adds a new string to the obs object. The sequence is created in
+* an internal format that is optimized for large buffers and large number
+* of sequences.
+*
+* @param   HObs    hObs
+*   The handle of the obs object to add to
+*
+* @param   RNATIVESTR  strPattern
+*   Pointer to the byte sequence to add (buffer)
+*
+* @param   RBOOL   isIncludeNullEnding
+*   Includes the final null character in the patter, for string suffix matching
+*
+* @param   RBOOL   isCaseInsensitive
+*   Includes patterns with all cases, this means 2^N patterns!
+*
+* @param   RPVOID  context
+*   Opaque context (for obsLib) to be associated with the byte sequence, this
+*   can be meta-data related to the sequence to be retrieved at the same time
+*   as matches are found.
+*
+* @return RBOOL
+*   Returns TRUE if the pattern was added to the obs object
+*/
+RBOOL
+    obsLib_addStringPatternN
+    (
+        HObs hObs,
+        RNATIVESTR strPattern,
+        RBOOL isIncludeNullEnding,
+        RBOOL isCaseInsensitive,
+        RPVOID context
+    );
+
+/**
 * Add a ascii/utf-8 string to an obs object.
 *
 * Adds a new string to the obs object. The sequence is created in

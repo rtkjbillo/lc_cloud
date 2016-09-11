@@ -7,7 +7,6 @@ for subdir in [
         'cryptoLib',
         'obfuscationLib',
         'MemoryModule',
-        'libb64',
         'zlib',
         'librpcm',
         'libOs',

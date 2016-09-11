@@ -667,9 +667,9 @@ RBOOL
 
 
 RBOOL
-    CryptoLib_hashFileW
+    CryptoLib_hashFile
     (
-        RPWCHAR fileName,
+        RNATIVESTR fileName,
         CryptoLib_Hash* pHash,
         RBOOL isAvoidTimestamps
     )
@@ -704,30 +704,3 @@ RBOOL
 
     return isSuccess;
 }
-
-RBOOL
-    CryptoLib_hashFileA
-    (
-        RPCHAR fileName,
-        CryptoLib_Hash* pHash,
-        RBOOL isAvoidTimestamps
-    )
-{
-    RBOOL isSuccess = FALSE;
-
-    RPWCHAR wFile = NULL;
-
-    if( NULL != fileName &&
-        NULL != pHash )
-    {
-	    if( NULL != ( wFile = rpal_string_atow( fileName ) ) )
-	    {
-            isSuccess = CryptoLib_hashFileW( wFile, pHash, isAvoidTimestamps );
-	    
-	        rpal_memory_free( wFile );
-	    }
-    }
-
-    return isSuccess;
-}
-

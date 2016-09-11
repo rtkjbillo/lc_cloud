@@ -142,9 +142,9 @@ RBOOL
     {
         while( rList_getSEQUENCE( mods, RP_TAGS_DLL, &mod ) )
         {
-            if( rSequence_getSTRINGW( mod, RP_TAGS_FILE_PATH, &nameW ) )
+            if( rSequence_getSTRINGN( mod, RP_TAGS_FILE_PATH, &nameW ) )
             {
-                if( NULL != rpal_string_stristrw( nameW, dotNetDir ) )
+                if( NULL != rpal_string_stristr( nameW, dotNetDir ) )
                 {
                     isJITPresent = TRUE;
                     break;

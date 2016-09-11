@@ -38,7 +38,7 @@ typedef struct
     RU16 type;
     RU16 unused;
     RU32 flags;
-    RPWCHAR name;
+    RNATIVESTR name;
 
 } _dnsRecord;
 
@@ -83,7 +83,7 @@ RS32
                                              rec2, 
                                              sizeof( *rec1 ) - sizeof( RPWCHAR ) ) ) )
         {
-            ret = rpal_string_strcmpw( rec1->name, rec2->name );
+            ret = rpal_string_strcmp( rec1->name, rec2->name );
         }
     }
 
@@ -133,7 +133,7 @@ RPVOID
                 {
                     rec.flags = pDnsEntry->dwFlags;
                     rec.type = pDnsEntry->wType;
-                    if( NULL != ( rec.name = rpal_string_strdupw( pDnsEntry->pszName ) ) )
+                    if( NULL != ( rec.name = rpal_string_strdup( pDnsEntry->pszName ) ) )
                     {
                         rpal_blob_add( snapCur, &rec, sizeof( rec ) );
                     }
@@ -167,7 +167,7 @@ RPVOID
                     {
                         if( NULL != ( notif = rSequence_new() ) )
                         {
-                            rSequence_addSTRINGW( notif, RP_TAGS_DOMAIN_NAME, pCurRec->name );
+                            rSequence_addSTRINGN( notif, RP_TAGS_DOMAIN_NAME, pCurRec->name );
                             rSequence_addRU16( notif, RP_TAGS_DNS_TYPE, pCurRec->type );
                             rSequence_addRU32( notif, RP_TAGS_DNS_FLAGS, pCurRec->flags );
                             hbs_timestampEvent( notif, 0 );

@@ -179,7 +179,6 @@ int
     )
 {
     int ret = 1;
-    RU32  i = 0;
 
     CU_pSuite suite = NULL;
 
@@ -187,25 +186,22 @@ int
     UNREFERENCED_PARAMETER( argv );
 
     rpal_initialize( NULL, 1 );
-    for( i = 0; i < 1000000; i++ )
+    CU_initialize_registry();
+
+    if( NULL != ( suite = CU_add_suite( "obsLib", NULL, NULL ) ) )
     {
-        CU_initialize_registry();
-
-        if( NULL != ( suite = CU_add_suite( "obsLib", NULL, NULL ) ) )
+        if( NULL != CU_add_test( suite, "createAndDestroy", test_CreateAndDestroy ) &&
+            NULL != CU_add_test( suite, "addPattern", test_addPattern ) &&
+            NULL != CU_add_test( suite, "singlePattern", test_singlePattern ) &&
+            NULL != CU_add_test( suite, "multiPattern", test_multiPattern ) )
         {
-            if( NULL != CU_add_test( suite, "createAndDestroy", test_CreateAndDestroy ) &&
-                NULL != CU_add_test( suite, "addPattern", test_addPattern ) &&
-                NULL != CU_add_test( suite, "singlePattern", test_singlePattern ) &&
-                NULL != CU_add_test( suite, "multiPattern", test_multiPattern ) )
-            {
-                ret = 0;
-            }
+            ret = 0;
         }
-
-        CU_basic_run_tests();
-
-        CU_cleanup_registry();
     }
+
+    CU_basic_run_tests();
+
+    CU_cleanup_registry();
     rpal_Context_cleanup();
 
     if( 0 != rpal_memory_totalUsed() )

@@ -92,7 +92,7 @@ rList
     (
         RU32 processId,
         RBOOL isOnlyReturnNamed,
-        RPWCHAR optSubstring
+        RNATIVESTR optSubstring
     );
 
 RBOOL 
