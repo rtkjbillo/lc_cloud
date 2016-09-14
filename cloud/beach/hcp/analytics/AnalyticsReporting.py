@@ -31,21 +31,21 @@ class AnalyticsReporting( Actor ):
                             maxConcurrent = parameters[ 'max_concurrent' ],
                             blockOnQueueSize = parameters[ 'block_on_queue_size' ] )
 
-        self.report_stmt_rep = self.db.prepare( 'INSERT INTO detects ( did, gen, source, dtype, events, detect ) VALUES ( ?, dateOf( now() ), ?, ?, ?, ? ) USING TTL %d' % self.ttl )
+        self.report_stmt_rep = self.db.prepare( 'INSERT INTO detects ( did, gen, source, dtype, events, detect, why ) VALUES ( ?, dateOf( now() ), ?, ?, ?, ?, ? ) USING TTL %d' % self.ttl )
         self.report_stmt_rep.consistency_level = CassDb.CL_Ingest
 
         self.report_stmt_tl = self.db.prepare( 'INSERT INTO detect_timeline ( d, ts, did ) VALUES ( ?, now(), ? ) USING TTL %d' % self.ttl )
         self.report_stmt_tl.consistency_level = CassDb.CL_Ingest
 
-        self.new_inv_stmt = self.db.prepare( 'INSERT INTO investigation ( invid, gen, closed, nature, conclusion, why ) VALUES ( ?, ?, 0, 0, 0, \'\' ) USING TTL %d' % self.ttl )
+        self.new_inv_stmt = self.db.prepare( 'INSERT INTO investigation ( invid, gen, closed, nature, conclusion, why, hunter ) VALUES ( ?, ?, 0, 0, 0, \'\', ? ) USING TTL %d' % self.ttl )
 
-        self.close_inv_stmt = self.db.prepare( 'UPDATE investigation USING TTL %d SET closed = ? WHERE invid = ?' % self.ttl )
+        self.close_inv_stmt = self.db.prepare( 'UPDATE investigation USING TTL %d SET closed = ? WHERE invid = ? AND hunter = ?' % self.ttl )
 
-        self.task_inv_stmt = self.db.prepare( 'INSERT INTO inv_task ( invid, gen, why, dest, data, sent ) VALUES ( ?, ?, ?, ?, ?, ? ) USING TTL %d' % self.ttl )
+        self.task_inv_stmt = self.db.prepare( 'INSERT INTO inv_task ( invid, gen, why, dest, data, sent, hunter ) VALUES ( ?, ?, ?, ?, ?, ?, ? ) USING TTL %d' % self.ttl )
 
-        self.report_inv_stmt = self.db.prepare( 'INSERT INTO inv_data ( invid, gen, why, data ) VALUES ( ?, ?, ?, ? ) USING TTL %d' % self.ttl )
+        self.report_inv_stmt = self.db.prepare( 'INSERT INTO inv_data ( invid, gen, why, data, hunter ) VALUES ( ?, ?, ?, ?, ? ) USING TTL %d' % self.ttl )
 
-        self.conclude_inv_stmt = self.db.prepare( 'UPDATE investigation USING TTL %s SET closed = ?, nature = ?, conclusion = ?, why = ? WHERE invid = ?' % self.ttl )
+        self.conclude_inv_stmt = self.db.prepare( 'UPDATE investigation USING TTL %s SET closed = ?, nature = ?, conclusion = ?, why = ?, hunter = ? WHERE invid = ?' % self.ttl )
 
         self.outputs = self.getActorHandleGroup( resources[ 'output' ] )
 
@@ -70,10 +70,11 @@ class AnalyticsReporting( Actor ):
         event_ids = msg.data[ 'msg_ids' ]
         category = msg.data[ 'cat' ]
         source = msg.data[ 'source' ]
+        why = msg.data[ 'summary' ]
         detect = base64.b64encode( msgpack.packb( msg.data[ 'detect' ] ) )
         detect_id = msg.data[ 'detect_id' ].upper()
 
-        self.db.execute_async( self.report_stmt_rep.bind( ( detect_id, source, category, ' / '.join( event_ids ), detect ) ) )
+        self.db.execute_async( self.report_stmt_rep.bind( ( detect_id, source, category, ' / '.join( event_ids ), detect, why ) ) )
         self.db.execute_async( self.report_stmt_tl.bind( ( random.randint( 0, 255 ), detect_id ) ) )
 
         self.outputs.shoot( 'report', msg.data )
@@ -89,15 +90,17 @@ class AnalyticsReporting( Actor ):
         invId = msg.data[ 'inv_id' ]
         ts = msg.data[ 'ts' ] * 1000
         detect = msg.data[ 'detect' ]
+        hunter = msg.data[ 'hunter' ]
 
-        self.db.execute( self.new_inv_stmt.bind( ( invId, ts ) ) )
+        self.db.execute( self.new_inv_stmt.bind( ( invId, ts, hunter ) ) )
         return ( True, )
 
     def close_inv( self, msg ):
         invId = msg.data[ 'inv_id' ]
         ts = msg.data[ 'ts' ] * 1000
+        hunter = msg.data[ 'hunter' ]
 
-        self.db.execute( self.close_inv_stmt.bind( ( ts, invId ) ) )
+        self.db.execute( self.close_inv_stmt.bind( ( ts, invId, hunter ) ) )
         return ( True, )
 
     def inv_task( self, msg ):
@@ -107,8 +110,9 @@ class AnalyticsReporting( Actor ):
         why = msg.data[ 'why' ]
         dest = msg.data[ 'dest' ]
         isSent = msg.data[ 'is_sent' ]
+        hunter = msg.data[ 'hunter' ]
 
-        self.db.execute( self.task_inv_stmt.bind( ( invId, time_uuid.TimeUUID.with_timestamp( ts ), why, dest, task, isSent ) ) )
+        self.db.execute( self.task_inv_stmt.bind( ( invId, time_uuid.TimeUUID.with_timestamp( ts ), why, dest, task, isSent, hunter ) ) )
         return ( True, )
 
     def report_inv( self, msg ):
@@ -116,8 +120,9 @@ class AnalyticsReporting( Actor ):
         ts = msg.data[ 'ts' ] * 1000
         data = msgpack.packb( msg.data[ 'data' ] )
         why = msg.data[ 'why' ]
+        hunter = msg.data[ 'hunter' ]
 
-        self.db.execute( self.report_inv_stmt.bind( ( invId, time_uuid.TimeUUID.with_timestamp( ts ), why, data ) ) )
+        self.db.execute( self.report_inv_stmt.bind( ( invId, time_uuid.TimeUUID.with_timestamp( ts ), why, data, hunter ) ) )
         return ( True, )
 
     def conclude_inv( self, msg ):
@@ -126,6 +131,7 @@ class AnalyticsReporting( Actor ):
         why = msg.data[ 'why' ]
         nature = msg.data[ 'nature' ]
         conclusion = msg.data[ 'conclusion' ]
+        hunter = msg.data[ 'hunter' ]
 
-        self.db.execute( self.conclude_inv_stmt.bind( ( ts, nature, conclusion, why, invId ) ) )
+        self.db.execute( self.conclude_inv_stmt.bind( ( ts, nature, conclusion, why, invId, hunter ) ) )
         return ( True, )

@@ -187,6 +187,7 @@ CREATE TABLE detects
   dtype varchar,
   events varchar,
   detect varchar,
+  why varchar,
 
   PRIMARY KEY( did )
 ) WITH compaction = { 'class' : 'DateTieredCompactionStrategy' } AND gc_grace_seconds = 86400;
@@ -237,33 +238,36 @@ CREATE TABLE investigation_data
 CREATE TABLE investigation
 (
   invid varchar,
+  hunter varchar,
   gen timestamp,
   closed timestamp,
   nature int,
   conclusion int,
   why varchar,
 
-  PRIMARY KEY( invid )
+  PRIMARY KEY( invid, hunter )
 ) WITH compaction = { 'class' : 'DateTieredCompactionStrategy' } AND gc_grace_seconds = 86400;
 
 CREATE TABLE inv_data
 (
   invid varchar,
+  hunter varchar,
   gen timeuuid,
   why varchar,
   data blob,
 
-  PRIMARY KEY( invid, gen )
+  PRIMARY KEY( invid, hunter, gen )
 ) WITH compaction = { 'class' : 'DateTieredCompactionStrategy' } AND gc_grace_seconds = 86400;
 
 CREATE TABLE inv_task
 (
   invid varchar,
+  hunter varchar,
   gen timeuuid,
   why varchar,
   dest varchar,
   data blob,
   sent int,
 
-  PRIMARY KEY( invid, gen )
+  PRIMARY KEY( invid, hunter, gen )
 ) WITH compaction = { 'class' : 'DateTieredCompactionStrategy' } AND gc_grace_seconds = 86400;
