@@ -53,7 +53,8 @@ class _Investigation ( object ):
         resp = self.actor._reporting.request( 'new_inv', 
                                               { 'inv_id' : self.invId, 
                                                 'detect' : detect,
-                                                'ts' : time.time() } )
+                                                'ts' : time.time(),
+                                                'hunter' : self.actor._hunterName } )
         if not resp.isSuccess:
             raise Exception( 'could not create investigation' )
         self.conclude( 'Hunter %s starting investigation.' % self.actor.__class__.__name__,
@@ -66,7 +67,8 @@ class _Investigation ( object ):
             self.actor.unhandle( trx )
         resp = self.actor._reporting.request( 'close_inv', 
                                               { 'inv_id' : self.invId,
-                                                'ts' : time.time() } )
+                                                'ts' : time.time(),
+                                                'hunter' : self.actor._hunterName } )
         if not resp.isSuccess:
             raise Exception( 'error closing investigation' )
 
@@ -103,7 +105,8 @@ class _Investigation ( object ):
                      'task' : cmdsAndArgs,
                      'why' : why,
                      'dest' : dest,
-                     'is_sent' : resp.isSuccess }
+                     'is_sent' : resp.isSuccess,
+                     'hunter' : self.actor._hunterName }
         if not resp.isSuccess:
             taskInfo[ 'error' ] = resp.error
 
@@ -118,7 +121,8 @@ class _Investigation ( object ):
                                               { 'inv_id' : self.invId,
                                                 'ts' : time.time(),
                                                 'data' : data,
-                                                'why' : why } )
+                                                'why' : why,
+                                                'hunter' : self.actor._hunterName } )
         if not resp.isSuccess:
             raise Exception( 'error recording inv data' )
 
@@ -128,12 +132,14 @@ class _Investigation ( object ):
                                                 'ts' : time.time(),
                                                 'why' : why,
                                                 'nature' : inv_nature,
-                                                'conclusion' : inv_conclusion } )
+                                                'conclusion' : inv_conclusion,
+                                                'hunter' : self.actor._hunterName } )
         if not resp.isSuccess:
             raise Exception( 'error recording inv conclusion' )
 
 class Hunter ( Actor ):
     def init( self, parameters ):
+        self._hunterName = self.__class__.__name__
         if not hasattr( self, 'investigate' ):
             raise Exception( 'Hunt requires an investigate( investigation, detect ) callback' )
         self._registration = self.getActorHandle( 'analytics/huntsmanager' )
@@ -153,7 +159,7 @@ class Hunter ( Actor ):
         self.VirusTotal = CreateOnAccess( self.getActorHandle, 'analytics/virustotal' )
 
     def _registerToDetect( self, detect ):
-        resp = self._registration.request( 'reg_detect', { 'uid' : self.name, 'name' : detect } )
+        resp = self._registration.request( 'reg_detect', { 'uid' : self.name, 'name' : detect, 'hunter_type' : self._hunterName } )
         return resp.isSuccess
 
     def _registerToInvData( self, inv_id ):
@@ -161,7 +167,7 @@ class Hunter ( Actor ):
         return resp.isSuccess
 
     def _unregisterToDetect( self, detect ):
-        resp = self._registration.request( 'unreg_detect', { 'uid' : self.name, 'name' : detect } )
+        resp = self._registration.request( 'unreg_detect', { 'uid' : self.name, 'name' : detect, 'hunter_type' : self._hunterName } )
         return resp.isSuccess
 
     def _unregisterToInvData( self, inv_id ):

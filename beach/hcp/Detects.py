@@ -54,7 +54,7 @@ class StatelessActor ( Actor ):
                                         mode = 'affinity' )
         self._cat = type( self ).__name__
         self._cat = self._cat[ self._cat.rfind( '.' ) + 1 : ]
-        self._detects = CreateOnAccess( self.getActorHandle, 
+        self._detects = CreateOnAccess( self.getActorHandleGroup, 
                                         resources.get( 'detects', 'analytics/detects/%s' ) % self._cat )
         self.handle( 'process', self._process )
 
