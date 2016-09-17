@@ -29,7 +29,7 @@ limitations under the License.
         #define  _WIN32_WINNT 0x0500
     #endif
     #ifdef RPAL_PLATFORM_KERNEL
-        #include <ntddk.h>
+        #include <fltKernel.h>
     #else
         #define WIN32_LEAN_AND_MEAN
         #include <windows.h>

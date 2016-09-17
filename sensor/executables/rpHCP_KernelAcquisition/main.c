@@ -179,8 +179,19 @@ RPAL_THREAD_FUNC
                     RU32 driverBufferSize = 0;
                     SC_HANDLE hScControl = NULL;
                     RWCHAR driverName[] = _WCH( "HbsAcq" );
+                    RWCHAR driverRootKey[] = _WCH( "SYSTEM\\CurrentControlSet\\Services\\HbsAcq" );
                     SC_HANDLE hService = NULL;
                     RPWCHAR absolutePath = NULL;
+                    HKEY hRootKey = NULL;
+                    DWORD disp = 0;
+                    RWCHAR keyInstances[] = _WCH( "Instances" );
+                    HKEY hInstancesKey = NULL;
+                    RWCHAR keyDefault[] = _WCH( "DefaultInstance" );
+                    RWCHAR instanceName[] = _WCH( "HbsAcq" );
+                    RWCHAR keyDefaultInstance[] = _WCH( "Instances\\HbsAcq" );
+                    HKEY hInstanceKey = NULL;
+                    RWCHAR keyAltitude[] = _WCH( "Altitude" );
+                    RWCHAR altitudeVal[] = _WCH( "320000" );
 
                     if( !rSequence_getBUFFER( config, 
                                               RP_TAGS_BINARY, 
@@ -211,6 +222,85 @@ RPAL_THREAD_FUNC
                         rpal_debug_error( "could not expand driver path" );
                         break;
                     }
+
+                    do
+                    {
+                        if( ERROR_SUCCESS == RegCreateKeyExW( HKEY_LOCAL_MACHINE,
+                                                              driverRootKey,
+                                                              0,
+                                                              NULL,
+                                                              REG_OPTION_NON_VOLATILE,
+                                                              KEY_ALL_ACCESS,
+                                                              NULL,
+                                                              &hRootKey,
+                                                              &disp ) )
+                        {
+                            if( ERROR_SUCCESS == RegCreateKeyExW( hRootKey,
+                                                                  keyInstances,
+                                                                  0,
+                                                                  NULL,
+                                                                  REG_OPTION_NON_VOLATILE,
+                                                                  KEY_ALL_ACCESS,
+                                                                  NULL,
+                                                                  &hInstancesKey,
+                                                                  &disp ) )
+                            {
+                                if( ERROR_SUCCESS == RegSetValueExW( hInstancesKey,
+                                                                     keyDefault,
+                                                                     0,
+                                                                     REG_SZ,
+                                                                     (BYTE*)instanceName,
+                                                                     sizeof( instanceName ) ) )
+                                {
+                                    if( ERROR_SUCCESS == RegCreateKeyExW( hRootKey,
+                                                                          keyDefaultInstance,
+                                                                          0,
+                                                                          NULL,
+                                                                          REG_OPTION_NON_VOLATILE,
+                                                                          KEY_ALL_ACCESS,
+                                                                          NULL,
+                                                                          &hInstanceKey,
+                                                                          &disp ) )
+                                    {
+                                        if( ERROR_SUCCESS != RegSetValueExW( hInstanceKey,
+                                                                             keyAltitude,
+                                                                             0,
+                                                                             REG_SZ,
+                                                                             (BYTE*)altitudeVal,
+                                                                             sizeof( altitudeVal ) ) )
+                                        {
+                                            rpal_debug_error( "could not set altitude: 0x%08X", rpal_error_getLast() );
+                                            break;
+                                        }
+                                    }
+                                    else
+                                    {
+                                        rpal_debug_error( "could not create default instance: 0x%08X", rpal_error_getLast() );
+                                        break;
+                                    }
+                                }
+                                else
+                                {
+                                    rpal_debug_error( "could not create default instance key: 0x%08X", rpal_error_getLast() );
+                                    break;
+                                }
+                            }
+                            else
+                            {
+                                rpal_debug_error( "could not create instances key: 0x%08X", rpal_error_getLast() );
+                                break;
+                            }
+                        }
+                        else
+                        {
+                            rpal_debug_error( "could not create driver key: 0x%08X", rpal_error_getLast() );
+                            break;
+                        }
+                    } while( FALSE );
+
+                    if( NULL != hInstanceKey ) RegCloseKey( hInstanceKey );
+                    if( NULL != hInstancesKey ) RegCloseKey( hInstancesKey );
+                    if( NULL != hRootKey ) RegCloseKey( hRootKey );
 
                     hService = CreateServiceW( hScControl,
                                                driverName,
