@@ -224,13 +224,15 @@ class ModelView( Actor ):
     def get_detect( self, msg ):
         detect = Reporting.getDetects( id = msg.data[ 'id' ] )
         isWithEvents = msg.data.get( 'with_events', False )
+        isWithInv = msg.data.get( 'with_inv', False )
 
         detect = ( detect[ 0 ],
                    detect[ 1 ],
                    detect[ 2 ],
                    detect[ 3 ],
                    detect[ 4 ],
-                   FluxEvent.decode( detect[ 5 ] ) )
+                   FluxEvent.decode( detect[ 5 ] ),
+                   detect[ 6 ] )
 
         if isWithEvents:
             events = Reporting.getRelatedEvents( detect[ 1 ].upper(), isIncludeContent = True )
@@ -240,9 +242,21 @@ class ModelView( Actor ):
                        detect[ 3 ],
                        detect[ 4 ],
                        detect[ 5 ],
-                       [ ( x[ 0 ], x[ 1 ], FluxEvent.decode( x[ 2 ] ), x[ 3 ] ) for x in events ] )
+                       detect[ 6 ],
+                       [ ( x[ 0 ], x[ 1 ], FluxEvent.decode( x[ 2 ] ), x[ 3 ], x[ 4 ] ) for x in events ] )
 
-        return ( True, { 'detect' : detect } )
+        ret = { 'detect' : detect }
+
+        if isWithInv:
+            inv = Reporting.getInvestigations( id = detect[ 1 ] )
+            for i in inv.itervalues():
+                for d in i[ 'data' ]:
+                    d[ 'data' ] = FluxEvent.decode( d[ 'data' ] )
+                for t in i[ 'tasks' ]:
+                    t[ 'data' ] = FluxEvent.decode( t[ 'data' ] )
+            ret[ 'inv' ] = inv
+
+        return ( True, ret )
 
     def get_host_changes( self, msg ):
         changes = {}

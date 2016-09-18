@@ -45,7 +45,7 @@ class AnalyticsReporting( Actor ):
 
         self.report_inv_stmt = self.db.prepare( 'INSERT INTO inv_data ( invid, gen, why, data, hunter ) VALUES ( ?, ?, ?, ?, ? ) USING TTL %d' % self.ttl )
 
-        self.conclude_inv_stmt = self.db.prepare( 'UPDATE investigation USING TTL %s SET closed = ?, nature = ?, conclusion = ?, why = ?, hunter = ? WHERE invid = ?' % self.ttl )
+        self.conclude_inv_stmt = self.db.prepare( 'UPDATE investigation USING TTL %s SET closed = ?, nature = ?, conclusion = ?, why = ? WHERE invid = ? AND hunter = ?' % self.ttl )
 
         self.outputs = self.getActorHandleGroup( resources[ 'output' ] )
 
@@ -87,7 +87,7 @@ class AnalyticsReporting( Actor ):
         return ( True, )
 
     def new_inv( self, msg ):
-        invId = msg.data[ 'inv_id' ]
+        invId = msg.data[ 'inv_id' ].upper()
         ts = msg.data[ 'ts' ] * 1000
         detect = msg.data[ 'detect' ]
         hunter = msg.data[ 'hunter' ]
@@ -96,7 +96,7 @@ class AnalyticsReporting( Actor ):
         return ( True, )
 
     def close_inv( self, msg ):
-        invId = msg.data[ 'inv_id' ]
+        invId = msg.data[ 'inv_id' ].upper()
         ts = msg.data[ 'ts' ] * 1000
         hunter = msg.data[ 'hunter' ]
 
@@ -104,9 +104,9 @@ class AnalyticsReporting( Actor ):
         return ( True, )
 
     def inv_task( self, msg ):
-        invId = msg.data[ 'inv_id' ]
-        ts = msg.data[ 'ts' ] * 1000
-        task = msgpack.packb( msg.data[ 'task' ] )
+        invId = msg.data[ 'inv_id' ].upper()
+        ts = msg.data[ 'ts' ]
+        task = base64.b64encode( msgpack.packb( msg.data[ 'task' ] ) )
         why = msg.data[ 'why' ]
         dest = msg.data[ 'dest' ]
         isSent = msg.data[ 'is_sent' ]
@@ -116,9 +116,9 @@ class AnalyticsReporting( Actor ):
         return ( True, )
 
     def report_inv( self, msg ):
-        invId = msg.data[ 'inv_id' ]
-        ts = msg.data[ 'ts' ] * 1000
-        data = msgpack.packb( msg.data[ 'data' ] )
+        invId = msg.data[ 'inv_id' ].upper()
+        ts = msg.data[ 'ts' ]
+        data = base64.b64encode( msgpack.packb( msg.data[ 'data' ] ) )
         why = msg.data[ 'why' ]
         hunter = msg.data[ 'hunter' ]
 
@@ -126,7 +126,7 @@ class AnalyticsReporting( Actor ):
         return ( True, )
 
     def conclude_inv( self, msg ):
-        invId = msg.data[ 'inv_id' ]
+        invId = msg.data[ 'inv_id' ].upper()
         ts = msg.data[ 'ts' ] * 1000
         why = msg.data[ 'why' ]
         nature = msg.data[ 'nature' ]

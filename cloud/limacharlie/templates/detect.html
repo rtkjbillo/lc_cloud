@@ -1,4 +1,4 @@
-$def with ( detect )
+$def with ( detect, inv )
 $var title = 'Detect'
 
 <div class="row">
@@ -7,6 +7,7 @@ $var title = 'Detect'
             <h4>Detect Id: $detect[ 1 ]</h4>
             <h5>Time: $msTsToTime( detect[ 0 ] )</h5>
             <h5>Type: $detect[ 3 ]</h5>
+            <h5>Summary: $detect[ 6 ]</h5>
         </div>
     </div>
 </div>
@@ -52,6 +53,56 @@ $var title = 'Detect'
 </div>
 <div class="row">
     <hr/>
+    <h4>Hunter Investigations</h4>
+    <table class="table table-striped" style="text-align: left;">
+        <thead>
+            <tr>
+                <th>Metadata</th>
+                <th>Data</th>
+            </tr>
+        </thead>
+        <tbody>
+            $for hunt in inv.values():
+                <tr>
+                    <td width="0%" nowrap="">
+                        <b>Hunter: </b>$hunt[ 'hunter' ]
+                        <br/>
+                        <b>Created: </b>$hunt[ 'generated' ]
+                        <br/>
+                        <b>Closed: </b>$hunt[ 'closed' ]
+                        <br/>
+                        <b>Nature: </b>$InvestigationNature.lookup[ hunt[ 'nature' ] ]
+                        <br/>
+                        <b>Conclusion: </b>$InvestigationConclusion.lookup[ hunt[ 'conclusion' ] ]
+                        <br/>
+                    </td>
+                    <td width="100%">
+                        $:md( hunt[ 'why' ] )
+                    </td>
+                </tr>
+                $for event in sorted( hunt[ 'tasks' ] + hunt[ 'data' ], key = lambda x: x[ 'generated' ] ):
+                    <tr>
+                        <td width="0%" nowrap>
+                            <b>Hunter: </b>$hunt[ 'hunter' ]
+                            <br/>
+                            <b>Created: </b>$msTsToTime( event[ 'generated' ] ).split('.')[0]
+                            <br/>
+                            $if 'dest' in event:
+                                <b>Destination: </b>$event[ 'dest' ]
+                                <br/>
+                                <b>Sent: </b>$event[ 'sent' ]
+                        </td>
+                        <td width="100%">
+                            $:md( event[ 'why' ] )
+                            <br/>
+                            <pre>$json.dumps( event[ 'data' ], indent = 2 )</pre>
+                        </td>
+                    </tr>
+        </tbody>
+    </table>
+</div>
+<div class="row">
+    <hr/>
     <h4>Investigation Events</h4>
     <table class="table table-striped">
         <thead>
@@ -63,7 +114,7 @@ $var title = 'Detect'
             </tr>
         </thead>
         <tbody id="timeline">
-            $for event in detect[ 6 ]:
+            $for event in detect[ 7 ]:
                 <tr>
                     <td>
                         $msTsToTime( event[ 1 ] )
@@ -81,6 +132,10 @@ $var title = 'Detect'
                             $else:
                                 $json.dumps( event[ 2 ], indent = 2 )
                         </pre>
+                    </td>
+                    <td>
+                        <a href="/event?id=$event[ 0 ]" title="View Event" target="_blank" class="glyphicon glyphicon-log-in" style="font-size: 30px;"/>
+                        <a href="/explorer_view?id=$event[ 4 ]" title="Explore" target="_blank" class="glyphicon glyphicon-tree-conifer" style="font-size: 30px;"/>
                     </td>
                 </tr>
         </tbody>

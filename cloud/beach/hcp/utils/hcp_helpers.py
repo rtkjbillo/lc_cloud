@@ -201,12 +201,32 @@ class InvestigationNature:
     DATA_LEAK = 7
     TEST = 8
 
+    lookup = {
+        0 : 'OPEN',
+        1 : 'FALSE_POSITIVE',
+        2 : 'UNWANTED_SOFTWARE',
+        3 : 'INSIDER_ACTIVITY',
+        4 : 'COMMON_MALWARE',
+        5 : 'ADVANCED_MALWARE',
+        6 : 'INTRUDER',
+        7 : 'DATA_LEAK',
+        8 : 'TEST'
+    }
+
 class InvestigationConclusion:
     RUNNING = 0
     REQUIRES_HUMAN = 1
     MITIGATED = 2
     CONTAINED = 3
     NO_ACTION_TAKEN = 4
+
+    lookup = {
+        0 : 'RUNNING',
+        1 : 'REQUIRES_HUMAN',
+        2 : 'MITIGATED',
+        3 : 'CONTAINED',
+        4 : 'NO_ACTION_TAKEN'
+    }
 
 
 class TwoFactorAuth(object):

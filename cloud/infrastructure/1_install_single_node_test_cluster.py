@@ -113,4 +113,5 @@ printStep( 'Setup LC web ui dependencies.',
                                                '*' ),
                                  os.path.join( root,
                                                'cloud',
-                                               'limacharlie' ) ) ), )
+                                               'limacharlie' ) ) ),
+    os.system( 'pip install markdown' ) )

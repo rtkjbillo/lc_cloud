@@ -36,7 +36,7 @@ class SampleHunter ( Hunter ):
                                          ( 'mem_map', pid ) )
 
         if memMapResp.wait( 120 ):
-            investigation.reportData( 'received the memory map', memMapResp.responses.pop() )
+            investigation.reportData( 'received the memory map', memMapResp.responses.pop().data )
         else:
             investigation.reportData( 'failed to receive the memory map, sensor offline?' )
 

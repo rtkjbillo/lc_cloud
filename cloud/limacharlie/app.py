@@ -22,6 +22,8 @@ from beach.beach_api import Beach
 from hcp_helpers import timeToTs
 from hcp_helpers import _x_
 from hcp_helpers import _xm_
+from hcp_helpers import InvestigationNature
+from hcp_helpers import InvestigationConclusion
 from EventInterpreter import EventInterpreter
 
 import traceback
@@ -32,6 +34,7 @@ import json
 import base64
 import uuid
 from functools import wraps
+import markdown
 
 from hcp_helpers import _x_
 from hcp_helpers import _xm_
@@ -367,12 +370,12 @@ class ViewDetect:
         if params.id is None:
             return render.error( 'need to supply a detect id' )
 
-        info = model.request( 'get_detect', { 'id' : params.id, 'with_events' : True } )
+        info = model.request( 'get_detect', { 'id' : params.id, 'with_events' : True, 'with_inv' : True } )
 
         if not info.isSuccess:
             return render.error( str( info ) )
 
-        return render.detect( sanitizeJson( info.data.get( 'detect', [] ) ) )
+        return render.detect( sanitizeJson( info.data.get( 'detect', [] ) ), sanitizeJson( info.data.get( 'inv', {} ) ) )
 
 class HostChanges:
     @jsonApi
@@ -501,7 +504,11 @@ render = web.template.render( 'templates', base = 'base', globals = { 'json' : j
                                                                       '_xm_' : _xm_,
                                                                       'hex' : hex,
                                                                       'sanitize' : sanitizeJson,
-                                                                      'EventInterpreter' : EventInterpreter } )
+                                                                      'EventInterpreter' : EventInterpreter,
+                                                                      'md' : markdown.markdown,
+                                                                      'sorted' : sorted,
+                                                                      'InvestigationNature' : InvestigationNature,
+                                                                      'InvestigationConclusion' : InvestigationConclusion } )
 
 renderFullPage = web.template.render( 'templates', base = 'base_full', globals = { 'json' : json,
                                                                                    'msTsToTime' : msTsToTime,
@@ -509,14 +516,19 @@ renderFullPage = web.template.render( 'templates', base = 'base_full', globals =
                                                                                    '_xm_' : _xm_,
                                                                                    'hex' : hex,
                                                                                    'sanitize' : sanitizeJson,
-                                                                                   'EventInterpreter' : EventInterpreter } )
+                                                                                   'EventInterpreter' : EventInterpreter,
+                                                                                   'md' : markdown.markdown,
+                                                                                   'sorted' : sorted,
+                                                                                   'InvestigationNature' : InvestigationNature,
+                                                                                   'InvestigationConclusion' : InvestigationConclusion } )
 eventRender = web.template.render( 'templates/custom_events', globals = { 'json' : json,
                                                                           'msTsToTime' : msTsToTime,
                                                                           '_x_' : _x_,
                                                                           '_xm_' : _xm_,
                                                                           'hex' : hex,
                                                                           'sanitize' : sanitizeJson,
-                                                                          'EventInterpreter' : EventInterpreter } )
+                                                                          'EventInterpreter' : EventInterpreter,
+                                                                          'sorted' : sorted } )
 
 if len( sys.argv ) < 2:
     print( "Usage: python app.py beach_config [listen_port]" )
