@@ -626,25 +626,54 @@ class Reporting( object ):
             def thisGen():
                 for d in xrange( 0, 255 ):
                     for row in cls._db.execute( 'SELECT d, ts, did FROM detect_timeline WHERE d = %s AND %s%s' % ( d, ' AND '.join( filters ), limit ), filterValues ):
-                        for reprow in cls._db.execute( 'SELECT gen, did, source, dtype, events, detect FROM detects WHERE did = \'%s\'' % ( row[ 2 ],  ) ):
-                            yield ( timeToTs( reprow[ 0 ] ) * 1000, reprow[ 1 ].upper(), reprow[ 2 ], reprow[ 3 ], reprow[ 4 ], reprow[ 5 ] )
+                        for reprow in cls._db.execute( 'SELECT gen, did, source, dtype, events, detect, why FROM detects WHERE did = \'%s\'' % ( row[ 2 ],  ) ):
+                            yield ( timeToTs( reprow[ 0 ] ) * 1000, reprow[ 1 ].upper(), reprow[ 2 ], reprow[ 3 ], reprow[ 4 ], reprow[ 5 ], reprow[ 6 ] )
 
 
             return thisGen()
         else:
             r = None
-            for row in cls._db.execute( 'SELECT gen, did, source, dtype, events, detect FROM detects WHERE did = \'%s\'' % ( id.upper(), ) ):
-                r = ( timeToTs( row[ 0 ] ) * 1000, row[ 1 ].upper(), row[ 2 ], row[ 3 ], row[ 4 ], row[ 5 ] )
+            id = id.upper()
+            for row in cls._db.execute( 'SELECT gen, did, source, dtype, events, detect, why FROM detects WHERE did = \'%s\'' % ( id, ) ):
+                r = ( timeToTs( row[ 0 ] ) * 1000, row[ 1 ].upper(), row[ 2 ], row[ 3 ], row[ 4 ], row[ 5 ], row[ 6 ] )
             return r
 
     @classmethod
     def getRelatedEvents( cls, id, isIncludeContent = True ):
+        id = id.upper()
         for row in cls._db.execute( 'SELECT invid, unixTimestampOf( ts ), eid, etype FROM investigation_data WHERE invid = \'%s\'' % ( id, ) ):
             record = ( row[ 0 ].upper(), row[ 1 ], row[ 2 ], row[ 3 ] )
             if isIncludeContent:
                 event = cls._db.getOne( 'SELECT event FROM events WHERE eventid = %s', ( record[ 2 ], ) )
-                record = ( record[ 0 ], record[ 1 ], event[ 0 ], record[ 3 ] )
+                record = ( record[ 0 ], record[ 1 ], event[ 0 ], record[ 3 ], record[ 2 ] )
             yield record
+
+    @classmethod
+    def getInvestigations( cls, id, hunter = None ):
+        id = id.upper()
+        investigations = {}
+        for row in cls._db.execute( 'SELECT hunter, gen, closed, nature, conclusion, why FROM investigation WHERE invid = \'%s\'' % ( id, ) ):
+            investigations[ row[ 0 ] ] = { 'hunter' : row[ 0 ],
+                                           'generated' : row[ 1 ], 
+                                           'closed' : row[ 2 ], 
+                                           'nature' : row[ 3 ], 
+                                           'conclusion' : row[ 4 ], 
+                                           'why' : row[ 5 ],
+                                           'data' : [],
+                                           'tasks' : [] }
+        for row in cls._db.execute( 'SELECT hunter, unixTimestampOf( gen ), why, data FROM inv_data WHERE invid = \'%s\'' % ( id, ) ):
+            investigations[ row[ 0 ] ][ 'data' ].append( { 'hunter' : row[ 0 ],
+                                                           'generated' : row[ 1 ], 
+                                                           'why' : row[ 2 ], 
+                                                           'data' : row[ 3 ] } )
+        for row in cls._db.execute( 'SELECT hunter, unixTimestampOf( gen ), why, dest, data, sent FROM inv_task WHERE invid = \'%s\'' % ( id, ) ):
+            investigations[ row[ 0 ] ][ 'tasks' ].append( { 'hunter' : row[ 0 ],
+                                                            'generated' : row[ 1 ], 
+                                                            'why' : row[ 2 ], 
+                                                            'dest' : row[ 3 ],
+                                                            'data' : row[ 4 ],
+                                                            'sent' : ( 0 != row[ 5 ] ) } )
+        return investigations
 
 
 class KeyValueStore( object ):

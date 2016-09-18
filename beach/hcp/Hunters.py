@@ -117,6 +117,8 @@ class _Investigation ( object ):
         return ret
 
     def reportData( self, why, data = {} ):
+        if type( data ) not in ( list, tuple, dict ):
+            raise Exception( 'reported data must be json' )
         resp = self.actor._reporting.request( 'report_inv', 
                                               { 'inv_id' : self.invId,
                                                 'ts' : time.time(),

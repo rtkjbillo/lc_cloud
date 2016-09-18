@@ -1059,26 +1059,6 @@ Patrol( 'WinOobExec',
             'n_concurrent' : 5 } )
 
 #######################################
-# stateless/ExecNotOnDisk
-# This actor for code loading from disk
-# but not visible on disk. In other
-# words it has a code ident but no hash.
-#######################################
-Patrol( 'ExecNotOnDisk',
-        initialInstances = 1,
-        maxInstances = None,
-        relaunchOnFailure = True,
-        onFailureCall = None,
-        scalingFactor = 1000,
-        actorArgs = ( 'analytics/stateless/ExecNotOnDisk',
-                      'analytics/stateless/common/notification.CODE_IDENTITY/execnotondisk/1.0' ),
-        actorKwArgs = {
-            'parameters' : {},
-            'secretIdent' : 'analysis/038528f5-5135-4ca8-b79f-d6b8ffc53bf5',
-            'trustedIdents' : [ 'analysis/038528f5-5135-4ca8-b79f-d6b8ffc53bf5' ],
-            'n_concurrent' : 5 } )
-
-#######################################
 # stateless/HollowedProcess
 # This actor for mismatch between a
 # module on disk and in memory for

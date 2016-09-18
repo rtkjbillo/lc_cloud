@@ -96,7 +96,7 @@ class StatelessActor ( Actor ):
                                                summary,
                                                priority )
                 self._reporting.shoot( 'detect', report )
-                self._detects.broadcast( 'detect', report )
+                self._detects.shoot( 'detect', report )
                 if taskings is not None and 0 != len( taskings ):
                     self.task( routing[ 'agentid' ], taskings, expiry = ( 60 * 60 ), inv_id = report[ 'detect_id' ] )
                 i += 1
