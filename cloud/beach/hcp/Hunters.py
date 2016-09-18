@@ -92,7 +92,8 @@ class _Investigation ( object ):
             ret = _TaskResp( trxId, self )
 
             def _syncRecv( msg ):
-                ret._add( msg )
+                routing, event, mtd = msg.data
+                ret._add( event )
                 return ( True, )
 
             self.actor.handle( trxId, _syncRecv )
