@@ -756,7 +756,7 @@ Patrol( 'PagingActor',
             'n_concurrent' : 5 } )
 
 #######################################
-# stateless/VirusTotalActor
+# VirusTotalActor
 # This actor retrieves VT reports while
 # caching results.
 # Parameters:
@@ -782,6 +782,30 @@ Patrol( 'VirusTotalActor',
             'trustedIdents' : [ 'analysis/038528f5-5135-4ca8-b79f-d6b8ffc53bf5',
                                 'hunter/8e0f55c0-6593-4747-9d02-a4937fa79517' ],
             'n_concurrent' : 1 } )
+
+#######################################
+# AlexaDNS
+# This actor retrieves the list of Alexa
+# top domains to be queried against as
+# a list of likely legitimate domains.
+# Parameters:
+#
+#######################################
+Patrol( 'AlexaDNS',
+        initialInstances = 1,
+        maxInstances = None,
+        relaunchOnFailure = True,
+        onFailureCall = None,
+        scalingFactor = 10000,
+        actorArgs = ( 'analytics/AlexaDNS',
+                      'analytics/alexadns/1.0' ),
+        actorKwArgs = {
+            'resources' : {},
+            'parameters' : {},
+            'secretIdent' : 'alexadns/e1527553-815b-4dd5-8a40-708a287605b4',
+            'trustedIdents' : [ 'analysis/038528f5-5135-4ca8-b79f-d6b8ffc53bf5',
+                                'hunter/8e0f55c0-6593-4747-9d02-a4937fa79517' ],
+            'n_concurrent' : 10 } )
 
 #######################################
 # StatsComputer
