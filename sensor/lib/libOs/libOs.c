@@ -1587,6 +1587,17 @@ RVOID
         if( !isEnforce &&
             currentTime >= perfProfile->lastUpdate + 1 )
         {
+            // We look for time aberrations where the clock has changed by a large amount
+            // which may be due to some form of hibernation or rollover. We try to use a 
+            // realtime clock but for some reason sometimes it fails.
+            if( currentTime < perfProfile->lastUpdate )
+            {
+                // Let's not try to calculate the actual value, cut our losses and assume
+                // things haven't changed much.
+                perfProfile->lastUpdate = currentTime;
+                return;
+            }
+
             increment = (RU32)( perfProfile->timeoutIncrementPerSec * ( currentTime - perfProfile->lastUpdate ) );
             perfProfile->lastUpdate = currentTime;
             currentPerformance = libOs_getCurrentThreadCpuUsage( &perfProfile->threadTimeContext );
