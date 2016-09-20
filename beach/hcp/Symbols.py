@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from beach.actor import Actor
 import os
 import json
 
@@ -24,20 +25,17 @@ class Symbols( object ):
         class _unnamedSymbolGroup( object ):
             pass
 
-        with open( os.path.join( os.path.dirname( os.path.abspath( __file__ ) ),
-                                 'rp_hcp_tags.json' ), 'r' ) as hFile:
-            tmpTags = json.load( hFile )
+        tmpTags = json.loads( Actor.readRelativeFile( 'rp_hcp_tags.json' ) )
+        for group in tmpTags[ 'groups' ]:
+            gName = group[ 'groupName' ]
+            for definition in group[ 'definitions' ]:
+                tName = str( definition[ 'name' ] )
+                tValue = str( definition[ 'value' ] )
+                fullName = '%s.%s' % ( gName, tName )
 
-            for group in tmpTags[ 'groups' ]:
-                gName = group[ 'groupName' ]
-                for definition in group[ 'definitions' ]:
-                    tName = str( definition[ 'name' ] )
-                    tValue = str( definition[ 'value' ] )
-                    fullName = '%s.%s' % ( gName, tName )
+                self.lookups[ tValue ] = fullName
+                self.lookups[ fullName ] = tValue
 
-                    self.lookups[ tValue ] = fullName
-                    self.lookups[ fullName ] = tValue
-
-                    if not hasattr( self, gName ):
-                        setattr( self, gName, _unnamedSymbolGroup() )
-                    setattr( getattr( self, gName ), tName, tValue )
+                if not hasattr( self, gName ):
+                    setattr( self, gName, _unnamedSymbolGroup() )
+                setattr( getattr( self, gName ), tName, tValue )
