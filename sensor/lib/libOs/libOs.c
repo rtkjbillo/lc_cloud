@@ -1113,140 +1113,6 @@ RBOOL
     return isSucceed;
 }
 
-
-RBOOL
-    libOs_getSystemCPUTime
-    (
-        RU64* cpuTime
-    )
-{
-#if defined( RPAL_PLATFORM_WINDOWS )
-    static GetSystemTimes_f gst = NULL;
-    RBOOL isSuccess = FALSE;
-    FILETIME ftUser = { 0 };
-    FILETIME ftKernel = { 0 };
-    FILETIME ftIdle = { 0 };
-    RCHAR getSystemTime[] = "GetSystemTimes";
-    ULARGE_INTEGER uUser = { 0 };
-    ULARGE_INTEGER uKernel = { 0 };
-    ULARGE_INTEGER uIdle = { 0 };
-
-    if( NULL == cpuTime )
-    {
-        return FALSE;
-    }
-
-    if( NULL == gst )
-    {
-        gst = (GetSystemTimes_f)GetProcAddress( GetModuleHandleW( _WCH( "kernel32.dll" ) ),
-                                                getSystemTime );
-        if( NULL == gst )
-        {
-            rpal_debug_error( "Cannot get the address to GetSystemTimes -- error code %u.", GetLastError() );
-            isSuccess = FALSE;
-        }
-    }
-
-    if( NULL != gst && 
-        gst( &ftIdle, &ftKernel, &ftUser ) )
-    {
-        FILETIME2ULARGE( uUser, ftUser );
-        FILETIME2ULARGE( uKernel, ftKernel );
-        FILETIME2ULARGE( uIdle, ftIdle );
-        
-        *cpuTime = ( uUser.QuadPart + uKernel.QuadPart + uIdle.QuadPart ) / NSEC_100_PER_USEC;
-        
-        isSuccess = TRUE;
-    }
-    else
-    {
-        rpal_debug_error( "Unable to get system times -- error code %u.", GetLastError() );
-        isSuccess = FALSE;
-    }
-
-    return isSuccess;
-#elif defined( RPAL_PLATFORM_LINUX )
-    static RU64 user_hz = 0;
-    FILE* proc_stat = NULL;
-    RCHAR line[ 256 ] = { 0 };
-    RCHAR* saveptr = NULL;
-    RCHAR* tok = NULL;
-    RPCHAR unused = NULL;
-
-    if( 0 == user_hz )
-    {
-        long tmp = sysconf( _SC_CLK_TCK );
-        if( tmp < 0 )
-        {
-            rpal_debug_error( "Cannot find the proc clock tick size -- error code %u.", errno );
-            return FALSE;
-        }
-        user_hz = (RU64)tmp;
-    }
-    if( NULL == cpuTime )
-    {
-        return TRUE;
-    }
-
-    if( NULL != ( proc_stat = fopen( "/proc/stat", "r" ) ) )
-    {
-        rpal_memory_zero( line, sizeof( line ) );
-
-        while( !feof( proc_stat ) )
-        {
-            unused = fgets( line, sizeof( line ), proc_stat );
-            if( line == strstr( line, "cpu " ) )
-            {
-                saveptr = NULL;
-                tok = strtok_r( line, " ", &saveptr );
-                *cpuTime = 0;
-                
-                while( NULL != tok )
-                {
-                    if( isdigit( tok[ 0 ] ) )
-                    {
-                        *cpuTime += (RU64)atol( tok );
-                    }
-                    tok = strtok_r( NULL, " ", &saveptr );
-                }
-
-                /* user_hz = clock ticks per second; we want time in microseconds. */
-                *cpuTime = ( *cpuTime * 1000000 ) / user_hz;
-                break;
-            }
-        }
-        fclose( proc_stat );
-    }
-    else
-    {
-        rpal_debug_error( "Cannot open /proc/stat -- error code %u.", errno );
-    }
-
-    return *cpuTime > 0;
-#elif defined( RPAL_PLATFORM_MACOSX )
-    static clock_serv_t cclock;
-    static RBOOL isInitialized = FALSE;
-    mach_timespec_t mts;
-    if( !isInitialized )
-    {
-        host_get_clock_service( mach_host_self(), SYSTEM_CLOCK, &cclock );
-        isInitialized = TRUE;
-    }
-
-    clock_get_time( cclock, &mts );
-
-    if( NULL != cpuTime )
-    {
-        *cpuTime = USEC_FROM_NSEC( mts.tv_nsec ) + USEC_FROM_SEC( mts.tv_sec );
-    }
-
-    return TRUE;
-#else
-    rpal_debug_not_implemented();
-#endif
-}
-
-
 RBOOL
     libOs_getProcessInfo
     (
@@ -1532,7 +1398,7 @@ RU8
     {
         percent = ctx->lastResult;
     }
-    else if( libOs_getSystemCPUTime( &curSystemTime ) &&
+    else if( rpal_time_getCPU( &curSystemTime ) &&
              libOs_getThreadTime( 0, &curThreadTime ) )
     {
         if( curSystemTime >= ctx->lastSystemTime &&
@@ -1578,7 +1444,7 @@ RVOID
     
     if( NULL != perfProfile )
     {
-        libOs_getSystemCPUTime( &currentTime );
+        rpal_time_getCPU( &currentTime );
         currentTime = SEC_FROM_MSEC( currentTime / NSEC_100_PER_MSEC );
 
         if( 0 == perfProfile->lastUpdate ) perfProfile->lastUpdate = currentTime;
@@ -1825,7 +1691,7 @@ RU8
     {
         percent = lastResult;
     }
-    else if( libOs_getSystemCPUTime( &curSystemTime ) &&
+    else if( rpal_time_getCPU( &curSystemTime ) &&
              libOs_getProcessTime( 0, &curProcessTime ) )
     {
         if( curSystemTime >= lastSystemTime &&

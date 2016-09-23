@@ -29,6 +29,7 @@ limitations under the License.
 #define MSEC_FROM_SEC(sec)                          ((sec)*1000)
 #define SEC_FROM_MSEC(msec)                         ((msec)/1000)
 #define MSEC_FROM_USEC(usec)                        ((usec)/1000)
+#define SEC_FROM_USEC(usec)                         SEC_FROM_MSEC(MSEC_FROM_USEC((usec)))
 #define USEC_FROM_MSEC(sec)                         ((sec)*1000)
 #define USEC_FROM_SEC(sec)                          (USEC_FROM_MSEC(MSEC_FROM_SEC((sec))))
 #define USEC_FROM_NSEC(nsec)                        ((nsec)/1000)
@@ -49,6 +50,12 @@ RU64
     rpal_time_getLocal
     (
 
+    );
+
+RBOOL
+    rpal_time_getCPU
+    (
+        RU64* cpuTime
     );
 
 RU64

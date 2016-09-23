@@ -125,12 +125,6 @@ RBOOL
 	);
 
 RBOOL
-    libOs_getSystemCPUTime
-    (
-        RU64* cpuTime
-    );
-
-RBOOL
     libOs_getProcessInfo
     (
         RU64* pTime,
