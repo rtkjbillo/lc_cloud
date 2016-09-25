@@ -217,6 +217,12 @@ limitations under the License.
     #define UNREFERENCED_PARAMETER(p) (p=p)
 #endif
 
+#ifdef RPAL_PLATFORM_WINDOWS
+    #define RASSERT(e)          if(!(e)){ DebugBreak(); }
+#else
+    #define RASSERT(e)          if(!(e)){ raise( SIGTRAP ); }
+#endif
+
 #define IS_PTR_ALIGNED(ptr) (0 == (RSIZET)(ptr) % sizeof(RU32))
 
 // Export Visibility Control

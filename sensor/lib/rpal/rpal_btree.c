@@ -426,6 +426,58 @@ static int btree_Delete(BTREE tree, void *data)
     remove = node_Successor(node);
   }
 
+  if( node == tree->min )
+  {
+      if( right( node ) )
+      {
+          tree->min = right( node );
+
+          while( left( tree->min ) )
+          {
+              if( left( tree->min ) )
+              {
+                  tree->min = left( tree->min );
+              }
+          }
+      }
+      else
+      {
+          tree->min = parent( node );
+      }
+  }
+
+  if( node == tree->max )
+  {
+      if( left( node ) )
+      {
+          tree->max = left( node );
+
+          while( right( tree->max ) )
+          {
+              if( right( tree->max ) )
+              {
+                  tree->max = right( tree->max );
+              }
+          }
+      }
+      else
+      {
+          tree->max = parent( node );
+      }
+  }
+
+  if( node == tree->max )
+  {
+      if( NULL != left( node ) )
+      {
+          tree->max = left( node );
+      }
+      else
+      {
+          tree->max = parent( node );
+      }
+  }
+
   if (left(remove)) {
     other = left(remove);
   }
@@ -449,38 +501,24 @@ static int btree_Delete(BTREE tree, void *data)
     }
   }
 
-  if( remove == tree->min )
-  {
-      if( NULL == ( tree->min = parent( remove ) ) )
-      {
-          if( NULL == ( tree->min = left( remove ) ) )
-          {
-              tree->min = right( remove );
-          }
-      }
-  }
-  if( remove == tree->max )
-  {
-      if( NULL == ( tree->max = parent( remove ) ) )
-      {
-          if( NULL == ( tree->max = right( remove ) ) )
-          {
-              tree->max = left( remove );
-          }
-      }
-  }
-
-  if (node != remove) {
+  if( node != remove ) {
     data_copy(tree, data(tree, node), data(tree, remove));
+    if( tree->min == remove )
+    {
+        tree->min = node;
+    }
+    if( tree->max == remove )
+    {
+        tree->max = node;
+    }
   }
-  if ( root(tree) == remove )
+  if( root(tree) == remove )
   {
       // should never get here...
-     root(tree) = NULL;
+     root( tree ) = NULL;
   }
 
-  //free(node);
-  rpal_memory_free(remove);
+  rpal_memory_free( remove );
 
   tree->num_elems--;
 

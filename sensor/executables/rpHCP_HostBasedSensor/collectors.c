@@ -486,7 +486,6 @@ RBOOL
     RBOOL isAdded = FALSE;
     _HbsDelayBuffer* pHdb = (_HbsDelayBuffer*)hdb;
     RTIME newTime = 0;
-    RTIME curTime = 0;
     _EventStub stub = { 0 };
 
     if( NULL != pHdb )
@@ -502,13 +501,12 @@ RBOOL
 
                 if( rpal_btree_add( pHdb->events, &stub, FALSE ) )
                 {
-                    curTime = rpal_time_getGlobalPreciseTime();
-
                     if( newTime < pHdb->oldestItem )
                     {
                         pHdb->oldestItem = newTime;
                         rEvent_set( pHdb->newElemEvent );
                     }
+
                     isAdded = TRUE;
                 }
             }
@@ -598,9 +596,11 @@ RBOOL
                 {
                     isItemReady = TRUE;
                 }
+
                 rMutex_lock( pHdb->mutex );
 
                 curTime = rpal_time_getGlobalPreciseTime();
+
             } while( !isItemReady );
 
             if( isItemReady )
@@ -611,15 +611,16 @@ RBOOL
                 {
                     *pEvent = stub.event;
                     *pEventType = stub.type;
+
                     if( rpal_btree_minimum( pHdb->events, &stub, TRUE ) )
                     {
-
                         pHdb->oldestItem = stub.ts;
                     }
                     else
                     {
                         pHdb->oldestItem = (RTIME)(-1);
                     }
+
                     isSuccess = TRUE;
                 }
             }

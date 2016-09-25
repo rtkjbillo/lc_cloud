@@ -258,7 +258,7 @@ RU64
                 // the wall clock, we can't assume our global offset to be
                 // valid anymore since something is clearly syncing the clock
                 // for us (like VMWare) so we'll reset it.
-                g_rpal_time_globalOffset = 0;
+                rpal_time_setGlobalOffset( 0 );
                 rpal_debug_info( "detected external clock sync, resetting global offset" );
             }
         }
