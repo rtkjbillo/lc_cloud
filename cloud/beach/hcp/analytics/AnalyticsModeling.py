@@ -215,7 +215,7 @@ class AnalyticsModeling( Actor ):
 
         inv_id = _x_( event, '?/hbs.INVESTIGATION_ID' )
         if inv_id is not None and inv_id != '':
-            self.db.execute_async( self.statements[ 'investigation' ].bind( ( inv_id.upper(),
+            self.db.execute_async( self.statements[ 'investigation' ].bind( ( inv_id.upper().split( '//' )[ 0 ],
                                                                               time_uuid.TimeUUID.with_timestamp( ts ),
                                                                               eid,
                                                                               routing[ 'event_type' ] ) ) )
@@ -232,5 +232,5 @@ class AnalyticsModeling( Actor ):
 
         if 0 != len( new_objects ) or 0 != len( new_relations ):
             self._ingestObjects( aid, ts, new_objects, new_relations )
-        self.log( 'finished storing objects: %s / %s' % ( len( new_objects ), len( new_relations )) )
+        #self.log( 'finished storing objects %s: %s / %s' % ( routing[ 'event_type' ], len( new_objects ), len( new_relations )) )
         return ( True, )

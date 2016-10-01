@@ -161,6 +161,7 @@ class Hunter ( Actor ):
         # APIs made available for Hunts
         self.Models = CreateOnAccess( self.getActorHandle, 'models' )
         self.VirusTotal = CreateOnAccess( self.getActorHandle, 'analytics/virustotal' )
+        self.Alexa = CreateOnAccess( self.getActorHandle, 'analytics/alexadns' )
 
     def _registerToDetect( self, detect ):
         resp = self._registration.request( 'reg_detect', { 'uid' : self.name, 'name' : detect, 'hunter_type' : self._hunterName } )
@@ -238,6 +239,7 @@ class Hunter ( Actor ):
         resp = self.Models.request( 'get_timeline', 
                                     { 'id' : host, 
                                       'types' : ofTypes, 
+                                      'after' : int( time.time() ) - lastNSeconds,
                                       'is_include_content' : True } )
         if resp.isSuccess:
             return [ x[ 3 ] for x in resp.data[ 'events' ] ]
@@ -268,3 +270,11 @@ class Hunter ( Actor ):
         for row in l:
             table.append( '| %s |' % ( ' | '.join( row ) ) )
         return '\n'.join( table )
+
+    def isAlexaDomain( self, domain ):
+        isAlexa = False
+        resp = self.Alexa.request( 'is_in_top', { 'domain' : domain } )
+        if resp.isSuccess:
+            if resp.data[ 'n' ] is not None:
+                isAlexa = True
+        return isAlexa
