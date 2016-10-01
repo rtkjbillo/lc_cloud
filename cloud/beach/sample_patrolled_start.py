@@ -645,8 +645,7 @@ Patrol( 'AnalyticsModelView',
                              'max_concurrent' : 10,
                              'beach_config' : BEACH_CONFIG_FILE },
             'trustedIdents' : [ 'lc/0bf01f7e-62bd-4cc4-9fec-4c52e82eb903',
-                                'hunter/8e0f55c0-6593-4747-9d02-a4937fa79517',
-                                'rest/be41bb0f-449a-45e9-87d8-ef4533336a2d' ],
+                                'hunter/8e0f55c0-6593-4747-9d02-a4937fa79517' ],
             'n_concurrent' : 5,
             'isIsolated' : True } )
 
@@ -727,6 +726,35 @@ Patrol( 'HuntsManager',
             'parameters' : { 'beach_config' : BEACH_CONFIG_FILE },
             'secretIdent' : 'huntsmanager/d666cbc3-38d5-4086-b9ce-c543625ee45c',
             'trustedIdents' : [ 'hunter/8e0f55c0-6593-4747-9d02-a4937fa79517' ],
+            'n_concurrent' : 5 } )
+
+#######################################
+# CapabilityManager
+# This actor manages backend capabilities
+# loaded as stateless, stateful or hunters.
+# Parameters:
+# beach_config: the path to the beach
+#    config file.
+#######################################
+Patrol( 'CapabilityManager',
+        initialInstances = 1,
+        maxInstances = 1,
+        relaunchOnFailure = True,
+        onFailureCall = None,
+        scalingFactor = 10000,
+        actorArgs = ( 'analytics/CapabilityManager',
+                      'analytics/capabilitymanager/1.0' ),
+        actorKwArgs = {
+            'resources' : {},
+            'parameters' : { 'beach_config' : BEACH_CONFIG_FILE,
+                             'scale' : 10,
+                             'detect_secret_ident' : 'analysis/038528f5-5135-4ca8-b79f-d6b8ffc53bf5',
+                             'hunter_secret_ident' : 'hunter/8e0f55c0-6593-4747-9d02-a4937fa79517',
+                             'detect_trusted_ident' : 'analysis/038528f5-5135-4ca8-b79f-d6b8ffc53bf5',
+                             'hunter_trusted_ident' : 'analysis/038528f5-5135-4ca8-b79f-d6b8ffc53bf5' },
+            'secretIdent' : 'huntsmanager/d666cbc3-38d5-4086-b9ce-c543625ee45c',
+            'trustedIdents' : [ 'hunter/8e0f55c0-6593-4747-9d02-a4937fa79517',
+                                'lc/0bf01f7e-62bd-4cc4-9fec-4c52e82eb903' ],
             'n_concurrent' : 5 } )
 
 #######################################
@@ -1252,14 +1280,14 @@ Patrol( 'MacReconTools',
 ###############################################################################
 # Hunts
 ###############################################################################
-Patrol( 'SampleHunter',
+Patrol( 'RPGenericHunter',
         initialInstances = 1,
         maxInstances = None,
         relaunchOnFailure = True,
         onFailureCall = None,
         scalingFactor = 10000,
-        actorArgs = ( 'analytics/hunter/SampleHunter',
-                      'analytics/hunter/samplehunter/1.0' ),
+        actorArgs = ( 'analytics/hunter/RPGenericHunter',
+                      'analytics/hunter/rpgenerichunter/1.0' ),
         actorKwArgs = {
             'parameters' : {},
             'secretIdent' : 'hunter/8e0f55c0-6593-4747-9d02-a4937fa79517',

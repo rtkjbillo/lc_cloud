@@ -125,6 +125,8 @@ class ModelView( Actor ):
         info = {}
         info[ 'host' ] = msg.data.get( 'host', None )
         try:
+            if 'id' not in msg.data:
+                msg.data[ 'id' ] = ObjectKey( msg.data[ 'obj_name' ], ObjectTypes.forward[ msg.data[ 'obj_type' ] ] )
             _ = next( HostObjects( msg.data[ 'id' ] ).info() )
         except:
             return ( True, {} )

@@ -52,7 +52,6 @@ rList().addSequence( _.hbs.CONFIGURATION,
                                                                     .addStringA( _.base.EXTENSION, ".ps1" )
                                                                     .addStringA( _.base.EXTENSION, ".sh" )
                                                                     .addStringA( _.base.EXTENSION, ".py" )
-                                                                    .addStringA( _.base.EXTENSION, ".txt" )
                                                                     .addStringA( _.base.EXTENSION, ".pdf" )
                                                                     .addStringA( _.base.EXTENSION, ".doc" )
                                                                     .addStringA( _.base.EXTENSION, ".vbs" )

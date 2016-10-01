@@ -242,16 +242,17 @@ RU64
 #endif
 
     if( 0 != lastLocalTime &&
-        MSEC_FROM_SEC( 30 ) < DELTA_OF( lastLocalTime, ts ) )
+        MSEC_FROM_SEC( 10 ) < DELTA_OF( lastLocalTime, ts ) )
     {
         // Time hasn't been queried since X world-seconds, that's
         // a long time, check the CPU time to see if hibernation of some
         // kind has occurred.
         if( rpal_time_getCPU( &cpuTime ) )
         {
-            cpuDelta = MIN_OF( (RU64)( lastCPUTime - cpuTime ),
-                               (RU64)( cpuTime - lastCPUTime ) );
-            if( MSEC_FROM_SEC( 10 ) < DELTA_OF( MSEC_FROM_USEC( cpuDelta ),
+            cpuDelta = MSEC_FROM_USEC( MIN_OF( (RU64)( lastCPUTime - cpuTime ),
+                                       (RU64)( cpuTime - lastCPUTime ) ) );
+            rpal_debug_info( "Delta check: dtime = " RF_U64 " dcpu = " RF_U64, DELTA_OF( lastLocalTime, ts ), cpuDelta );
+            if( MSEC_FROM_SEC( 10 ) < DELTA_OF( cpuDelta,
                                                 DELTA_OF( lastCPUCheck, ts ) ) )
             {
                 // Ok, change in CPU is more than Y seconds different than
