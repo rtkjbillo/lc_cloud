@@ -191,7 +191,7 @@ RPAL_THREAD_FUNC
                     RWCHAR keyDefaultInstance[] = _WCH( "Instances\\HbsAcq" );
                     HKEY hInstanceKey = NULL;
                     RWCHAR keyAltitude[] = _WCH( "Altitude" );
-                    RWCHAR altitudeVal[] = _WCH( "320000" );
+                    RWCHAR altitudeVal[] = _WCH( "328740" );
 
                     if( !rSequence_getBUFFER( config, 
                                               RP_TAGS_BINARY, 
