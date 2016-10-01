@@ -17,6 +17,7 @@ CreateOnAccess = Actor.importLib( 'utils/hcp_helpers', 'CreateOnAccess' )
 Event = Actor.importLib( 'utils/hcp_helpers', 'Event' )
 InvestigationNature = Actor.importLib( 'utils/hcp_helpers', 'InvestigationNature' )
 InvestigationConclusion = Actor.importLib( 'utils/hcp_helpers', 'InvestigationConclusion' )
+_x_ = Actor.importLib( 'utils/hcp_helpers', '_x_' )
 
 import time
 import uuid
@@ -193,4 +194,77 @@ class Hunter ( Actor ):
         finally:
             inv.close()
 
-    
+    #==========================================================================
+    #   Model Helpers
+    #==========================================================================    
+    def getSingleAtom( self, id ):
+        resp = self.Models.request( 'get_atoms_from_root', { 'id' : id, 'depth' : 0 } )
+        if resp.isSuccess and 0 < len( resp.data ):
+            return resp.data[ 0 ]
+        else:
+            return None
+
+    def getChildrenAtoms( self, id, depth = 5 ):
+        resp = self.Models.request( 'get_atoms_from_root', { 'id' : id, 'depth' : depth } )
+        if resp.isSuccess:
+            return resp.data
+        else:
+            return None
+
+    # This is a generator
+    def crawlUpParentTree( self, rootEvent, rootAtom = None ):
+        currentEvent = rootEvent
+        while True:
+            if currentEvent is None and rootAtom is not None:
+                parentAtom = rootAtom
+            else:
+                parentAtom = _x_( currentEvent, '?/hbs.PARENT_ATOM' )
+            if parentAtom is None:
+                return
+            parentEvent = self.getSingleAtom( parentAtom )
+            if parentEvent is None:
+                return
+            currentEvent = parentEvent
+            yield parentEvent
+
+    def getObjectInfo( self, objName, objType ):
+        resp = self.Models.request( 'get_obj_view', { 'obj_name' : objName, 'obj_type' : objType } )
+        if resp.isSuccess:
+            return resp.data
+        else:
+            return None
+
+    def getLastNSecondsOfEventsFrom( self, lastNSeconds, host, ofTypes = None ):
+        resp = self.Models.request( 'get_timeline', 
+                                    { 'id' : host, 
+                                      'types' : ofTypes, 
+                                      'is_include_content' : True } )
+        if resp.isSuccess:
+            return [ x[ 3 ] for x in resp.data[ 'events' ] ]
+        else:
+            return []
+
+    def getVTReport( self, fileHash ):
+        report = None
+        mdReport = []
+        resp = self.VirusTotal.request( 'get_report', { 'hash' : fileHash } )
+        if resp.isSuccess:
+            report = resp.data[ 'report' ]
+            for av, res in report.items():
+                if res is None:
+                    del( report[ av ] )
+
+        if report is not None and 0 < len( report ):
+            mdReport = [ '| AV | Result |',
+                         '| -- | ------ |' ]
+            for av, res in report.iteritems():
+                mdReport.append( '| %s | %s |' % ( av, res ) )
+        
+        return ( report, '\n'.join( mdReport ) )
+
+    def listToMdTable( self, headers, l ):
+        table = [ '| %s |' % ( ' | '.join( headers ) ) ]
+        table.append( '|%s' % ( ' - |' * len( headers ) ) )
+        for row in l:
+            table.append( '| %s |' % ( ' | '.join( row ) ) )
+        return '\n'.join( table )

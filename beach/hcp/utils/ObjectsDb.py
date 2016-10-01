@@ -26,6 +26,7 @@ AgentId = Actor.importLib( 'hcp_helpers', 'AgentId' )
 chunks = Actor.importLib( 'hcp_helpers', 'chunks' )
 tsToTime = Actor.importLib( 'hcp_helpers', 'tsToTime' )
 timeToTs = Actor.importLib( 'hcp_helpers', 'timeToTs' )
+normalAtom = Actor.importLib( 'hcp_helpers', 'normalAtom' )
 CassDb = Actor.importLib( 'hcp_databases', 'CassDb' )
 CassPool = Actor.importLib( 'hcp_databases', 'CassPool' )
 
@@ -445,7 +446,7 @@ class Host( object ):
         isOnline = False
         last = self.lastSeen()
         if last is not None:
-            if last >= time.time() - ( 60 * 10 ):
+            if last >= time.time() - ( 60 * 1 ):
                 isOnline = True
         
         return isOnline
@@ -575,6 +576,8 @@ class FluxEvent( object ):
             for k, n in node.iteritems():
                 if 'base.HASH' == k or str( k ).endswith( '_HASH' ):
                     node[ k ] = n.encode( 'hex' )
+                elif str( k ).endswith( '_ATOM' ):
+                    node[ k ] = normalAtom( n )
                 else:
                     tmp = cls._dataToUtf8( n )
                     if tmp is not None:
@@ -720,10 +723,9 @@ class Atoms ( object ):
     def __init__( self, ids ):
         self._ids = []
         if not hasattr( ids, '__iter__' ):
-            ids = [ ( ids, ) ]
-        elif type( ids ) is tuple:
-            ids = [ ids ]
-        self._ids = ids
+            self._ids = [ ( normalAtom( ids ), None ) ]
+        else:
+            self._ids = [ x if 2 == len( x ) else ( normalAtom( x ), None ) for x in ids ]
 
     def __iter__( self ):
         return self._ids.__iter__()
@@ -734,8 +736,8 @@ class Atoms ( object ):
     def children( self ):
         def thisGen():
             for ids in chunks( self._ids, self._queryChunks ):
-                for row in self._db.execute( 'SELECT child, eid FROM atoms_children WHERE atomid IN ( %s )' % ( ','.join( str( x[ 0 ] ) for x in ids ), ) ):
-                    yield ( row[ 0 ], row[ 1 ] )
+                for row in self._db.execute( 'SELECT child, eid FROM atoms_children WHERE atomid IN ( %s )' % ( ','.join( x[ 0 ] for x in ids ), ) ):
+                    yield ( normalAtom( row[ 0 ] ), row[ 1 ] )
         return type(self)( thisGen() )
 
     def events( self ):
@@ -746,7 +748,7 @@ class Atoms ( object ):
     def fillEventIds( self ):
         def thisGen():
             for ids in chunks( self._ids, self._queryChunks ):
-                for row in self._db.execute( 'SELECT atomid, eid FROM atoms_lookup WHERE atomid IN ( %s )' % ( ','.join( str( x[ 0 ] ) for x in ids ), ) ):
-                    yield ( row[ 0 ], row[ 1 ] )
+                for row in self._db.execute( 'SELECT atomid, eid FROM atoms_lookup WHERE atomid IN ( %s )' % ( ','.join( x[ 0 ] for x in ids ), ) ):
+                    yield ( normalAtom( row[ 0 ] ), row[ 1 ] )
         return type(self)( thisGen() )
 

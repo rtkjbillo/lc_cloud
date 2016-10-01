@@ -52,8 +52,10 @@ $var title = 'Detect'
     </div>
 </div>
 <div class="row">
+<div class="col-lg-12">
     <hr/>
     <h4>Hunter Investigations</h4>
+    <div class="table-responsive">
     <table class="table table-striped" style="text-align: left;">
         <thead>
             <tr>
@@ -93,17 +95,24 @@ $var title = 'Detect'
                                 <b>Sent: </b>$event[ 'sent' ]
                         </td>
                         <td width="100%">
-                            $:md( event[ 'why' ] )
+                            <div width="100%" style="overflow: auto;">
+                                $:md( event[ 'why' ] )
+                            </div>
                             <br/>
-                            <pre>$json.dumps( event[ 'data' ], indent = 2 )</pre>
+                            $if 0 != len( event[ 'data' ] ):
+                                <pre>$json.dumps( event[ 'data' ], indent = 2 )</pre>
                         </td>
                     </tr>
         </tbody>
     </table>
+    </div>
+</div>
 </div>
 <div class="row">
+<div class="col-lg-12">
     <hr/>
     <h4>Investigation Events</h4>
+    <div class="table-responsive">
     <table class="table table-striped">
         <thead>
             <tr>
@@ -140,6 +149,8 @@ $var title = 'Detect'
                 </tr>
         </tbody>
     </table>
+    </div>
+</div>
 </div>
 
 <script>

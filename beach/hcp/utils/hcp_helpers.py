@@ -29,6 +29,8 @@ rSequence = Actor.importLib( 'rpcm', 'rSequence' )
 import gevent.lock
 import gevent.event
 
+import uuid
+
 import hmac, base64, struct, hashlib, time, string, random
 
 class Event ( object ):
@@ -228,6 +230,49 @@ class InvestigationConclusion:
         4 : 'NO_ACTION_TAKEN'
     }
 
+class MemoryAccess:
+    DENIED = 0x00
+    EXECUTE = 0x01
+    EXECUTE_READ = 0x02
+    EXECUTE_READ_WRITE = 0x03
+    EXECUTE_WRITE_COPY = 0x04
+    NO_ACCESS = 0x05
+    READ_ONLY = 0x06
+    READ_WRITE = 0x07
+    WRITE_COPY = 0x08
+    WRITE_ONLY = 0x09
+    EXECUTE_WRITE = 0x0A
+
+    lookup = {
+        0x00 : 'DENIED',
+        0x01 : 'EXECUTE',
+        0x02 : 'EXECUTE_READ',
+        0x03 : 'EXECUTE_READ_WRITE',
+        0x04 : 'EXECUTE_WRITE_COPY',
+        0x05 : 'NO_ACCESS',
+        0x06 : 'READ_ONLY',
+        0x07 : 'READ_WRITE',
+        0x08 : 'WRITE_COPY',
+        0x09 : 'WRITE_ONLY',
+        0x0A : 'EXECUTE_WRITE'
+    }
+
+class MemoryType:
+    UNKNOWN = 0
+    IMAGE = 1
+    MAPPED = 2
+    PRIVATE = 3
+    EMPTY = 4
+    SHARED = 5
+
+    lookup = {
+        0 : 'UNKNOWN',
+        1 : 'IMAGE',
+        2 : 'MAPPED',
+        3 : 'PRIVATE',
+        4 : 'EMPTY',
+        5 : 'SHARED'
+    }
 
 class TwoFactorAuth(object):
     def __init__( self, username = None, secret = None ):
@@ -750,3 +795,16 @@ class CreateOnAccess( object ):
         if self._instance is None:
             self._instance = self._toCall( *self._args, **self._kwargs )
         return getattr( self._instance, item )
+
+def normalAtom( atom ):
+    try:
+        if type( atom ) is uuid.UUID:
+            atom = str( atom )
+        else:
+            atom = str( uuid.UUID( atom ) )
+    except:
+        try:
+            atom = str( uuid.UUID( bytes = atom ) )
+        except:
+            atom = str( uuid.UUID( bytes = base64.b64decode( atom.replace( ' ', '+' ) ) ) )
+    return atom

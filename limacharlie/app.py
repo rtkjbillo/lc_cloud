@@ -35,10 +35,12 @@ import base64
 import uuid
 from functools import wraps
 import markdown
+import markdown.extensions.tables
 
 from hcp_helpers import _x_
 from hcp_helpers import _xm_
 from hcp_helpers import timeToTs
+from hcp_helpers import normalAtom
 
 
 ###############################################################################
@@ -78,6 +80,9 @@ def sanitizeJson( o, summarized = False ):
 
 def downloadFileName( name ):
     web.header( 'Content-Disposition', 'attachment;filename="%s"' % name )
+
+def doMarkdown( content ):
+    return markdown.markdown( content, extensions = [ 'markdown.extensions.tables' ] )
 
 ###############################################################################
 # PAGE DECORATORS
@@ -423,10 +428,7 @@ class Explorer:
         if params.id is None:
             raise web.HTTPError( '400 Bad Request: id required' )
 
-        try:
-            effectiveId = str( uuid.UUID( params.id ) )
-        except:
-            effectiveId = str( uuid.UUID( bytes = base64.b64decode( params.id.replace( ' ', '+' ) ) ) )
+        effectiveId = normalAtom( params.id )
 
         info = model.request( 'get_atoms_from_root', { 'id' : effectiveId } )
 
@@ -437,7 +439,7 @@ class Explorer:
         info.data = list( info.data )
         isFound = False
         for atom in info.data:
-            if effectiveId == str( uuid.UUID( bytes = atom.values()[0]['hbs.THIS_ATOM'] ) ):
+            if effectiveId == normalAtom( atom.values()[0]['hbs.THIS_ATOM'] ):
                 isFound = True
                 break
         info.data = map( lambda x: { 'data' : x, 'key' : EventInterpreter( x ).shortKey() }, info.data )
@@ -470,6 +472,24 @@ class Backend:
 
         return render.backend( info.data )
 
+
+class Capabilities:
+    def GET( self ):
+        params = web.input( addUrl = None, removeCap = None )
+
+        cap = {}
+
+        if params.addUrl is not None:
+            pass
+        elif params.removeCap is not None:
+            pass
+
+        cap = capabilities.request( 'list', {} )
+        if cap.isSuccess:
+            cap = cap.data
+
+        return render.capabilities( capabilities = cap )
+
 ###############################################################################
 # BOILER PLATE
 ###############################################################################
@@ -493,7 +513,8 @@ urls = ( r'/', 'Index',
          r'/detect', 'ViewDetect',
          r'/hostchanges', 'HostChanges',
          r'/downloadfileinevent', 'DownloadFileInEvent',
-         r'/backend', 'Backend')
+         r'/backend', 'Backend',
+         r'/capabilities', 'Capabilities' )
 
 web.config.debug = False
 app = web.application( urls, globals() )
@@ -505,7 +526,7 @@ render = web.template.render( 'templates', base = 'base', globals = { 'json' : j
                                                                       'hex' : hex,
                                                                       'sanitize' : sanitizeJson,
                                                                       'EventInterpreter' : EventInterpreter,
-                                                                      'md' : markdown.markdown,
+                                                                      'md' : doMarkdown,
                                                                       'sorted' : sorted,
                                                                       'InvestigationNature' : InvestigationNature,
                                                                       'InvestigationConclusion' : InvestigationConclusion } )
@@ -517,7 +538,7 @@ renderFullPage = web.template.render( 'templates', base = 'base_full', globals =
                                                                                    'hex' : hex,
                                                                                    'sanitize' : sanitizeJson,
                                                                                    'EventInterpreter' : EventInterpreter,
-                                                                                   'md' : markdown.markdown,
+                                                                                   'md' : doMarkdown,
                                                                                    'sorted' : sorted,
                                                                                    'InvestigationNature' : InvestigationNature,
                                                                                    'InvestigationConclusion' : InvestigationConclusion } )
@@ -537,5 +558,6 @@ if len( sys.argv ) < 2:
 beach = Beach( sys.argv[ 1 ], realm = 'hcp' )
 del( sys.argv[ 1 ] )
 model = beach.getActorHandle( 'models', nRetries = 3, timeout = 30, ident = 'lc/0bf01f7e-62bd-4cc4-9fec-4c52e82eb903' )
+capabilities = beach.getActorHandle( 'analytics/capabilitymanager', nRetries = 3, timeout = 30, ident = 'lc/0bf01f7e-62bd-4cc4-9fec-4c52e82eb903' )
 
 app.run()
