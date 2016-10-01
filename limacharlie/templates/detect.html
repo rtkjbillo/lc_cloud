@@ -65,7 +65,7 @@ $var title = 'Detect'
         </thead>
         <tbody>
             $for hunt in inv.values():
-                <tr>
+                <tr style="border-bottom-width: thick; border-bottom-color: black; border-bottom-style: double;">
                     <td width="0%" nowrap="">
                         <b>Hunter: </b>$hunt[ 'hunter' ]
                         <br/>
@@ -132,15 +132,11 @@ $var title = 'Detect'
                         $event[ 3 ].replace('notification.', '')
                     </td>
                     <td style="text-align: left;">
-                        <pre>
-                            $ details = json.dumps( event[ 2 ], indent = 2 )
-                            $if 4096 > len(details):
-                                <code>
-                                    $json.dumps( event[ 2 ], indent = 2 )
-                                </code>
-                            $else:
-                                $json.dumps( event[ 2 ], indent = 2 )
-                        </pre>
+                        $ details = json.dumps( event[ 2 ], indent = 2 )
+                        $if 4096 > len(details):
+                            <pre><code>$json.dumps( event[ 2 ], indent = 2 )</code></pre>
+                        $else:
+                            <pre>$json.dumps( event[ 2 ], indent = 2 )</pre>
                     </td>
                     <td>
                         <a href="/event?id=$event[ 0 ]" title="View Event" target="_blank" class="glyphicon glyphicon-log-in" style="font-size: 30px;"/>

@@ -74,9 +74,12 @@ class AnalyticsReporting( Actor ):
         detect = base64.b64encode( msgpack.packb( msg.data[ 'detect' ] ) )
         detect_id = msg.data[ 'detect_id' ].upper()
 
-        self.db.execute_async( self.report_stmt_rep.bind( ( detect_id, source, category, ' / '.join( event_ids ), detect, why ) ) )
-        self.db.execute_async( self.report_stmt_tl.bind( ( random.randint( 0, 255 ), detect_id ) ) )
-
+        try:
+            self.db.execute_async( self.report_stmt_rep.bind( ( detect_id, source, category, ' / '.join( event_ids ), detect, why ) ) )
+            self.db.execute_async( self.report_stmt_tl.bind( ( random.randint( 0, 255 ), detect_id ) ) )
+        except:
+            import traceback
+            self.logCritical( 'Exc storing detect %s / %s' % ( str( msg.data ), traceback.format_exc() ) )
         self.outputs.shoot( 'report', msg.data )
 
         if 0 != len( self.pageDest ):

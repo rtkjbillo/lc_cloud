@@ -222,8 +222,6 @@ class Timeline:
             info.data[ 'events' ] = []
             for event in originalEvents:
                 thisAtom = event[ 3 ].values()[ 0 ].get( 'hbs.THIS_ATOM', None )
-                if thisAtom is not None:
-                    thisAtom = uuid.UUID( bytes = thisAtom )
                 richEvent = None
                 if hasattr( eventRender, event[ 1 ] ):
                     try:
@@ -303,8 +301,6 @@ class EventView:
         event = info.data.get( 'event', {} )
 
         thisAtom = event[ 1 ].values()[ 0 ].get( 'hbs.THIS_ATOM', None )
-        if thisAtom is not None:
-            thisAtom = uuid.UUID( bytes = thisAtom )
 
         return render.event( sanitizeJson( event, summarized = params.summarized ), thisAtom )
 

@@ -113,12 +113,47 @@ class RPGenericHunter ( Hunter ):
         investigation.reportData( 'found %s documents created in the last minute\n\n%s' % ( len( lastDocs ), mdDocs ) )
 
         # Let's see if any of the documents are known bad.
+        isBadDocFound = False
         for docPath, docHash in lastDocs:
             vtReport, mdVtReport = self.getVTReport( docHash )
             if vtReport is not None and 0 < len( vtReport ):
+                isBadDocFound = True
                 investigation.reportData( 'the document with hash *%s* has the following virus total hits:\n%s' % mdVtReport )
 
-        # Check 
+        if not isBadDocFound:
+            investigation.reportData( 'no recent file had hits on virus total' )
+
+        # Check for new code loading
+        lastCode = self.getLastNSecondsOfEventsFrom( 60, source, 'notification.CODE_IDENTITY' )
+        lastCode = [ ( _x_( code, '?/base.FILE_PATH' ),
+                       _x_( code, '?/base.HASH' ) ) for code in lastCode ]
+        mdCode = self.listToMdTable( ( 'File', 'Hash' ), lastCode )
+        investigation.reportData( 'found %s new pieces of code in the last minute\n\n%s' % ( len( lastCode ), mdCode ) )
+
+        isBadCodeFound = False
+        for codePath, codeHash in lastCode:
+            vtReport, mdVtReport = self.getVTReport( codeHash )
+            if vtReport is not None and 0 < len( vtReport ):
+                isBadCodeFound = True
+                investigation.reportData( 'the code with hash *%s* has the following virus total hits:\n%s' % mdVtReport )
+
+        if not isBadCodeFound:
+            investigation.reportData( 'no recent code had hits on virus total' )
+
+        # Check for rare domains being queried
+        lastDns = self.getLastNSecondsOfEventsFrom( 60, source, 'notification.DNS_REQUEST' )
+        lastDns = [ _x_( dns, '?/base.DOMAIN_NAME' ) for dns in lastDns ]
+        lastDns = [ x for x in lastDns if not self.isAlexaDomain( x ) ]
+        mdDns = self.listToMdTable( ( 'Domain', ), lastDns )
+        investigation.reportData( 'found %s DNS queries (minus Alexa top million) in the last minute\n\n%s' % ( len( lastDns ), mdDns ) )
+
+        # Check the network activity
+        lastConn = self.getLastNSecondsOfEventsFrom( 60, source, 'notification.NEW_TCP4_CONNECTION' )
+        lastConn = [ ( _x_( conn, '?/base.PROCESS_ID' ),
+                       '%s:%s' % ( _x_( conn, '?/base.SOURCE/base.IP_ADDRESS' ), _x_( conn, '?/base.SOURCE/base.PORT' ) ),
+                       '%s:%s' % ( _x_( conn, '?/base.DESTINATION/base.IP_ADDRESS' ), _x_( conn, '?/base.DESTINATION/base.PORT' ) ) ) for conn in lastConn ]
+        mdConn = self.listToMdTable( ( 'PID', 'Source', 'Dest' ), lastConn )
+        investigation.reportData( 'found %s TCP connections in the last minute\n\n%s' % ( len( lastConn ), mdConn ) )
 
         # Let's analyze the memory map to see if we can find suspicious memory regions that we could fetch.
         if memMapResp.wait( 120 ):
@@ -143,8 +178,7 @@ class RPGenericHunter ( Hunter ):
                                                     MemoryAccess.lookup[ _x_( r, 'base.MEMORY_ACCESS' ) ] ) for r in suspiciousRegions ] )
                 investigation.reportData( 'suspicious memory regions:\n%s' % mdRegions )
             else:
-                investigation.reportData( 'no suspicious memory region found' )
-
+                investigation.reportData( 'no suspicious memory region found (%s total regions)' % len( memMap ) )
 
         # Concluding the investigation
         investigation.conclude( 'unsure on the nature of this event but lots of context was gathered',
