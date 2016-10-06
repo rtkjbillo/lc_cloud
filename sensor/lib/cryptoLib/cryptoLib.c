@@ -677,7 +677,7 @@ RBOOL
     RBOOL isSuccess = FALSE;
 
     mbedtls_sha256_context ctx = { 0 };
-    RU8 buff[ 8 * 1024 ] = {0};
+    RU8 buff[ 200 * 1024 ] = {0};
     rFile f = NULL;
     RU32 read = 0;
 
