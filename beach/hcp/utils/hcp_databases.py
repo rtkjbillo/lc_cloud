@@ -137,7 +137,7 @@ class CassPool( object ):
         for _ in range( self.maxConcurrent ):
             self._addHandler()
 
-    @synchronized()
+    @synchronized
     def rateLimit( self, isAdvisory = False ):
         limit = self.rate_limit
         if limit is not None:

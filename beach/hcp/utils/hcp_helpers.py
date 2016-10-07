@@ -732,22 +732,20 @@ class ringcached( object ):
     def __get__( self, obj, objtype ):
         return functools.partial( self.__call__, obj )
 
-def synchronized( lock = None ):
+def synchronized( f ):
     '''Synchronization decorator.'''
     
-    if lock is None:
-        import threading
-        lock = threading.Lock()
+    lock = Mutex()
 
-    def wrap(f):
-        def new_function(*args, **kw):
-            lock.acquire()
-            try:
-                return f(*args, **kw)
-            finally:
-                lock.release()
-        return new_function
-    return wrap
+    def new_function( *args, **kw ):
+        lock.lock()
+        try:
+            return f( *args, **kw )
+        finally:
+            lock.unlock()
+
+    return new_function
+
 
 class HcpOperations:
     LOAD_MODULE = 1
