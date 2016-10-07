@@ -73,7 +73,7 @@ class _Investigation ( object ):
         if not resp.isSuccess:
             raise Exception( 'error closing investigation' )
 
-    def task( self, why, dest, cmdsAndArgs ):
+    def task( self, why, dest, cmdsAndArgs, isNeedResp = True ):
         ret = None
         if type( cmdsAndArgs[ 0 ] ) not in ( tuple, list ):
             cmdsAndArgs = ( cmdsAndArgs, )
@@ -90,15 +90,16 @@ class _Investigation ( object ):
         if resp.isSuccess:
             self.actor.log( "sent for tasking: %s" % ( str(cmdsAndArgs), ) )
 
-            ret = _TaskResp( trxId, self )
+            if isNeedResp:
+                ret = _TaskResp( trxId, self )
 
-            def _syncRecv( msg ):
-                routing, event, mtd = msg.data
-                ret._add( event )
-                return ( True, )
+                def _syncRecv( msg ):
+                    routing, event, mtd = msg.data
+                    ret._add( event )
+                    return ( True, )
 
-            self.actor.handle( trxId, _syncRecv )
-            self.liveTrx.append( trxId )
+                self.actor.handle( trxId, _syncRecv )
+                self.liveTrx.append( trxId )
         else:
             self.actor.log( "failed to send tasking" )
 

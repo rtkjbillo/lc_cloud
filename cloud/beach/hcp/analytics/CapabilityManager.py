@@ -26,6 +26,7 @@ class CapabilityManager( Actor ):
                               realm = 'hcp', 
                               identifier = self.__class__.__name__,
                               scale = parameters[ 'scale' ] )
+        self.patrol.start()
         self.detectSecretIdent = parameters[ 'detect_secret_ident' ]
         self.detectTrustedIdent = parameters[ 'detect_trusted_ident' ]
         self.hunterSecretIdent = parameters[ 'hunter_secret_ident' ]
@@ -42,13 +43,14 @@ class CapabilityManager( Actor ):
         mtd = []
         isMtdStarted = False
         for line in detection.split( '\n' ):
-            if line.startswith( 'LC_DETECTION_MTD' ):
-                mtd.append( line )
-            elif isMtdStarted and '}' in line:
-                mtd.append( line )
+            if line.startswith( 'LC_DETECTION_MTD_START' ):
+                isMtdStarted = True
+            elif line.startswith( 'LC_DETECTION_MTD_END' ):
                 break
+            elif isMtdStarted:
+                mtd.append( line )
 
-        mtd = '\n'.join( line )
+        mtd = '\n'.join( mtd )
 
         mtd = json.loads( mtd )
 
@@ -56,6 +58,7 @@ class CapabilityManager( Actor ):
 
     @synchronized
     def restartPatrol( self ):
+        self.log( "restarting patrol" )
         self.patrol.stop()
         self.patrol.start()
 
@@ -65,7 +68,8 @@ class CapabilityManager( Actor ):
     def loadDetection( self, msg ):
         url = msg.data[ 'url' ]
         userDefinedName = msg.data[ 'user_defined_name' ]
-        arguments = json.loads( msg.data[ 'args' ] )
+        arguments = msg.data[ 'args' ]
+        arguments = json.loads( arguments ) if ( arguments is not None and 0 != len( arguments ) ) else {}
 
         if userDefinedName in self.loaded:
             return ( False, 'user defined name already in use' )
@@ -74,19 +78,18 @@ class CapabilityManager( Actor ):
 
         summary = {}
         summary = self.getMtdFromContent( detection )
+        summary[ 'name' ] = url.split( '/' )[ -1 ].lower().replace( '.py', '' )
 
         summary[ 'platform' ] = self.ensureList( summary[ 'platform' ] )
-        if feeds in summary:
+        if 'feeds' in summary:
             summary[ 'feeds' ] = self.ensureList( summary[ 'feeds' ] )
-
-        summary[ 'user_args' ] = arguments
 
         categories = []
         secretIdent = None
         trustedIdents = None
         if 'stateless' == summary[ 'type' ]:
             secretIdent = self.detectSecretIdent
-            trustedIdents = self.trustedIdents
+            trustedIdents = self.detectTrustedIdent
             for feed in summary[ 'feeds' ]:
                 for platform in summary[ 'platform' ]:
                     categories.append( 'analytics/stateless/%s/%s/%s/%s' %  ( platform, 
@@ -95,16 +98,18 @@ class CapabilityManager( Actor ):
                                                                               summary[ 'version' ] ) )
         elif 'stateful' == summary[ 'type' ]:
             secretIdent = self.detectSecretIdent
-            trustedIdents = self.trustedIdents
+            trustedIdents = self.detectTrustedIdent
             for platform in summary[ 'platform' ]:
                 categories.append( 'analytics/stateful/modules/%s/%s/%s' %  ( platform,
                                                                               summary[ 'name' ],
                                                                               summary[ 'version' ] ) )
         elif 'hunter' == summary[ 'type' ]:
             secretIdent = self.hunterSecretIdent
-            trustedIdents = self.hunterIdents
+            trustedIdents = self.hunterTrustedIdent
             categories.append( 'analytics/hunter/%s/%s' %  ( summary[ 'name' ],
                                                              summary[ 'version' ] ) )
+        else:
+            self.logCritical( 'unknown actor type' )
 
         self.patrol.monitor( name = userDefinedName,
                              initialInstances = 1,

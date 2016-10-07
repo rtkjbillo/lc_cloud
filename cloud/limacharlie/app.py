@@ -470,19 +470,28 @@ class Backend:
 
 
 class Capabilities:
-    def GET( self ):
-        params = web.input( addUrl = None, removeCap = None )
+    def POST( self ):
+        params = web.input( urlToAdd = None, nameToRem = None, nameToAdd = None, argsToAdd = None )
 
         cap = {}
 
-        if params.addUrl is not None:
-            pass
-        elif params.removeCap is not None:
-            pass
+        if params.urlToAdd is not None and params.nameToAdd is not None:
+            capabilities.request( 'load', { 'url' : params.urlToAdd,
+                                            'user_defined_name' : params.nameToAdd,
+                                            'args' : params.argsToAdd } )
+        elif params.nameToRem is not None:
+            capabilities.request( 'unload', { 'user_defined_name' : params.nameToRem } )
+
+        return self.GET()
+
+    def GET( self ):
+        params = web.input()
+
+        cap = {}
 
         cap = capabilities.request( 'list', {} )
         if cap.isSuccess:
-            cap = cap.data
+            cap = cap.data[ 'loaded' ]
 
         return render.capabilities( capabilities = cap )
 
