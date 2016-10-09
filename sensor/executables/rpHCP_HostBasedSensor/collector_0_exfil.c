@@ -681,6 +681,7 @@ RVOID
 //=============================================================================
 
 rpcm_tag collector_0_events[] = { RP_TAGS_NOTIFICATION_GET_EXFIL_EVENT_REP,
+                                  RP_TAGS_NOTIFICATION_HISTORY_DUMP_REP,
                                   0 };
 
 RBOOL
