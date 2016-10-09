@@ -445,7 +445,9 @@ RVOID
             else
             {
                 // Filters need to be applied, this is more involved.
-                if( NULL != ( matchingEvents = rpal_btree_create( sizeof( _AtomEvent ), _cmpAtom, NULL ) ) )
+                if( NULL != ( matchingEvents = rpal_btree_create( sizeof( _AtomEvent ), 
+                                                                  (rpal_btree_comp_f)_cmpAtom, 
+                                                                  NULL ) ) )
                 {
                     // First we populate an index of seed matching events.
                     for( i = 0; i < ARRAY_N_ELEM( g_history ); i++ )

@@ -21,6 +21,11 @@ limitations under the License.
 #if defined( RPAL_PLATFORM_MACOSX )
     #include <mach/mach_time.h>
     #include <sys/time.h>
+    #include <mach/clock_types.h>
+    #include <mach/mach_host.h>
+    #include <mach/clock.h>
+#elif defined( RPAL_PLATFORM_LINUX )
+    #include <unistd.h>
 #elif defined( RPAL_PLATFORM_WINDOWS)
     #define FILETIME2ULARGE( uli, ft )  (uli).u.LowPart = (ft).dwLowDateTime, (uli).u.HighPart = (ft).dwHighDateTime
 #endif
