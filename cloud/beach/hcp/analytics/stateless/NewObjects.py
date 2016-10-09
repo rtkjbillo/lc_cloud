@@ -53,5 +53,4 @@ class NewObjects ( StatelessActor ):
                     detects.add( 30,
                                  'new interesting object never seen before',
                                  { 'type' : ObjectTypes.rev[ oType ],
-                                   'object' : o },
-                                 None )
+                                   'object' : o } )

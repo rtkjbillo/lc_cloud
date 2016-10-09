@@ -27,7 +27,4 @@ class ActiveDirectoryReference ( StatelessActor ):
             if 'ntds.dit' in filePath.lower():
                 detects.add( 90, 
                              'command line referencing the active directory database file',
-                             event, 
-                             ( ( 'remain_live', 60 ),
-                               ( 'history_dump', ),
-                               ( 'exfil_add', 'notification.FILE_CREATE', '--expire', 60 ) ) )
+                             event )

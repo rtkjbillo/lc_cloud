@@ -60,4 +60,4 @@ class KnownObjects ( StatelessActor ):
             for o in objects:
                 k = ObjectKey( o, oType )
                 if k in self.known:
-                    detects.add( 99, 'known bad object found', { 'otype' : oType, 'o' : o, 'info' : self._getObjectInfo( k ) }, None )
+                    detects.add( 99, 'known bad object found', { 'otype' : oType, 'o' : o, 'info' : self._getObjectInfo( k ) } )

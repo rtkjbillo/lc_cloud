@@ -48,4 +48,4 @@ class BatchSelfDelete ( StatelessActor ):
         routing, event, mtd = msg.data
         for cmdline in _xm_( event, '?/base.COMMAND_LINE' ):
             if self.self_del.search( cmdline ):
-                detects.add( 90, 'command prompt looks like a self-deleting technique', event, None )
+                detects.add( 90, 'command prompt looks like a self-deleting technique', event )

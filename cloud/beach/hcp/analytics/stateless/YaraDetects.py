@@ -26,5 +26,4 @@ class YaraDetects ( StatelessActor ):
         # No validation for now, straight detect
         detects.add( 90,
         			 'yara signature hit',
-        			 event,
-        			 None )
+        			 event )

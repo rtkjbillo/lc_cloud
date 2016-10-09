@@ -24,4 +24,4 @@ class HollowedProcess ( StatelessActor ):
         routing, event, mtd = msg.data
 
         # No validation for now, straight detect
-        detects.add( 90, 'signs of process hollowing found in memory', event, None )
+        detects.add( 90, 'signs of process hollowing found in memory', event )

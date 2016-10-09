@@ -32,6 +32,11 @@ typedef struct
     rMutex mutex;
 } _EventList;
 
+typedef struct
+{
+    RU8 atomId[ HBS_ATOM_ID_SIZE ];
+    RU32 iEvent;
+} _AtomEvent;
 
 static HbsState* g_state = NULL;
 
@@ -42,6 +47,31 @@ static RU32 g_cur_size = 0;
 static rSequence g_history[ _HISTORY_MAX_LENGTH ] = { 0 };
 static RU32 g_history_head = 0;
 static rMutex g_history_mutex = NULL;
+
+static
+RS32
+    _cmpAtom
+    (
+        _AtomEvent* e1,
+        _AtomEvent* e2
+    )
+{
+    return rpal_memory_memcmp( e1->atomId, e2->atomId, sizeof( e1->atomId ) );
+}
+
+static
+rpcm_tag
+    _getEventName
+    (
+        rSequence event
+    )
+{
+    rpcm_tag tag = RPCM_INVALID_TAG;
+
+    rSequence_getElement( event, &tag, NULL, NULL, NULL );
+
+    return tag;
+}
 
 static
 RBOOL
@@ -351,30 +381,162 @@ RVOID
 {
     RU32 i = 0;
     rSequence tmp = NULL;
+    RU32 tmpSize = 0;
+    RPU8 parentAtom = NULL;
+    RPU8 thisAtom = NULL;
+    RPU8 targetAtom = NULL;
+    rpcm_tag ofType = 0;
+    rBTree matchingEvents = NULL;
+    _AtomEvent tmpEntry = { 0 };
+    RBOOL isMatch = TRUE;
+    rSequence tmpEvent = NULL;
     UNREFERENCED_PARAMETER( notifId );
-    UNREFERENCED_PARAMETER( notif );
+
+    rSequence_getRU32( notif, RP_TAGS_HBS_NOTIFICATION_ID, &ofType );
+    if( !rSequence_getBUFFER( notif, RP_TAGS_HBS_THIS_ATOM, &thisAtom, &tmpSize ) ||
+        HBS_ATOM_ID_SIZE != tmpSize )
+    {
+        thisAtom = NULL;
+    }
+    if( !rSequence_getBUFFER( notif, RP_TAGS_HBS_PARENT_ATOM, &parentAtom, &tmpSize ) ||
+        HBS_ATOM_ID_SIZE != tmpSize )
+    {
+        parentAtom = NULL;
+    }
 
     if( rMutex_lock( g_history_mutex ) )
     {
         if( !rEvent_wait( g_state->isTimeToStop, 0 ) )
         {
-            for( i = 0; i < ARRAY_N_ELEM( g_history ); i++ )
+            if( NULL == parentAtom )
             {
-                if( rpal_memory_isValid( g_history[ i ] ) &&
-                    NULL != ( tmp = rSequence_duplicate( g_history[ i ] ) ) )
+                // No filtering at all, fast.
+                for( i = 0; i < ARRAY_N_ELEM( g_history ); i++ )
                 {
-                    hbs_markAsRelated( notif, tmp );
-
-                    if( !rQueue_add( g_state->outQueue, tmp, 0 ) )
+                    if( rpal_memory_isValid( g_history[ i ] ) )
                     {
-                        rSequence_free( tmp );
+                        if( ( NULL == thisAtom ||
+                            ( rSequence_getSEQUENCE( g_history[ i ], RPCM_INVALID_TAG, &tmpEvent ) &&
+                              rSequence_getBUFFER( tmpEvent, RP_TAGS_HBS_THIS_ATOM, &targetAtom, &tmpSize ) &&
+                                0 == rpal_memory_memcmp( thisAtom, targetAtom, HBS_ATOM_ID_SIZE ) ) ) &&
+                            ( 0 == ofType ||
+                              ofType == _getEventName( g_history[ i ] ) ) )
+                        {
+                            if( NULL != ( tmp = rSequence_duplicate( g_history[ i ] ) ) )
+                            {
+                                hbs_markAsRelated( notif, tmp );
+
+                                if( !rQueue_add( g_state->outQueue, tmp, 0 ) )
+                                {
+                                    rSequence_free( tmp );
+                                }
+                                else
+                                {
+                                    g_cur_size -= rSequence_getEstimateSize( g_history[ i ] );
+
+                                    rSequence_free( g_history[ i ] );
+                                    g_history[ i ] = NULL;
+                                }
+                            }
+                        }
                     }
+                }
+            }
+            else
+            {
+                // Filters need to be applied, this is more involved.
+                if( NULL != ( matchingEvents = rpal_btree_create( sizeof( _AtomEvent ), _cmpAtom, NULL ) ) )
+                {
+                    // First we populate an index of seed matching events.
+                    for( i = 0; i < ARRAY_N_ELEM( g_history ); i++ )
+                    {
+                        if( rpal_memory_isValid( g_history[ i ] ) &&
+                            rSequence_getSEQUENCE( g_history[ i ], RPCM_INVALID_TAG, &tmpEvent ) &&
+                            rSequence_getBUFFER( tmpEvent, RP_TAGS_HBS_PARENT_ATOM, &targetAtom, &tmpSize ) )
+                        {
+                            // If this matches the filters, also add to the other tree.
+                            if( NULL != parentAtom &&
+                                0 == rpal_memory_memcmp( targetAtom, parentAtom, HBS_ATOM_ID_SIZE ) )
+                            {
+                                rpal_memory_memcpy( tmpEntry.atomId, targetAtom, sizeof( tmpEntry.atomId ) );
+                                tmpEntry.iEvent = i;
+                                rpal_btree_add( matchingEvents, &tmpEntry, TRUE );
+                            }
+                        }
+                    }
+
+                    // Next we go through events until no more match.
+                    if( 0 != rpal_btree_getSize( matchingEvents, TRUE ) )
+                    {
+                        while( isMatch )
+                        {
+                            isMatch = FALSE;
+
+                            for( i = 0; i < ARRAY_N_ELEM( g_history ); i++ )
+                            {
+                                if( rpal_memory_isValid( g_history[ i ] ) &&
+                                    rSequence_getSEQUENCE( g_history[ i ], RPCM_INVALID_TAG, &tmpEvent ) &&
+                                    rSequence_getBUFFER( tmpEvent, RP_TAGS_HBS_PARENT_ATOM, &targetAtom, &tmpSize ) )
+                                {
+                                    if( rpal_btree_search( matchingEvents, targetAtom, NULL, TRUE ) )
+                                    {
+                                        rpal_memory_memcpy( tmpEntry.atomId, targetAtom, sizeof( tmpEntry.atomId ) );
+                                        tmpEntry.iEvent = i;
+                                        if( rpal_btree_add( matchingEvents, &tmpEntry, TRUE ) )
+                                        {
+                                            isMatch = TRUE;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    // Finally we report all the matches.
+                    if( rpal_btree_minimum( matchingEvents, &tmpEntry, TRUE ) )
+                    {
+                        do
+                        {
+                            if( ( NULL == thisAtom ||
+                                ( rSequence_getSEQUENCE( g_history[ tmpEntry.iEvent ], RPCM_INVALID_TAG, &tmpEvent ) &&
+                                  rSequence_getBUFFER( tmpEvent, RP_TAGS_HBS_THIS_ATOM, &targetAtom, &tmpSize ) &&
+                                    0 == rpal_memory_memcmp( thisAtom, targetAtom, HBS_ATOM_ID_SIZE ) ) ) &&
+                                ( 0 == ofType ||
+                                  ofType == _getEventName( g_history[ tmpEntry.iEvent ] ) ) )
+                            {
+                                if( NULL != ( tmp = rSequence_duplicate( g_history[ tmpEntry.iEvent ] ) ) )
+                                {
+                                    hbs_markAsRelated( notif, tmp );
+
+                                    if( !rQueue_add( g_state->outQueue, tmp, 0 ) )
+                                    {
+                                        rSequence_free( tmp );
+                                    }
+                                    else
+                                    {
+                                        g_cur_size -= rSequence_getEstimateSize( g_history[ tmpEntry.iEvent ] );
+
+                                        rSequence_free( g_history[ tmpEntry.iEvent ] );
+                                        g_history[ tmpEntry.iEvent ] = NULL;
+                                    }
+                                }
+                            }
+                        }
+                        while( rpal_btree_next( matchingEvents, &tmpEntry, &tmpEntry, TRUE ) );
+                    }
+
+                    rpal_btree_destroy( matchingEvents, TRUE );
                 }
             }
         }
 
         rMutex_unlock( g_history_mutex );
     }
+
+    hbs_sendCompletionEvent( notif, 
+                             RP_TAGS_NOTIFICATION_HISTORY_DUMP_REP, 
+                             RPAL_ERROR_SUCCESS, 
+                             NULL );
 }
 
 static

@@ -26,6 +26,7 @@ import os.path
 import sys
 import syslog
 import base64
+import uuid
 
 try:
     from admin_lib import BEAdmin
@@ -1202,10 +1203,32 @@ class HcpCli ( cmd.Cmd ):
         '''Dump the full recent history of events on the sensor.'''
 
         parser = self.getParser( 'history_dump', True )
+        parser.add_argument( '-r', '--rootatom',
+                             type = uuid.UUID,
+                             required = False,
+                             dest = 'root',
+                             help = 'dump events present in the tree rooted at this atom' )
+        parser.add_argument( '-a', '--atom',
+                             type = uuid.UUID,
+                             required = False,
+                             dest = 'atom',
+                             help = 'dump the event with this specific atom' )
+        parser.add_argument( '-e', '--event',
+                             type = eventArg,
+                             required = False,
+                             dest = 'event',
+                             help = 'dump events of this type only' )
         arguments = self.parse( parser, s )
         if arguments is not None:
+            e = rSequence()
+            if arguments.root is not None:
+                e.addBuffer( self.tags.hbs.PARENT_ATOM, arguments.root.bytes )
+            if arguments.atom is not None:
+                e.addBuffer( self.tags.hbs.THIS_ATOM, arguments.atom.bytes )
+            if arguments.event is not None:
+                e.addInt32( self.tags.hbs.NOTIFICATION_ID, arguments.event )
             self._executeHbsTasking( self.tags.notification.HISTORY_DUMP_REQ,
-                                     rSequence(),
+                                     e,
                                      arguments )
 
     @report_errors

@@ -46,28 +46,33 @@ class RPGenericHunter ( Hunter ):
         originEvent = data
 
         # Before we investigate we'll try to get some cached information
-        investigation.task( 'fetching history', 
-                            source, 
-                            ( 'history_dump', ) )
-
         investigation.task( 'get the file creations for the next minute', 
                             source, 
                             ( 'exfil_add', 
                               'notification.FILE_CREATE', 
                               '--expire', 
-                              60 ) )
+                              60 ),
+                            isNeedResp = False )
         investigation.task( 'get udp network connections for the next minute', 
                             source, 
                             ( 'exfil_add', 
                               'notification.NEW_UDP4_CONNECTION', 
                               '--expire', 
-                              60 ) )
+                              60 ),
+                            isNeedResp = False )
         investigation.task( 'get tcp network connections for the next minute', 
                             source, 
                             ( 'exfil_add', 
                               'notification.NEW_TCP4_CONNECTION', 
                               '--expire', 
-                              60 ) )
+                              60 ),
+                            isNeedResp = False )
+        histResp = investigation.task( 'fetching history', 
+                                       source, 
+                                       ( 'history_dump', ) )
+
+        # Wait for the history to be flushed
+        histResp.wait( 10 )
 
         # First, let's crawl up the parent events to see if we know
         # what each one is, we're looking for the root event that
@@ -96,14 +101,15 @@ class RPGenericHunter ( Hunter ):
                 break
             else:
                 investigation.reportData( 'path *%s* observed on %s hosts' % nLocs )
-            
-        investigation.reportData( '[origin](/explorer_view?id=%s) of bad behavior as far as we can tell' % normalAtom( originAtom ) )    
+        
+        investigation.reportData( '[origin](/explorer_view?id=%s) of bad behavior as far as we can tell' % normalAtom( originAtom ) )
 
         originPid = _x_( originEvent, '?/base.PROCESS_ID' )
 
         memMapResp = investigation.task( 'looking for possible malicious code in the origin process', 
                                          source, 
                                          ( 'mem_map', originPid ) )
+
 
         # Let's get the list of documents of interest (also cached) created in the last minute.
         lastDocs = self.getLastNSecondsOfEventsFrom( 60, source, 'notification.NEW_DOCUMENT' )
@@ -123,6 +129,7 @@ class RPGenericHunter ( Hunter ):
         if not isBadDocFound:
             investigation.reportData( 'no recent file had hits on virus total' )
 
+
         # Check for new code loading
         lastCode = self.getLastNSecondsOfEventsFrom( 60, source, 'notification.CODE_IDENTITY' )
         lastCode = [ ( _x_( code, '?/base.FILE_PATH' ),
@@ -140,12 +147,14 @@ class RPGenericHunter ( Hunter ):
         if not isBadCodeFound:
             investigation.reportData( 'no recent code had hits on virus total' )
 
+
         # Check for rare domains being queried
         lastDns = self.getLastNSecondsOfEventsFrom( 60, source, 'notification.DNS_REQUEST' )
         lastDns = [ _x_( dns, '?/base.DOMAIN_NAME' ) for dns in lastDns ]
         lastDns = [ x for x in lastDns if not self.isAlexaDomain( x ) ]
         mdDns = self.listToMdTable( ( 'Domain', ), lastDns )
         investigation.reportData( 'found %s DNS queries (minus Alexa top million) in the last minute\n\n%s' % ( len( lastDns ), mdDns ) )
+
 
         # Check the network activity
         lastConn = self.getLastNSecondsOfEventsFrom( 60, source, 'notification.NEW_TCP4_CONNECTION' )
@@ -154,6 +163,7 @@ class RPGenericHunter ( Hunter ):
                        '%s:%s' % ( _x_( conn, '?/base.DESTINATION/base.IP_ADDRESS' ), _x_( conn, '?/base.DESTINATION/base.PORT' ) ) ) for conn in lastConn ]
         mdConn = self.listToMdTable( ( 'PID', 'Source', 'Dest' ), lastConn )
         investigation.reportData( 'found %s TCP connections in the last minute\n\n%s' % ( len( lastConn ), mdConn ) )
+
 
         # Let's analyze the memory map to see if we can find suspicious memory regions that we could fetch.
         if memMapResp.wait( 120 ):
@@ -179,6 +189,11 @@ class RPGenericHunter ( Hunter ):
                 investigation.reportData( 'suspicious memory regions:\n%s' % mdRegions )
             else:
                 investigation.reportData( 'no suspicious memory region found (%s total regions)' % len( memMap ) )
+        elif memMapResp.wasReceived:
+            investigation.reportData( 'mem map command received by sensor but no response' )
+        else:
+            investigation.reportData( 'never received confirmation of mem map from sensor' )
+
 
         # Concluding the investigation
         investigation.conclude( 'unsure on the nature of this event but lots of context was gathered',

@@ -16,9 +16,11 @@ limitations under the License.
 
 #include <rpal.h>
 
+#define HBS_ATOM_ID_SIZE    16
+
 typedef struct
 {
-    RU8 id[ 16 ];
+    RU8 id[ HBS_ATOM_ID_SIZE ];
     struct
     {
         union

@@ -701,7 +701,7 @@ static RVOID
             {
                 rSequence_getTIMESTAMP( cloudEvent, RP_TAGS_EXPIRY, &expiry );
                 hbs_timestampEvent( cloudEvent, 0 );
-
+                
                 tmpId = rpHcpI_seqToHcpId( targetId );
 
                 curId.id.configId = 0;
@@ -709,6 +709,8 @@ static RVOID
                 
                 if( NULL != ( receipt = rSequence_new() ) )
                 {
+                    hbs_markAsRelated( cloudEventStub->event, cloudEvent );
+
                     if( rSequence_addSEQUENCE( receipt, 
                                                RP_TAGS_HBS_CLOUD_NOTIFICATION, 
                                                rSequence_duplicate( cloudEvent ) ) )
