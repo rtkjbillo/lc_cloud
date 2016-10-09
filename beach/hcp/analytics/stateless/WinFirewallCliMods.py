@@ -35,5 +35,4 @@ class WinFirewallCliMods ( StatelessActor ):
                 if modif.search( cmdline ) and not self.re_known_good_rule.search( cmdline ):
                     detects.add( 30,
                                  'exception added or state changed of windows firewall',
-                                 event,
-                                 None )
+                                 event )

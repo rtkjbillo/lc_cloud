@@ -139,8 +139,9 @@ $var title = 'Detect'
                             <pre>$json.dumps( event[ 2 ], indent = 2 )</pre>
                     </td>
                     <td>
-                        <a href="/event?id=$event[ 0 ]" title="View Event" target="_blank" class="glyphicon glyphicon-log-in" style="font-size: 30px;"/>
-                        <a href="/explorer_view?id=$event[ 4 ]" title="Explore" target="_blank" class="glyphicon glyphicon-tree-conifer" style="font-size: 30px;"/>
+                        <a href="/event?id=$event[ 4 ]" title="View Event" target="_blank" class="glyphicon glyphicon-log-in" style="font-size: 30px;"/>
+                        $if 'hbs.THIS_ATOM' in event[ 2 ].values()[0]:
+                            <a href="/explorer_view?id=$event[ 2 ].values()[0]['hbs.THIS_ATOM']" title="Explore" target="_blank" class="glyphicon glyphicon-tree-conifer" style="font-size: 30px;"/>
                     </td>
                 </tr>
         </tbody>

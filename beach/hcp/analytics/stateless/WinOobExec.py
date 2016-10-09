@@ -28,4 +28,4 @@ class WinOobExec ( StatelessActor ):
 
         # We can get false positives on executables running .net because of JIT
         if not self.dotNet.match( _x_( event, 'notification.EXEC_OOB/base.FILE_PATH' ) ):
-            detects.add( 90, 'execution outside of known modules detected in memory', event, None )
+            detects.add( 90, 'execution outside of known modules detected in memory', event )

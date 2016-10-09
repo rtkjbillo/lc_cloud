@@ -27,12 +27,16 @@ class _TaskResp ( object ):
     def __init__( self, trxId, inv ):
         self._trxId = trxId
         self._inv = inv
+        self.wasReceived = False
         self.responses = []
         self._event = Event()
     
     def _add( self, newData ):
-        self.responses.append( newData )
-        self._event.set()
+        if 'hbs.CLOUD_NOTIFICATION' == newData.keys()[ 0 ]:
+            self.wasReceived = True
+        else:
+            self.responses.append( newData )
+            self._event.set()
     
     def wait( self, timeout ):
         return self._event.wait( timeout )
@@ -243,7 +247,7 @@ class Hunter ( Actor ):
                                       'after' : int( time.time() ) - lastNSeconds,
                                       'is_include_content' : True } )
         if resp.isSuccess:
-            return [ x[ 3 ] for x in resp.data[ 'events' ] ]
+            return [ x[ 3 ] for x in resp.data[ 'events' ] if x[ 3 ] is not None ]
         else:
             return []
 

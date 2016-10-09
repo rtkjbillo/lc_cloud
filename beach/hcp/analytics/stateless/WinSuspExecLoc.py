@@ -40,7 +40,4 @@ class WinSuspExecLoc ( StatelessActor ):
                 if v.match( filePath ):
                     detects.add( 90, 
                                  'binary executing from a suspicious location',
-                                 event, 
-                                 ( ( 'remain_live', 60 ),
-                                   ( 'history_dump', ),
-                                   ( 'exfil_add', 'notification.FILE_CREATE', '--expire', 60 ) ) )
+                                 event )

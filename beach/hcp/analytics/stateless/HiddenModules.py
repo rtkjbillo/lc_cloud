@@ -24,4 +24,4 @@ class HiddenModules ( StatelessActor ):
         routing, event, mtd = msg.data
         
         # No validation for now, straight detect
-        detects.add( 90, 'hidden module found in memory', event, None )
+        detects.add( 90, 'hidden module found in memory', event )

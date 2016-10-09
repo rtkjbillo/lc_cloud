@@ -27,12 +27,6 @@ class TestDetection ( StatelessActor ):
             if 'hcp_evil_detection_test' in o:
                 detects.add( 0,
                              'test detection detected',
-                             event,
-                             ( ( 'file_hash',
-                                 event.get( 'notification.NEW_PROCESS', {} )
-                                      .get( 'base.FILE_PATH' ) ),
-                               ( 'remain_live', 60 ),
-                               ( 'history_dump', ),
-                               ( 'exfil_add', 'notification.FILE_CREATE', '--expire', 60 ),
-                               ( 'exfil_add', 'notification.FILE_DELETE', '--expire', 60 ) ) )
+                             event )
                 self.log( "test detection triggered" )
+                break

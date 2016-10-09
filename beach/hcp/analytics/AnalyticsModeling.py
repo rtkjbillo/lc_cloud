@@ -142,8 +142,6 @@ class AnalyticsModeling( Actor ):
     def analyze( self, msg ):
         routing, event, mtd = msg.data
 
-        self.log( 'storing new event' )
-
         agent = AgentId( routing[ 'agentid' ] )
         aid = agent.invariableToString()
         ts = _x_( event, '?/base.TIMESTAMP' )
@@ -219,7 +217,6 @@ class AnalyticsModeling( Actor ):
                                                                               time_uuid.TimeUUID.with_timestamp( ts ),
                                                                               eid,
                                                                               routing[ 'event_type' ] ) ) )
-        self.log( 'storing objects' )
         new_objects = mtd[ 'obj' ]
         new_relations = mtd[ 'rel' ]
 
