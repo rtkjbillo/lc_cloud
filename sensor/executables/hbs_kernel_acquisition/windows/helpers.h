@@ -21,6 +21,7 @@ limitations under the License.
 
 #define rpal_debug_kernel(format,...)   DbgPrint( "HbsKernelAcq %s: %d %s() - " ##format##"\n", __FILE__, __LINE__, __FUNCTION__, __VA_ARGS__ )
 #define ARRAY_N_ELEM(arr)               (sizeof(arr) / sizeof((arr)[0]))
+#define IS_FLAG_ENABLED(flags,toTest)	( 0 != ( (flags) & (toTest) ) )
 RU64 rpal_time_getLocal();
 
 #define copyUnicodeStringToBuffer(str,buff) (_copyUnicodeStringToBuffer((str),(buff),sizeof(buff)))

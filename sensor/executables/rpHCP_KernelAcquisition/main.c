@@ -192,6 +192,8 @@ RPAL_THREAD_FUNC
                     HKEY hInstanceKey = NULL;
                     RWCHAR keyAltitude[] = _WCH( "Altitude" );
                     RWCHAR altitudeVal[] = _WCH( "328740" );
+                    RWCHAR keyFlags[] = _WCH( "Flags" );
+                    DWORD sizeZero = 0;
 
                     if( !rSequence_getBUFFER( config, 
                                               RP_TAGS_BINARY, 
@@ -270,6 +272,17 @@ RPAL_THREAD_FUNC
                                                                              sizeof( altitudeVal ) ) )
                                         {
                                             rpal_debug_error( "could not set altitude: 0x%08X", rpal_error_getLast() );
+                                            break;
+                                        }
+
+                                        if( ERROR_SUCCESS != RegSetValueExW( hInstanceKey,
+                                                                             keyFlags,
+                                                                             0,
+                                                                             REG_DWORD,
+                                                                             (BYTE*)&sizeZero,
+                                                                             sizeof( sizeZero ) ) )
+                                        {
+                                            rpal_debug_error( "could not set flags: 0x%08X", rpal_error_getLast() );
                                             break;
                                         }
                                     }

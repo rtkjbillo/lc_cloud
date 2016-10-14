@@ -48,7 +48,7 @@ DRIVER_DISPATCH DispatchControl;
 
 typedef struct
 {
-    RBOOL( *initializer )( );
+    RBOOL( *initializer )( PDRIVER_OBJECT driverObject );
     RBOOL( *deinitializer )( );
 } CollectorContext;
 
@@ -96,7 +96,7 @@ RBOOL
 //  Dispatcher
 //=========================================================================
 static CollectorContext g_collectors[] = { _COLLECTOR_INIT( 1 ),
-                                           _COLLECTOR_DISABLED( 2 ),
+                                           _COLLECTOR_INIT( 2 ),
                                            _COLLECTOR_INIT( 3 ) };
 static collector_task g_tasks[ KERNEL_ACQ_OP_COUNT  ] = { task_ping,
                                                           task_get_new_processes,
@@ -334,7 +334,7 @@ NTSTATUS
     {
         if( NULL == g_collectors[ i ].initializer ) continue;
 
-        if( !g_collectors[ i ].initializer() )
+        if( !g_collectors[ i ].initializer( DriverObject ) )
         {
             rpal_debug_kernel( "Failed to initialize collector %d.", i + 1 );
             status = (-1);
