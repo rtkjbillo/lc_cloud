@@ -34,7 +34,7 @@ typedef struct
     RBOOL isDelete;
     RBOOL isNew;
     RBOOL isChanged;
-    PFLT_FILE_NAME_INFORMATION moveSrc;
+    RU32 lastWritePid;
 } _fileContext;
 
 static
@@ -44,31 +44,51 @@ _fileContext*
         PFLT_CALLBACK_DATA Data
     )
 {
+    NTSTATUS status = STATUS_SUCCESS;
     _fileContext* context = NULL;
+    _fileContext* oldContext = NULL;
 
-    if( !NT_SUCCESS( FltGetFileContext( Data->Iopb->TargetInstance,
-                                        Data->Iopb->TargetFileObject,
-                                        &context ) ) &&
-        NT_SUCCESS( FltAllocateContext( g_filter,
-                                        FLT_FILE_CONTEXT,
-                                        sizeof( _fileContext ),
-                                        NonPagedPool,
-                                        (PFLT_CONTEXT*)&context ) ) )
+    status = FltGetFileContext( Data->Iopb->TargetInstance,
+                                Data->Iopb->TargetFileObject,
+                                &context );
+
+    if( STATUS_NOT_FOUND == status )
     {
-        context->isNew = TRUE;
-        context->isDelete = FALSE;
-        context->isChanged = FALSE;
-        context->moveSrc = NULL;
-
-        if( !NT_SUCCESS( FltSetFileContext( Data->Iopb->TargetInstance,
-                                            Data->Iopb->TargetFileObject,
-                                            FLT_SET_CONTEXT_KEEP_IF_EXISTS,
-                                            context,
-                                            NULL ) ) )
+        status = FltAllocateContext( g_filter,
+                                     FLT_FILE_CONTEXT,
+                                     sizeof( _fileContext ),
+                                     NonPagedPool,
+                                     (PFLT_CONTEXT*)&context );
+        
+        if( STATUS_SUCCESS == status )
         {
-            FltReleaseContext( (PFLT_CONTEXT)context );
-            context = NULL;
+            context->isNew = FALSE;
+            context->isDelete = FALSE;
+            context->isChanged = FALSE;
+            context->lastWritePid = 0;
+
+            status = FltSetFileContext( Data->Iopb->TargetInstance,
+                                        Data->Iopb->TargetFileObject,
+                                        FLT_SET_CONTEXT_KEEP_IF_EXISTS,
+                                        context,
+                                        &oldContext );
+
+            if( STATUS_FLT_CONTEXT_ALREADY_DEFINED == status )
+            {
+                FltReleaseContext( (PFLT_CONTEXT)context );
+                context = oldContext;
+            }
+            else if( STATUS_SUCCESS != status )
+            {
+                FltReleaseContext( (PFLT_CONTEXT)context );
+                context = NULL;
+            }
         }
+    }
+
+    if( NULL_CONTEXT == context )
+    {
+        context = NULL;
     }
 
     return context;
@@ -84,9 +104,6 @@ FLT_PREOP_CALLBACK_STATUS
     )
 {
     FLT_PREOP_CALLBACK_STATUS status = FLT_PREOP_SUCCESS_WITH_CALLBACK;
-    RU32 createOptions = 0;
-    RU32 createDispositions = 0;
-    _fileContext* context = NULL;
     
     UNREFERENCED_PARAMETER( FltObjects );
     UNREFERENCED_PARAMETER( CompletionContext );
@@ -94,31 +111,6 @@ FLT_PREOP_CALLBACK_STATUS
     if( UserMode != Data->RequestorMode )
     {
         return FLT_PREOP_SUCCESS_NO_CALLBACK;
-    }
-
-    createOptions = Data->Iopb->Parameters.Create.Options & 0x00FFFFFF;
-    createDispositions = ( Data->Iopb->Parameters.Create.Options & 0xFF000000 ) >> 24;
-
-    if( IS_FLAG_ENABLED( createOptions, FILE_DELETE_ON_CLOSE ) )
-    {
-        if( NT_SUCCESS( FltAllocateContext( g_filter,
-                                            FLT_FILE_CONTEXT,
-                                            sizeof( _fileContext ),
-                                            NonPagedPool,
-                                            (PFLT_CONTEXT*)&context ) ) )
-        {
-            context->isDelete = TRUE;
-            context->isNew = FALSE;
-            context->isChanged = FALSE;
-
-            FltSetFileContext( Data->Iopb->TargetInstance,
-                               Data->Iopb->TargetFileObject,
-                               FLT_SET_CONTEXT_KEEP_IF_EXISTS,
-                               context,
-                               NULL );
-
-            FltReleaseContext( (PFLT_CONTEXT)context );
-        }
     }
 
     return status;
@@ -137,9 +129,10 @@ FLT_POSTOP_CALLBACK_STATUS
     FLT_POSTOP_CALLBACK_STATUS status = FLT_POSTOP_FINISHED_PROCESSING;
     KLOCK_QUEUE_HANDLE hMutex = { 0 };
     PFLT_FILE_NAME_INFORMATION fileInfo = NULL;
-    PEPROCESS procInfo = NULL;
     RU32 pid = 0;
     RU64 ts = 0;
+    RU32 createOptions = 0;
+    RU32 createDispositions = 0;
     _fileContext* context = NULL;
     
     UNREFERENCED_PARAMETER( FltObjects );
@@ -155,26 +148,25 @@ FLT_POSTOP_CALLBACK_STATUS
 
     if( FILE_CREATED == Data->IoStatus.Information )
     {
-        procInfo = IoThreadToProcess( Data->Thread );
-        pid = (RU32)PsGetProcessId( procInfo );
+        pid = (RU32)FltGetRequestorProcessId( Data );
         ts = rpal_time_getLocal();
-
+        
         if( !NT_SUCCESS( FltGetFileNameInformation( Data,
                                                     FLT_FILE_NAME_NORMALIZED |
                                                     FLT_FILE_NAME_QUERY_ALWAYS_ALLOW_CACHE_LOOKUP,
                                                     &fileInfo ) ) )
         {
             rpal_debug_kernel( "Failed to get file name info" );
+            fileInfo = NULL;
         }
         else
         {
-            rpal_debug_kernel( "NEW: %wZ", fileInfo->Name );
+            //rpal_debug_kernel( "NEW: %wZ", fileInfo->Name );
         }
 
         if( NULL != ( context = _getOrSetContext( Data ) ) )
         {
             context->isNew = TRUE;
-
             FltReleaseContext( (PFLT_CONTEXT)context );
         }
 
@@ -202,6 +194,18 @@ FLT_POSTOP_CALLBACK_STATUS
         KeReleaseInStackQueuedSpinLock( &hMutex );
     }
 
+    createOptions = Data->Iopb->Parameters.Create.Options & 0x00FFFFFF;
+    createDispositions = ( Data->Iopb->Parameters.Create.Options & 0xFF000000 ) >> 24;
+
+    if( IS_FLAG_ENABLED( createOptions, FILE_DELETE_ON_CLOSE ) )
+    {
+        if( NULL != ( context = _getOrSetContext( Data ) ) )
+        {
+            context->isDelete = TRUE;
+            FltReleaseContext( (PFLT_CONTEXT)context );
+        }
+    }
+
     return status;
 }
 
@@ -216,7 +220,6 @@ FLT_PREOP_CALLBACK_STATUS
 {
     FLT_PREOP_CALLBACK_STATUS status = FLT_PREOP_SUCCESS_NO_CALLBACK;
     PFLT_FILE_NAME_INFORMATION fileInfoSrc = NULL;
-    _fileContext* context = NULL;
 
     UNREFERENCED_PARAMETER( Data );
     UNREFERENCED_PARAMETER( FltObjects );
@@ -230,24 +233,14 @@ FLT_PREOP_CALLBACK_STATUS
                                                    FLT_FILE_NAME_QUERY_ALWAYS_ALLOW_CACHE_LOOKUP,
                                                    &fileInfoSrc ) ) )
         {
-            if( NULL != ( context = _getOrSetContext( Data ) ) )
-            {
-                context->moveSrc = fileInfoSrc;
-
-                FltReleaseContext( (PFLT_CONTEXT)context );
-
-                status = FLT_PREOP_SUCCESS_WITH_CALLBACK;
-            }
-            else
-            {
-                FltReleaseFileNameInformation( fileInfoSrc );
-            }
+            status = FLT_PREOP_SYNCHRONIZE;
+            *CompletionContext = fileInfoSrc;
         }
     }
     else if( FileDispositionInformation == Data->Iopb->Parameters.SetFileInformation.FileInformationClass ||
              FileDispositionInformationEx == Data->Iopb->Parameters.SetFileInformation.FileInformationClass )
     {
-        status = FLT_PREOP_SUCCESS_WITH_CALLBACK;
+        status = FLT_PREOP_SYNCHRONIZE;
     }
 
     return status;
@@ -267,7 +260,6 @@ FLT_POSTOP_CALLBACK_STATUS
     KLOCK_QUEUE_HANDLE hMutex = { 0 };
     PFLT_FILE_NAME_INFORMATION fileInfoSrc = NULL;
     PFLT_FILE_NAME_INFORMATION fileInfoDst = NULL;
-    PEPROCESS procInfo = NULL;
     RU32 pid = 0;
     RU64 ts = 0;
     RU32 createOptions = 0;
@@ -288,18 +280,9 @@ FLT_POSTOP_CALLBACK_STATUS
 
     if( FileRenameInformation == Data->Iopb->Parameters.SetFileInformation.FileInformationClass )
     {
-        if( NT_SUCCESS( FltGetFileContext( Data->Iopb->TargetInstance,
-                                           Data->Iopb->TargetFileObject,
-                                           &context ) ) )
+        if( NULL != ( fileInfoSrc = (PFLT_FILE_NAME_INFORMATION)CompletionContext ) )
         {
-            fileInfoSrc = context->moveSrc;
-
-            FltReleaseContext( (PFLT_CONTEXT)context );
-        }
-
-        if( NULL != fileInfoSrc )
-        {
-            rpal_debug_kernel( "MOVE OLD: %wZ", fileInfoSrc->Name );
+            //rpal_debug_kernel( "MOVE OLD: %wZ", fileInfoSrc->Name );
         }
         else
         {
@@ -321,11 +304,10 @@ FLT_POSTOP_CALLBACK_STATUS
         }
         else
         {
-            rpal_debug_kernel( "MOVE TO: %wZ", fileInfoDst->Name );
+            //rpal_debug_kernel( "MOVE TO: %wZ", fileInfoDst->Name );
         }
 
-        procInfo = IoThreadToProcess( Data->Thread );
-        pid = (RU32)PsGetProcessId( procInfo );
+        pid = (RU32)FltGetRequestorProcessId( Data );
         ts = rpal_time_getLocal();
 
         createOptions = Data->Iopb->Parameters.Create.Options & 0x00FFFFFF;
@@ -401,11 +383,36 @@ FLT_PREOP_CALLBACK_STATUS
         PVOID *CompletionContext
     )
 {
-    FLT_PREOP_CALLBACK_STATUS status = FLT_PREOP_SUCCESS_WITH_CALLBACK;
+    FLT_PREOP_CALLBACK_STATUS status = FLT_PREOP_SUCCESS_NO_CALLBACK;
+    _fileContext* context = NULL;
+    PFLT_FILE_NAME_INFORMATION fileInfo = NULL;
 
     UNREFERENCED_PARAMETER( Data );
     UNREFERENCED_PARAMETER( FltObjects );
     UNREFERENCED_PARAMETER( CompletionContext );
+
+    if( NT_SUCCESS( FltGetFileContext( Data->Iopb->TargetInstance,
+                                       Data->Iopb->TargetFileObject,
+                                       &context ) ) )
+    {
+        if( context->isDelete )
+        {
+            status = FLT_PREOP_SYNCHRONIZE;
+
+            if( !NT_SUCCESS( FltGetFileNameInformation( Data,
+                                                        FLT_FILE_NAME_NORMALIZED |
+                                                        FLT_FILE_NAME_QUERY_ALWAYS_ALLOW_CACHE_LOOKUP,
+                                                        &fileInfo ) ) )
+            {
+                fileInfo = NULL;
+            }
+
+            *CompletionContext = fileInfo;
+        }
+
+        FltReleaseContext( (PFLT_CONTEXT)context );
+    }
+
 
     return status;
 }
@@ -422,95 +429,74 @@ FLT_POSTOP_CALLBACK_STATUS
 {
     FLT_POSTOP_CALLBACK_STATUS status = FLT_POSTOP_FINISHED_PROCESSING;
     KLOCK_QUEUE_HANDLE hMutex = { 0 };
-    PFLT_FILE_NAME_INFORMATION fileInfo = NULL;
-    PEPROCESS procInfo = NULL;
+    PFLT_FILE_NAME_INFORMATION fileInfo = (PFLT_FILE_NAME_INFORMATION)CompletionContext;
+    FILE_STANDARD_INFORMATION fileStdInfo = { 0 };
     RU32 pid = 0;
     RU64 ts = 0;
     _fileContext* context = NULL;
-    RU32 action = 0;
     
     UNREFERENCED_PARAMETER( FltObjects );
     UNREFERENCED_PARAMETER( CompletionContext );
     UNREFERENCED_PARAMETER( Flags );
 
-    // We only care about user mode for now.
-    if( STATUS_SUCCESS != Data->IoStatus.Status )
-    {
-        return status;
-    }
-
     if( NT_SUCCESS( FltGetFileContext( Data->Iopb->TargetInstance,
                                        Data->Iopb->TargetFileObject,
                                        &context ) ) )
     {
-        if( ( context->isDelete &&
-              STATUS_FILE_DELETED == FltQueryInformationFile( Data->Iopb->TargetInstance,
-                                                              Data->Iopb->TargetFileObject,
-                                                              &fileInfo,
-                                                              sizeof( fileInfo ),
-                                                              FileStandardInformation,
-                                                              NULL ) ) ||
-            ( context->isChanged &&
-              !context->isNew ) )
+        if( STATUS_SUCCESS == Data->IoStatus.Status )
         {
-            if( !NT_SUCCESS( FltGetFileNameInformation( Data,
-                                                        FLT_FILE_NAME_NORMALIZED |
-                                                        FLT_FILE_NAME_QUERY_ALWAYS_ALLOW_CACHE_LOOKUP,
-                                                        &fileInfo ) ) )
+            if( context->isDelete &&
+                STATUS_FILE_DELETED == FltQueryInformationFile( Data->Iopb->TargetInstance,
+                                                                Data->Iopb->TargetFileObject,
+                                                                &fileStdInfo,
+                                                                sizeof( fileStdInfo ),
+                                                                FileStandardInformation,
+                                                                NULL ) )
             {
-                rpal_debug_kernel( "Failed to get file name info" );
-            }
-            else
-            {
-                if( context->isChanged )
+                if( NULL == fileInfo )
                 {
-                    rpal_debug_kernel( "CHANGE: %wZ", fileInfo->Name );
+                    rpal_debug_kernel( "Failed to get file name info" );
                 }
                 else
                 {
-                    rpal_debug_kernel( "DEL: %wZ", fileInfo->Name );
+                    //rpal_debug_kernel( "DEL: %wZ", fileInfo->Name );
                 }
+
+                pid = (RU32)FltGetRequestorProcessId( Data );
+                ts = rpal_time_getLocal();
+
+                KeAcquireInStackQueuedSpinLock( &g_collector_2_mutex, &hMutex );
+
+                g_files[ g_nextFile ].pid = pid;
+                g_files[ g_nextFile ].ts = ts;
+                g_files[ g_nextFile ].uid = KERNEL_ACQ_NO_USER_ID;
+                g_files[ g_nextFile ].action = KERNEL_ACQ_FILE_ACTION_REMOVED;
+
+                if( NULL != fileInfo )
+                {
+                    copyUnicodeStringToBuffer( &fileInfo->Name,
+                                               g_files[ g_nextFile ].path );
+                }
+
+                g_nextFile++;
+                if( g_nextFile == _NUM_BUFFERED_FILES )
+                {
+                    g_nextFile = 0;
+                }
+
+                KeReleaseInStackQueuedSpinLock( &hMutex );
             }
-
-            procInfo = IoThreadToProcess( Data->Thread );
-            pid = (RU32)PsGetProcessId( procInfo );
-            ts = rpal_time_getLocal();
-
-            if( context->isDelete )
-            {
-                action = KERNEL_ACQ_FILE_ACTION_REMOVED;
-            }
-            else if( context->isChanged &&
-                     !context->isNew )
-            {
-                action = KERNEL_ACQ_FILE_ACTION_MODIFIED;
-            }
-
-            KeAcquireInStackQueuedSpinLock( &g_collector_2_mutex, &hMutex );
-
-            g_files[ g_nextFile ].pid = pid;
-            g_files[ g_nextFile ].ts = ts;
-            g_files[ g_nextFile ].uid = KERNEL_ACQ_NO_USER_ID;
-            g_files[ g_nextFile ].action = action;
-
-            if( NULL != fileInfo )
-            {
-                copyUnicodeStringToBuffer( &fileInfo->Name,
-                                           g_files[ g_nextFile ].path );
-
-                FltReleaseFileNameInformation( fileInfo );
-            }
-
-            g_nextFile++;
-            if( g_nextFile == _NUM_BUFFERED_FILES )
-            {
-                g_nextFile = 0;
-            }
-
-            KeReleaseInStackQueuedSpinLock( &hMutex );
         }
 
         FltReleaseContext( context );
+        FltDeleteFileContext( Data->Iopb->TargetInstance,
+                              Data->Iopb->TargetFileObject,
+                              NULL );
+    }
+
+    if( NULL != fileInfo )
+    {
+        FltReleaseFileNameInformation( fileInfo );
     }
 
     return status;
@@ -526,7 +512,7 @@ FLT_PREOP_CALLBACK_STATUS
         PVOID *CompletionContext
     )
 {
-    FLT_PREOP_CALLBACK_STATUS status = FLT_PREOP_SUCCESS_WITH_CALLBACK;
+    FLT_PREOP_CALLBACK_STATUS status = FLT_PREOP_SYNCHRONIZE;
 
     UNREFERENCED_PARAMETER( Data );
     UNREFERENCED_PARAMETER( FltObjects );
@@ -535,11 +521,6 @@ FLT_PREOP_CALLBACK_STATUS
     if( UserMode != Data->RequestorMode )
     {
         status = FLT_PREOP_SUCCESS_NO_CALLBACK;
-        rpal_debug_kernel( "KM WRITE" );
-    }
-    else
-    {
-        rpal_debug_kernel( "WRITE TO CB" );
     }
 
     return status;
@@ -557,12 +538,14 @@ FLT_POSTOP_CALLBACK_STATUS
 {
     FLT_POSTOP_CALLBACK_STATUS status = FLT_POSTOP_FINISHED_PROCESSING;
     _fileContext* context = NULL;
+    KLOCK_QUEUE_HANDLE hMutex = { 0 };
+    PFLT_FILE_NAME_INFORMATION fileInfo = NULL;
+    RU32 pid = 0;
+    RU64 ts = 0;
 
     UNREFERENCED_PARAMETER( FltObjects );
     UNREFERENCED_PARAMETER( CompletionContext );
     UNREFERENCED_PARAMETER( Flags );
-
-    rpal_debug_kernel( "WRITE POST" );
 
     // We only care about user mode for now.
     if( UserMode != Data->RequestorMode ||
@@ -571,11 +554,60 @@ FLT_POSTOP_CALLBACK_STATUS
         return status;
     }
 
-    rpal_debug_kernel( "DO WRITE" );
-
     if( NULL != ( context = _getOrSetContext( Data ) ) )
     {
-        context->isChanged = TRUE;
+        pid = (RU32)FltGetRequestorProcessId( Data );
+
+        if( 0 != pid &&
+            ( !context->isChanged ||
+              context->lastWritePid != pid ) &&
+            !context->isNew )
+        {
+            context->isChanged = TRUE;
+            context->lastWritePid = pid;
+
+            if( !NT_SUCCESS( FltGetFileNameInformation( Data,
+                                                        FLT_FILE_NAME_NORMALIZED |
+                                                        FLT_FILE_NAME_QUERY_ALWAYS_ALLOW_CACHE_LOOKUP,
+                                                        &fileInfo ) ) )
+            {
+                rpal_debug_kernel( "Failed to get file name info" );
+                fileInfo = NULL;
+            }
+            else
+            {
+                //rpal_debug_kernel( "WRITE: %d %wZ", pid, fileInfo->Name );
+
+                if( 0 == pid )
+                {
+                    pid = (RU32)FltGetRequestorProcessId( Data );
+                }
+                ts = rpal_time_getLocal();
+
+                KeAcquireInStackQueuedSpinLock( &g_collector_2_mutex, &hMutex );
+
+                g_files[ g_nextFile ].pid = pid;
+                g_files[ g_nextFile ].ts = ts;
+                g_files[ g_nextFile ].uid = KERNEL_ACQ_NO_USER_ID;
+                g_files[ g_nextFile ].action = KERNEL_ACQ_FILE_ACTION_MODIFIED;
+
+                if( NULL != fileInfo )
+                {
+                    copyUnicodeStringToBuffer( &fileInfo->Name,
+                                               g_files[ g_nextFile ].path );
+
+                    FltReleaseFileNameInformation( fileInfo );
+                }
+
+                g_nextFile++;
+                if( g_nextFile == _NUM_BUFFERED_FILES )
+                {
+                    g_nextFile = 0;
+                }
+
+                KeReleaseInStackQueuedSpinLock( &hMutex );
+            }
+        }
 
         FltReleaseContext( (PFLT_CONTEXT)context );
     }

@@ -84,6 +84,7 @@ typedef struct
 #define KERNEL_ACQ_FILE_ACTION_MODIFIED     3
 #define KERNEL_ACQ_FILE_ACTION_RENAME_OLD   4
 #define KERNEL_ACQ_FILE_ACTION_RENAME_NEW   5
+#define KERNEL_ACQ_FILE_ACTION_READ         6
 typedef struct
 {
     RU32 action;

@@ -100,7 +100,7 @@ static CollectorContext g_collectors[] = { _COLLECTOR_INIT( 1 ),
                                            _COLLECTOR_INIT( 3 ) };
 static collector_task g_tasks[ KERNEL_ACQ_OP_COUNT  ] = { task_ping,
                                                           task_get_new_processes,
-                                                          NULL,
+                                                          task_get_new_files,
                                                           task_get_new_module_loads };
 
 
