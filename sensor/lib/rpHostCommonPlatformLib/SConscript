@@ -5,6 +5,7 @@ import profiles
 profiles.StaticLibrary(
         'rpHostCommonPlatformLib',
         profiles.ObfuscatedHeader(),
+        profiles.GitInfo(),
         profiles.RpalModule(),
         ).Target(
             env,
