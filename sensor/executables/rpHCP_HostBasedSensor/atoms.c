@@ -148,7 +148,6 @@ RBOOL
 {
     RBOOL isSuccess = FALSE;
     Atom tmpAtom = { 0 };
-    Atom nextAtom = { 0 };
     RU64 curTime = 0;
 
     if( NULL != pAtom )
@@ -168,22 +167,15 @@ RBOOL
             {
                 curTime = rpal_time_getGlobalPreciseTime();
 
-                while( rpal_btree_next( g_atoms, &tmpAtom, &nextAtom, FALSE ) )
+                do
                 {
                     if( 0 != tmpAtom.expiredOn &&
                         curTime > tmpAtom.expiredOn + _ATOM_GRACE_MS )
                     {
                         rpal_btree_remove( g_atoms, &tmpAtom, NULL, FALSE );
                     }
-
-                    tmpAtom = nextAtom;
                 }
-
-                if( 0 != tmpAtom.expiredOn &&
-                    curTime > tmpAtom.expiredOn + _ATOM_GRACE_MS )
-                {
-                    rpal_btree_remove( g_atoms, &tmpAtom, NULL, FALSE );
-                }
+                while( rpal_btree_next( g_atoms, &tmpAtom, &tmpAtom, FALSE ) );
             }
 
             rpal_debug_info( "atom cleanup finished, %d left", rpal_btree_getSize( g_atoms, FALSE ) );
@@ -211,4 +203,34 @@ RBOOL
     }
 
     return isSuccess;
+}
+
+RU32
+    atoms_getPid
+    (
+        Atom* pAtom
+    )
+{
+    RU32 pid = 0;
+    Atom tmpAtom = { 0 };
+
+    if( NULL != pAtom )
+    {
+        if( rpal_btree_minimum( g_atoms, &tmpAtom, FALSE ) )
+        {
+            do
+            {
+                if( 0 == rpal_memory_memcmp( tmpAtom.id,
+                                             pAtom->id, 
+                                             sizeof( tmpAtom.id ) ) )
+                {
+                    pid = tmpAtom.key.process.pid;
+                    break;
+                }
+            }
+            while( rpal_btree_next( g_atoms, &tmpAtom, &tmpAtom, FALSE ) );
+        }
+    }
+
+    return pid;
 }

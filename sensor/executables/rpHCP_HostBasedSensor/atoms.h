@@ -77,3 +77,9 @@ RBOOL
     (
         Atom* pAtom
     );
+
+RU32
+    atoms_getPid
+    (
+        Atom* pAtom
+    );
