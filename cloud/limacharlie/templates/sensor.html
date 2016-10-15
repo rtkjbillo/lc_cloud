@@ -165,7 +165,7 @@ $var title = sensor_id
     function do_refresh_online()
     {
         jQuery.getJSON( '/sensor_state',
-                    { sensor_id : "$sensor_id" } ).done(function(data){set_connected(data.is_online, data.lastseen);})
+                    { sensor_id : "$sensor_id" } ).done(function(data){set_connected(data.live_status, data.lastseen);})
                                                   .fail(function(){set_connected(false);})
                                                   .always(function(){setTimeout( do_refresh_online, 5000 );});
     }

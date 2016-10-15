@@ -157,7 +157,8 @@ Patrol( 'SensorDirectory',
             'parameters' : {},
             'secretIdent' : 'sensordir/3babff24-400b-4233-bcac-18f538a88fe1',
             'trustedIdents' : [ 'beacon/09ba97ab-5557-4030-9db0-1dbe7f2b9cfd',
-                                'taskingproxy/794729aa-1ef5-4930-b377-48dda7b759a5' ],
+                                'taskingproxy/794729aa-1ef5-4930-b377-48dda7b759a5',
+                                'lc/0bf01f7e-62bd-4cc4-9fec-4c52e82eb903' ],
             'n_concurrent' : 5,
             'isIsolated' : False } )
 
