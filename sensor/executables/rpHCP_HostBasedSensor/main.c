@@ -261,10 +261,10 @@ static RVOID
 
 
 static RBOOL
-checkKernelAcquisition
-(
+    checkKernelAcquisition
+    (
 
-)
+    )
 {
     RBOOL isKernelInit = FALSE;
 
@@ -872,6 +872,8 @@ RPAL_THREAD_FUNC
         rEvent_free( g_hbs_state.isTimeToStop );
         return (RU32)-1;
     }
+
+    checkKernelAcquisition();
 
     // Initial boot and we have no profile yet, we'll load a dummy
     // blank profile and use our defaults.

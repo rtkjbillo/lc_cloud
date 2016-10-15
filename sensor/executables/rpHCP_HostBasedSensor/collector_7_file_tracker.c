@@ -155,6 +155,8 @@ RPVOID
     KernelAcqFileIo new_from_kernel[ 200 ] = { 0 };
     RU32 i = 0;
     Atom parentAtom = { 0 };
+    RPNCHAR cleanPath = NULL;
+    RPNCHAR actualPath = NULL;
 
     while( rpal_memory_isValid( isTimeToStop ) &&
            !rEvent_wait( isTimeToStop, 1000 ) )
@@ -202,12 +204,21 @@ RPVOID
                                          sizeof( parentAtom.id ) );
                 }
 
-                if( rSequence_addSTRINGN( notif, RP_TAGS_FILE_PATH, new_from_kernel[ i ].path ) &&
+                actualPath = new_from_kernel[ i ].path;
+
+                if( NULL != ( cleanPath = rpal_file_clean( new_from_kernel[ i ].path ) ) )
+                {
+                    actualPath = cleanPath;
+                }
+
+                if( rSequence_addSTRINGN( notif, RP_TAGS_FILE_PATH, actualPath ) &&
                     rSequence_addRU32( notif, RP_TAGS_PROCESS_ID, new_from_kernel[ i ].pid ) &&
                     hbs_timestampEvent( notif, new_from_kernel[ i ].ts ) )
                 {
                     hbs_publish( event, notif );
                 }
+
+                rpal_memory_free( cleanPath );
 
                 rSequence_free( notif );
             }
