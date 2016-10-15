@@ -159,12 +159,19 @@ class SensorState:
             raise web.HTTPError( '400 Bad Request: sensor id required' )
 
         info = model.request( 'get_sensor_info', { 'id_or_host' : params.sensor_id } )
+        live_status = sensordir.request( 'get_endpoint', { 'aid' : params.sensor_id } )
+        if not live_status.isSuccess:
+            live_status = False
+        else:
+            live_status = True if live_status.data.get( 'endpoint', None ) is not None else False
 
         if not info.isSuccess:
             raise web.HTTPError( '503 Service Unavailable: %s' % str( info ) )
 
         if 0 == len( info.data ):
             raise web.HTTPError( '204 No Content: sensor not found' )
+
+        info.data[ 'live_status' ] = live_status
 
         return info.data
 
@@ -564,5 +571,6 @@ beach = Beach( sys.argv[ 1 ], realm = 'hcp' )
 del( sys.argv[ 1 ] )
 model = beach.getActorHandle( 'models', nRetries = 3, timeout = 30, ident = 'lc/0bf01f7e-62bd-4cc4-9fec-4c52e82eb903' )
 capabilities = beach.getActorHandle( 'analytics/capabilitymanager', nRetries = 3, timeout = 30, ident = 'lc/0bf01f7e-62bd-4cc4-9fec-4c52e82eb903' )
+sensordir = beach.getActorHandle( 'c2/sensordir', nRetries = 3, timeout = 30, ident = 'lc/0bf01f7e-62bd-4cc4-9fec-4c52e82eb903' )
 
 app.run()

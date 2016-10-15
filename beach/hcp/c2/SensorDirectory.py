@@ -49,6 +49,6 @@ class SensorDirectory( Actor ):
         return ( True, )
 
     def getEndpoint( self, msg ):
-        aid = msg.data[ 'aid' ]
+        aid = AgentId( msg.data[ 'aid' ] ).invariableToString()
         endpoint = self.directory.get( aid, None )
         return ( True, { 'aid' : aid, 'endpoint' : endpoint } )
