@@ -1,6 +1,8 @@
 #! /bin/sh
 
-apt-get install git
+apt-get update -y
+apt-get upgrade -y
+apt-get install git -y
 
 sudo -c "git clone https://github.com/refractionPOINT/limacharlie.git -b develop &> install_log.txt" `logname`
 cd limacharlie/cloud/infrastructure/
