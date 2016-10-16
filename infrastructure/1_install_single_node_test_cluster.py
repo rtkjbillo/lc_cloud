@@ -95,8 +95,7 @@ printStep( 'Installing Yara.',
     os.system( 'echo "/usr/local/lib" >> /etc/ld.so.conf' ),
     os.system( 'ldconfig' ) )
 
-printStep( 'Setting up host file entries for databases locally.',
-    os.system( 'echo "127.0.0.1 hcp-state-db" >> /etc/hosts' ),
+printStep( 'Setting up host file entries for databases locally.',,
     os.system( 'echo "127.0.0.1 hcp-scale-db" >> /etc/hosts' ) )
 
 printStep( 'Setting up the cloud tags.',
@@ -115,3 +114,6 @@ printStep( 'Setup LC web ui dependencies.',
                                                'cloud',
                                                'limacharlie' ) ) ),
     os.system( 'pip install markdown' ) )
+
+printStep( 'Redirect port 80 to 9090 so we can run as non-root.',
+           os.system( 'iptables -t nat -A PREROUTING -p tcp --dport 80 -j REDIRECT --to-port 9090' ) )
