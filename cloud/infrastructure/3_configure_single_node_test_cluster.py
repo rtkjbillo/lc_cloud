@@ -27,6 +27,7 @@ if 2 == len( sys.argv ):
     if not os.path.isdir( binaryPath ):
         print( "The path to the binaries is not valid: %s" % binaryPath )
         sys.exit(-1)
+cwd = os.path.curdir
 
 def printStep( step, *ret ):
     msg = '''
@@ -60,6 +61,10 @@ def execInBackend( script ):
     os.unlink( '_tmp_script' )
     return ret
 
+printStep( 'Downloading prebuilt release sensor binaries.',
+           os.chdir( binaryPath ),
+           os.system( os.path.join( binaryPath, 'download_binaries.sh' ) ),
+           os.chdir( cwd ) )
 
 printStep( 'Adding enrollment rule to the cloud to enroll all sensors into the 1.1 range.',
     execInBackend( 'hcp_addEnrollmentRule -m ff.ff.ffffffff.fff.ff -o 1 -s 1' ) )
