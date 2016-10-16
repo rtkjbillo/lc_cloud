@@ -1,9 +1,6 @@
-#! /bin/sh
-
 apt-get update -y
 apt-get upgrade -y
 apt-get install git -y
-
 su -c "git clone https://github.com/refractionPOINT/limacharlie.git -b develop" `logname`
 cd limacharlie/cloud/infrastructure/
 su -c "touch install_log.txt" `logname`
