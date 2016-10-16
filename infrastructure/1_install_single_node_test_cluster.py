@@ -69,7 +69,7 @@ printStep( 'Starting Cassandra after hotfix.',
            os.system( 'service cassandra start' ) )
 
 printStep( 'Initializing Cassandra schema.',
-    os.system( 'sleep 10' ),
+    os.system( 'sleep 30' ),
     os.system( 'cqlsh < %s' % ( os.path.join( root,
                                               'cloud',
                                               'schema',
