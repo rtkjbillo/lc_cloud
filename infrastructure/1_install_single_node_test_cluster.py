@@ -95,7 +95,7 @@ printStep( 'Installing Yara.',
     os.system( 'echo "/usr/local/lib" >> /etc/ld.so.conf' ),
     os.system( 'ldconfig' ) )
 
-printStep( 'Setting up host file entries for databases locally.',,
+printStep( 'Setting up host file entries for databases locally.',
     os.system( 'echo "127.0.0.1 hcp-scale-db" >> /etc/hosts' ) )
 
 printStep( 'Setting up the cloud tags.',
