@@ -16,10 +16,6 @@ import os
 import sys
 import hashlib
 
-if os.geteuid() != 0:
-    print( 'Please run me as root to setup this test, but don\'t ever do that in production!' )
-    sys.exit(-1)
-
 root = os.path.join( os.path.abspath( os.path.dirname( __file__ ) ), '..', '..' )
 binaryPath = os.path.join( root, 'prebuilt_binaries' )
 if 2 == len( sys.argv ):
