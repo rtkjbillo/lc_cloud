@@ -12,6 +12,26 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+###############################################################################
+# Metadata
+'''
+LC_DETECTION_MTD_START
+{
+    "type" : "stateless",
+    "description" : "Sample barebones hunter.",
+    "requirements" : "",
+    "feeds" : [],
+    "platform" : "all",
+    "author" : "maximelb@google.com",
+    "version" : "1.0",
+    "scaling_factor" : 10000,
+    "n_concurrent" : 5,
+    "usage" : {}
+}
+LC_DETECTION_MTD_END
+'''
+###############################################################################
+
 from beach.actor import Actor
 Hunter = Actor.importLib( '../../Hunters', 'Hunter' )
 _xm_ = Actor.importLib( '../../utils/hcp_helpers', '_xm_' )

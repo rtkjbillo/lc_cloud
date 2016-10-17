@@ -23,10 +23,6 @@ else:
     BEACH_CONFIG_FILE = os.path.join( os.path.dirname( os.path.abspath( __file__ ) ), 'lc_local.yaml' )
 
 SCALE_DB = [ 'hcp-scale-db' ]
-STATE_DB = { 'url' : 'hcp-state-db',
-             'db' : 'hcp',
-             'user' : 'root',
-             'password' : 'letmein' }
 
 #######################################
 # EnrollmentManager

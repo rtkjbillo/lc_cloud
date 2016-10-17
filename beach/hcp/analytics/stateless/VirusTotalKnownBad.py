@@ -12,6 +12,31 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+###############################################################################
+# Metadata
+'''
+LC_DETECTION_MTD_START
+{
+    "type" : "stateless",
+    "description" : "Detects code matching VirusTotal malicious reports.",
+    "requirements" : "",
+    "feeds" : [ "notification.CODE_IDENTITY",
+                "notification.OS_SERVICES_REP",
+                "notification.OS_DRIVERS_REP",
+                "notification.OS_AUTORUNS_REP" ],
+    "platform" : "common",
+    "author" : "maximelb@google.com",
+    "version" : "1.0",
+    "scaling_factor" : 1000,
+    "n_concurrent" : 5,
+    "usage" : {
+        "qpm" : "max number of queries per minute to make"
+    }
+}
+LC_DETECTION_MTD_END
+'''
+###############################################################################
+
 from beach.actor import Actor
 ObjectTypes = Actor.importLib( '../../utils/ObjectsDb', 'ObjectTypes' )
 StatelessActor = Actor.importLib( '../../Detects', 'StatelessActor' )

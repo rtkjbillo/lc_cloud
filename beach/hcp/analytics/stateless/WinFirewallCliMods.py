@@ -12,6 +12,26 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+###############################################################################
+# Metadata
+'''
+LC_DETECTION_MTD_START
+{
+    "type" : "stateless",
+    "description" : "Detects cli based modifications to the Windows firewall.",
+    "requirements" : "",
+    "feeds" : [ "notification.NEW_PROCESS" ],
+    "platform" : "windows",
+    "author" : "maximelb@google.com",
+    "version" : "1.0",
+    "scaling_factor" : 1000,
+    "n_concurrent" : 5,
+    "usage" : {}
+}
+LC_DETECTION_MTD_END
+'''
+###############################################################################
+
 from beach.actor import Actor
 import re
 ObjectTypes = Actor.importLib( '../../utils/ObjectsDb', 'ObjectTypes' )

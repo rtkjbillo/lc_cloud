@@ -12,6 +12,33 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+###############################################################################
+# Metadata
+'''
+LC_DETECTION_MTD_START
+{
+    "type" : "stateless",
+    "description" : "Reports new critical Objects from sensors.",
+    "requirements" : "",
+    "feeds" : [],
+    "platform" : "all",
+    "author" : "maximelb@google.com",
+    "version" : "1.0",
+    "scaling_factor" : 1000,
+    "n_concurrent" : 5,
+    "isIsolated" : True,
+    "usage" : {
+        "types" : "list of object types",
+        "db" : "hostname of the scale database",
+        "rate_limit_per_sec" : "max number of queries per second",
+        "max_concurrent" : "max number of concurrent queries",
+        "block_on_queue_size" : "the number of elements in backlog before blocking"
+    }
+}
+LC_DETECTION_MTD_END
+'''
+###############################################################################
+
 from beach.actor import Actor
 ObjectTypes = Actor.importLib( '../../utils/ObjectsDb', 'ObjectTypes' )
 HostObjects = Actor.importLib( '../../utils/ObjectsDb', 'HostObjects' )

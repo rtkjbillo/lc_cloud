@@ -12,6 +12,31 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+###############################################################################
+# Metadata
+'''
+LC_DETECTION_MTD_START
+{
+    "type" : "stateless",
+    "description" : "Detects known Objects from an internal source.",
+    "requirements" : "",
+    "feeds" : [ "notification.NEW_PROCESS", 
+                "notification.CODE_IDENTITY", 
+                "notification.OS_SERVICES_REP", 
+                "notification.OS_DRIVERS_REP",
+                "notification.OS_AUTORUNS_REP",
+                "notification.DNS_REQUEST" ],
+    "platform" : "common",
+    "author" : "maximelb@google.com",
+    "version" : "1.0",
+    "scaling_factor" : 1000,
+    "n_concurrent" : 5,
+    "usage" : {}
+}
+LC_DETECTION_MTD_END
+'''
+###############################################################################
+
 from beach.actor import Actor
 ObjectTypes = Actor.importLib( '../../utils/ObjectsDb', 'ObjectTypes' )
 ObjectKey = Actor.importLib( '../../utils/ObjectsDb', 'ObjectKey' )

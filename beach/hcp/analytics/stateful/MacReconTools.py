@@ -12,6 +12,26 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+###############################################################################
+# Metadata
+'''
+LC_DETECTION_MTD_START
+{
+    "type" : "stateful",
+    "description" : "Detects bursts of recon tool activity on Mac.",
+    "requirements" : "",
+    "feeds" : [],
+    "platform" : "osx",
+    "author" : "maximelb@google.com",
+    "version" : "1.0",
+    "scaling_factor" : 500,
+    "n_concurrent" : 5,
+    "usage" : {}
+}
+LC_DETECTION_MTD_END
+'''
+###############################################################################
+
 from beach.actor import Actor
 ProcessBurst = Actor.importLib( '../../analytics/StateAnalysis/descriptors', 'ProcessBurst' )
 StatefulActor = Actor.importLib( '../../Detects', 'StatefulActor' )

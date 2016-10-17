@@ -119,7 +119,8 @@ class CapabilityManager( Actor ):
                                  'parameters' : arguments,
                                  'secretIdent' : secretIdent,
                                  'trustedIdents' : trustedIdents,
-                                 'n_concurrent' : summary.get( 'n_concurrent', 5 ) } )
+                                 'n_concurrent' : summary.get( 'n_concurrent', 5 ),
+                                 'isIsolated' : summary.get( 'isIsolated', False ) } )
 
         self.loaded[ userDefinedName ] = summary
         
