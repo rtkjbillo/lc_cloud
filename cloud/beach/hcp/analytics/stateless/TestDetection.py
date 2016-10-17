@@ -20,7 +20,7 @@ LC_DETECTION_MTD_START
     "type" : "stateless",
     "description" : "Test detection.",
     "requirements" : "",
-    "feeds" : [],
+    "feeds" : [ "notification.NEW_PROCESS" ],
     "platform" : "common",
     "author" : "maximelb@google.com",
     "version" : "1.0",
