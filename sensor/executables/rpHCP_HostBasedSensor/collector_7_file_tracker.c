@@ -29,6 +29,7 @@ static RBOOL g_is_kernel_failure = FALSE;  // Kernel acquisition failed for this
 static RBOOL g_is_create_enabled = TRUE;
 static RBOOL g_is_delete_enabled = TRUE;
 static RBOOL g_is_modified_enabled = TRUE;
+static RBOOL g_is_read_enabled = TRUE;
 
 static
 RBOOL
@@ -187,6 +188,11 @@ RPVOID
             {
                 event = RP_TAGS_NOTIFICATION_FILE_MODIFIED;
             }
+            else if( KERNEL_ACQ_FILE_ACTION_READ == new_from_kernel[ i ].action &&
+                     g_is_read_enabled )
+            {
+                event = RP_TAGS_NOTIFICATION_FILE_READ;
+            }
             else
             {
                 continue;
@@ -302,6 +308,10 @@ RBOOL
                 else if( RP_TAGS_NOTIFICATION_FILE_MODIFIED == tagDisabled )
                 {
                     g_is_modified_enabled = FALSE;
+                }
+                else if( RP_TAGS_NOTIFICATION_FILE_READ == tagDisabled )
+                {
+                    g_is_read_enabled = FALSE;
                 }
             }
         }

@@ -104,8 +104,8 @@ static int
             }
             else
             {
-                rpal_mutex_unlock( g_collector_2_mutex );
-                return KAUTH_RESULT_DEFER;
+                file_action = KERNEL_ACQ_FILE_ACTION_READ;
+                rpal_debug_info( "FILEIO-READ: %lld %d %d %s", ts, uid, pid, file_path );
             }
             
             g_files[ g_nextFile ].action = file_action;

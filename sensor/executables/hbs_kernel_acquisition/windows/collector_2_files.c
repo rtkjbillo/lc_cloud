@@ -34,7 +34,9 @@ typedef struct
     RBOOL isDelete;
     RBOOL isNew;
     RBOOL isChanged;
+    RBOOL isRead;
     RU32 lastWritePid;
+    RU32 lastReadPid;
 } _fileContext;
 
 static
@@ -65,7 +67,9 @@ _fileContext*
             context->isNew = FALSE;
             context->isDelete = FALSE;
             context->isChanged = FALSE;
+            context->isRead = FALSE;
             context->lastWritePid = 0;
+            context->lastReadPid = 0;
 
             status = FltSetFileContext( Data->Iopb->TargetInstance,
                                         Data->Iopb->TargetFileObject,
@@ -615,6 +619,119 @@ FLT_POSTOP_CALLBACK_STATUS
     return status;
 }
 
+
+static
+FLT_PREOP_CALLBACK_STATUS
+    FileReadFilterPreCallback
+    (
+        PFLT_CALLBACK_DATA Data,
+        PCFLT_RELATED_OBJECTS FltObjects,
+        PVOID *CompletionContext
+    )
+{
+    FLT_PREOP_CALLBACK_STATUS status = FLT_PREOP_SYNCHRONIZE;
+
+    UNREFERENCED_PARAMETER( Data );
+    UNREFERENCED_PARAMETER( FltObjects );
+    UNREFERENCED_PARAMETER( CompletionContext );
+
+    if( UserMode != Data->RequestorMode )
+    {
+        status = FLT_PREOP_SUCCESS_NO_CALLBACK;
+    }
+
+    return status;
+}
+
+static
+FLT_POSTOP_CALLBACK_STATUS
+    FileReadFilterPostCallback
+    (
+        PFLT_CALLBACK_DATA Data,
+        PCFLT_RELATED_OBJECTS FltObjects,
+        PVOID CompletionContext,
+        FLT_POST_OPERATION_FLAGS Flags
+    )
+{
+    FLT_POSTOP_CALLBACK_STATUS status = FLT_POSTOP_FINISHED_PROCESSING;
+    _fileContext* context = NULL;
+    KLOCK_QUEUE_HANDLE hMutex = { 0 };
+    PFLT_FILE_NAME_INFORMATION fileInfo = NULL;
+    RU32 pid = 0;
+    RU64 ts = 0;
+
+    UNREFERENCED_PARAMETER( FltObjects );
+    UNREFERENCED_PARAMETER( CompletionContext );
+    UNREFERENCED_PARAMETER( Flags );
+
+    // We only care about user mode for now.
+    if( UserMode != Data->RequestorMode ||
+        STATUS_SUCCESS != Data->IoStatus.Status )
+    {
+        return status;
+    }
+
+    if( NULL != ( context = _getOrSetContext( Data ) ) )
+    {
+        pid = (RU32)FltGetRequestorProcessId( Data );
+
+        if( 0 != pid &&
+            ( !context->isRead ||
+              context->lastReadPid != pid ) &&
+            !context->isNew )
+        {
+            context->isRead = TRUE;
+            context->lastReadPid = pid;
+
+            if( !NT_SUCCESS( FltGetFileNameInformation( Data,
+                                                        FLT_FILE_NAME_NORMALIZED |
+                                                        FLT_FILE_NAME_QUERY_ALWAYS_ALLOW_CACHE_LOOKUP,
+                                                        &fileInfo ) ) )
+            {
+                rpal_debug_kernel( "Failed to get file name info" );
+                fileInfo = NULL;
+            }
+            else
+            {
+                //rpal_debug_kernel( "READ: %d %wZ", pid, fileInfo->Name );
+
+                if( 0 == pid )
+                {
+                    pid = (RU32)FltGetRequestorProcessId( Data );
+                }
+                ts = rpal_time_getLocal();
+
+                KeAcquireInStackQueuedSpinLock( &g_collector_2_mutex, &hMutex );
+
+                g_files[ g_nextFile ].pid = pid;
+                g_files[ g_nextFile ].ts = ts;
+                g_files[ g_nextFile ].uid = KERNEL_ACQ_NO_USER_ID;
+                g_files[ g_nextFile ].action = KERNEL_ACQ_FILE_ACTION_READ;
+
+                if( NULL != fileInfo )
+                {
+                    copyUnicodeStringToBuffer( &fileInfo->Name,
+                                               g_files[ g_nextFile ].path );
+
+                    FltReleaseFileNameInformation( fileInfo );
+                }
+
+                g_nextFile++;
+                if( g_nextFile == _NUM_BUFFERED_FILES )
+                {
+                    g_nextFile = 0;
+                }
+
+                KeReleaseInStackQueuedSpinLock( &hMutex );
+            }
+        }
+
+        FltReleaseContext( (PFLT_CONTEXT)context );
+    }
+
+    return status;
+}
+
 static
 NTSTATUS
     FileFilterUnload
@@ -666,6 +783,11 @@ const FLT_OPERATION_REGISTRATION g_filterCallbacks[] = {
       FLTFL_OPERATION_REGISTRATION_SKIP_PAGING_IO,
       FileWriteFilterPreCallback,
       FileWriteFilterPostCallback },
+    { IRP_MJ_READ,
+      FLTFL_OPERATION_REGISTRATION_SKIP_CACHED_IO |
+      FLTFL_OPERATION_REGISTRATION_SKIP_PAGING_IO,
+      FileReadFilterPreCallback,
+      FileReadFilterPostCallback },
     { IRP_MJ_OPERATION_END }
 };
 
