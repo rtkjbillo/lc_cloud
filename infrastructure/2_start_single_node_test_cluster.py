@@ -54,7 +54,7 @@ printStep( 'Starting all actor in a Beach Patrol (in a screen).',
           os.path.join( root,
                         'cloud',
                         'beach',
-                        'full_lc_patrol.py' ) ) ) )
+                        'core_lc_patrol.py' ) ) ) )
 
 printStep( 'Starting the LIMA CHARLIE web interface on port 8888 (in a screen).',
     os.system( 'screen -d -m python %s %s 8888'% ( os.path.join( root,
