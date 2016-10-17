@@ -22,7 +22,7 @@ LC_DETECTION_MTD_START
     "requirements" : "",
     "feeds" : "notification.NEW_PROCESS",
     "platform" : "windows",
-    "author" : "maxime@refractionpoint.com",
+    "author" : "maximelb@google.com",
     "version" : "1.0",
     "scaling_factor" : 1000,
     "n_concurrent" : 5,

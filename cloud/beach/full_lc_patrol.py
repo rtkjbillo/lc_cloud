@@ -23,10 +23,6 @@ else:
     BEACH_CONFIG_FILE = os.path.join( os.path.dirname( os.path.abspath( __file__ ) ), 'lc_local.yaml' )
 
 SCALE_DB = [ 'hcp-scale-db' ]
-STATE_DB = { 'url' : 'hcp-state-db',
-             'db' : 'hcp',
-             'user' : 'root',
-             'password' : 'letmein' }
 
 #######################################
 # EnrollmentManager
@@ -1294,30 +1290,3 @@ Patrol( 'RPGenericHunter',
             'secretIdent' : 'hunter/8e0f55c0-6593-4747-9d02-a4937fa79517',
             'trustedIdents' : [ 'analysis/038528f5-5135-4ca8-b79f-d6b8ffc53bf5' ],
             'n_concurrent' : 5 } )
-# Patrol( 'SampleHunt',
-#         initialInstances = 1,
-#         maxInstances = None,
-#         relaunchOnFailure = True,
-#         onFailureCall = None,
-#         scalingFactor = 10000,
-#         actorArgs = ( 'analytics/hunt/SampleHunt',
-#                       'analytics/hunt/samplehunt/1.0' ),
-#         actorKwArgs = {
-#             'parameters' : {},
-#             'secretIdent' : 'hunt/8e0f55c0-6593-4747-9d02-a4937fa79517',
-#             'trustedIdents' : [ 'analysis/038528f5-5135-4ca8-b79f-d6b8ffc53bf5' ],
-#             'n_concurrent' : 5 } )
-
-# Patrol( 'SuspectedDropperHunt',
-#         initialInstances = 1,
-#         maxInstances = None,
-#         relaunchOnFailure = True,
-#         onFailureCall = None,
-#         scalingFactor = 5000,
-#         actorArgs = ( 'analytics/hunt/SuspectedDropperHunt',
-#                       'analytics/hunt/suspecteddropperhunt/1.0' ),
-#         actorKwArgs = {
-#             'parameters' : {},
-#             'secretIdent' : 'hunt/8e0f55c0-6593-4747-9d02-a4937fa79517',
-#             'trustedIdents' : [ 'analysis/038528f5-5135-4ca8-b79f-d6b8ffc53bf5' ],
-#             'n_concurrent' : 5 } )
