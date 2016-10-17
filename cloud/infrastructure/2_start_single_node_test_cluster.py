@@ -35,13 +35,13 @@ printStep( 'Starting the Beach host manager to make this host a one node cluster
     os.system( 'screen -d -m python -m beach.hostmanager %s --log-level 10'% ( os.path.join( root,
                                                                                              'cloud',
                                                                                              'beach',
-                                                                                             'sample_cluster.yaml' ), ) ) )
+                                                                                             'lc_local.yaml' ), ) ) )
 
 printStep( 'Starting the Beach dashboard on port 8080 (in a screen).',
     os.system( 'screen -d -m python -m beach.dashboard 8080 %s'% ( os.path.join( root,
                                                                                  'cloud',
                                                                                  'beach',
-                                                                                 'sample_cluster.yaml' ), ) ) )
+                                                                                 'lc_local.yaml' ), ) ) )
 
 time.sleep( 2 )
 
@@ -50,11 +50,11 @@ printStep( 'Starting all actor in a Beach Patrol (in a screen).',
         ( os.path.join( root,
                         'cloud',
                         'beach',
-                        'sample_cluster.yaml' ),
+                        'lc_local.yaml' ),
           os.path.join( root,
                         'cloud',
                         'beach',
-                        'sample_patrolled_start.py' ) ) ) )
+                        'full_lc_patrol.py' ) ) ) )
 
 printStep( 'Starting the LIMA CHARLIE web interface on port 8888 (in a screen).',
     os.system( 'screen -d -m python %s %s 8888'% ( os.path.join( root,
@@ -64,10 +64,10 @@ printStep( 'Starting the LIMA CHARLIE web interface on port 8888 (in a screen).'
                                                    os.path.join( root,
                                                                  'cloud',
                                                                  'beach',
-                                                                 'sample_cluster.yaml' ) ) ) )
+                                                                 'lc_local.yaml' ) ) ) )
 
 printStep( 'Starting the BEACH REST interface on port 8000 (in a screen).',
     os.system( 'screen -d -m python -m beach.restbridge 8000 %s hcp'% ( os.path.join( root,
                                                                                       'cloud',
                                                                                       'beach',
-                                                                                      'sample_cluster.yaml' ), ) ) )
+                                                                                      'lc_local.yaml' ), ) ) )
