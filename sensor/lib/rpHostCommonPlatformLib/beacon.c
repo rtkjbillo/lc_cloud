@@ -712,6 +712,16 @@ RU32
 
         rEvent_wait( g_hcpContext.isBeaconTimeToStop, MSEC_FROM_SEC( 10 ) );
         rpal_debug_warning( "failed connecting, cycling destination" );
+        if( currentDest == effectivePrimary )
+        {
+            currentDest = effectiveSecondary;
+            currentPort = effectiveSecondaryPort;
+        }
+        else
+        {
+            currentDest = effectivePrimary;
+            currentPort = effectivePrimaryPort;
+        }
     }
 
     rpal_thread_wait( syncThread, MSEC_FROM_SEC( 10 ) );
