@@ -15,14 +15,53 @@
 import os
 import sys
 import hashlib
+import argparse
 
 root = os.path.join( os.path.abspath( os.path.dirname( __file__ ) ), '..', '..' )
 binaryPath = os.path.join( root, 'prebuilt_binaries' )
-if 2 == len( sys.argv ):
-    binaryPath = sys.argv[ 1 ]
-    if not os.path.isdir( binaryPath ):
-        print( "The path to the binaries is not valid: %s" % binaryPath )
-        sys.exit(-1)
+hcpRootKey = os.path.join( root, 'keys', 'root.priv.der' )
+hcpConfig = None
+hbsConfig = None
+
+parser = argparse.ArgumentParser()
+parser.add_argument( '-b', '--binaries',
+                     type = str ,
+                     required = False,
+                     help = 'Specify a directory containing all prebuilt and configured binaries you want to task.',
+                     dest = 'binaries' )
+parser.add_argument( '-hcp', 
+                     type = str,
+                     required = False,
+                     help = 'Specify an HCP sensor config file to apply to the binaries.',
+                     dest = 'hcp' )
+parser.add_argument( '-hbs', 
+                     type = str,
+                     required = False,
+                     help = 'Specify an HBS sensor config file to apply to the binaries.',
+                     dest = 'hbs' )
+parser.add_argument( '-k', '--rootkey',
+                     type = str,
+                     required = False,
+                     help = 'Path to the HCP root private key to sign modules with.',
+                     dest = 'key' )
+arguments = parser.parse_args()
+
+if arguments.binaries is not None:
+    binaryPath = os.path.abspath( arguments.binaries )
+    print( 'Setting binaries path: %s' % binaryPath )
+
+if arguments.key is not None:
+    hcpRootKey = os.path.abspath( arguments.key )
+    print( 'Using HCP root key: %s' % hcpRootKey )
+
+if arguments.hcp is not None:
+    hcpConfig = os.path.abspath( arguments.hcp )
+    print( 'Using HCP config: %s' % hcpConfig )
+
+if arguments.hbs is not None:
+    hbsConfig = os.path.abspath( arguments.hbs )
+    print( 'Using HBS config: %s' % hbsConfig )
+
 cwd = os.path.curdir
 
 def printStep( step, *ret ):
@@ -67,12 +106,26 @@ printStep( 'Adding enrollment rule to the cloud to enroll all sensors into the 1
 
 binaries = os.listdir( binaryPath )
 for binary in binaries:
+    if hcpConfig is not None:
+        if binary.startswith( 'hcp_' ) and not binary.endswith( '.sig' ):
+            printStep( 'Setting HCP to config: %s' % hcpConfig,
+                       os.system( 'python %s %s %s' % ( os.path.join( root, 'sensor', 'scripts', 'set_sensor_config.py' ),
+                                                        hcpConfig,
+                                                        os.path.join( binaryPath, binary ) ) ) )
+
+    if hbsConfig is not None:
+        if binary.startswith( 'hbs_' ) and not binary.endswith( '.sig' ):
+            printStep( 'Setting HBS to config: %s' % hbsConfig,
+                       os.system( 'python %s %s %s' % ( os.path.join( root, 'sensor', 'scripts', 'set_sensor_config.py' ),
+                                                        hbsConfig,
+                                                        os.path.join( binaryPath, binary ) ) ) )
+
     if ( binary.startswith( 'hbs_' ) or binary.startswith( 'kernel_' ) ) and not binary.endswith( '.sig' ):
         printStep( 'Signing binary: %s' % binary,
             os.system( 'python %s -k %s -f %s -o %s' % ( os.path.join( root, 'tools', 'signing.py' ),
-                                                         os.path.join( root, 'keys', 'root.priv.der' ),
-                                                         os.path.join( root, 'prebuilt_binaries', binary ),
-                                                         os.path.join( root, 'prebuilt_binaries', binary + '.sig' ) ) ) )
+                                                         hcpRootKey,
+                                                         os.path.join( binaryPath, binary ),
+                                                         os.path.join( binaryPath, binary + '.sig' ) ) ) )
 
         if 'release' in binary:
             targetAgent = 'ff.ff.ffffffff.%s%s%s.ff'
@@ -94,23 +147,23 @@ for binary in binaries:
                                           hex( major )[ 2: ],
                                           hex( minor )[ 2: ] )
 
-            with open( os.path.join( root, 'prebuilt_binaries', binary ) ) as f:
+            with open( os.path.join( binaryPath, binary ) ) as f:
                 h = hashlib.sha256( f.read() ).hexdigest()
 
             if binary.startswith( 'hbs_' ):
                 printStep( 'Tasking HBS %s to all relevant sensors.' % binary,
                     execInBackend( '''hcp_addModule -i 2 -d %s -b %s -s %s
                                       hcp_addTasking -m %s -i 2 -s %s''' % ( binary,
-                                                                             os.path.join( root, 'prebuilt_binaries', binary ),
-                                                                             os.path.join( root, 'prebuilt_binaries', binary + '.sig' ),
+                                                                             os.path.join( binaryPath, binary ),
+                                                                             os.path.join( binaryPath, binary + '.sig' ),
                                                                              targetAgent,
                                                                              h ) ) )
             elif binary.startswith( 'kernel_' ):
                 printStep( 'Tasking KERNEL %s to all relevant sensors.' % binary,
                            execInBackend( '''hcp_addModule -i 5 -d %s -b %s -s %s
                                              hcp_addTasking -m %s -i 5 -s %s''' % ( binary,
-                                                                                    os.path.join( root, 'prebuilt_binaries', binary ),
-                                                                                    os.path.join( root, 'prebuilt_binaries', binary + '.sig' ),
+                                                                                    os.path.join( binaryPath, binary ),
+                                                                                    os.path.join( binaryPath, binary + '.sig' ),
                                                                                     targetAgent,
                                                                                     h ) ) )
 
