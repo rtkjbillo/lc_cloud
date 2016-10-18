@@ -637,7 +637,6 @@ Patrol( 'AnalyticsModelView',
         actorKwArgs = {
             'resources' : {},
             'parameters' : { 'scale_db' : SCALE_DB,
-                             'state_db' : STATE_DB,
                              'rate_limit_per_sec' : 500,
                              'max_concurrent' : 10,
                              'beach_config' : BEACH_CONFIG_FILE },
