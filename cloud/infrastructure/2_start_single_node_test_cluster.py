@@ -15,8 +15,40 @@
 import os
 import sys
 import time
+import argparse
 
 root = os.path.join( os.path.abspath( os.path.dirname( __file__ ) ), '..', '..' )
+
+parser = argparse.ArgumentParser()
+parser.add_argument( '-b', '--beach',
+                     type = str ,
+                     required = False,
+                     help = 'Specify the Beach cluster config file to use.',
+                     dest = 'beach' )
+parser.add_argument( '-p', '--patrol',
+                     type = str ,
+                     required = False,
+                     help = 'Specify the patrol file to start.',
+                     dest = 'patrol' )
+arguments = parser.parse_args()
+
+beachCluster = os.path.join( root,
+                             'cloud',
+                             'beach',
+                             'lc_local.yaml' )
+
+patrolFile = os.path.join( root,
+                        'cloud',
+                        'beach',
+                        'core_lc_patrol.py' )
+
+if arguments.beach is not None:
+    beachCluster = os.path.abspath( arguments.beach )
+    print( 'Using Beach cluster config: %s' % beachCluster )
+
+if arguments.patrol is not None:
+    patrolFile = os.path.abspath( arguments.patrol )
+    print( 'Using patrol file: %s' % patrolFile )
 
 def printStep( step, *ret ):
     msg = '''
@@ -32,42 +64,24 @@ Return Values: %s
         sys.exit(-1)
 
 printStep( 'Starting the Beach host manager to make this host a one node cluster (in a screen).',
-    os.system( 'screen -d -m python -m beach.hostmanager %s --log-level 10'% ( os.path.join( root,
-                                                                                             'cloud',
-                                                                                             'beach',
-                                                                                             'lc_local.yaml' ), ) ) )
+    os.system( 'screen -d -m python -m beach.hostmanager %s --log-level 10'% ( beachCluster, ) ) )
 
 printStep( 'Starting the Beach dashboard on port 8080 (in a screen).',
-    os.system( 'screen -d -m python -m beach.dashboard 8080 %s'% ( os.path.join( root,
-                                                                                 'cloud',
-                                                                                 'beach',
-                                                                                 'lc_local.yaml' ), ) ) )
+    os.system( 'screen -d -m python -m beach.dashboard 8080 %s'% ( beachCluster, ) ) )
 
 time.sleep( 2 )
 
 printStep( 'Starting all actor in a Beach Patrol (in a screen).',
     os.system( 'screen -d -m python -m beach.patrol %s %s --realm hcp --set-scale 10' % 
-        ( os.path.join( root,
-                        'cloud',
-                        'beach',
-                        'lc_local.yaml' ),
-          os.path.join( root,
-                        'cloud',
-                        'beach',
-                        'core_lc_patrol.py' ) ) ) )
+        ( beachCluster,
+          patrolFile ) ) )
 
 printStep( 'Starting the LIMA CHARLIE web interface on port 8888 (in a screen).',
     os.system( 'screen -d -m python %s %s 8888'% ( os.path.join( root,
                                                                  'cloud',
                                                                  'limacharlie',
                                                                  'app.py' ),
-                                                   os.path.join( root,
-                                                                 'cloud',
-                                                                 'beach',
-                                                                 'lc_local.yaml' ) ) ) )
+                                                   beachCluster ) ) )
 
 printStep( 'Starting the BEACH REST interface on port 8000 (in a screen).',
-    os.system( 'screen -d -m python -m beach.restbridge 8000 %s hcp'% ( os.path.join( root,
-                                                                                      'cloud',
-                                                                                      'beach',
-                                                                                      'lc_local.yaml' ), ) ) )
+    os.system( 'screen -d -m python -m beach.restbridge 8000 %s hcp'% ( beachCluster, ) ) )
