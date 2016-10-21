@@ -48,7 +48,7 @@ printStep( 'Updating repo and upgrading existing components.',
     os.system( 'apt-get upgrade -y' ) )
 
 printStep( 'Installing some basic packages required for Beach (mainly).',
-    os.system( 'apt-get install python-pip python-dev debconf-utils python-m2crypto python-pexpect autoconf libtool git flex byacc unzip -y' ) )
+    os.system( 'apt-get install python-pip python-dev debconf-utils python-m2crypto python-pexpect autoconf libtool git flex byacc bison unzip -y' ) )
 
 printStep( 'Installing Beach.',
     os.system( 'pip install beach' ) )
