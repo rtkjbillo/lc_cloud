@@ -186,6 +186,9 @@ class EndpointProcessor( Actor ):
         self.currentClients = {}
         self.moduleHandlers = { HcpModuleId.HCP : self.handlerHcp,
                                 HcpModuleId.HBS : self.handlerHbs }
+
+        self.processedCounter = 0
+
         self.startServer()
 
     def deinit( self ):
@@ -284,6 +287,13 @@ class EndpointProcessor( Actor ):
             while True:
                 moduleId, messages = c.recvFrame( timeout = 60 * 60 )
                 handler = self.moduleHandlers.get( moduleId, None )
+
+                for i in range( len( message ) ):
+                    self.processedCounter += 1
+
+                    if 0 == ( self.processedCounter % 50 ):
+                        self.log( 'EP_IN %s' % self.processedCounter )
+                
                 if handler is None:
                     self.log( 'Received data for unknown module' )
                 else:

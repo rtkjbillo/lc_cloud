@@ -84,6 +84,7 @@ class AnalyticsModeling( Actor ):
             statement.consistency_level = CassDb.CL_Ingest
 
         self.db.start()
+        self.processedCounter = 0
         self.handle( 'analyze', self.analyze )
 
     def deinit( self ):
@@ -141,6 +142,11 @@ class AnalyticsModeling( Actor ):
 
     def analyze( self, msg ):
         routing, event, mtd = msg.data
+
+        self.processedCounter += 1
+
+        if 0 == ( self.processedCounter % 50 ):
+            self.log( 'MOD_IN %s' % self.processedCounter )
 
         agent = AgentId( routing[ 'agentid' ] )
         aid = agent.invariableToString()
