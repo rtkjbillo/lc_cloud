@@ -273,6 +273,7 @@ RPVOID
 rpcm_tag collector_7_events[] = { RP_TAGS_NOTIFICATION_FILE_CREATE,
                                   RP_TAGS_NOTIFICATION_FILE_DELETE,
                                   RP_TAGS_NOTIFICATION_FILE_MODIFIED,
+                                  RP_TAGS_NOTIFICATION_FILE_READ,
                                   0};
 
 RBOOL
