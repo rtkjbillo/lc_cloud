@@ -30,6 +30,8 @@ class AnalyticsIntake( Actor ):
         self.async_builder = self.getActorHandle( resources[ 'relation_builder' ], timeout = 120, nRetries = 3 )
         self.analytics_investigation = self.getActorHandle( resources[ 'investigation' ], timeout = 120, nRetries = 3 )
 
+        self.processedCounter = 0
+
     def deinit( self ):
         pass
 
@@ -217,6 +219,11 @@ class AnalyticsIntake( Actor ):
 
     def analyze( self, msg ):
 
+        for i in range( msg.data ):
+            self.processedCounter += 1
+            if 0 == ( self.processedCounter % 50 ):
+                self.log( 'ANA_IN %s' % self.processedCounter )
+
         for event in msg.data:
             # Enhance the data
             event = self._extractObjects( event )
@@ -231,8 +238,6 @@ class AnalyticsIntake( Actor ):
             if 'investigation_id' in routing:
                 self.analytics_investigation.shoot( 'analyze', event )
                 self.log( 'routing event to investigation (%d)' % self.analytics_investigation.getNumAvailable() )
-
-            self.log( 'received %s' % routing[ 'event_type' ] )
 
         return ( True, )
 
