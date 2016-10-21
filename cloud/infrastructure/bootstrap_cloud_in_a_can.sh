@@ -1,11 +1,7 @@
 apt-get update -y
 apt-get upgrade -y
 apt-get install git -y
-if [ "$1" == "dev" ]; then
-	su -c "git clone --recursive https://github.com/refractionPOINT/limacharlie.git -b develop" `logname`
-else
-	su -c "git clone --recursive https://github.com/refractionPOINT/limacharlie.git" `logname`
-fi
+su -c "git clone --recursive https://github.com/refractionPOINT/limacharlie.git -b $LC_BRANCH" `logname`
 cd limacharlie/cloud/infrastructure/
 su -c "touch install_log.txt" `logname`
 python ./1_install_single_node_test_cluster.py &>> install_log.txt
