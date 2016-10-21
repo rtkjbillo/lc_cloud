@@ -288,7 +288,7 @@ class EndpointProcessor( Actor ):
                 moduleId, messages = c.recvFrame( timeout = 60 * 60 )
                 handler = self.moduleHandlers.get( moduleId, None )
 
-                for i in range( len( message ) ):
+                for i in range( len( messages ) ):
                     self.processedCounter += 1
 
                     if 0 == ( self.processedCounter % 50 ):
