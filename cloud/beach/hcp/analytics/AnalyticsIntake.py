@@ -219,7 +219,7 @@ class AnalyticsIntake( Actor ):
 
     def analyze( self, msg ):
 
-        for i in range( msg.data ):
+        for i in range( len( msg.data ) ):
             self.processedCounter += 1
             if 0 == ( self.processedCounter % 50 ):
                 self.log( 'ANA_IN %s' % self.processedCounter )
