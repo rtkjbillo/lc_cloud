@@ -61,6 +61,7 @@ static int
     pid_t pid = 0;
     uid_t uid = 0;
     uint64_t ts = 0;
+    uint64_t sTs = 0;
     
     if( KAUTH_FILEOP_OPEN != action &&
         KAUTH_FILEOP_RENAME != action &&
@@ -92,12 +93,13 @@ static int
             VATTR_WANTED( &file_attr, va_create_time );
             VATTR_WANTED( &file_attr, va_modify_time );
             vnode_getattr(file_vnode, &file_attr, NULL );
-            if( ts == file_attr.va_create_time.tv_sec )
+            sTs = ts / 1000;
+            if( sTs == file_attr.va_create_time.tv_sec )
             {
                 file_action = KERNEL_ACQ_FILE_ACTION_ADDED;
                 rpal_debug_info( "FILEIO-NEW: %lld %d %d %s", ts, uid, pid, file_path );
             }
-            else if( ts == file_attr.va_modify_time.tv_sec )
+            else if( sTs == file_attr.va_modify_time.tv_sec )
             {
                 file_action = KERNEL_ACQ_FILE_ACTION_MODIFIED;
                 rpal_debug_info( "FILEIO-MODIFIED: %lld %d %d %s", ts, uid, pid, file_path );
@@ -132,15 +134,6 @@ static int
                      sizeof( g_files[ g_nextFile ].path ) - 1 );
             g_files[ g_nextFile ].action = file_action;
             rpal_debug_info( "FILEIO-RENAME-NEW: %lld %d %d %s", ts, uid, pid, file_path );
-            break;
-        case KAUTH_FILEOP_EXEC:
-            file_action = KERNEL_ACQ_FILE_ACTION_MODIFIED;
-            file_path = (char*)arg1;
-            strncpy( g_files[ g_nextFile ].path,
-                     file_path,
-                     sizeof( g_files[ g_nextFile ].path ) - 1 );
-            g_files[ g_nextFile ].action = file_action;
-            rpal_debug_info( "FILEIO-EXEC: %lld %d %d %s", ts, uid, pid, file_path );
             break;
         case KAUTH_FILEOP_DELETE:
             file_action = KERNEL_ACQ_FILE_ACTION_REMOVED;
