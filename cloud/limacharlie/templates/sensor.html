@@ -245,13 +245,14 @@ $var title = sensor_id
     function do_refresh_timeline()
     {
         jQuery('#raw_url').html('/timeline?sensor_id=$sensor_id&rich=false&max_size=' + 
-                                jQuery('#maxeventsize').find(":selected").text() + '&' +
+                                jQuery('#maxeventsize').find(":selected").text() + '&'
                                 $if before is not None:
-                                    'before=' + Date.parse("$before" + " GMT") / 1000
+                                    + 'before=' + Date.parse("$before" + " GMT") / 1000
                                 $if after is not None:
-                                    'after=' + Date.parse("$after" + " GMT") / 1000
+                                    + 'after=' + Date.parse("$after" + " GMT") / 1000
                                 $else:
-                                    'after=' + from_time );
+                                    + 'after=' + from_time
+                                );
         future = jQuery.getJSON( '/timeline',
                     { sensor_id : "$sensor_id",
                       rich : "true",
