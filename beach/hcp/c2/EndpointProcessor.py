@@ -287,12 +287,6 @@ class EndpointProcessor( Actor ):
             while True:
                 moduleId, messages = c.recvFrame( timeout = 60 * 60 )
                 handler = self.moduleHandlers.get( moduleId, None )
-
-                for i in range( len( messages ) ):
-                    self.processedCounter += 1
-
-                    if 0 == ( self.processedCounter % 50 ):
-                        self.log( 'EP_IN %s' % self.processedCounter )
                 
                 if handler is None:
                     self.log( 'Received data for unknown module' )
@@ -344,6 +338,12 @@ class EndpointProcessor( Actor ):
                     self.log( "could not provide module sync: %s" % moduleUpdateResp.error )
 
     def handlerHbs( self, c, messages ):
+        for i in range( len( messages ) ):
+            self.processedCounter += 1
+
+            if 0 == ( self.processedCounter % 50 ):
+                self.log( 'EP_IN %s' % self.processedCounter )
+
         for message in messages:
             # We treat sync messages slightly differently since they need to be actioned
             # more directly.
