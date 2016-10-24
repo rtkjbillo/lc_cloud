@@ -378,14 +378,27 @@ RPAL_THREAD_FUNC
         do
         {
             RCHAR tmpUnload[] = "kextunload /tmp/tmp_hbs_acq.kext";
+            RU32 nRetries = 0;
 
-            if( isLoaded &&
-                0 != ( error = system( tmpUnload ) ) )
+            if( isLoaded )
             {
-                rpal_debug_error( "could not unload kernel extension: %d", error );
-                break;
-            }
+                // On OSX the KM stays alive as long as there are clients connected
+                // so we may encounter race conditions with other components disconnecting.
+                for( nRetries = 0; nRetries < 10; nRetries++ )
+                {
+                    rpal_thread_sleep( 100 );
 
+                    if( 0 == ( error = system( tmpUnload ) ) )
+                    {
+                        break;
+                    }
+                }
+
+                if( 0 != error )
+                {
+                    rpal_debug_error( "could not unload kernel extension: %d", error );
+                }
+            }
         } while( FALSE );
     #elif defined( RPAL_PLATFORM_WINDOWS )
         do
