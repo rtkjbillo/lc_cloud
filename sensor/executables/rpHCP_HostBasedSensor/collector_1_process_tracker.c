@@ -191,6 +191,10 @@ static RBOOL
         atom.key.process.pid = pid;
         atoms_register( &atom );
     }
+    else
+    {
+        atoms_getOneTime( &atom );
+    }
 
     // We prime the information with whatever was provided
     // to us by the kernel acquisition. If not available
