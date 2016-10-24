@@ -74,13 +74,13 @@ class ModuleManager( Actor ):
     	for rule in self.taskings:
     		match = rule.isMatch( aid )
     		if match is not False:
-    			shouldBeLoaded[ match[ 0 ] ] = match[ 1 ]
+    			shouldBeLoaded[ match[ 1 ] ] = match[ 0 ]
 
-    	for iLoaded, hLoaded in loaded.iteritems():
+    	for hLoaded, iLoaded in loaded.iteritems():
     		if hLoaded not in shouldBeLoaded or iLoaded != shouldBeLoaded[ hLoaded ]:
     			changes[ 'unload' ].append( iLoaded )
 
-    	for iToLoad, hToLoad in shouldBeLoaded.iteritems():
+    	for hToLoad, iToLoad in shouldBeLoaded.iteritems():
     		if hToLoad not in loaded or iToLoad != loaded[ hToLoad ]:
     			modInfo = self.modules.get( hToLoad, None )
     			if modInfo is not None:
