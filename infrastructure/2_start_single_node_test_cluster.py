@@ -47,7 +47,7 @@ if arguments.beach is not None:
     print( 'Using Beach cluster config: %s' % beachCluster )
 
 if arguments.patrol is not None:
-    patrolFile = os.path.abspath( arguments.patrol )
+    patrolFile = arguments.patrol
     print( 'Using patrol file: %s' % patrolFile )
 
 def printStep( step, *ret ):
