@@ -16,7 +16,7 @@ import time
 import syslog
 from beach.actor import Actor
 import traceback
-synchronized = Actor.importLib( 'hcp_helpers', 'synchronized' )
+synchronized = Actor.importLib( './hcp_helpers', 'synchronized' )
 from collections import deque
 import gevent
 

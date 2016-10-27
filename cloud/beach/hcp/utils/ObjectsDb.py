@@ -22,13 +22,13 @@ import sys
 import time
 import re
 import time_uuid
-AgentId = Actor.importLib( 'hcp_helpers', 'AgentId' )
-chunks = Actor.importLib( 'hcp_helpers', 'chunks' )
-tsToTime = Actor.importLib( 'hcp_helpers', 'tsToTime' )
-timeToTs = Actor.importLib( 'hcp_helpers', 'timeToTs' )
-normalAtom = Actor.importLib( 'hcp_helpers', 'normalAtom' )
-CassDb = Actor.importLib( 'hcp_databases', 'CassDb' )
-CassPool = Actor.importLib( 'hcp_databases', 'CassPool' )
+AgentId = Actor.importLib( './hcp_helpers', 'AgentId' )
+chunks = Actor.importLib( './hcp_helpers', 'chunks' )
+tsToTime = Actor.importLib( './hcp_helpers', 'tsToTime' )
+timeToTs = Actor.importLib( './hcp_helpers', 'timeToTs' )
+normalAtom = Actor.importLib( './hcp_helpers', 'normalAtom' )
+CassDb = Actor.importLib( './hcp_databases', 'CassDb' )
+CassPool = Actor.importLib( './hcp_databases', 'CassPool' )
 
 def ObjectNormalForm( objName, objType, isCaseSensitive = False ):
     caseSensitiveTypes = ( ObjectTypes.AUTORUNS,
