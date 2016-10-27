@@ -13,9 +13,9 @@
 # limitations under the License.
 
 from beach.actor import Actor
-_x_ = Actor.importLib( 'hcp_helpers', '_x_' )
-_xm_ = Actor.importLib( 'hcp_helpers', '_xm_' )
-exeFromPath = Actor.importLib( 'hcp_helpers', 'exeFromPath' )
+_x_ = Actor.importLib( './hcp_helpers', '_x_' )
+_xm_ = Actor.importLib( './hcp_helpers', '_xm_' )
+exeFromPath = Actor.importLib( './hcp_helpers', 'exeFromPath' )
 
 # The event tuples are: ( eventTypeDescription, funcForKey, funcForShortKey, funcForNarrative )
 

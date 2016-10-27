@@ -24,7 +24,7 @@ import inspect
 from contextlib import contextmanager
 
 from beach.actor import Actor
-rSequence = Actor.importLib( 'rpcm', 'rSequence' )
+rSequence = Actor.importLib( './rpcm', 'rSequence' )
 
 import gevent.lock
 import gevent.event
