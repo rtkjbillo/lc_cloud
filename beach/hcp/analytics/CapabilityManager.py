@@ -22,7 +22,7 @@ import json
 
 class CapabilityManager( Actor ):
     def init( self, parameters, resources ):
-        self.patrol = Patrol( parameters[ 'beach_config' ], 
+        self.patrol = Patrol( self._beach_config_path, 
                               realm = 'hcp', 
                               identifier = self.__class__.__name__,
                               scale = parameters[ 'scale' ] )

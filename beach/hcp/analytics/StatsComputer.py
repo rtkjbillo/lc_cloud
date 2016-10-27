@@ -23,7 +23,7 @@ chunks = Actor.importLib( '../utils/hcp_helpers', 'chunks' )
 class StatsComputer( Actor ):
     def init( self, parameters, resources ):
         HostObjects.setDatabase( parameters[ 'scale_db' ] )
-        self.be = BEAdmin( parameters[ 'beach_config' ], None )
+        self.be = BEAdmin( self._beach_config_path, None )
 
         self.lastStats = {}
 

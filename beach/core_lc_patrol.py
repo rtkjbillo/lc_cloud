@@ -528,8 +528,6 @@ Patrol( 'AnalyticsReporting',
 # lc_web: the base url for the LC GUI.
 # scale_db: connection information to
 #   Cassandra scale database.
-# beach_config: the path to the beach
-#   config file.
 #######################################
 Patrol( 'CEFOutput',
         initialInstances = 1,
@@ -543,8 +541,7 @@ Patrol( 'CEFOutput',
             'resources' : {},
             'parameters' : { 'siem_server' : '/dev/log',
                              'lc_web' : '127.0.0.1',
-                             'scale_db' : SCALE_DB,
-                             'beach_config' : BEACH_CONFIG_FILE },
+                             'scale_db' : SCALE_DB },
             'secretIdent' : 'output/bf73a858-8f05-45ab-9ead-05493e29429a',
             'trustedIdents' : [ 'reporting/9ddcc95e-274b-4a49-a003-c952d12049b8' ],
             'n_concurrent' : 5,
@@ -638,8 +635,7 @@ Patrol( 'AnalyticsModelView',
             'resources' : {},
             'parameters' : { 'scale_db' : SCALE_DB,
                              'rate_limit_per_sec' : 500,
-                             'max_concurrent' : 10,
-                             'beach_config' : BEACH_CONFIG_FILE },
+                             'max_concurrent' : 10 },
             'trustedIdents' : [ 'lc/0bf01f7e-62bd-4cc4-9fec-4c52e82eb903',
                                 'hunter/8e0f55c0-6593-4747-9d02-a4937fa79517' ],
             'n_concurrent' : 5,
@@ -652,8 +648,6 @@ Patrol( 'AnalyticsModelView',
 # for now), applies a QoS and tasks.
 # Parameters:
 # _hbs_key: the private HBS key to task.
-# beach_config: the path to the beach
-#    config file.
 # sensor_qph: the maximum number of
 #    taskings per hour per sensor.
 # global_qph: the maximum number of
@@ -674,7 +668,6 @@ Patrol( 'AutoTasking',
             'parameters' : { '_hbs_key' : open( os.path.join( REPO_ROOT,
                                                               'keys',
                                                               'hbs_root.priv.der' ), 'r' ).read(),
-                             'beach_config' : BEACH_CONFIG_FILE,
                              'sensor_qph' : 100,
                              'global_qph' : 1000,
                              'allowed' : [ 'file_info',
@@ -706,8 +699,6 @@ Patrol( 'AutoTasking',
 # and configuration of the various
 # automated hunts.
 # Parameters:
-# beach_config: the path to the beach
-#    config file.
 #######################################
 Patrol( 'HuntsManager',
         initialInstances = 1,
@@ -719,7 +710,7 @@ Patrol( 'HuntsManager',
                       'analytics/huntsmanager/1.0' ),
         actorKwArgs = {
             'resources' : {},
-            'parameters' : { 'beach_config' : BEACH_CONFIG_FILE },
+            'parameters' : {},
             'secretIdent' : 'huntsmanager/d666cbc3-38d5-4086-b9ce-c543625ee45c',
             'trustedIdents' : [ 'hunter/8e0f55c0-6593-4747-9d02-a4937fa79517' ],
             'n_concurrent' : 5 } )
@@ -729,8 +720,6 @@ Patrol( 'HuntsManager',
 # This actor manages backend capabilities
 # loaded as stateless, stateful or hunters.
 # Parameters:
-# beach_config: the path to the beach
-#    config file.
 #######################################
 Patrol( 'CapabilityManager',
         initialInstances = 1,
@@ -742,8 +731,7 @@ Patrol( 'CapabilityManager',
                       'analytics/capabilitymanager/1.0' ),
         actorKwArgs = {
             'resources' : {},
-            'parameters' : { 'beach_config' : BEACH_CONFIG_FILE,
-                             'scale' : 10,
+            'parameters' : { 'scale' : 10,
                              'detect_secret_ident' : 'analysis/038528f5-5135-4ca8-b79f-d6b8ffc53bf5',
                              'hunter_secret_ident' : 'hunter/8e0f55c0-6593-4747-9d02-a4937fa79517',
                              'detect_trusted_ident' : 'analysis/038528f5-5135-4ca8-b79f-d6b8ffc53bf5',
@@ -840,7 +828,6 @@ Patrol( 'AlexaDNS',
 # Parameters:
 # scale_db: the Cassandra seed nodes to
 #    connect to for storage.
-# beach_config: path to the beach config.
 #######################################
 Patrol( 'StatsComputer',
         initialInstances = 1,
@@ -852,8 +839,7 @@ Patrol( 'StatsComputer',
                       'analytics/stats/1.0' ),
         actorKwArgs = {
             'resources' : {},
-            'parameters' : { 'scale_db' : SCALE_DB,
-                             'beach_config' : BEACH_CONFIG_FILE },
+            'parameters' : { 'scale_db' : SCALE_DB },
             'secretIdent' : 'stats/3088dc10-b40c-40f8-bf3a-d07be4758098',
             'trustedIdents' : [ 'analysis/038528f5-5135-4ca8-b79f-d6b8ffc53bf5',
                                 'hunter/8e0f55c0-6593-4747-9d02-a4937fa79517' ],
