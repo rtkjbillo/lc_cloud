@@ -19,6 +19,9 @@ LIMA CHARLIE is an endpoint security platform. It is itself a collection of smal
 to become the LC platform. LC gives you a cross-platform (Windows, OSX, Linux, Android and iOS) low-level 
 environment allowing you to manage and push (in memory) additional modules to. The main module (at the moment) 
 is the HBS sensor, which provides telemetry gathering and basic forensic capabilities.
+
+The cloud component allows you to automate investigation and mitigation with the sensor in real-time using the simple
+python Hunter framework.
  
 Many of those individual features are provided through other platforms, so why LC? LC gives you a single 
 messaging, cloud and analytic fabric that will integrate with anything and scale up. Sensor is extra-light

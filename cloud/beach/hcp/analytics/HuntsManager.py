@@ -19,7 +19,7 @@ from sets import Set
 
 class HuntsManager( Actor ):
     def init( self, parameters, resources ):
-        self.beach_api = Beach( parameters[ 'beach_config' ], realm = 'hcp' )
+        self.beach_api = Beach( self._beach_config_path, realm = 'hcp' )
         self.handle( 'reg_detect', self.handleRegDetect )
         self.handle( 'reg_inv', self.handleRegInvestigation )
         self.handle( 'unreg_detect', self.handleRegDetect )
