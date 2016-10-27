@@ -46,7 +46,7 @@ class CapabilityManager( Actor ):
         isMtdStarted = False
         for line in detection.split( '\n' ):
             if line.startswith( 'LC_DETECTION_MTD_START' ):
-                isMtdStarted = trustedIdents
+                isMtdStarted = True
             elif line.startswith( 'LC_DETECTION_MTD_END' ):
                 break
             elif isMtdStarted:
