@@ -103,11 +103,11 @@ class CapabilityManager( Actor ):
 
         summary = self.getDetectionMtdFromContent( capability )
         if summary is not None:
-            return self.loadDetection( self, msg, url, userDefinedName, arguments, summary )
+            return self.loadDetection( msg, url, userDefinedName, arguments, summary )
         else:
             summary = self.getPatrolMtdFromContent( capability )
             if summary is not None:
-                return self.loadPatrol( self, msg, url, userDefinedName, summary, capability )
+                return self.loadPatrol( msg, url, userDefinedName, summary, capability )
 
         self.log( 'could not find any capability to load in url' )
         return ( False, 'could not find any capability to load in url' )
