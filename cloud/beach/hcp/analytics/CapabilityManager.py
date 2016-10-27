@@ -116,11 +116,14 @@ class CapabilityManager( Actor ):
         newPatrol = Patrol( self._beach_config_path, 
                             realm = 'hcp', 
                             identifier = userDefinedName,
-                            scale = self.scale )
+                            scale = self.scale,
+                            actorsRoot = url[ : url.rfind( '/' ) + 1 ] )
 
         newPatrol.loadFromUrl( url )
 
-        self.loadedPatrols[ userDefinedName ] = newPatrol
+        summary[ 'instance' ] = newPatrol
+
+        self.loadedPatrols[ userDefinedName ] = summary
         newPatrol.start()
         self.log( 'loading new patrol %s' % ( userDefinedName, ) )
         return ( True, summary )
@@ -182,6 +185,10 @@ class CapabilityManager( Actor ):
         if userDefinedName in self.loadedDetections:
             removed = self.patrol.remove( userDefinedName, isStopToo = True )
             del( self.loadedDetections[ userDefinedName ] )
+        elif userDefinedName in self.loadedPatrols:
+            self.loadedPatrols[ userDefinedName ][ 'instance' ].stop()
+            removed = True
+            del( self.loadedPatrols[ userDefinedName ] )
         return ( True, { 'removed' : removed } )
 
     def listDetections( self, msg ):
