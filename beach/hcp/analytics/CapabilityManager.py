@@ -185,4 +185,5 @@ class CapabilityManager( Actor ):
         return ( True, { 'removed' : removed } )
 
     def listDetections( self, msg ):
-        return ( True, { 'loadedDetections' : self.loadedDetections } )
+        return ( True, { 'loadedDetections' : self.loadedDetections,
+                         'loadedPatrols' : self.loadedPatrols } )

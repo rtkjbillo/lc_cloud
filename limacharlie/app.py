@@ -496,9 +496,10 @@ class Capabilities:
 
         cap = {}
 
-        cap = capabilities.request( 'list', {} )
-        if cap.isSuccess:
-            cap = cap.data[ 'loaded' ]
+        capReq = capabilities.request( 'list', {} )
+        if capReq.isSuccess:
+            cap.update( capReq.data[ 'loadedDetections' ] )
+            cap.update( capReq.data[ 'loadedPatrols' ] )
 
         return render.capabilities( capabilities = cap )
 
