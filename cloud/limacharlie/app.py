@@ -571,7 +571,7 @@ if len( sys.argv ) < 2:
 beach = Beach( sys.argv[ 1 ], realm = 'hcp' )
 del( sys.argv[ 1 ] )
 model = beach.getActorHandle( 'models', nRetries = 3, timeout = 30, ident = 'lc/0bf01f7e-62bd-4cc4-9fec-4c52e82eb903' )
-capabilities = beach.getActorHandle( 'analytics/capabilitymanager', nRetries = 3, timeout = 30, ident = 'lc/0bf01f7e-62bd-4cc4-9fec-4c52e82eb903' )
+capabilities = beach.getActorHandle( 'analytics/capabilitymanager', nRetries = 3, timeout = 60, ident = 'lc/0bf01f7e-62bd-4cc4-9fec-4c52e82eb903' )
 sensordir = beach.getActorHandle( 'c2/sensordir', nRetries = 3, timeout = 30, ident = 'lc/0bf01f7e-62bd-4cc4-9fec-4c52e82eb903' )
 
 app.run()
