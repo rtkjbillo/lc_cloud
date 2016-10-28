@@ -17,11 +17,6 @@ import sys
 
 REPO_ROOT = os.path.join( os.path.dirname( os.path.abspath( __file__ ) ), '..', '..' )
 
-if 1 < len( sys.argv ):
-    BEACH_CONFIG_FILE = os.path.abspath( sys.argv[ 1 ] )
-else:
-    BEACH_CONFIG_FILE = os.path.join( os.path.dirname( os.path.abspath( __file__ ) ), 'lc_local.yaml' )
-
 SCALE_DB = [ 'hcp-scale-db' ]
 
 #######################################
@@ -845,3 +840,24 @@ Patrol( 'StatsComputer',
                                 'hunter/8e0f55c0-6593-4747-9d02-a4937fa79517' ],
             'n_concurrent' : 5,
             'isIsolated' : True } )
+
+#######################################
+# YaraUpdater
+# This actor does not generate detects,
+# it merely updates new sensor coming
+# online with the most recent Yara rules.
+#######################################
+Patrol( 'YaraUpdater',
+        initialInstances = 1,
+        maxInstances = None,
+        relaunchOnFailure = True,
+        onFailureCall = None,
+        scalingFactor = 10000,
+        actorArgs = ( 'analytics/YaraUpdater',
+                      'analytics/stateless/common/notification.STARTING_UP/yaraupdater/1.0' ),
+        actorKwArgs = {
+            'parameters' : { 'rules_dir' : 'hcp/analytics/yara_rules/',
+                             'remote_rules' : { 'windows/yararules.com.yar' : 'http://yararules.com/rules/malware.yar' } },
+            'secretIdent' : 'analysis/038528f5-5135-4ca8-b79f-d6b8ffc53bf5',
+            'trustedIdents' : [ 'analysis/038528f5-5135-4ca8-b79f-d6b8ffc53bf5' ],
+            'n_concurrent' : 5 } )

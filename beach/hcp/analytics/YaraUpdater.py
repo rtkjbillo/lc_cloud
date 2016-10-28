@@ -13,9 +13,9 @@
 # limitations under the License.
 
 from beach.actor import Actor
-ObjectTypes = Actor.importLib( '../../utils/ObjectsDb', 'ObjectTypes' )
-StatelessActor = Actor.importLib( '../../Detects', 'StatelessActor' )
-AgentId = Actor.importLib( '../../utils/hcp_helpers', 'AgentId' )
+ObjectTypes = Actor.importLib( 'utils/ObjectsDb', 'ObjectTypes' )
+StatelessActor = Actor.importLib( 'Detects', 'StatelessActor' )
+AgentId = Actor.importLib( 'utils/hcp_helpers', 'AgentId' )
 
 import os
 import traceback
@@ -90,6 +90,7 @@ class YaraUpdater ( StatelessActor ):
             try:
                 with open( os.path.join( self.rulesDir, name ), 'w+' ) as f:
                     f.write( urllib2.urlopen( remote ).read() )
+                self.log( 'refreshed remote rules: %s bytes' % os.path.getsize( os.path.join( self.rulesDir, name ) ) )
             except:
                 self.logCritical( 'failed to fetch remote rule %s %s' % ( remote, traceback.format_exc() ) )
 
