@@ -187,6 +187,7 @@ class CapabilityManager( Actor ):
             del( self.loadedDetections[ userDefinedName ] )
         elif userDefinedName in self.loadedPatrols:
             self.loadedPatrols[ userDefinedName ][ 'instance' ].stop()
+            removedActors = self.loadedPatrols[ userDefinedName ][ 'instance' ].remove()
             removed = True
             del( self.loadedPatrols[ userDefinedName ] )
         return ( True, { 'removed' : removed } )
