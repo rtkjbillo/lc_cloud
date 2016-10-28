@@ -39,7 +39,8 @@ class YaraUpdater ( StatelessActor ):
         self.linuxRulesFile = '/tmp/_yara_linux'
 
         if not os.path.exists( self.rulesDir ):
-            os.makedirs( self.rulesDir, 0700 )
+            for plat in ( 'common', 'windows', 'osx', 'linux' ):
+                os.makedirs( os.path.join( self.rulesDir, plat ), 0700 )
 
         self.schedule( self.dirRefreshFrequency, self.refreshDirRules )
         self.schedule( self.remoteRefreshFrequency, self.refreshRemoteRules )
@@ -91,7 +92,7 @@ class YaraUpdater ( StatelessActor ):
     def refreshRemoteRules( self ):
         for name, remote in self.remoteRules.iteritems():
             try:
-                with open( os.path.join( self.rulesDir, name ), 'w+' ) as f:
+                with open( os.path.join( self.rulesDir, name ), 'w' ) as f:
                     f.write( urllib2.urlopen( remote ).read() )
                 self.log( 'refreshed remote rules: %s bytes' % os.path.getsize( os.path.join( self.rulesDir, name ) ) )
             except:
