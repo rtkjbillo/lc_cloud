@@ -38,6 +38,9 @@ class YaraUpdater ( StatelessActor ):
         self.osxRulesFile = '/tmp/_yara_osx'
         self.linuxRulesFile = '/tmp/_yara_linux'
 
+        if not os.path.exists( self.rulesDir ):
+            os.makedirs( self.rulesDir, 0700 )
+
         self.schedule( self.dirRefreshFrequency, self.refreshDirRules )
         self.schedule( self.remoteRefreshFrequency, self.refreshRemoteRules )
 
