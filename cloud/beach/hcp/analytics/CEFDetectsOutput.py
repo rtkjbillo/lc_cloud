@@ -23,7 +23,7 @@ import logging.handlers
 
 class CEFDetectsOutput( Actor ):
     def init( self, parameters, resources ):
-        self.admin = BEAdmin( parameters[ 'beach_config' ], None )
+        self.admin = BEAdmin( self._beach_config_path, None )
         Host.setDatabase( self.admin, parameters[ 'scale_db' ] )
         self._cef_logger = logging.getLogger( 'limacharlie_detects_cef' )
         handler = logging.handlers.SysLogHandler( address = parameters.get( 'siem_server', '/dev/log' ) )
