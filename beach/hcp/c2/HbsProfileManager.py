@@ -17,12 +17,12 @@ import traceback
 import hashlib
 import time
 import ipaddress
-CassDb = Actor.importLib( '../utils/hcp_databases', 'CassDb' )
-CassPool = Actor.importLib( '../utils/hcp_databases', 'CassPool' )
-rpcm = Actor.importLib( '../utils/rpcm', 'rpcm' )
-rList = Actor.importLib( '../utils/rpcm', 'rList' )
-rSequence = Actor.importLib( '../utils/rpcm', 'rSequence' )
-AgentId = Actor.importLib( '../utils/hcp_helpers', 'AgentId' )
+CassDb = Actor.importLib( 'utils/hcp_databases', 'CassDb' )
+CassPool = Actor.importLib( 'utils/hcp_databases', 'CassPool' )
+rpcm = Actor.importLib( 'utils/rpcm', 'rpcm' )
+rList = Actor.importLib( 'utils/rpcm', 'rList' )
+rSequence = Actor.importLib( 'utils/rpcm', 'rSequence' )
+AgentId = Actor.importLib( 'utils/hcp_helpers', 'AgentId' )
 
 class TaskingRule( object ):
     def __init__( self, parent, aid, compiledProfile, h ):

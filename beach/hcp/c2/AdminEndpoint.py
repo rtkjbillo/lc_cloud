@@ -16,15 +16,15 @@ from beach.actor import Actor
 import traceback
 import hashlib
 import time
-rpcm = Actor.importLib( '../utils/rpcm', 'rpcm' )
-rList = Actor.importLib( '../utils/rpcm', 'rList' )
-rSequence = Actor.importLib( '../utils/rpcm', 'rSequence' )
-AgentId = Actor.importLib( '../utils/hcp_helpers', 'AgentId' )
-HbsCollectorId = Actor.importLib( '../utils/hcp_helpers', 'HbsCollectorId' )
-CassDb = Actor.importLib( '../utils/hcp_databases', 'CassDb' )
-CassPool = Actor.importLib( '../utils/hcp_databases', 'CassPool' )
-HcpOperations = Actor.importLib( '../utils/hcp_helpers', 'HcpOperations' )
-HcpModuleId = Actor.importLib( '../utils/hcp_helpers', 'HcpModuleId' )
+rpcm = Actor.importLib( 'utils/rpcm', 'rpcm' )
+rList = Actor.importLib( 'utils/rpcm', 'rList' )
+rSequence = Actor.importLib( 'utils/rpcm', 'rSequence' )
+AgentId = Actor.importLib( 'utils/hcp_helpers', 'AgentId' )
+HbsCollectorId = Actor.importLib( 'utils/hcp_helpers', 'HbsCollectorId' )
+CassDb = Actor.importLib( 'utils/hcp_databases', 'CassDb' )
+CassPool = Actor.importLib( 'utils/hcp_databases', 'CassPool' )
+HcpOperations = Actor.importLib( 'utils/hcp_helpers', 'HcpOperations' )
+HcpModuleId = Actor.importLib( 'utils/hcp_helpers', 'HcpModuleId' )
 
 def audited( f ):
     def wrapped( self, *args, **kwargs ):
