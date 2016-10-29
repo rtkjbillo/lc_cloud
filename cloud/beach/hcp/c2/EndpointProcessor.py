@@ -299,7 +299,7 @@ class EndpointProcessor( Actor ):
                 #self.log( traceback.format_exc() )
                 raise
             else:
-                self.log( 'Disconnecting: %s' str( e ) )
+                self.log( 'Disconnecting: %s' % str( e ) )
         finally:
             if aid is not None:
                 if aid.invariableToString() in self.currentClients:
