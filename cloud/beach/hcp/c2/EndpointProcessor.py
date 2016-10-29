@@ -26,13 +26,13 @@ import hashlib
 import random
 import traceback
 import time
-rpcm = Actor.importLib( '../utils/rpcm', 'rpcm' )
-rList = Actor.importLib( '../utils/rpcm', 'rList' )
-rSequence = Actor.importLib( '../utils/rpcm', 'rSequence' )
-AgentId = Actor.importLib( '../utils/hcp_helpers', 'AgentId' )
-HcpModuleId = Actor.importLib( '../utils/hcp_helpers', 'HcpModuleId' )
-Symbols = Actor.importLib( '../Symbols', 'Symbols' )()
-HcpOperations = Actor.importLib( '../utils/hcp_helpers', 'HcpOperations' )
+rpcm = Actor.importLib( 'utils/rpcm', 'rpcm' )
+rList = Actor.importLib( 'utils/rpcm', 'rList' )
+rSequence = Actor.importLib( 'utils/rpcm', 'rSequence' )
+AgentId = Actor.importLib( 'utils/hcp_helpers', 'AgentId' )
+HcpModuleId = Actor.importLib( 'utils/hcp_helpers', 'HcpModuleId' )
+Symbols = Actor.importLib( 'Symbols', 'Symbols' )()
+HcpOperations = Actor.importLib( 'utils/hcp_helpers', 'HcpOperations' )
 
 rsa_2048_min_size = 0x100
 aes_256_iv_size = 0x10

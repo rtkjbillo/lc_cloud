@@ -17,13 +17,13 @@ import traceback
 import hashlib
 import time
 import ipaddress
-rpcm = Actor.importLib( '../utils/rpcm', 'rpcm' )
-rList = Actor.importLib( '../utils/rpcm', 'rList' )
-rSequence = Actor.importLib( '../utils/rpcm', 'rSequence' )
-AgentId = Actor.importLib( '../utils/hcp_helpers', 'AgentId' )
-RingCache = Actor.importLib( '../utils/hcp_helpers', 'RingCache' )
-HcpModuleId = Actor.importLib( '../utils/hcp_helpers', 'HcpModuleId' )
-Symbols = Actor.importLib( '../Symbols', 'Symbols' )()
+rpcm = Actor.importLib( 'utils/rpcm', 'rpcm' )
+rList = Actor.importLib( 'utils/rpcm', 'rList' )
+rSequence = Actor.importLib( 'utils/rpcm', 'rSequence' )
+AgentId = Actor.importLib( 'utils/hcp_helpers', 'AgentId' )
+RingCache = Actor.importLib( 'utils/hcp_helpers', 'RingCache' )
+HcpModuleId = Actor.importLib( 'utils/hcp_helpers', 'HcpModuleId' )
+Symbols = Actor.importLib( 'Symbols', 'Symbols' )()
 
 class TaskingProxy( Actor ):
     def init( self, parameters, resources ):
