@@ -116,4 +116,7 @@ printStep( 'Setup LC web ui dependencies.',
     os.system( 'pip install markdown' ) )
 
 printStep( 'Redirect port 80 to 9090 so we can run as non-root.',
-           os.system( 'iptables -t nat -A PREROUTING -p tcp --dport 80 -j REDIRECT --to-port 9090' ) )
+           os.system( 'iptables -t nat -A PREROUTING -p tcp --dport 80 -j REDIRECT --to-port 9090' ),
+           os.system( 'echo iptables-persistent iptables-persistent/autosave_v4 boolean true | sudo debconf-set-selections' ),
+           os.system( 'echo iptables-persistent iptables-persistent/autosave_v6 boolean true | sudo debconf-set-selections' ),
+           os.system( 'apt-get install iptables-persistent -y' ) )
