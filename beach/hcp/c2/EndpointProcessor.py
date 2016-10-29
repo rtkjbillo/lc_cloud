@@ -243,7 +243,10 @@ class EndpointProcessor( Actor ):
                 raise DisconnectException( 'Sensor does not belong to this deployment' )
             aid = AgentId( headers[ 'base.HCP_ID' ] )
             if not aid.isValid or aid.isWildcarded():
-                raise DisconnectException( 'Invalid sensor id: %s' % str( aid ) )
+                aidInfo = str( aid )
+                if 0 == len( aidInfo ):
+                    aidInfo = str( headers )
+                raise DisconnectException( 'Invalid sensor id: %s' % aidInfo )
             enrollmentToken = headers.get( 'hcp.ENROLLMENT_TOKEN', None )
             if 0 == aid.unique:
                 self.log( 'Sensor requires enrollment' )
