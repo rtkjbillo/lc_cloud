@@ -244,7 +244,7 @@ RVOID
         }
         else
         {
-            rSequence_addRU32( event, RP_TAGS_ERROR, RPAL_ERROR_NOT_SUPPORTED );
+            rSequence_addRU32( event, RP_TAGS_ERROR, RPAL_ERROR_INVALID_PARAMETER );
         }
 
         hbs_timestampEvent( event, 0 );
@@ -271,7 +271,11 @@ RVOID
         if( rSequence_getRU32( event, RP_TAGS_THREAD_ID, &pid ) &&
             rSequence_getRU32( event, RP_TAGS_PROCESS_ID, &pid ) )
         {
-            if( processLib_suspendThread( pid, tid ) )
+            if( processLib_getCurrentPid() == pid )
+            {
+                rSequence_addRU32( event, RP_TAGS_ERROR, RPAL_ERROR_ACCESS_DENIED );
+            }
+            else if( processLib_suspendThread( pid, tid ) )
             {
                 rSequence_addRU32( event, RP_TAGS_ERROR, RPAL_ERROR_SUCCESS );
             }
@@ -282,7 +286,11 @@ RVOID
         }
         else if( rSequence_getRU32( event, RP_TAGS_PROCESS_ID, &pid ) )
         {
-            if( processLib_suspendProcess( pid ) )
+            if( processLib_getCurrentPid() == pid )
+            {
+                rSequence_addRU32( event, RP_TAGS_ERROR, RPAL_ERROR_ACCESS_DENIED );
+            }
+            else if( processLib_suspendProcess( pid ) )
             {
                 rSequence_addRU32( event, RP_TAGS_ERROR, RPAL_ERROR_SUCCESS );
             }
@@ -293,7 +301,7 @@ RVOID
         }
         else
         {
-            rSequence_addRU32( event, RP_TAGS_ERROR, RPAL_ERROR_NOT_SUPPORTED );
+            rSequence_addRU32( event, RP_TAGS_ERROR, RPAL_ERROR_INVALID_PARAMETER );
         }
 
         hbs_timestampEvent( event, 0 );
@@ -320,7 +328,11 @@ RVOID
         if( rSequence_getRU32( event, RP_TAGS_THREAD_ID, &pid ) &&
             rSequence_getRU32( event, RP_TAGS_PROCESS_ID, &pid ) )
         {
-            if( processLib_resumeThread( pid, tid ) )
+            if( processLib_getCurrentPid() == pid )
+            {
+                rSequence_addRU32( event, RP_TAGS_ERROR, RPAL_ERROR_ACCESS_DENIED );
+            }
+            else if( processLib_resumeThread( pid, tid ) )
             {
                 rSequence_addRU32( event, RP_TAGS_ERROR, RPAL_ERROR_SUCCESS );
             }
@@ -331,7 +343,11 @@ RVOID
         }
         else if( rSequence_getRU32( event, RP_TAGS_PROCESS_ID, &pid ) )
         {
-            if( processLib_resumeProcess( pid ) )
+            if( processLib_getCurrentPid() == pid )
+            {
+                rSequence_addRU32( event, RP_TAGS_ERROR, RPAL_ERROR_ACCESS_DENIED );
+            }
+            else if( processLib_resumeProcess( pid ) )
             {
                 rSequence_addRU32( event, RP_TAGS_ERROR, RPAL_ERROR_SUCCESS );
             }
@@ -342,7 +358,7 @@ RVOID
         }
         else
         {
-            rSequence_addRU32( event, RP_TAGS_ERROR, RPAL_ERROR_NOT_SUPPORTED );
+            rSequence_addRU32( event, RP_TAGS_ERROR, RPAL_ERROR_INVALID_PARAMETER );
         }
 
         hbs_timestampEvent( event, 0 );

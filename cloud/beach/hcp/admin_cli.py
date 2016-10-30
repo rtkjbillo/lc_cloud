@@ -968,7 +968,7 @@ class HcpCli ( cmd.Cmd ):
         arguments = self.parse( parser, s )
         if arguments is not None:
             payload = rSequence().addInt32( self.tags.base.PROCESS_ID, arguments.pid )
-            if 'tid' in arguments:
+            if arguments.tid is not None:
                 payload.addInt32( self.tags.base.THREAD_ID, arguments.tid )
             self._executeHbsTasking( self.tags.notification.OS_SUSPEND_REQ,
                                      payload,
@@ -990,7 +990,7 @@ class HcpCli ( cmd.Cmd ):
         arguments = self.parse( parser, s )
         if arguments is not None:
             payload = rSequence().addInt32( self.tags.base.PROCESS_ID, arguments.pid )
-            if 'tid' in arguments:
+            if arguments.tid is not None:
                 payload.addInt32( self.tags.base.THREAD_ID, arguments.tid )
             self._executeHbsTasking( self.tags.notification.OS_RESUME_REQ,
                                      payload,

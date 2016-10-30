@@ -2759,6 +2759,8 @@ RBOOL
 
     if( NULL != ( threads = processLib_getThreads( pid ) ) )
     {
+        isSuccess = TRUE;
+
         while( rList_getRU32( threads, RP_TAGS_THREAD_ID, &tid ) )
         {
             if( !processLib_suspendThread( pid, tid ) )
@@ -2841,6 +2843,8 @@ RBOOL
 
     if( NULL != ( threads = processLib_getThreads( pid ) ) )
     {
+        isSuccess = TRUE;
+
         while( rList_getRU32( threads, RP_TAGS_THREAD_ID, &tid ) )
         {
             if( !processLib_resumeThread( pid, tid ) )
