@@ -21,6 +21,8 @@ rList().addSequence( _.hbs.CONFIGURATION,
                                                                            .addInt32( _.hbs.NOTIFICATION_ID, _.notification.OS_SERVICES_REP )
                                                                            .addInt32( _.hbs.NOTIFICATION_ID, _.notification.OS_DRIVERS_REP )
                                                                            .addInt32( _.hbs.NOTIFICATION_ID, _.notification.OS_KILL_PROCESS_REP )
+                                                                           .addInt32( _.hbs.NOTIFICATION_ID, _.notification.OS_SUSPEND_REP )
+                                                                           .addInt32( _.hbs.NOTIFICATION_ID, _.notification.OS_RESUME_REP )
                                                                            .addInt32( _.hbs.NOTIFICATION_ID, _.notification.OS_PROCESSES_REP )
                                                                            .addInt32( _.hbs.NOTIFICATION_ID, _.notification.OS_AUTORUNS_REP )
                                                                            .addInt32( _.hbs.NOTIFICATION_ID, _.notification.EXEC_OOB )
