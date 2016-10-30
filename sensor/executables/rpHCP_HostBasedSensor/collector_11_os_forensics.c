@@ -248,6 +248,96 @@ RVOID
     }
 }
 
+
+static
+RVOID
+    os_suspend
+    (
+        rpcm_tag eventType,
+        rSequence event
+    )
+{
+    RU32 pid = 0;
+    RU32 tid = 0;
+
+    UNREFERENCED_PARAMETER( eventType );
+
+    if( rpal_memory_isValid( event ) )
+    {
+        if( rSequence_getRU32( event, RP_TAGS_THREAD_ID, &pid ) &&
+            rSequence_getRU32( event, RP_TAGS_PROCESS_ID, &pid ) )
+        {
+            if( processLib_suspendThread( pid, tid ) )
+            {
+                rSequence_addRU32( event, RP_TAGS_ERROR, RPAL_ERROR_SUCCESS );
+            }
+            else
+            {
+                rSequence_addRU32( event, RP_TAGS_ERROR, rpal_error_getLast() );
+            }
+        }
+        else if( rSequence_getRU32( event, RP_TAGS_PROCESS_ID, &pid ) )
+        {
+            if( processLib_suspendProcess( pid ) )
+            {
+                rSequence_addRU32( event, RP_TAGS_ERROR, RPAL_ERROR_SUCCESS );
+            }
+            else
+            {
+                rSequence_addRU32( event, RP_TAGS_ERROR, rpal_error_getLast() );
+            }
+        }
+
+        hbs_timestampEvent( event, 0 );
+        hbs_publish( RP_TAGS_NOTIFICATION_OS_SUSPEND_REP, event );
+    }
+}
+
+
+static
+RVOID
+    os_resume
+    (
+        rpcm_tag eventType,
+        rSequence event
+    )
+{
+    RU32 pid = 0;
+    RU32 tid = 0;
+
+    UNREFERENCED_PARAMETER( eventType );
+
+    if( rpal_memory_isValid( event ) )
+    {
+        if( rSequence_getRU32( event, RP_TAGS_THREAD_ID, &pid ) &&
+            rSequence_getRU32( event, RP_TAGS_PROCESS_ID, &pid ) )
+        {
+            if( processLib_resumeThread( pid, tid ) )
+            {
+                rSequence_addRU32( event, RP_TAGS_ERROR, RPAL_ERROR_SUCCESS );
+            }
+            else
+            {
+                rSequence_addRU32( event, RP_TAGS_ERROR, rpal_error_getLast() );
+            }
+        }
+        else if( rSequence_getRU32( event, RP_TAGS_PROCESS_ID, &pid ) )
+        {
+            if( processLib_resumeProcess( pid ) )
+            {
+                rSequence_addRU32( event, RP_TAGS_ERROR, RPAL_ERROR_SUCCESS );
+            }
+            else
+            {
+                rSequence_addRU32( event, RP_TAGS_ERROR, rpal_error_getLast() );
+            }    
+        }
+
+        hbs_timestampEvent( event, 0 );
+        hbs_publish( RP_TAGS_NOTIFICATION_OS_RESUME_REP, event );
+    }
+}
+
 //=============================================================================
 // COLLECTOR INTERFACE
 //=============================================================================
@@ -257,6 +347,8 @@ rpcm_tag collector_11_events[] = { RP_TAGS_NOTIFICATION_OS_SERVICES_REP,
                                    RP_TAGS_NOTIFICATION_OS_PROCESSES_REP,
                                    RP_TAGS_NOTIFICATION_OS_AUTORUNS_REP,
                                    RP_TAGS_NOTIFICATION_OS_KILL_PROCESS_REP,
+                                   RP_TAGS_NOTIFICATION_OS_SUSPEND_REP,
+                                   RP_TAGS_NOTIFICATION_OS_RESUME_REP,
                                    0 };
 
 RBOOL
@@ -277,7 +369,9 @@ RBOOL
             notifications_subscribe( RP_TAGS_NOTIFICATION_OS_DRIVERS_REQ, NULL, 0, NULL, os_drivers ) &&
             notifications_subscribe( RP_TAGS_NOTIFICATION_OS_PROCESSES_REQ, NULL, 0, NULL, os_processes ) &&
             notifications_subscribe( RP_TAGS_NOTIFICATION_OS_AUTORUNS_REQ, NULL, 0, NULL, os_autoruns ) &&
-            notifications_subscribe( RP_TAGS_NOTIFICATION_OS_KILL_PROCESS_REQ, NULL, 0, NULL, os_kill_process ) )
+            notifications_subscribe( RP_TAGS_NOTIFICATION_OS_KILL_PROCESS_REQ, NULL, 0, NULL, os_kill_process ) &&
+            notifications_subscribe( RP_TAGS_NOTIFICATION_OS_SUSPEND_REQ, NULL, 0, NULL, os_suspend ) &&
+            notifications_subscribe( RP_TAGS_NOTIFICATION_OS_RESUME_REQ, NULL, 0, NULL, os_resume ) )
         {
             isSuccess = TRUE;
 
@@ -300,6 +394,8 @@ RBOOL
             notifications_unsubscribe( RP_TAGS_NOTIFICATION_OS_DRIVERS_REQ, NULL, os_drivers );
             notifications_unsubscribe( RP_TAGS_NOTIFICATION_OS_PROCESSES_REQ, NULL, os_processes );
             notifications_unsubscribe( RP_TAGS_NOTIFICATION_OS_AUTORUNS_REQ, NULL, os_autoruns );
+            notifications_unsubscribe( RP_TAGS_NOTIFICATION_OS_SUSPEND_REQ, NULL, os_suspend );
+            notifications_unsubscribe( RP_TAGS_NOTIFICATION_OS_RESUME_REQ, NULL, os_resume );
         }
     }
 
@@ -324,6 +420,8 @@ RBOOL
         notifications_unsubscribe( RP_TAGS_NOTIFICATION_OS_PROCESSES_REQ, NULL, os_processes );
         notifications_unsubscribe( RP_TAGS_NOTIFICATION_OS_AUTORUNS_REQ, NULL, os_autoruns );
         notifications_unsubscribe( RP_TAGS_NOTIFICATION_OS_KILL_PROCESS_REQ, NULL, os_kill_process );
+        notifications_unsubscribe( RP_TAGS_NOTIFICATION_OS_SUSPEND_REQ, NULL, os_suspend );
+        notifications_unsubscribe( RP_TAGS_NOTIFICATION_OS_RESUME_REQ, NULL, os_resume );
 
         isSuccess = TRUE;
     }

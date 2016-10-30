@@ -143,4 +143,30 @@ RU32
 
     );
 
+RBOOL
+    processLib_suspendProcess
+    (
+        RU32 pid
+    );
+
+RBOOL
+    processLib_suspendThread
+    (
+        RU32 pid,
+        rThreadID tid
+    );
+
+RBOOL
+    processLib_resumeProcess
+    (
+        RU32 pid
+    );
+
+RBOOL
+    processLib_resumeThread
+    (
+        RU32 pid,
+        rThreadID tid
+    );
+
 #endif

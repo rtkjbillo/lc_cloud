@@ -2742,3 +2742,151 @@ RU32
 
     return threadId;
 }
+
+
+RBOOL
+    processLib_suspendProcess
+    (
+        RU32 pid
+    )
+{
+    RBOOL isSuccess = FALSE;
+
+#ifdef RPAL_PLATFORM_WINDOWS
+    rList threads = NULL;
+    RU32 tid = 0;
+    RU32 lastSuspended = 0;
+
+    if( NULL != ( threads = processLib_getThreads( pid ) ) )
+    {
+        while( rList_getRU32( threads, RP_TAGS_THREAD_ID, &tid ) )
+        {
+            if( !processLib_suspendThread( pid, tid ) )
+            {
+                isSuccess = FALSE;
+            }
+
+            lastSuspended = tid;
+        }
+
+        if( !isSuccess )
+        {
+            rList_resetIterator( threads );
+
+            while( rList_getRU32( threads, RP_TAGS_THREAD_ID, &tid ) )
+            {
+                processLib_resumeThread( pid, tid );
+
+                if( tid == lastSuspended )
+                {
+                    break;
+                }
+            }
+        }
+
+        rList_free( threads );
+    }
+#else
+    if( 0 == kill( pid, SIGSTOP ) )
+    {
+        isSuccess = TRUE;
+    }
+#endif
+
+    return isSuccess;
+}
+
+RBOOL
+    processLib_suspendThread
+    (
+        RU32 pid,
+        rThreadID tid
+    )
+{
+    RBOOL isSuccess = FALSE;
+
+#ifdef RPAL_PLATFORM_WINDOWS
+    HANDLE hThread = NULL;
+    UNREFERENCED_PARAMETER( pid );
+
+    if( NULL != ( hThread = OpenThread( THREAD_SUSPEND_RESUME, FALSE, tid ) ) )
+    {
+        if( ( -1 ) != SuspendThread( hThread ) )
+        {
+            isSuccess = TRUE;
+        }
+
+        CloseHandle( hThread );
+    }
+#else
+    UNREFERENCED_PARAMETER( pid );
+    UNREFERENCED_PARAMETER( tid );
+    rpal_debug_not_implemented();
+#endif
+
+    return isSuccess;
+}
+
+RBOOL
+    processLib_resumeProcess
+    (
+        RU32 pid
+    )
+{
+    RBOOL isSuccess = FALSE;
+
+#ifdef RPAL_PLATFORM_WINDOWS
+    rList threads = NULL;
+    RU32 tid = 0;
+
+    if( NULL != ( threads = processLib_getThreads( pid ) ) )
+    {
+        while( rList_getRU32( threads, RP_TAGS_THREAD_ID, &tid ) )
+        {
+            if( !processLib_resumeThread( pid, tid ) )
+            {
+                isSuccess = FALSE;
+            }
+        }
+
+        rList_free( threads );
+    }
+#else
+    if( 0 == kill( pid, SIGCONT ) )
+    {
+        isSuccess = TRUE;
+    }
+#endif
+
+    return isSuccess;
+}
+
+RBOOL
+    processLib_resumeThread
+    (
+        RU32 pid,
+        rThreadID tid
+    )
+{
+    RBOOL isSuccess = FALSE;
+
+#ifdef RPAL_PLATFORM_WINDOWS
+    HANDLE hThread = NULL;
+    UNREFERENCED_PARAMETER( pid );
+
+    if( NULL != ( hThread = OpenThread( THREAD_SUSPEND_RESUME, FALSE, tid ) ) )
+    {
+        if( ( -1 ) != ResumeThread( hThread ) )
+        {
+            isSuccess = TRUE;
+        }
+
+        CloseHandle( hThread );
+    }
+#else
+    UNREFERENCED_PARAMETER( pid );
+    UNREFERENCED_PARAMETER( tid );
+#endif
+
+    return isSuccess;
+}
