@@ -241,10 +241,14 @@ RVOID
             {
                 rSequence_addRU32( event, RP_TAGS_ERROR, rpal_error_getLast() );
             }
-
-            hbs_timestampEvent( event, 0 );
-            hbs_publish( RP_TAGS_NOTIFICATION_OS_KILL_PROCESS_REP, event );
         }
+        else
+        {
+            rSequence_addRU32( event, RP_TAGS_ERROR, RPAL_ERROR_NOT_SUPPORTED );
+        }
+
+        hbs_timestampEvent( event, 0 );
+        hbs_publish( RP_TAGS_NOTIFICATION_OS_KILL_PROCESS_REP, event );
     }
 }
 
@@ -286,6 +290,10 @@ RVOID
             {
                 rSequence_addRU32( event, RP_TAGS_ERROR, rpal_error_getLast() );
             }
+        }
+        else
+        {
+            rSequence_addRU32( event, RP_TAGS_ERROR, RPAL_ERROR_NOT_SUPPORTED );
         }
 
         hbs_timestampEvent( event, 0 );
@@ -331,6 +339,10 @@ RVOID
             {
                 rSequence_addRU32( event, RP_TAGS_ERROR, rpal_error_getLast() );
             }    
+        }
+        else
+        {
+            rSequence_addRU32( event, RP_TAGS_ERROR, RPAL_ERROR_NOT_SUPPORTED );
         }
 
         hbs_timestampEvent( event, 0 );
