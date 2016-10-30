@@ -953,6 +953,50 @@ class HcpCli ( cmd.Cmd ):
                                      arguments )
 
     @report_errors
+    def do_os_suspend( self, s ):
+        '''Suspend a process or thread on the host.'''
+
+        parser = self.getParser( 'os_suspend', True )
+        parser.add_argument( '-p', '--pid',
+                             type = int,
+                             required = True,
+                             help = 'process id' )
+        parser.add_argument( '-t', '--tid',
+                             type = int,
+                             required = False,
+                             help = 'thread id' )
+        arguments = self.parse( parser, s )
+        if arguments is not None:
+            payload = rSequence().addInt32( self.tags.base.PROCESS_ID, arguments.pid )
+            if 'tid' in arguments:
+                payload.addInt32( self.tags.base.THREAD_ID, arguments.tid )
+            self._executeHbsTasking( self.tags.notification.OS_SUSPEND_REQ,
+                                     payload,
+                                     arguments )
+
+    @report_errors
+    def do_os_resume( self, s ):
+        '''Resume a process or thread on the host.'''
+
+        parser = self.getParser( 'os_resume', True )
+        parser.add_argument( '-p', '--pid',
+                             type = int,
+                             required = True,
+                             help = 'process id' )
+        parser.add_argument( '-t', '--tid',
+                             type = int,
+                             required = False,
+                             help = 'thread id' )
+        arguments = self.parse( parser, s )
+        if arguments is not None:
+            payload = rSequence().addInt32( self.tags.base.PROCESS_ID, arguments.pid )
+            if 'tid' in arguments:
+                payload.addInt32( self.tags.base.THREAD_ID, arguments.tid )
+            self._executeHbsTasking( self.tags.notification.OS_RESUME_REQ,
+                                     payload,
+                                     arguments )
+
+    @report_errors
     def do_os_processes( self, s ):
         '''Generate a new process snapshot.'''
 
