@@ -37,6 +37,11 @@ static StatefulMachineDescriptor* g_statefulMachines[] =
     ENABLED_WINDOWS_STATEFUL( 2 )
 };
 
+// For now this is a hardcoded list of events, TODO: make it dynamic based on info from FSMs.
+static rpcm_tag g_eventsOfInterest[] = { RP_TAGS_NOTIFICATION_NEW_PROCESS,
+                                         RP_TAGS_NOTIFICATION_TERMINATE_PROCESS,
+                                         RP_TAGS_NOTIFICATION_MODULE_LOAD };
+
 static
 RVOID
     _freeSmEvent
@@ -125,9 +130,23 @@ static RVOID
         rSequence event
     )
 {
+    RU32 i = 0;
+    RBOOL isOfInterest = FALSE;
+
     if( NULL != event )
     {
-        if( NULL != ( event = rSequence_duplicate( event ) ) )
+        // TODO: When we get more events do a binary search or something optimized.
+        for( i = 0; i < ARRAY_N_ELEM( g_eventsOfInterest ); i++ )
+        {
+            if( g_eventsOfInterest[ i ] == notifType )
+            {
+                isOfInterest = TRUE;
+                break;
+            }
+        }
+
+        if( isOfInterest &&
+            NULL != ( event = rSequence_duplicate( event ) ) )
         {
             if( !HbsDelayBuffer_add( g_events, notifType, event ) )
             {
