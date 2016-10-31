@@ -48,7 +48,7 @@ class ModelView( Actor ):
         self.handle( 'get_detect', self.get_detect )
         self.handle( 'get_host_changes', self.get_host_changes )
         self.handle( 'set_kv', self.set_kv )
-        self.handle( 'get_kc', self.get_kv )
+        self.handle( 'get_kv', self.get_kv )
         self.handle( 'get_obj_loc', self.get_obj_loc )
         self.handle( 'get_file_in_event', self.get_file_in_event )
         self.handle( 'get_atoms_from_root', self.get_atoms_from_root )
