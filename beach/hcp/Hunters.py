@@ -146,6 +146,13 @@ class _Investigation ( object ):
         if not resp.isSuccess:
             raise Exception( 'error recording inv conclusion' )
 
+    def isDuplicate( self, invKey, ttl ):
+        resp = self.actor.Models.request( 'get_kv', { 'cat' : 'inv_dupe', 'k' : invKey } )
+        if resp.isSuccess:
+            return resp.data[ 'v' ]
+        self.actor.Models.shoot( 'set_kv', { 'cat' : 'inv_dupe', 'k' : invKey, 'v' : self.invId, 'ttl' : ttl } )
+        return False
+
 class Hunter ( Actor ):
     def init( self, parameters ):
         self._hunterName = self.__class__.__name__
