@@ -429,6 +429,8 @@ RPAL_THREAD_FUNC
     {
         if( NULL != ( message = rSequence_new() ) )
         {
+            hbs_timestampEvent( message, 0 );
+
             if( rSequence_addSEQUENCE( wrapper, RP_TAGS_NOTIFICATION_SYNC, message ) )
             {
                 if( rSequence_addBUFFER( message,
