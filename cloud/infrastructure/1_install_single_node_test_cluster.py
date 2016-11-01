@@ -74,7 +74,7 @@ printStep( 'Installing Cassandra.',
     os.system( 'apt-get update -y' ) )
 
 # Ignoring errors here because of a bug in the Ubuntu package.
-os.system( 'apt-get install cassandra=2.2.3 -y' )
+os.system( 'apt-get install cassandra=3.0.9 -y' )
 
 printStep( 'Starting Cassandra after hotfix.',
            os.system( """sed -i 's/"$JVM_PATCH_VERSION" \\\< "25"/$JVM_PATCH_VERSION -lt 25/g' /etc/cassandra/cassandra-env.sh""" ),
@@ -88,7 +88,7 @@ printStep( 'Initializing Cassandra schema.',
                                               'scale_db.cql' ), ) ) )
 
 printStep( 'Installing pip packages for various analytics components.',
-    os.system( 'pip install time_uuid cassandra-driver==3.2.2 virustotal' ),
+    os.system( 'pip install time_uuid cassandra-driver==3.7.1 virustotal' ),
     os.system( 'pip install ipaddress' ) )
 
 printStep( 'Installing Yara.',
