@@ -43,6 +43,10 @@ printStep( 'Upgrade max number of file descriptors.',
            os.system( 'echo "fs.file-max = 1024000" >> /etc/sysctl.conf'),
            os.system( 'sysctl -p' ) )
 
+printStep( 'Turn off systemd broadcast.',
+           os.system( 'echo "ForwardToWall=no" >> /etc/systemd/journald.conf' ),
+           os.system( 'systemctl restart systemd-journald' ) )
+
 printStep( 'Updating repo and upgrading existing components.',
     os.system( 'apt-get update -y' ),
     os.system( 'apt-get upgrade -y' ) )
