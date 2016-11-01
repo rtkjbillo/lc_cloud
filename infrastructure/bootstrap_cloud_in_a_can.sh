@@ -1,6 +1,6 @@
 apt-get update -y
 apt-get upgrade -y
-apt-get install git -y
+apt-get install python git -y
 su -c "git clone --recursive https://github.com/refractionPOINT/limacharlie.git -b $LC_BRANCH" `logname`
 cd limacharlie/cloud/infrastructure/
 su -c "touch install_log.txt" `logname`
