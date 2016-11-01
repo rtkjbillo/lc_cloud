@@ -59,7 +59,7 @@ printStep( 'Installing prefixtree.',
     os.system( 'rm *prefixtree*.tar.gz' ),
     os.system( 'sed -i \'s/from distribute_setup import use_setuptools//g\' *prefixtree*/setup.py' ),
     os.system( 'sed -i \'s/use_setuptools()//g\' *prefixtree*/setup.py' ),
-    os.system( 'cd *prefixtree*; python *prefixtree*/setup.py install; cd ..' ) )
+    os.system( 'cd *prefixtree*; python ./setup.py install; cd ..' ) )
 
 printStep( 'Installing Beach.',
     os.system( 'pip install distribute' ),
