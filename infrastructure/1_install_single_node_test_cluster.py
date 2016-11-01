@@ -50,7 +50,19 @@ printStep( 'Updating repo and upgrading existing components.',
 printStep( 'Installing some basic packages required for Beach (mainly).',
     os.system( 'apt-get install python-pip python-dev debconf-utils python-m2crypto python-pexpect autoconf libtool git flex byacc bison unzip -y' ) )
 
+print( 'Download prefixtree (expected to fail).' )
+os.system( 'pip download prefixtree' )
+
+printStep( 'Installing prefixtree.',
+    os.system( 'pip install distribute' ),
+    os.system( 'tar xzf *prefixtree*.tar.gz' ),
+    os.system( 'rm *prefixtree*.tar.gz' ),
+    os.system( 'sed -i \'s/from distribute_setup import use_setuptools//g\' *prefixtree*/setup.py' ),
+    os.system( 'sed -i \'s/use_setuptools()//g\' *prefixtree*/setup.py' ),
+    os.system( 'cd *prefixtree*; python *prefixtree*/setup.py install; cd ..' ) )
+
 printStep( 'Installing Beach.',
+    os.system( 'pip install distribute' ),
     os.system( 'pip install beach' ) )
 
 printStep( 'Installing JRE for Cassandra (the hcp-scale-db)',
