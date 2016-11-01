@@ -35,7 +35,7 @@ class CassDb( object ):
     CL_Reliable = ConsistencyLevel.QUORUM
     CL_Default = ConsistencyLevel.TWO
 
-    def __init__( self, url, dbname, version = '3.3.1', quorum = False, consistencyOne = False, backoffConsistency = False ):
+    def __init__( self, url, dbname, version = '3.4.0', quorum = False, consistencyOne = False, backoffConsistency = False ):
 
         self.isShutdown = False
         self.url = url
