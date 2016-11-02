@@ -18,8 +18,8 @@ limitations under the License.
 
 
 
-#define SERVICE_NAME "RPHCP"
-#define SERVICE_NAME_LEGACY "RPHCP"
+#define SERVICE_NAME _WCH( "RPHCP" )
+#define SERVICE_NAME_LEGACY _WCH( "RPHCP" )
 
 
 static SERVICE_STATUS          ServiceStatus;
@@ -68,21 +68,21 @@ RVOID
     ServiceMain
     (
         RU32 argc,
-        RPCHAR* argv
+        RPWCHAR* argv
     )
 {
-    RCHAR argFlag = 0;
-    RPCHAR argVal = NULL;
-    RU8 conf = 0;
-    RPCHAR primary = NULL;
-    RPCHAR secondary = NULL;
+    RNCHAR argFlag = 0;
+    RPNCHAR argVal = NULL;
+    RU32 conf = 0;
+    RPNCHAR primary = NULL;
+    RPNCHAR secondary = NULL;
     RU32 memUsed = 0;
 
-    rpal_opt switches[] = { { 'h', "help", FALSE },
-                            { 'c', "config", TRUE },
-                            { 'p', "primary", TRUE },
-                            { 's', "secondary", TRUE },
-                            { 'm', "manual", TRUE } };
+    rpal_opt switches[] = { { _NC( 'h' ), _NC( "help" ), FALSE },
+                            { _NC( 'c' ), _NC( "config" ), TRUE },
+                            { _NC( 'p' ), _NC( "primary" ), TRUE },
+                            { _NC( 's' ), _NC( "secondary" ), TRUE },
+                            { _NC( 'm' ), _NC( "manual" ), TRUE } };
 
     ServiceStatus.dwServiceType = SERVICE_WIN32_SHARE_PROCESS;
     ServiceStatus.dwCurrentState = SERVICE_START_PENDING;
@@ -92,9 +92,9 @@ RVOID
     ServiceStatus.dwCheckPoint = 0;
     ServiceStatus.dwWaitHint = ( 1 * 1000 );
 
-    if( 0 == ( hStatus = RegisterServiceCtrlHandler( SERVICE_NAME, (LPHANDLER_FUNCTION)&ControlHandler ) ) )
+    if( 0 == ( hStatus = RegisterServiceCtrlHandlerW( SERVICE_NAME, (LPHANDLER_FUNCTION)&ControlHandler ) ) )
     {
-        hStatus = RegisterServiceCtrlHandler( SERVICE_NAME_LEGACY, (LPHANDLER_FUNCTION)&ControlHandler );
+        hStatus = RegisterServiceCtrlHandlerW( SERVICE_NAME_LEGACY, (LPHANDLER_FUNCTION)&ControlHandler );
     }
 
     touchStatus();
@@ -111,19 +111,21 @@ RVOID
             {
                 switch( argFlag )
                 {
-                    case 'c':
-                        conf = (RU8)atoi( argVal );
-                        rpal_debug_info( "Setting config id: %d.", conf );
+                    case _NC( 'c' ):
+                        if( rpal_string_stoi( argVal, &conf ) && ( ( conf & 0xFF ) == conf ) )
+                        {
+                            rpal_debug_info( "Setting config id: %d.", (RU8)conf );
+                        }
                         break;
-                    case 'p':
+                    case _NC( 'p' ):
                         primary = argVal;
                         rpal_debug_info( "Setting primary URL: %s.", primary );
                         break;
-                    case 's':
+                    case _NC( 's' ):
                         secondary = argVal;
                         rpal_debug_info( "Setting secondary URL: %s.", secondary );
                         break;
-                    case 'h':
+                    case _NC( 'h' ):
                     default:
     #ifdef RPAL_PLATFORM_DEBUG
                         printf( "Usage: %s [ -c configId ] [ -p primaryHomeUrl ] [ -s secondaryHomeUrl ] [ -m moduleToLoad ] [ -h ].", argv[ 0 ] );
@@ -141,7 +143,7 @@ RVOID
 
             rpal_debug_info( "launching rpHCP" );
 
-            if( rpHostCommonPlatformLib_launch( conf, primary, secondary ) )
+            if( rpHostCommonPlatformLib_launch( (RU8)conf, primary, secondary ) )
             {
                 ServiceStatus.dwCurrentState = SERVICE_RUNNING;
                 touchStatus();

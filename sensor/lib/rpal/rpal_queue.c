@@ -86,7 +86,7 @@ RBOOL
 
     _rPQueue q = (_rPQueue)queue;
 
-    if( NULL != queue )
+    if( rpal_memory_isValid( queue ) )
     {
         if( rMutex_lock( q->mutex ) )
         {
@@ -121,7 +121,7 @@ RBOOL
     RPVOID removeBuff = NULL;
     RU32 removeSize = 0;
 
-    if( NULL != queue )
+    if( rpal_memory_isValid( queue ) )
     {
         if( rMutex_lock( q->mutex ) )
         {
@@ -184,7 +184,7 @@ RBOOL
         rQueue queue,
         RPVOID* buffer,
         RU32* bufferSize,
-        RU32 miliSecTimeout
+        RU32 milliSecTimeout
     )
 {
     RBOOL isSuccess = FALSE;
@@ -192,14 +192,14 @@ RBOOL
     _rPQueue q = (_rPQueue)queue;
     RU64 tmpTime = 0; // Oy I whish I had a WaitForMultipleObjects
 
-    if( NULL != queue )
+    if( rpal_memory_isValid( queue ) )
     {
         tmpTime = rpal_time_getLocal();
 
         do
         {
-            if( 0 != miliSecTimeout &&
-                miliSecTimeout < ( rpal_time_getLocal() - tmpTime ) )
+            if( 0 != milliSecTimeout &&
+                milliSecTimeout < ( rpal_time_getLocal() - tmpTime ) )
             {
                 // Since we can't wait for both the event and the mutex
                 // there is a chance we get the event but by the time we get to the
@@ -227,9 +227,9 @@ RBOOL
                 break;
             }
         }
-        while( 0 != miliSecTimeout && 
+        while( 0 != milliSecTimeout && 
                !isSuccess && 
-               rEvent_wait( q->newItems, miliSecTimeout ) );
+               rEvent_wait( q->newItems, milliSecTimeout ) );
     }
 
     return isSuccess;
@@ -245,7 +245,7 @@ RBOOL
 
     _rPQueue q = (_rPQueue)queue;
 
-    if( NULL != queue )
+    if( rpal_memory_isValid( queue ) )
     {
         if( rMutex_lock( q->mutex ) )
         {
@@ -271,7 +271,7 @@ RBOOL
 
     _rPQueue q = (_rPQueue)queue;
 
-    if( NULL != queue )
+    if( rpal_memory_isValid( queue ) )
     {
         if( rMutex_lock( q->mutex ) )
         {
@@ -297,7 +297,7 @@ rEvent
 
     _rPQueue q = (_rPQueue)queue;
 
-    if( NULL != queue )
+    if( rpal_memory_isValid( queue ) )
     {
         if( rMutex_lock( q->mutex ) )
         {
@@ -321,7 +321,7 @@ RBOOL
 
     _rPQueue q = (_rPQueue)queue;
 
-    if( NULL != queue &&
+    if( rpal_memory_isValid( queue ) &&
         NULL != pSize )
     {
         if( rMutex_lock( q->mutex ) )

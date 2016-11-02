@@ -108,11 +108,13 @@ static VOID
 RBOOL
     collector_3_initialize
     (
-
+        PDRIVER_OBJECT driverObject
     )
 {
     RBOOL isSuccess = FALSE;
     RU32 status = 0;
+
+    UNREFERENCED_PARAMETER( driverObject );
 
     KeInitializeSpinLock( &g_collector_3_mutex );
 

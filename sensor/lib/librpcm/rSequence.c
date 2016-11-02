@@ -170,7 +170,7 @@ RBOOL
     (
         rSequence seq,
         rpcm_tag tag,
-        RNATIVESTR string
+        RPNCHAR string
     )
 {
     return rSequence_addElement( seq, tag, RPCM_STRINGN, string, sizeof( string ) );
@@ -241,6 +241,17 @@ RBOOL
     )
 {
     return rSequence_addElement( seq, tag, RPCM_POINTER_64, &val, sizeof( val ) );
+}
+
+RBOOL
+rSequence_addTIMEDELTA
+    (
+        rSequence seq,
+        rpcm_tag tag,
+        RU64 val
+    )
+{
+    return rSequence_addElement( seq, tag, RPCM_TIMEDELTA, &val, sizeof( val ) );
 }
 
 RBOOL
@@ -452,7 +463,7 @@ RBOOL
     (
         rSequence seq,
         rpcm_tag tag,
-        RNATIVESTR* pVal
+        RPNCHAR* pVal
     )
 {
     rpcm_type type = RPCM_STRINGN;

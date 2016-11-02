@@ -19,6 +19,12 @@ import os
 import sys
 
 from beach.beach_api import Beach
+from hcp_helpers import timeToTs
+from hcp_helpers import _x_
+from hcp_helpers import _xm_
+from hcp_helpers import InvestigationNature
+from hcp_helpers import InvestigationConclusion
+from EventInterpreter import EventInterpreter
 
 import traceback
 import web
@@ -26,7 +32,15 @@ import datetime
 import time
 import json
 import base64
+import uuid
 from functools import wraps
+import markdown
+import markdown.extensions.tables
+
+from hcp_helpers import _x_
+from hcp_helpers import _xm_
+from hcp_helpers import timeToTs
+from hcp_helpers import normalAtom
 
 
 ###############################################################################
@@ -42,77 +56,8 @@ from functools import wraps
 ###############################################################################
 # CORE HELPER FUNCTIONS
 ###############################################################################
-def tsToTime( ts ):
-    return datetime.datetime.fromtimestamp( int( ts ) ).strftime( '%Y-%m-%d %H:%M:%S' )
-
-def timeToTs( timeStr ):
-    return time.mktime( datetime.datetime.strptime( timeStr, '%Y-%m-%d %H:%M:%S' ).timetuple() )
-
-def _xm_( o, path, isWildcardDepth = False ):
-    def _isDynamicType( e ):
-        eType = type( e )
-        return issubclass( eType, dict ) or issubclass( eType, list ) or issubclass( eType, tuple )
-
-    def _isListType( e ):
-        eType = type( e )
-        return issubclass( eType, list ) or issubclass( eType, tuple )
-
-    def _isSeqType( e ):
-        eType = type( e )
-        return issubclass( eType, dict )
-
-    result = []
-    oType = type( o )
-
-    if type( path ) is str or type( path ) is unicode:
-        tokens = [ x for x in path.split( '/' ) if x != '' ]
-    else:
-        tokens = path
-
-    if issubclass( oType, dict ):
-        isEndPoint = False
-        if 0 != len( tokens ):
-            if 1 == len( tokens ):
-                isEndPoint = True
-
-            curToken = tokens[ 0 ]
-
-            if '*' == curToken:
-                if 1 < len( tokens ):
-                    result = _xm_( o, tokens[ 1 : ], True )
-            elif '?' == curToken:
-                if 1 < len( tokens ):
-                    result = []
-                    for elem in o.itervalues():
-                        if _isDynamicType( elem ):
-                            result += _xm_( elem, tokens[ 1 : ], False )
-
-            elif o.has_key( curToken ):
-                if isEndPoint:
-                    result = [ o[ curToken ] ] if not _isListType( o[ curToken ] ) else o[ curToken ]
-                elif _isDynamicType( o[ curToken ] ):
-                    result = _xm_( o[ curToken ], tokens[ 1 : ] )
-
-            if isWildcardDepth:
-                tmpTokens = tokens[ : ]
-                for elem in o.itervalues():
-                    if _isDynamicType( elem ):
-                        result += _xm_( elem, tmpTokens, True )
-    elif issubclass( oType, list ) or oType is tuple:
-        result = []
-        for elem in o:
-            if _isDynamicType( elem ):
-                result += _xm_( elem, tokens )
-
-    return result
-
-def _x_( o, path, isWildcardDepth = False ):
-    r = _xm_( o, path, isWildcardDepth )
-    if 0 != len( r ):
-        r = r[ 0 ]
-    else:
-        r = None
-    return r
+def msTsToTime( ts ):
+    return datetime.datetime.fromtimestamp( float( ts ) / 1000 ).strftime( '%Y-%m-%d %H:%M:%S.%f' )
 
 def sanitizeJson( o, summarized = False ):
     if type( o ) is dict:
@@ -120,8 +65,11 @@ def sanitizeJson( o, summarized = False ):
             o[ k ] = sanitizeJson( v, summarized = summarized )
     elif type( o ) is list or type( o ) is tuple:
         o = [ sanitizeJson( x, summarized = summarized ) for x in o ]
+    elif type( o ) is uuid.UUID:
+        o = str( o )
     else:
         try:
+            if ( type(o) is str or type(o) is unicode ) and "\x00" in o: raise Exception()
             json.dumps( o )
         except:
             o = base64.b64encode( o )
@@ -133,6 +81,9 @@ def sanitizeJson( o, summarized = False ):
 def downloadFileName( name ):
     web.header( 'Content-Disposition', 'attachment;filename="%s"' % name )
 
+def doMarkdown( content ):
+    return markdown.markdown( content, extensions = [ 'markdown.extensions.tables' ] )
+
 ###############################################################################
 # PAGE DECORATORS
 ###############################################################################
@@ -143,9 +94,10 @@ def jsonApi( f ):
         web.header( 'Content-Type', 'application/json' )
         r = f( *args, **kwargs )
         try:
-            return json.dumps( r )
+            return json.dumps( sanitizeJson( r ) )
         except:
-            return json.dumps( { 'error' : str( r ) } )
+            return json.dumps( { 'error' : str( r ),
+                                 'exception' : traceback.format_exc() } )
     return wrapped
 
 def fileDownload( f ):
@@ -207,12 +159,19 @@ class SensorState:
             raise web.HTTPError( '400 Bad Request: sensor id required' )
 
         info = model.request( 'get_sensor_info', { 'id_or_host' : params.sensor_id } )
+        live_status = sensordir.request( 'get_endpoint', { 'aid' : params.sensor_id } )
+        if not live_status.isSuccess:
+            live_status = False
+        else:
+            live_status = True if live_status.data.get( 'endpoint', None ) is not None else False
 
         if not info.isSuccess:
             raise web.HTTPError( '503 Service Unavailable: %s' % str( info ) )
 
         if 0 == len( info.data ):
             raise web.HTTPError( '204 No Content: sensor not found' )
+
+        info.data[ 'live_status' ] = live_status
 
         return info.data
 
@@ -269,6 +228,7 @@ class Timeline:
             originalEvents = info.data.get( 'events', [] )
             info.data[ 'events' ] = []
             for event in originalEvents:
+                thisAtom = event[ 3 ].values()[ 0 ].get( 'hbs.THIS_ATOM', None )
                 richEvent = None
                 if hasattr( eventRender, event[ 1 ] ):
                     try:
@@ -281,7 +241,8 @@ class Timeline:
                 info.data[ 'events' ].append( ( event[ 0 ],
                                                 event[ 1 ],
                                                 event[ 2 ],
-                                                richEvent ) )
+                                                richEvent,
+                                                thisAtom ) )
         return info.data
 
 class ObjSearch:
@@ -344,7 +305,11 @@ class EventView:
         if not info.isSuccess:
             return render.error( str( info ) )
 
-        return render.event( sanitizeJson( info.data.get( 'event', {} ), summarized = params.summarized ) )
+        event = info.data.get( 'event', {} )
+
+        thisAtom = event[ 1 ].values()[ 0 ].get( 'hbs.THIS_ATOM', None )
+
+        return render.event( sanitizeJson( event, summarized = params.summarized ), thisAtom )
 
 class HostObjects:
     def GET( self ):
@@ -413,12 +378,12 @@ class ViewDetect:
         if params.id is None:
             return render.error( 'need to supply a detect id' )
 
-        info = model.request( 'get_detect', { 'id' : params.id, 'with_events' : True } )
+        info = model.request( 'get_detect', { 'id' : params.id, 'with_events' : True, 'with_inv' : True } )
 
         if not info.isSuccess:
             return render.error( str( info ) )
 
-        return render.detect( sanitizeJson( info.data.get( 'detect', [] ) ) )
+        return render.detect( sanitizeJson( info.data.get( 'detect', [] ) ), sanitizeJson( info.data.get( 'inv', {} ) ) )
 
 class HostChanges:
     @jsonApi
@@ -457,6 +422,87 @@ class DownloadFileInEvent:
 
         return info.data[ 'data' ]
 
+
+class Explorer:
+    @jsonApi
+    def GET( self ):
+        params = web.input( id = None )
+
+        if params.id is None:
+            raise web.HTTPError( '400 Bad Request: id required' )
+
+        effectiveId = normalAtom( params.id )
+
+        info = model.request( 'get_atoms_from_root', { 'id' : effectiveId } )
+
+        if not info.isSuccess:
+            raise web.HTTPError( '503 Service Unavailable : %s' % str( info ) )
+
+        # Make sure the root is present
+        info.data = list( info.data )
+        isFound = False
+        for atom in info.data:
+            if effectiveId == normalAtom( atom.values()[0]['hbs.THIS_ATOM'] ):
+                isFound = True
+                break
+        info.data = map( lambda x: { 'data' : x, 'key' : EventInterpreter( x ).shortKey() }, info.data )
+        if not isFound:
+            info.data.append( { 'data' : { 'UNKNOWN' : { 'hbs.THIS_ATOM' : effectiveId } },
+                                'key' : 'UNKNOWN' } )
+
+        # Summarize the events
+
+        return info.data
+
+
+class ExplorerView:
+    def GET( self ):
+        params = web.input( id = None )
+
+        if params.id is None:
+            return render.error( 'requires an initial id' )
+
+        return renderFullPage.explorer( id = params.id )
+
+class Backend:
+    def GET( self ):
+        params = web.input()
+
+        info = model.request( 'get_backend_config' )
+
+        if not info.isSuccess:
+            return render.error( 'failed to get config: %s' % info.error )
+
+        return render.backend( info.data )
+
+
+class Capabilities:
+    def POST( self ):
+        params = web.input( urlToAdd = None, nameToRem = None, nameToAdd = None, argsToAdd = None )
+
+        cap = {}
+
+        if params.urlToAdd is not None and params.nameToAdd is not None:
+            capabilities.request( 'load', { 'url' : params.urlToAdd,
+                                            'user_defined_name' : params.nameToAdd,
+                                            'args' : params.argsToAdd } )
+        elif params.nameToRem is not None:
+            capabilities.request( 'unload', { 'user_defined_name' : params.nameToRem } )
+
+        return self.GET()
+
+    def GET( self ):
+        params = web.input()
+
+        cap = {}
+
+        capReq = capabilities.request( 'list', {} )
+        if capReq.isSuccess:
+            cap.update( capReq.data[ 'loadedDetections' ] )
+            cap.update( capReq.data[ 'loadedPatrols' ] )
+
+        return render.capabilities( capabilities = cap )
+
 ###############################################################################
 # BOILER PLATE
 ###############################################################################
@@ -468,6 +514,8 @@ urls = ( r'/', 'Index',
          r'/search', 'Search',
          r'/sensor_state', 'SensorState',
          r'/timeline', 'Timeline',
+         r'/explorer', 'Explorer',
+         r'/explorer_view', 'ExplorerView',
          r'/objsearch', 'ObjSearch',
          r'/obj', 'ObjViewer',
          r'/lastevents', 'LastEvents',
@@ -477,23 +525,44 @@ urls = ( r'/', 'Index',
          r'/detects', 'ViewDetects',
          r'/detect', 'ViewDetect',
          r'/hostchanges', 'HostChanges',
-         r'/downloadfileinevent', 'DownloadFileInEvent')
+         r'/downloadfileinevent', 'DownloadFileInEvent',
+         r'/backend', 'Backend',
+         r'/capabilities', 'Capabilities' )
 
 web.config.debug = False
 app = web.application( urls, globals() )
 
 render = web.template.render( 'templates', base = 'base', globals = { 'json' : json,
-                                                                      'tsToTime' : tsToTime,
+                                                                      'msTsToTime' : msTsToTime,
                                                                       '_x_' : _x_,
                                                                       '_xm_' : _xm_,
                                                                       'hex' : hex,
-                                                                      'sanitize' : sanitizeJson } )
+                                                                      'sanitize' : sanitizeJson,
+                                                                      'EventInterpreter' : EventInterpreter,
+                                                                      'md' : doMarkdown,
+                                                                      'sorted' : sorted,
+                                                                      'InvestigationNature' : InvestigationNature,
+                                                                      'InvestigationConclusion' : InvestigationConclusion } )
+
+renderFullPage = web.template.render( 'templates', base = 'base_full', globals = { 'json' : json,
+                                                                                   'msTsToTime' : msTsToTime,
+                                                                                   '_x_' : _x_,
+                                                                                   '_xm_' : _xm_,
+                                                                                   'hex' : hex,
+                                                                                   'sanitize' : sanitizeJson,
+                                                                                   'EventInterpreter' : EventInterpreter,
+                                                                                   'md' : doMarkdown,
+                                                                                   'sorted' : sorted,
+                                                                                   'InvestigationNature' : InvestigationNature,
+                                                                                   'InvestigationConclusion' : InvestigationConclusion } )
 eventRender = web.template.render( 'templates/custom_events', globals = { 'json' : json,
-                                                                          'tsToTime' : tsToTime,
+                                                                          'msTsToTime' : msTsToTime,
                                                                           '_x_' : _x_,
                                                                           '_xm_' : _xm_,
                                                                           'hex' : hex,
-                                                                          'sanitize' : sanitizeJson } )
+                                                                          'sanitize' : sanitizeJson,
+                                                                          'EventInterpreter' : EventInterpreter,
+                                                                          'sorted' : sorted } )
 
 if len( sys.argv ) < 2:
     print( "Usage: python app.py beach_config [listen_port]" )
@@ -502,5 +571,7 @@ if len( sys.argv ) < 2:
 beach = Beach( sys.argv[ 1 ], realm = 'hcp' )
 del( sys.argv[ 1 ] )
 model = beach.getActorHandle( 'models', nRetries = 3, timeout = 30, ident = 'lc/0bf01f7e-62bd-4cc4-9fec-4c52e82eb903' )
+capabilities = beach.getActorHandle( 'analytics/capabilitymanager', nRetries = 3, timeout = 60, ident = 'lc/0bf01f7e-62bd-4cc4-9fec-4c52e82eb903' )
+sensordir = beach.getActorHandle( 'c2/sensordir', nRetries = 3, timeout = 30, ident = 'lc/0bf01f7e-62bd-4cc4-9fec-4c52e82eb903' )
 
 app.run()

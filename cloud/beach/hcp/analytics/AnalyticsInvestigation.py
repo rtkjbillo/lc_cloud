@@ -13,15 +13,16 @@
 # limitations under the License.
 
 from beach.actor import Actor
-AgentId = Actor.importLib( '../hcp_helpers', 'AgentId' )
+AgentId = Actor.importLib( '../utils/hcp_helpers', 'AgentId' )
 
 import time
 
 class AnalyticsInvestigation( Actor ):
-    def init( self, parameters ):
+    def init( self, parameters, resources ):
         self.ttl = parameters.get( 'ttl', 60 * 60 * 24 )
         self.handleCache = {}
         self.handleTtl = {}
+        self.invPath = resources[ 'investigations' ]
 
         self.handle( 'analyze', self.analyze )
         self.schedule( 60, self.invCulling )
@@ -42,16 +43,25 @@ class AnalyticsInvestigation( Actor ):
 
         inv_id = routing[ 'investigation_id' ]
 
-        if inv_id not in self.handleCache:
-            handle = self.getActorHandle( 'analytics/inv_id/%s' % inv_id )
-            self.handleCache[ inv_id ] = handle
-            self.handleTtl[ inv_id ] = int( time.time() )
+        # We define the component after the // to be reserved for
+        # the actor's internal routing so we don't route on it.
+        routing_inv_id = inv_id.split( '//' )[ 0 ]
+
+        if routing_inv_id not in self.handleCache:
+            handle = self.getActorHandle( self.invPath % routing_inv_id )
+            self.handleCache[ routing_inv_id ] = handle
+            self.handleTtl[ routing_inv_id ] = int( time.time() )
         else:
-            handle = self.handleCache[ inv_id ]
-            self.handleTtl[ inv_id ] = int( time.time() )
+            handle = self.handleCache[ routing_inv_id ]
+            self.handleTtl[ routing_inv_id ] = int( time.time() )
 
         self.log( 'investigation data going to: %d' % handle.getNumAvailable() )
-        handle.broadcast( 'inv', msg.data )
+        # The investigation id is used as a requestType since most actors
+        # who need to be registered to investigations also need to
+        # multiplex several investigations so if we do the differentiation
+        # at that level we don't need to maintain a local registration
+        # list on every actor.
+        handle.broadcast( inv_id, msg.data )
 
 
         return ( True, )

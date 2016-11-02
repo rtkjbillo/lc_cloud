@@ -37,22 +37,36 @@ Return Values: %s
         sys.exit(-1)
 
 printStep( 'Upgrade max number of file descriptors.',
-           os.system( 'echo "* soft nofile 100000" >> /etc/security/limits.conf' ),
-           os.system( 'echo "* hard nofile 100000" >> /etc/security/limits.conf' ),
-           os.system( 'echo "root soft nofile 100000" >> /etc/security/limits.conf' ),
-           os.system( 'echo "root hard nofile 100000" >> /etc/security/limits.conf' ),
+           os.system( 'echo "* - nofile 1024000" >> /etc/security/limits.conf' ),
+           os.system( 'echo "root - nofile 1024000" >> /etc/security/limits.conf' ),
            os.system( 'echo "session required pam_limits.so" >> /etc/pam.d/common-session' ),
-           os.system( 'echo "fs.file-max = 2097152" >> /etc/sysctl.conf'),
+           os.system( 'echo "fs.file-max = 1024000" >> /etc/sysctl.conf'),
            os.system( 'sysctl -p' ) )
+
+printStep( 'Turn off systemd broadcast.',
+           os.system( 'echo "ForwardToWall=no" >> /etc/systemd/journald.conf' ),
+           os.system( 'systemctl restart systemd-journald' ) )
 
 printStep( 'Updating repo and upgrading existing components.',
     os.system( 'apt-get update -y' ),
     os.system( 'apt-get upgrade -y' ) )
 
 printStep( 'Installing some basic packages required for Beach (mainly).',
-    os.system( 'apt-get install python-pip python-dev debconf-utils python-m2crypto python-pexpect python-mysqldb autoconf libtool git flex -y' ) )
+    os.system( 'apt-get install python-pip python-dev debconf-utils python-m2crypto python-pexpect autoconf libtool git flex byacc bison unzip -y' ) )
+
+print( 'Download prefixtree (expected to fail).' )
+os.system( 'pip download prefixtree' )
+
+printStep( 'Installing prefixtree.',
+    os.system( 'pip install distribute' ),
+    os.system( 'tar xzf *prefixtree*.tar.gz' ),
+    os.system( 'rm *prefixtree*.tar.gz' ),
+    os.system( 'sed -i \'s/from distribute_setup import use_setuptools//g\' *prefixtree*/setup.py' ),
+    os.system( 'sed -i \'s/use_setuptools()//g\' *prefixtree*/setup.py' ),
+    os.system( 'cd *prefixtree*; python ./setup.py install; cd ..' ) )
 
 printStep( 'Installing Beach.',
+    os.system( 'pip install distribute' ),
     os.system( 'pip install beach' ) )
 
 printStep( 'Installing JRE for Cassandra (the hcp-scale-db)',
@@ -64,35 +78,22 @@ printStep( 'Installing Cassandra.',
     os.system( 'apt-get update -y' ) )
 
 # Ignoring errors here because of a bug in the Ubuntu package.
-os.system( 'apt-get install cassandra=2.2.3 -y' )
+os.system( 'apt-get install cassandra=3.0.9 -y' )
 
 printStep( 'Starting Cassandra after hotfix.',
            os.system( """sed -i 's/"$JVM_PATCH_VERSION" \\\< "25"/$JVM_PATCH_VERSION -lt 25/g' /etc/cassandra/cassandra-env.sh""" ),
            os.system( 'service cassandra start' ) )
 
-printStep( 'Installing MySql server (hcp-state-db).',
-    os.system( 'echo mysql-server mysql-server/root_password password letmein | sudo debconf-set-selections' ),
-    os.system( 'echo mysql-server mysql-server/root_password_again password letmein | sudo debconf-set-selections' ),
-    os.system( 'apt-get -y install mysql-server' ) )
-
-printStep( 'Initializing MySql schema.',
-    os.system( 'mysql --user=root --password=letmein < %s' % ( os.path.join( root,
-                                                                             'cloud',
-                                                                             'schema',
-                                                                             'state_db.sql' ), ) ) )
-
-printStep( 'Growing max_allowed_packet for MySql and restarting.',
-    os.system( "sed -i -e 's/max_allowed_packet.*=.*16M/max_allowed_packet = 64M/g' /etc/mysql/my.cnf" ),
-    os.system( "service mysql restart" ) )
-
 printStep( 'Initializing Cassandra schema.',
+    os.system( 'sleep 30' ),
     os.system( 'cqlsh < %s' % ( os.path.join( root,
                                               'cloud',
                                               'schema',
                                               'scale_db.cql' ), ) ) )
 
 printStep( 'Installing pip packages for various analytics components.',
-    os.system( 'pip install time_uuid cassandra-driver==3.2.2 virustotal' ) )
+    os.system( 'pip install time_uuid cassandra-driver==3.7.1 virustotal' ),
+    os.system( 'pip install ipaddress' ) )
 
 printStep( 'Installing Yara.',
     os.system( 'git clone https://github.com/refractionPOINT/yara.git' ),
@@ -111,10 +112,27 @@ printStep( 'Installing Yara.',
     os.system( 'ldconfig' ) )
 
 printStep( 'Setting up host file entries for databases locally.',
-    os.system( 'echo "127.0.0.1 hcp-state-db" >> /etc/hosts' ),
     os.system( 'echo "127.0.0.1 hcp-scale-db" >> /etc/hosts' ) )
 
 printStep( 'Setting up the cloud tags.',
     os.system( 'python %s' % ( os.path.join( root,
                                              'tools',
                                              'update_headers.py' ), ) ) )
+
+printStep( 'Setup LC web ui dependencies.',
+    os.system( 'ln -s %s %s' % ( os.path.join( root,
+                                               'cloud',
+                                               'beach',
+                                               'hcp',
+                                               'utils',
+                                               '*' ),
+                                 os.path.join( root,
+                                               'cloud',
+                                               'limacharlie' ) ) ),
+    os.system( 'pip install markdown' ) )
+
+printStep( 'Redirect port 80 to 9090 so we can run as non-root.',
+           os.system( 'iptables -t nat -A PREROUTING -p tcp --dport 80 -j REDIRECT --to-port 9090' ),
+           os.system( 'echo iptables-persistent iptables-persistent/autosave_v4 boolean true | sudo debconf-set-selections' ),
+           os.system( 'echo iptables-persistent iptables-persistent/autosave_v6 boolean true | sudo debconf-set-selections' ),
+           os.system( 'apt-get install iptables-persistent -y' ) )

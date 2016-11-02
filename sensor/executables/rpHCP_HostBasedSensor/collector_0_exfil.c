@@ -32,18 +32,46 @@ typedef struct
     rMutex mutex;
 } _EventList;
 
+typedef struct
+{
+    RU8 atomId[ HBS_ATOM_ID_SIZE ];
+    RU32 iEvent;
+} _AtomEvent;
 
 static HbsState* g_state = NULL;
 
 static _EventList g_exfil_profile = { 0 };
 static _EventList g_exfil_adhoc = { 0 };
-static _EventList g_critical_profile = { 0 };
-static _EventList g_critical_adhoc = { 0 };
 
 static RU32 g_cur_size = 0;
 static rSequence g_history[ _HISTORY_MAX_LENGTH ] = { 0 };
 static RU32 g_history_head = 0;
 static rMutex g_history_mutex = NULL;
+
+static
+RS32
+    _cmpAtom
+    (
+        _AtomEvent* e1,
+        _AtomEvent* e2
+    )
+{
+    return rpal_memory_memcmp( e1->atomId, e2->atomId, sizeof( e1->atomId ) );
+}
+
+static
+rpcm_tag
+    _getEventName
+    (
+        rSequence event
+    )
+{
+    rpcm_tag tag = RPCM_INVALID_TAG;
+
+    rSequence_getElement( event, &tag, NULL, NULL, NULL );
+
+    return tag;
+}
 
 static
 RBOOL
@@ -285,7 +313,10 @@ RVOID
                 }
             }
 
-            rpal_debug_info( "History size: %d KB", ( g_cur_size / 1024 ) );
+            if( ( 1024 * 1024 * 10 ) < g_cur_size )
+            {
+                rpal_debug_info( "History size: +%d = %d KB", notifId, ( g_cur_size / 1024 ) );
+            }
 
             rMutex_unlock( g_history_mutex );
         }
@@ -302,10 +333,10 @@ RVOID
 {
     rSequence wrapper = NULL;
     rSequence tmpNotif = NULL;
-    RU64 tmpTime = 0;
 
     if( rpal_memory_isValid( notif ) &&
-        NULL != g_state )
+        NULL != g_state &&
+        !rEvent_wait( g_state->isTimeToStop, 0 ) )
     {
         if( _isEventIn( &g_exfil_profile, notifId ) ||
             _isEventIn( &g_exfil_adhoc, notifId ) )
@@ -327,27 +358,15 @@ RVOID
                         rSequence_free( tmpNotif );
                     }
                 }
+                else
+                {
+                    rSequence_free( wrapper );
+                }
             }
         }
         else
         {
             recordEvent( notifId, notif );
-        }
-
-        if( _isEventIn( &g_critical_profile, notifId ) ||
-            _isEventIn( &g_critical_adhoc, notifId ) )
-        {
-            if( rMutex_lock( g_state->mutex ) )
-            {
-                tmpTime = rpal_time_getGlobal() + 2;
-
-                if( g_state->liveUntil < tmpTime )
-                {
-                    g_state->liveUntil = tmpTime;
-                }
-
-                rMutex_unlock( g_state->mutex );
-            }
         }
     }
 }
@@ -362,27 +381,164 @@ RVOID
 {
     RU32 i = 0;
     rSequence tmp = NULL;
+    RU32 tmpSize = 0;
+    RPU8 parentAtom = NULL;
+    RPU8 thisAtom = NULL;
+    RPU8 targetAtom = NULL;
+    rpcm_tag ofType = 0;
+    rBTree matchingEvents = NULL;
+    _AtomEvent tmpEntry = { 0 };
+    RBOOL isMatch = TRUE;
+    rSequence tmpEvent = NULL;
     UNREFERENCED_PARAMETER( notifId );
-    UNREFERENCED_PARAMETER( notif );
+
+    rSequence_getRU32( notif, RP_TAGS_HBS_NOTIFICATION_ID, &ofType );
+    if( !rSequence_getBUFFER( notif, RP_TAGS_HBS_THIS_ATOM, &thisAtom, &tmpSize ) ||
+        HBS_ATOM_ID_SIZE != tmpSize )
+    {
+        thisAtom = NULL;
+    }
+    if( !rSequence_getBUFFER( notif, RP_TAGS_HBS_PARENT_ATOM, &parentAtom, &tmpSize ) ||
+        HBS_ATOM_ID_SIZE != tmpSize )
+    {
+        parentAtom = NULL;
+    }
 
     if( rMutex_lock( g_history_mutex ) )
     {
-        for( i = 0; i < ARRAY_N_ELEM( g_history ); i++ )
+        if( !rEvent_wait( g_state->isTimeToStop, 0 ) )
         {
-            if( rpal_memory_isValid( g_history[ i ] ) &&
-                NULL != ( tmp = rSequence_duplicate( g_history[ i ] ) ) )
+            if( NULL == parentAtom )
             {
-                hbs_markAsRelated( notif, tmp );
-
-                if( !rQueue_add( g_state->outQueue, tmp, 0 ) )
+                // No filtering at all, fast.
+                for( i = 0; i < ARRAY_N_ELEM( g_history ); i++ )
                 {
-                    rSequence_free( tmp );
+                    if( rpal_memory_isValid( g_history[ i ] ) )
+                    {
+                        if( ( NULL == thisAtom ||
+                            ( rSequence_getSEQUENCE( g_history[ i ], RPCM_INVALID_TAG, &tmpEvent ) &&
+                              rSequence_getBUFFER( tmpEvent, RP_TAGS_HBS_THIS_ATOM, &targetAtom, &tmpSize ) &&
+                                0 == rpal_memory_memcmp( thisAtom, targetAtom, HBS_ATOM_ID_SIZE ) ) ) &&
+                            ( 0 == ofType ||
+                              ofType == _getEventName( g_history[ i ] ) ) )
+                        {
+                            if( NULL != ( tmp = rSequence_duplicate( g_history[ i ] ) ) )
+                            {
+                                hbs_markAsRelated( notif, tmp );
+
+                                if( !rQueue_add( g_state->outQueue, tmp, 0 ) )
+                                {
+                                    rSequence_free( tmp );
+                                }
+                                else
+                                {
+                                    g_cur_size -= rSequence_getEstimateSize( g_history[ i ] );
+
+                                    rSequence_free( g_history[ i ] );
+                                    g_history[ i ] = NULL;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            else
+            {
+                // Filters need to be applied, this is more involved.
+                if( NULL != ( matchingEvents = rpal_btree_create( sizeof( _AtomEvent ), 
+                                                                  (rpal_btree_comp_f)_cmpAtom, 
+                                                                  NULL ) ) )
+                {
+                    // First we populate an index of seed matching events.
+                    for( i = 0; i < ARRAY_N_ELEM( g_history ); i++ )
+                    {
+                        if( rpal_memory_isValid( g_history[ i ] ) &&
+                            rSequence_getSEQUENCE( g_history[ i ], RPCM_INVALID_TAG, &tmpEvent ) &&
+                            rSequence_getBUFFER( tmpEvent, RP_TAGS_HBS_PARENT_ATOM, &targetAtom, &tmpSize ) )
+                        {
+                            // If this matches the filters, also add to the other tree.
+                            if( NULL != parentAtom &&
+                                0 == rpal_memory_memcmp( targetAtom, parentAtom, HBS_ATOM_ID_SIZE ) )
+                            {
+                                rpal_memory_memcpy( tmpEntry.atomId, targetAtom, sizeof( tmpEntry.atomId ) );
+                                tmpEntry.iEvent = i;
+                                rpal_btree_add( matchingEvents, &tmpEntry, TRUE );
+                            }
+                        }
+                    }
+
+                    // Next we go through events until no more match.
+                    if( 0 != rpal_btree_getSize( matchingEvents, TRUE ) )
+                    {
+                        while( isMatch )
+                        {
+                            isMatch = FALSE;
+
+                            for( i = 0; i < ARRAY_N_ELEM( g_history ); i++ )
+                            {
+                                if( rpal_memory_isValid( g_history[ i ] ) &&
+                                    rSequence_getSEQUENCE( g_history[ i ], RPCM_INVALID_TAG, &tmpEvent ) &&
+                                    rSequence_getBUFFER( tmpEvent, RP_TAGS_HBS_PARENT_ATOM, &targetAtom, &tmpSize ) )
+                                {
+                                    if( rpal_btree_search( matchingEvents, targetAtom, NULL, TRUE ) )
+                                    {
+                                        rpal_memory_memcpy( tmpEntry.atomId, targetAtom, sizeof( tmpEntry.atomId ) );
+                                        tmpEntry.iEvent = i;
+                                        if( rpal_btree_add( matchingEvents, &tmpEntry, TRUE ) )
+                                        {
+                                            isMatch = TRUE;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    // Finally we report all the matches.
+                    if( rpal_btree_minimum( matchingEvents, &tmpEntry, TRUE ) )
+                    {
+                        do
+                        {
+                            if( ( NULL == thisAtom ||
+                                ( rSequence_getSEQUENCE( g_history[ tmpEntry.iEvent ], RPCM_INVALID_TAG, &tmpEvent ) &&
+                                  rSequence_getBUFFER( tmpEvent, RP_TAGS_HBS_THIS_ATOM, &targetAtom, &tmpSize ) &&
+                                    0 == rpal_memory_memcmp( thisAtom, targetAtom, HBS_ATOM_ID_SIZE ) ) ) &&
+                                ( 0 == ofType ||
+                                  ofType == _getEventName( g_history[ tmpEntry.iEvent ] ) ) )
+                            {
+                                if( NULL != ( tmp = rSequence_duplicate( g_history[ tmpEntry.iEvent ] ) ) )
+                                {
+                                    hbs_markAsRelated( notif, tmp );
+
+                                    if( !rQueue_add( g_state->outQueue, tmp, 0 ) )
+                                    {
+                                        rSequence_free( tmp );
+                                    }
+                                    else
+                                    {
+                                        g_cur_size -= rSequence_getEstimateSize( g_history[ tmpEntry.iEvent ] );
+
+                                        rSequence_free( g_history[ tmpEntry.iEvent ] );
+                                        g_history[ tmpEntry.iEvent ] = NULL;
+                                    }
+                                }
+                            }
+                        }
+                        while( rpal_btree_next( matchingEvents, &tmpEntry, &tmpEntry, TRUE ) );
+                    }
+
+                    rpal_btree_destroy( matchingEvents, TRUE );
                 }
             }
         }
 
         rMutex_unlock( g_history_mutex );
     }
+
+    hbs_sendCompletionEvent( notif, 
+                             RP_TAGS_NOTIFICATION_HISTORY_DUMP_REP, 
+                             RPAL_ERROR_SUCCESS, 
+                             NULL );
 }
 
 static
@@ -522,150 +678,12 @@ RVOID
     }
 }
 
-static
-RPVOID
-    stopCriticalCb
-    (
-        rEvent isTimeToStop,
-        RPVOID ctx
-    )
-{
-    rpcm_tag* criticalStub = (rpcm_tag*)ctx;
-
-    UNREFERENCED_PARAMETER( isTimeToStop );
-
-    if( rpal_memory_isValid( criticalStub ) )
-    {
-        if( _removeEventId( &g_critical_adhoc, *criticalStub ) )
-        {
-            rpal_debug_info( "removing adhoc critical (expired): %d", *criticalStub );
-        }
-
-        rpal_memory_free( criticalStub );
-    }
-
-    return NULL;
-}
-
-static
-RVOID
-    add_critical
-    (
-        rpcm_tag eventType,
-        rSequence event
-    )
-{
-    rpcm_tag eventId = 0;
-    RTIME expire = 0;
-    rpcm_tag* criticalStub = NULL;
-
-    UNREFERENCED_PARAMETER( eventType );
-
-    if( rpal_memory_isValid( event ) )
-    {
-        if( rSequence_getRU32( event, RP_TAGS_HBS_NOTIFICATION_ID, &eventId ) )
-        {
-            if( _addEventId( &g_critical_adhoc, eventId ) )
-            {
-                rpal_debug_info( "adding adhoc critical: %d", eventId );
-
-                if( rSequence_getTIMESTAMP( event, RP_TAGS_EXPIRY, &expire ) )
-                {
-                    if( NULL != ( criticalStub = rpal_memory_alloc( sizeof( *criticalStub ) ) ) )
-                    {
-                        *criticalStub = eventId;
-                        if( !rThreadPool_scheduleOneTime( g_state->hThreadPool,
-                                                          expire,
-                                                          stopCriticalCb,
-                                                          criticalStub ) )
-                        {
-                            rpal_memory_free( criticalStub );
-                        }
-                        else
-                        {
-                            rpal_debug_info( "adding callback for expiry on new adhoc critical" );
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-
-
-static
-RVOID
-    del_critical
-    (
-        rpcm_tag eventType,
-        rSequence event
-    )
-{
-    rpcm_tag eventId = 0;
-
-    UNREFERENCED_PARAMETER( eventType );
-
-    if( rpal_memory_isValid( event ) )
-    {
-        if( rSequence_getRU32( event, RP_TAGS_HBS_NOTIFICATION_ID, &eventId ) )
-        {
-            if( _removeEventId( &g_critical_adhoc, eventId ) )
-            {
-                rpal_debug_info( "removing adhoc critical: %d", eventId );
-            }
-        }
-    }
-}
-
-
-static
-RVOID
-    get_critical
-    (
-        rpcm_tag eventType,
-        rSequence event
-    )
-{
-    rList events = NULL;
-    RU32 i = 0;
-
-    UNREFERENCED_PARAMETER( eventType );
-
-    if( rpal_memory_isValid( event ) )
-    {
-        if( rMutex_lock( g_critical_adhoc.mutex ) )
-        {
-            if( NULL != ( events = rList_new( RP_TAGS_HBS_NOTIFICATION_ID, RPCM_RU32 ) ) )
-            {
-                if( rpal_memory_isValid( g_critical_adhoc.pElems ) )
-                {
-                    for( i = 0; i < g_critical_adhoc.nElem; i++ )
-                    {
-                        rList_addRU32( events, g_critical_adhoc.pElems[ i ] );
-                    }
-                }
-
-                if( !rSequence_addLIST( event, RP_TAGS_HBS_LIST_NOTIFICATIONS, events ) )
-                {
-                    rList_free( events );
-                    events = NULL;
-                }
-
-                notifications_publish( RP_TAGS_NOTIFICATION_GET_CRITICAL_EVENT_REP, event );
-            }
-
-            rMutex_unlock( g_critical_adhoc.mutex );
-        }
-    }
-}
-
-
 //=============================================================================
 // COLLECTOR INTERFACE
 //=============================================================================
 
 rpcm_tag collector_0_events[] = { RP_TAGS_NOTIFICATION_GET_EXFIL_EVENT_REP,
-                                  RP_TAGS_NOTIFICATION_GET_CRITICAL_EVENT_REP,
+                                  RP_TAGS_NOTIFICATION_HISTORY_DUMP_REP,
                                   0 };
 
 RBOOL
@@ -686,9 +704,7 @@ RBOOL
     {
         if( NULL != ( g_history_mutex = rMutex_create() ) &&
             _initEventList( &g_exfil_profile ) &&
-            _initEventList( &g_exfil_adhoc ) &&
-            _initEventList( &g_critical_profile ) &&
-            _initEventList( &g_critical_adhoc ) )
+            _initEventList( &g_exfil_adhoc ) )
         {
             isSuccess = TRUE;
             g_state = hbsState;
@@ -712,21 +728,6 @@ RBOOL
                                          0,
                                          NULL,
                                          get_exfil ) &&
-                notifications_subscribe( RP_TAGS_NOTIFICATION_ADD_CRITICAL_EVENT_REQ,
-                                         NULL,
-                                         0,
-                                         NULL,
-                                         add_critical ) &&
-                notifications_subscribe( RP_TAGS_NOTIFICATION_DEL_CRITICAL_EVENT_REQ,
-                                         NULL,
-                                         0,
-                                         NULL,
-                                         del_critical ) &&
-                notifications_subscribe( RP_TAGS_NOTIFICATION_GET_CRITICAL_EVENT_REQ,
-                                         NULL,
-                                         0,
-                                         NULL,
-                                         get_critical ) &&
                 notifications_subscribe( RP_TAGS_NOTIFICATION_HISTORY_DUMP_REQ, 
                                          NULL, 
                                          0, 
@@ -765,19 +766,6 @@ RBOOL
                         }
                     }
                 }
-
-                // Finally we get the list of critical events.
-                if( rpal_memory_isValid( config ) &&
-                    rSequence_getLIST( config, RP_TAGS_HBS_CRITICAL_EVENTS, &subscribed ) )
-                {
-                    while( rList_getRU32( subscribed, RP_TAGS_HBS_NOTIFICATION_ID, &notifId ) )
-                    {
-                        if( !_addEventId( &g_critical_profile, notifId ) )
-                        {
-                            isSuccess = FALSE;
-                        }
-                    }
-                }
             }
         }
 
@@ -786,9 +774,6 @@ RBOOL
             notifications_unsubscribe( RP_TAGS_NOTIFICATION_ADD_EXFIL_EVENT_REQ, NULL, add_exfil );
             notifications_unsubscribe( RP_TAGS_NOTIFICATION_DEL_EXFIL_EVENT_REQ, NULL, del_exfil );
             notifications_unsubscribe( RP_TAGS_NOTIFICATION_GET_EXFIL_EVENT_REQ, NULL, get_exfil );
-            notifications_unsubscribe( RP_TAGS_NOTIFICATION_ADD_CRITICAL_EVENT_REQ, NULL, add_critical );
-            notifications_unsubscribe( RP_TAGS_NOTIFICATION_DEL_CRITICAL_EVENT_REQ, NULL, del_critical );
-            notifications_unsubscribe( RP_TAGS_NOTIFICATION_GET_CRITICAL_EVENT_REQ, NULL, get_critical );
             notifications_unsubscribe( RP_TAGS_NOTIFICATION_HISTORY_DUMP_REQ, NULL, dumpHistory );
 
             for( i = 0; i < ARRAY_N_ELEM( g_state->collectors ); i++ )
@@ -808,8 +793,6 @@ RBOOL
             g_history_mutex = NULL;
             _deinitEventList( &g_exfil_profile );
             _deinitEventList( &g_exfil_adhoc );
-            _deinitEventList( &g_critical_profile );
-            _deinitEventList( &g_critical_adhoc );
         }
     }
 
@@ -837,9 +820,6 @@ RBOOL
             notifications_unsubscribe( RP_TAGS_NOTIFICATION_ADD_EXFIL_EVENT_REQ, NULL, add_exfil );
             notifications_unsubscribe( RP_TAGS_NOTIFICATION_DEL_EXFIL_EVENT_REQ, NULL, del_exfil );
             notifications_unsubscribe( RP_TAGS_NOTIFICATION_GET_EXFIL_EVENT_REQ, NULL, get_exfil );
-            notifications_unsubscribe( RP_TAGS_NOTIFICATION_ADD_CRITICAL_EVENT_REQ, NULL, add_critical );
-            notifications_unsubscribe( RP_TAGS_NOTIFICATION_DEL_CRITICAL_EVENT_REQ, NULL, del_critical );
-            notifications_unsubscribe( RP_TAGS_NOTIFICATION_GET_CRITICAL_EVENT_REQ, NULL, get_critical );
             notifications_unsubscribe( RP_TAGS_NOTIFICATION_HISTORY_DUMP_REQ, NULL, dumpHistory );
 
             for( i = 0; i < ARRAY_N_ELEM( g_state->collectors ); i++ )
@@ -872,8 +852,6 @@ RBOOL
             g_history_mutex = NULL;
             _deinitEventList( &g_exfil_profile );
             _deinitEventList( &g_exfil_adhoc );
-            _deinitEventList( &g_critical_profile );
-            _deinitEventList( &g_critical_adhoc );
         }
     }
 

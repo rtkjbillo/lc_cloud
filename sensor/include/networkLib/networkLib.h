@@ -86,4 +86,43 @@ NetLib_UdpTable*
 
     );
 
+
+#ifdef RPAL_PLATFORM_WINDOWS
+typedef SOCKET NetLibTcpConnection;
+#else
+typedef int NetLibTcpConnection;
+#endif
+
+NetLibTcpConnection
+    NetLib_TcpConnect
+    (
+        RPCHAR dest,
+        RU16 port
+    );
+
+RBOOL
+    NetLib_TcpDisconnect
+    (
+        NetLibTcpConnection conn
+    );
+
+RBOOL
+    NetLib_TcpSend
+    (
+        NetLibTcpConnection conn,
+        RPVOID buffer,
+        RU32 bufferSize,
+        rEvent stopEvent
+    );
+
+RBOOL
+    NetLib_TcpReceive
+    (
+        NetLibTcpConnection conn,
+        RPVOID buffer,
+        RU32 bufferSize,
+        rEvent stopEvent,
+        RU32 timeoutSec
+    );
+
 #endif

@@ -32,14 +32,14 @@ RBOOL
 {
     RBOOL isEnhanced = FALSE;
 
-    RPWCHAR filePath = NULL;
+    RPNCHAR filePath = NULL;
     rFileInfo finfo = { 0 };
 
     if( NULL != info )
     {
-        if( rSequence_getSTRINGW( info, RP_TAGS_FILE_PATH, &filePath ) )
+        if( rSequence_getSTRINGN( info, RP_TAGS_FILE_PATH, &filePath ) )
         {
-            if( rpal_file_getInfow( filePath, &finfo ) )
+            if( rpal_file_getInfo( filePath, &finfo ) )
             {
                 rSequence_unTaintRead( info );
                 if( rSequence_addTIMESTAMP( info, RP_TAGS_ACCESS_TIME, finfo.lastAccessTime ) &&
@@ -73,7 +73,7 @@ RVOID
         rSequence event
     )
 {
-    RPWCHAR filePath = NULL;
+    RPNCHAR filePath = NULL;
     RU8 flag = 0;
     RBOOL isAvoidTimeStamps = TRUE;
     RPU8 fileBuffer = NULL;
@@ -84,14 +84,16 @@ RVOID
 
     if( rpal_memory_isValid( event ) )
     {
-        if( rSequence_getSTRINGW( event, RP_TAGS_FILE_PATH, &filePath ) )
+        if( rSequence_getSTRINGN( event, RP_TAGS_FILE_PATH, &filePath ) )
         {
+            rSequence_unTaintRead( event );
+
             if( rSequence_getRU8( event, RP_TAGS_AVOID_TIMESTAMPS, &flag ) )
             {
                 isAvoidTimeStamps = ( 1 == flag ) ? TRUE : FALSE;
             }
 
-            fileSize = rpal_file_getSizew( filePath, isAvoidTimeStamps );
+            fileSize = rpal_file_getSize( filePath, isAvoidTimeStamps );
             rSequence_addRU32( event, RP_TAGS_FILE_SIZE, fileSize );
 
             if( rSequence_getRU32( event, RP_TAGS_MAX_SIZE, &maxSize ) &&
@@ -103,7 +105,7 @@ RVOID
 
             if( isRetrieve )
             {
-                if( rpal_file_readw( filePath, (RPVOID*)&fileBuffer, &fileSize, isAvoidTimeStamps ) )
+                if( rpal_file_read( filePath, (RPVOID*)&fileBuffer, &fileSize, isAvoidTimeStamps ) )
                 {
                     rSequence_addBUFFER( event, RP_TAGS_FILE_CONTENT, fileBuffer, fileSize );
                     rpal_memory_free( fileBuffer );
@@ -119,8 +121,8 @@ RVOID
             rSequence_addRU32( event, RP_TAGS_ERROR, RPAL_ERROR_NOT_ENOUGH_MEMORY );
         }
 
-        rSequence_addTIMESTAMP( event, RP_TAGS_TIMESTAMP, rpal_time_getGlobal() );
-        notifications_publish( RP_TAGS_NOTIFICATION_FILE_GET_REP, event );
+        hbs_timestampEvent( event, 0 );
+        hbs_publish( RP_TAGS_NOTIFICATION_FILE_GET_REP, event );
     }
 }
 
@@ -132,28 +134,30 @@ RVOID
         rSequence event
     )
 {
-    RPWCHAR filePath = NULL;
+    RPNCHAR filePath = NULL;
     RU8 flag = 0;
     RBOOL isSafeDelete = FALSE;
     UNREFERENCED_PARAMETER( eventType );
 
     if( rpal_memory_isValid( event ) )
     {
-        if( rSequence_getSTRINGW( event, RP_TAGS_FILE_PATH, &filePath ) )
+        if( rSequence_getSTRINGN( event, RP_TAGS_FILE_PATH, &filePath ) )
         {
+            rSequence_unTaintRead( event );
+
             if( rSequence_getRU8( event, RP_TAGS_SAFE_DELETE, &flag ) )
             {
                 isSafeDelete = ( 1 == flag ) ? TRUE : FALSE;
             }
 
-            if( !rpal_file_deletew( filePath, isSafeDelete ) )
+            if( !rpal_file_delete( filePath, isSafeDelete ) )
             {
                 rSequence_addRU32( event, RP_TAGS_ERROR, rpal_error_getLast() );
             }
         }
 
-        rSequence_addTIMESTAMP( event, RP_TAGS_TIMESTAMP, rpal_time_getGlobal() );
-        notifications_publish( RP_TAGS_NOTIFICATION_FILE_DEL_REP, event );
+        hbs_timestampEvent( event, 0 );
+        hbs_publish( RP_TAGS_NOTIFICATION_FILE_DEL_REP, event );
     }
 }
 
@@ -165,23 +169,25 @@ RVOID
         rSequence event
     )
 {
-    RPWCHAR filePathFrom = NULL;
-    RPWCHAR filePathTo = NULL;
+    RPNCHAR filePathFrom = NULL;
+    RPNCHAR filePathTo = NULL;
     UNREFERENCED_PARAMETER( eventType );
 
     if( rpal_memory_isValid( event ) )
     {
-        if( rSequence_getSTRINGW( event, RP_TAGS_SOURCE, &filePathFrom ) &&
-            rSequence_getSTRINGW( event, RP_TAGS_DESTINATION, &filePathTo ) )
+        if( rSequence_getSTRINGN( event, RP_TAGS_SOURCE, &filePathFrom ) &&
+            rSequence_getSTRINGN( event, RP_TAGS_DESTINATION, &filePathTo ) )
         {
-            if( !rpal_file_movew( filePathFrom, filePathTo ) )
+            if( !rpal_file_move( filePathFrom, filePathTo ) )
             {
+                rSequence_unTaintRead( event );
                 rSequence_addRU32( event, RP_TAGS_ERROR, rpal_error_getLast() );
             }
         }
 
-        rSequence_addTIMESTAMP( event, RP_TAGS_TIMESTAMP, rpal_time_getGlobal() );
-        notifications_publish( RP_TAGS_NOTIFICATION_FILE_MOV_REP, event );
+        rSequence_unTaintRead( event );
+        hbs_timestampEvent( event, 0 );
+        hbs_publish( RP_TAGS_NOTIFICATION_FILE_MOV_REP, event );
     }
 }
 
@@ -193,7 +199,7 @@ RVOID
         rSequence event
     )
 {
-    RPWCHAR filePath = NULL;
+    RPNCHAR filePath = NULL;
     CryptoLib_Hash hash = { 0 };
     RU8 flag = 0;
     RBOOL isAvoidTimeStamps = TRUE;
@@ -201,14 +207,16 @@ RVOID
 
     if( rpal_memory_isValid( event ) )
     {
-        if( rSequence_getSTRINGW( event, RP_TAGS_FILE_PATH, &filePath ) )
+        if( rSequence_getSTRINGN( event, RP_TAGS_FILE_PATH, &filePath ) )
         {
             if( rSequence_getRU8( event, RP_TAGS_AVOID_TIMESTAMPS, &flag ) )
             {
                 isAvoidTimeStamps = ( 1 == flag ) ? TRUE : FALSE;
             }
 
-            if( !CryptoLib_hashFileW( filePath, &hash, isAvoidTimeStamps ) )
+            rSequence_unTaintRead( event );
+
+            if( !CryptoLib_hashFile( filePath, &hash, isAvoidTimeStamps ) )
             {
                 rSequence_addRU32( event, RP_TAGS_ERROR, rpal_error_getLast() );
             }
@@ -219,8 +227,8 @@ RVOID
         }
 
         rSequence_unTaintRead( event );
-        rSequence_addTIMESTAMP( event, RP_TAGS_TIMESTAMP, rpal_time_getGlobal() );
-        notifications_publish( RP_TAGS_NOTIFICATION_FILE_HASH_REP, event );
+        hbs_timestampEvent( event, 0 );
+        hbs_publish( RP_TAGS_NOTIFICATION_FILE_HASH_REP, event );
     }
 }
 
@@ -238,8 +246,8 @@ RVOID
     {
         enhanceFileInfo( event );
 
-        rSequence_addTIMESTAMP( event, RP_TAGS_TIMESTAMP, rpal_time_getGlobal() );
-        notifications_publish( RP_TAGS_NOTIFICATION_FILE_INFO_REP, event );
+        hbs_timestampEvent( event, 0 );
+        hbs_publish( RP_TAGS_NOTIFICATION_FILE_INFO_REP, event );
     }
 }
 
@@ -251,8 +259,8 @@ RVOID
         rSequence event
     )
 {
-    RPWCHAR filePath = NULL;
-    RPWCHAR fileSpec[] = { NULL, NULL };
+    RPNCHAR filePath = NULL;
+    RPNCHAR fileSpec[] = { NULL, NULL };
     rDirCrawl hDir = NULL;
     rFileInfo finfo = { 0 };
     rList entries = NULL;
@@ -262,9 +270,11 @@ RVOID
 
     if( rpal_memory_isValid( event ) )
     {
-        if( rSequence_getSTRINGW( event, RP_TAGS_DIRECTORY_PATH, &filePath ) &&
-            rSequence_getSTRINGW( event, RP_TAGS_FILE_PATH, &fileSpec[ 0 ] ) )
+        if( rSequence_getSTRINGN( event, RP_TAGS_DIRECTORY_PATH, &filePath ) &&
+            rSequence_getSTRINGN( event, RP_TAGS_FILE_PATH, &fileSpec[ 0 ] ) )
         {
+            rSequence_unTaintRead( event );
+
             // dir depth is optional, but if provided, use it
             rSequence_getRU32( event, RP_TAGS_DIRECTORY_LIST_DEPTH, &depth );
 
@@ -276,7 +286,7 @@ RVOID
 
                     while( rpal_file_crawlNextFile( hDir, &finfo ) && NULL != ( dirEntry = rSequence_new() ) )
                     {
-                        if( rSequence_addSTRINGW( dirEntry, RP_TAGS_FILE_NAME, finfo.fileName ) &&
+                        if( rSequence_addSTRINGN( dirEntry, RP_TAGS_FILE_NAME, finfo.fileName ) &&
                             rSequence_addTIMESTAMP( dirEntry, RP_TAGS_ACCESS_TIME, finfo.lastAccessTime ) &&
                             rSequence_addTIMESTAMP( dirEntry, RP_TAGS_CREATION_TIME, finfo.creationTime ) &&
                             rSequence_addTIMESTAMP( dirEntry, RP_TAGS_MODIFICATION_TIME, finfo.modificationTime ) &&
@@ -308,8 +318,9 @@ RVOID
             rSequence_addRU32( event, RP_TAGS_ERROR, RPAL_ERROR_INVALID_NAME );
         }
 
-        rSequence_addTIMESTAMP( event, RP_TAGS_TIMESTAMP, rpal_time_getGlobal() );
-        notifications_publish( RP_TAGS_NOTIFICATION_DIR_LIST_REP, event );
+        rSequence_unTaintRead( event );
+        hbs_timestampEvent( event, 0 );
+        hbs_publish( RP_TAGS_NOTIFICATION_DIR_LIST_REP, event );
     }
 }
 

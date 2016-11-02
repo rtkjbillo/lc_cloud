@@ -18,25 +18,44 @@ from sets import Set
 import time
 StateMachine = Actor.importLib( 'analytics/StateAnalysis', 'StateMachine' )
 StateEvent = Actor.importLib( 'analytics/StateAnalysis', 'StateEvent' )
-CreateOnAccess = Actor.importLib( 'hcp_helpers', 'CreateOnAccess' )
+CreateOnAccess = Actor.importLib( 'utils/hcp_helpers', 'CreateOnAccess' )
 
-def GenerateDetectReport( agentid, msgIds, cat, detect ):
+def GenerateDetectReport( nthReport, agentid, msgIds, cat, detect, summary = '', priority = None ):
     if type( msgIds ) is not tuple and type( msgIds ) is not list:
         msgIds = ( msgIds, )
     if type( agentid ) is tuple or type( agentid ) is list:
         agentid = ' / '.join( agentid )
-    reportId = hashlib.sha256( str( msgIds ) ).hexdigest()
-    return { 'source' : agentid, 'msg_ids' : msgIds, 'cat' : cat, 'detect' : detect, 'report_id' : reportId }
+    reportId = hashlib.sha256( '%s%d%s' % ( cat, nthReport, str( msgIds ) ) ).hexdigest()
+    return { 'source' : agentid, 
+             'msg_ids' : msgIds, 
+             'cat' : cat, 
+             'detect' : detect, 
+             'detect_id' : reportId, 
+             'summary' : summary,
+             'priority' : priority }
+
+class Detects( object ):
+    def __init__( self ):
+        self._detects = []
+    def add( self, priority, summary, detectInfo, taskings = None ):
+        self._detects.append( ( priority, summary, detectInfo, taskings ) )
+    def __len__( self ):
+        return len( self._detects )
+    def __iter__( self ):
+        return self._detects.__iter__()
 
 class StatelessActor ( Actor ):
-    def init( self, parameters ):
+    def init( self, parameters, resources ):
         if not hasattr( self, 'process' ):
             raise Exception( 'Stateless Actor has no "process" function' )
-        self._reporting = self.getActorHandle( 'analytics/report' )
-        self._tasking = CreateOnAccess( self.getActorHandle, 'analytics/autotasking', mode = 'affinity' )
+        self._reporting = self.getActorHandle( resources.get( 'report', 'analytics/reporting' ) )
+        self._tasking = CreateOnAccess( self.getActorHandle, 
+                                        resources.get( 'autotasking', 'analytics/autotasking' ), 
+                                        mode = 'affinity' )
         self._cat = type( self ).__name__
         self._cat = self._cat[ self._cat.rfind( '.' ) + 1 : ]
-        self._detects = CreateOnAccess( self.getActorHandle, 'analytics/detects/%s' % self._cat )
+        self._detects = CreateOnAccess( self.getActorHandleGroup, 
+                                        resources.get( 'detects', 'analytics/detects/%s' ) % self._cat )
         self.handle( 'process', self._process )
 
     def task( self, dest, cmdsAndArgs, expiry = None, inv_id = None ):
@@ -61,24 +80,30 @@ class StatelessActor ( Actor ):
         self.log( "sent for tasking: %s" % ( str(cmdsAndArgs), ) )
 
     def _process( self, msg ):
-        detects = self.process( msg )
+        newDetects = Detects()
+        self.process( newDetects, msg )
 
-        if 0 != len( detects ):
+        if 0 != len( newDetects ):
             self.log( "reporting detects generated" )
+            i = 0
             routing, event, mtd = msg.data
-            for detect, taskings in detects:
-                report = GenerateDetectReport( routing[ 'agentid' ],
+            for priority, summary, detect, taskings in newDetects:
+                report = GenerateDetectReport( i,
+                                               routing[ 'agentid' ],
                                                ( routing[ 'event_id' ], ),
                                                self._cat,
-                                               detect )
-                self._reporting.shoot( 'report', report )
-                self._detects.broadcast( 'detect', report )
+                                               detect,
+                                               summary,
+                                               priority )
+                self._reporting.shoot( 'detect', report )
+                self._detects.shoot( 'detect', report )
                 if taskings is not None and 0 != len( taskings ):
-                    self.task( routing[ 'agentid' ], taskings, expiry = ( 60 * 60 ), inv_id = report[ 'report_id' ] )
+                    self.task( routing[ 'agentid' ], taskings, expiry = ( 60 * 60 ), inv_id = report[ 'detect_id' ] )
+                i += 1
         return ( True, )
 
 class StatefulActor ( Actor ):
-    def init( self, parameters ):
+    def init( self, parameters, resources ):
         self._compiled_machines = {}
         self._machine_activity = {}
         self._machine_ttl = parameters.get( 'machine_ttl', ( 60 * 60 * 24 * 30 ) )
@@ -88,11 +113,16 @@ class StatefulActor ( Actor ):
         self._machines = []
         self.initMachines( parameters )
 
+        self._detectsEndpoint = resources.get( 'detects', 'analytics/detects/%s' )
+
         if not hasattr( self, 'shardingKey' ):
             raise Exception( 'Stateful Actor has no associated shardingKey (or None)' )
 
-        self._reporting = CreateOnAccess( self.getActorHandle, 'analytics/report' )
-        self._tasking = CreateOnAccess( self.getActorHandle, 'analytics/autotasking', mode = 'affinity' )
+        self._reporting = CreateOnAccess( self.getActorHandle, 
+                                          resources.get( 'report', 'analytics/reporting' ) )
+        self._tasking = CreateOnAccess( self.getActorHandle, 
+                                        resources.get( 'autotasking', 'analytics/autotasking' ), 
+                                        mode = 'affinity' )
         self._detects = {}
         self.handle( 'process', self._process )
 
@@ -141,24 +171,29 @@ class StatefulActor ( Actor ):
         currentShard = self._compiled_machines.setdefault( shard, [] )
 
         # First we update currently running machines
+        i = 0
         for machine in currentShard:
             self._machine_activity[ machine ] = time.time()
             #self.log( "MACHINE: %s %d" % ( machine._descriptor.detectName, machine._currentState ) )
-            reportType, reportContent, isStayAlive = machine.update( newEvent )
+            reportPriority, reportSummary, reportType, reportContent, isStayAlive = machine.update( newEvent )
             #self.log( "TO MACHINE: %s %d" % ( machine._descriptor.detectName, machine._currentState ) )
             if reportType is not None and reportContent is not None:
                 if hasattr( self, 'processDetect' ):
                     reportContent = self.processDetect( reportContent )
-                report = GenerateDetectReport( tuple( Set( [ e.routing[ 'agentid' ] for e in reportContent ] ) ),
+                report = GenerateDetectReport( i,
+                                               tuple( Set( [ e.routing[ 'agentid' ] for e in reportContent ] ) ),
                                                tuple( Set( [ e.routing[ 'event_id' ] for e in reportContent ] ) ),
                                                reportType,
-                                               [ x.event for x in reportContent ] )
-                self._reporting.shoot( 'report', report )
+                                               [ x.event for x in reportContent ],
+                                               reportPriority,
+                                               reportSummary )
+                self._reporting.shoot( 'detect', report )
                 self._detects.setdefault( reportType,
-                                          self.getActorHandle( 'analytics/detects/%s' % reportType ) ).broadcast( 'detect', report )
+                                          self.getActorHandle( self._detectsEndpoint % reportType ) ).broadcast( 'detect', report )
             if not isStayAlive:
                 del( self._machine_activity[ machine ] )
                 currentShard.remove( machine )
+            i += 1
 
         # Next we prime new machines
         for machine in self._machines:

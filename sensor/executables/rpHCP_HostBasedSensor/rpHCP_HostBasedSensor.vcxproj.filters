@@ -77,6 +77,7 @@
       <Filter>stateful_events</Filter>
     </ClCompile>
     <ClCompile Include="stateful_helpers.c" />
+    <ClCompile Include="atoms.c" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\include\rpHostCommonPlatformLib\rTags.h" />
@@ -86,6 +87,8 @@
     <ClInclude Include="stateful_events.h" />
     <ClInclude Include="stateful_framework.h" />
     <ClInclude Include="stateful_helpers.h" />
+    <ClInclude Include="atoms.h" />
+    <ClInclude Include="git_info.h" />
   </ItemGroup>
   <ItemGroup>
     <Filter Include="collectors">

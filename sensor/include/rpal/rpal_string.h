@@ -22,72 +22,91 @@ limitations under the License.
 RBOOL 
     rpal_string_isprint 
     (
-        RCHAR ch
+        RNCHAR ch
     );
 
 RBOOL
-    rpal_string_iswprint
+    rpal_string_isprintW
     (
         RWCHAR ch
+    );
+
+RBOOL
+    rpal_string_isprintA
+    (
+        RCHAR ch
     );
 
 RU8
     rpal_string_str_to_byte
     (
-        RPCHAR str
+        RPNCHAR str
     );
 
 RVOID
     rpal_string_byte_to_str
     (
         RU8 b,
-        RCHAR c[ 2 ]
+        RNCHAR c[ 2 ]
     );
 
 RU32
     rpal_string_strlen
     (
+        RPNCHAR str
+    );
+
+RU32
+    rpal_string_strlenA
+    (
         RPCHAR str
     );
 
 RU32
-    rpal_string_strlenw
+    rpal_string_strlenW
     (
         RPWCHAR str
-    );
-
-RU32
-    rpal_string_strlenn
-    (
-        RNATIVESTR str
     );
 
 RU32
     rpal_string_strsize
     (
-        RPCHAR str
+        RPNCHAR str
     );
 
+
 RU32
-    rpal_string_strsizew
+    rpal_string_strsizeW
     (
         RPWCHAR str
     );
 
+RU32
+    rpal_string_strsizeA
+    (
+        RPCHAR str
+    );
+
 RBOOL
-    rpal_string_expand
+    rpal_string_expandW
+    (
+        RPWCHAR str,
+        RPWCHAR*  outStr
+    );
+
+RBOOL
+    rpal_string_expandA
     (
         RPCHAR  str,
         RPCHAR*  outStr
     );
 
 RBOOL
-    rpal_string_expandw
+    rpal_string_expand
     (
-        RPWCHAR  str,
-        RPWCHAR*  outStr
+        RPNCHAR  str,
+        RPNCHAR*  outStr
     );
-
 
 RPWCHAR
     rpal_string_atow
@@ -102,79 +121,86 @@ RPCHAR
     );
 
 RPWCHAR
-    rpal_string_strcatw
+    rpal_string_ntow
     (
-        RPWCHAR str,
-        RPWCHAR toAdd
+        RPNCHAR str
     );
 
 RPCHAR
-    rpal_string_strcata
+    rpal_string_ntoa
     (
-        RPCHAR str,
-        RPCHAR toAdd
+        RPNCHAR str
     );
 
-RPCHAR
+RPNCHAR
+    rpal_string_wton
+    (
+        RPWCHAR str
+    );
+
+RPNCHAR
+    rpal_string_aton
+    (
+        RPCHAR str
+    );
+
+RPNCHAR
+    rpal_string_strcat
+    (
+        RPNCHAR str,
+        RPNCHAR toAdd
+    );
+
+RPNCHAR
     rpal_string_strstr
     (
-        RPCHAR haystack,
-        RPCHAR needle
+        RPNCHAR haystack,
+        RPNCHAR needle
     );
 
-RPWCHAR
-    rpal_string_strstrw
+RPNCHAR
+    rpal_string_stristr
     (
-        RPWCHAR haystack,
-        RPWCHAR needle
+        RPNCHAR haystack,
+        RPNCHAR needle
     );
 
-RPWCHAR
-    rpal_string_stristrw
-    (
-        RPWCHAR haystack,
-        RPWCHAR needle
-    );
-
-RPCHAR
-    rpal_string_itoa
+RPNCHAR
+    rpal_string_itos
     (
         RU32 num,
-        RPCHAR outBuff,
+        RPNCHAR outBuff,
         RU32 radix
     );
 
-RPWCHAR
-    rpal_string_itow
+RPNCHAR
+    rpal_string_strdup
     (
-        RU32 num,
-        RPWCHAR outBuff,
-        RU32 radix
+        RPNCHAR str
+    );
+
+RPWCHAR
+    rpal_string_strdupW
+    (
+        RPWCHAR str
     );
 
 RPCHAR
-    rpal_string_strdupa
+    rpal_string_strdupA
     (
-        RPCHAR strA
-    );
-
-RPWCHAR
-    rpal_string_strdupw
-    (
-        RPWCHAR strW
-
+        RPCHAR str
     );
 
 RBOOL
     rpal_string_match
     (
-        RPCHAR pattern,
-        RPCHAR str,
+        RPNCHAR pattern,
+        RPNCHAR str,
         RBOOL isCaseSensitive
     );
 
 RBOOL
-    rpal_string_matchw
+    rpal_string_matchW
     (
         RPWCHAR pattern,
         RPWCHAR str,
@@ -182,267 +208,223 @@ RBOOL
     );
 
 RBOOL
-    rpal_string_matchn
+    rpal_string_matchA
     (
-        RNATIVESTR pattern,
-        RNATIVESTR str,
+        RPCHAR pattern,
+        RPCHAR str,
         RBOOL isCaseSensitive
     );
-    
-RPCHAR
-    rpal_string_strcatExA
+
+RPNCHAR
+    rpal_string_strcatEx
     (
-        RPCHAR strToExpand,
-        RPCHAR strToCat
+        RPNCHAR strToExpand,
+        RPNCHAR strToCat
     );
 
-RPWCHAR
-    rpal_string_strcatExW
+RPNCHAR
+    rpal_string_strtok
     (
-        RPWCHAR strToExpand,
-        RPWCHAR strToCat
-    );
-
-RPCHAR
-    rpal_string_strtoka
-    (
-        RPCHAR str,
-        RCHAR token,
-        RPCHAR* state
-    );
-
-RPWCHAR
-    rpal_string_strtokw
-    (
-        RPWCHAR str,
-        RWCHAR token,
-        RPWCHAR* state
+        RPNCHAR str,
+        RNCHAR token,
+        RPNCHAR* state
     );
 
 RS32
-    rpal_string_strcmpw
+    rpal_string_strcmp
+    (
+        RPNCHAR str1,
+        RPNCHAR str2
+    );
+
+RS32
+    rpal_string_strcmpW
     (
         RPWCHAR str1,
         RPWCHAR str2
     );
 
 RS32
-    rpal_string_strcmpa
+    rpal_string_strcmpA
     (
         RPCHAR str1,
         RPCHAR str2
     );
 
 RS32
-    rpal_string_stricmpa
+    rpal_string_stricmp
     (
-        RPCHAR str1,
-        RPCHAR str2
+        RPNCHAR str1,
+        RPNCHAR str2
     );
 
-RS32
-    rpal_string_stricmpw
+RPNCHAR
+    rpal_string_toupper
     (
-        RPWCHAR str1,
-        RPWCHAR str2
+        RPNCHAR str
     );
 
-RPCHAR
-    rpal_string_touppera
+RPNCHAR
+    rpal_string_tolower
     (
-        RPCHAR str
+        RPNCHAR str
     );
 
 RPWCHAR
-    rpal_string_toupperw
+    rpal_string_tolowerW
     (
         RPWCHAR str
     );
 
 RPCHAR
-    rpal_string_tolowera
+    rpal_string_tolowerA
     (
         RPCHAR str
     );
 
-RPWCHAR
-    rpal_string_tolowerw
+RPNCHAR
+    rpal_string_strcpy
     (
-        RPWCHAR str
-    );
-
-RPCHAR
-    rpal_string_strcpya
-    (
-        RPCHAR dst,
-        RPCHAR src
-    );
-
-RPWCHAR
-    rpal_string_strcpyw
-    (
-        RPWCHAR dst,
-        RPWCHAR src
+        RPNCHAR dst,
+        RPNCHAR src
     );
 
 RBOOL
-    rpal_string_atoi
+    rpal_string_stoi
     (
-        RPCHAR str,
+        RPNCHAR str,
         RU32* pNum
     );
     
 RBOOL
-    rpal_string_wtoi
+    rpal_string_fill
     (
-        RPWCHAR str,
-        RU32* pNum
-    );
-
-RBOOL
-    rpal_string_filla
-    (
-        RPCHAR str,
+        RPNCHAR str,
         RU32 nChar,
-        RCHAR fillWith
-    );
-
-RBOOL
-    rpal_string_fillw
-    (
-        RPWCHAR str,
-        RU32 nChar,
-        RWCHAR fillWith
+        RNCHAR fillWith
     );
     
 RBOOL
-    rpal_string_startswitha
+    rpal_string_startswith
     (
-        RPCHAR haystack,
-        RPCHAR needle
+        RPNCHAR haystack,
+        RPNCHAR needle
+    );
+RBOOL
+    rpal_string_startswithi
+    (
+        RPNCHAR haystack,
+        RPNCHAR needle
     );
 
 RBOOL
-    rpal_string_startswithw
+    rpal_string_endswith
     (
-        RPWCHAR haystack,
-        RPWCHAR needle
+        RPNCHAR haystack,
+        RPNCHAR needle
     );
 
 RBOOL
-    rpal_string_startswithia
+    rpal_string_trim
     (
-        RPCHAR haystack,
-        RPCHAR needle
-    );
-
-RBOOL
-    rpal_string_startswithiw
-    (
-        RPWCHAR haystack,
-        RPWCHAR needle
-    );
-
-RBOOL
-    rpal_string_endswitha
-    (
-        RPCHAR haystack,
-        RPCHAR needle
-    );
-
-RBOOL
-    rpal_string_endswithw
-    (
-        RPWCHAR haystack,
-        RPWCHAR needle
-    );
-
-RBOOL
-    rpal_string_trima
-    (
-        RPCHAR str,
-        RPCHAR charsToTrim
-    );
-
-RBOOL
-    rpal_string_trimw
-    (
-        RPWCHAR str,
-        RPWCHAR charsToTrim
+        RPNCHAR str,
+        RPNCHAR charsToTrim
     );
 
 RBOOL
     rpal_string_charIsAscii
     (
-        RCHAR c
+        RNCHAR c
     );
 
 RBOOL
     rpal_string_charIsAlphaNum
     (
-        RCHAR c
+        RNCHAR c
     );
 
 RBOOL
     rpal_string_charIsAlpha
     (
-        RCHAR c
+        RNCHAR c
     );
 
 RBOOL
     rpal_string_charIsNum
     (
-        RCHAR c
+        RNCHAR c
     );
 
 RBOOL
     rpal_string_charIsUpper
     (
-        RCHAR c
+        RNCHAR c
     );
 
 RBOOL
     rpal_string_charIsLower
     (
+        RNCHAR c
+    );
+
+RBOOL
+    rpal_string_charIsUpperW
+    (
+        RWCHAR c
+    );
+
+RBOOL
+    rpal_string_charIsLowerW
+    (
+        RWCHAR c
+    );
+
+RBOOL
+    rpal_string_charIsUpperA
+    (
         RCHAR c
     );
 
-
 RBOOL
-    rpal_string_wcharIsUpper
+    rpal_string_charIsLowerA
     (
-        RWCHAR c
+        RCHAR c
     );
 
-RBOOL
-    rpal_string_wcharIsLower
-    (
-        RWCHAR c
-    );
-
-RCHAR
+RNCHAR
     rpal_string_charToUpper
     (
+        RNCHAR c
+    );
+
+RNCHAR
+    rpal_string_charToLower
+    (
+        RNCHAR c
+    );
+
+RWCHAR
+    rpal_string_charToUpperW
+    (
+        RWCHAR c
+    );
+
+RWCHAR
+    rpal_string_charToLowerW
+    (
+        RWCHAR c
+    );
+
+RCHAR
+    rpal_string_charToUpperA
+    (
         RCHAR c
     );
 
 RCHAR
-    rpal_string_charToLower
+    rpal_string_charToLowerA
     (
         RCHAR c
-    );
-
-
-RWCHAR
-    rpal_string_wcharToUpper
-    (
-        RWCHAR c
-    );
-
-RWCHAR
-    rpal_string_wcharToLower
-    (
-        RWCHAR c
     );
 
 #include <stdio.h>

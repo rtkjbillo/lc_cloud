@@ -18,6 +18,7 @@ limitations under the License.
 #include <rpal/rpal.h>
 #include <notificationsLib/notificationsLib.h>
 #include <rpHostCommonPlatformLib/rTags.h>
+#include "collectors.h"
 
 #define RPAL_FILE_ID        107
 
@@ -73,8 +74,8 @@ RBOOL
                 }
                 else
                 {
-                    rSequence_addTIMESTAMP( wrapper, RP_TAGS_TIMESTAMP, rpal_time_getGlobal() );
-                    isSuccess = notifications_publish( machine->desc->reportEventType, wrapper );
+                    hbs_timestampEvent( wrapper, 0 );
+                    isSuccess = hbs_publish( machine->desc->reportEventType, wrapper );
                 }
             }
 
@@ -129,7 +130,7 @@ StatefulEvent*
             {
                 if( NULL != ( event->ref = rRefCount_create( (rRefCount_freeFunc)_freeEvent, event, sizeof( *event ) ) ) )
                 {
-                    if( rSequence_addSEQUENCEdup( wrapper, eventType, data ) )
+                    if( rSequence_addSEQUENCE( wrapper, eventType, data ) )
                     {
                         event->data = wrapper;
                         event->eventType = eventType;
@@ -362,12 +363,12 @@ RBOOL
         if( RPCM_STRINGA == elemToCheck->type &&
             RPCM_STRINGA == elemRef->type )
         {
-            isMatch = rpal_string_match( elemRef->value, elemToCheck->value, FALSE );
+            isMatch = rpal_string_matchA( elemRef->value, elemToCheck->value, FALSE );
         }
         else if( RPCM_STRINGW == elemToCheck->type &&
                  RPCM_STRINGW == elemRef->type )
         {
-            isMatch = rpal_string_matchw( elemRef->value, elemToCheck->value, FALSE );
+            isMatch = rpal_string_matchW( elemRef->value, elemToCheck->value, FALSE );
         }
     }
 

@@ -505,10 +505,10 @@ RBOOL
             switch( type )
             {
                 case RPCM_STRINGA:
-                    varHeader.size = ( rpal_string_strlen( (RPCHAR)pElem ) + 1 ) * sizeof( RCHAR );
+                    varHeader.size = ( rpal_string_strlenA( (RPCHAR)pElem ) + 1 ) * sizeof( RCHAR );
                     break;
                 case RPCM_STRINGW:
-                    varHeader.size = ( rpal_string_strlenw( (RPWCHAR)pElem ) + 1 ) * sizeof( RWCHAR );
+                    varHeader.size = ( rpal_string_strlenW( (RPWCHAR)pElem ) + 1 ) * sizeof( RWCHAR );
                     break;
                 case RPCM_BUFFER:
                     varHeader.size = elemSize;
@@ -960,7 +960,7 @@ RBOOL
                                                     rpal_ntoh32( varHeader->commonHeader.tag ),
                                                     varHeader->commonHeader.type,
                                                     tmpWStr,
-                                                    ( rpal_string_strlenw( tmpWStr ) + 1 ) * sizeof( RWCHAR ) );
+                                                    ( rpal_string_strlenW( tmpWStr ) + 1 ) * sizeof( RWCHAR ) );
 
                         rpal_memory_free( tmpWStr );
                     }
@@ -1141,7 +1141,7 @@ RBOOL
 
                             if( NULL != tmpStr )
                             {
-                                tmp32_2 = ( rpal_string_strlen( tmpStr ) + 1 ) * sizeof( RCHAR );
+                                tmp32_2 = ( rpal_string_strlenA( tmpStr ) + 1 ) * sizeof( RCHAR );
                                 tmp32_1 = rpal_hton32( tmp32_2 );
 
                                 if( !rpal_blob_add( blob, &tmp32_1, sizeof( varHeader->size ) ) ||
@@ -1570,13 +1570,13 @@ RBOOL
                 }
                 break;
             case RPCM_STRINGA:
-                if( 0 == rpal_string_strcmpa( (RPCHAR)pElem1, (RPCHAR)pElem2 ) )
+                if( 0 == rpal_string_strcmpA( (RPCHAR)pElem1, (RPCHAR)pElem2 ) )
                 {
                     isEqual = TRUE;
                 }
                 break;
             case RPCM_STRINGW:
-                if( 0 == rpal_string_strcmpw( (RPWCHAR)pElem1, (RPWCHAR)pElem2 ) )
+                if( 0 == rpal_string_strcmpW( (RPWCHAR)pElem1, (RPWCHAR)pElem2 ) )
                 {
                     isEqual = TRUE;
                 }

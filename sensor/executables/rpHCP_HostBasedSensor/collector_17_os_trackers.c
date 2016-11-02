@@ -108,8 +108,8 @@ static RVOID
                                                     &hash,
                                                     (rpal_ordering_func)_cmpHashes ) )
                 {
-                    rSequence_addTIMESTAMP( elem, RP_TAGS_TIMESTAMP, rpal_time_getGlobal() );
-                    notifications_publish( notifTag, elem );
+                    hbs_timestampEvent( elem, 0 );
+                    hbs_publish( notifTag, elem );
                 }
             }
 
@@ -125,7 +125,7 @@ static RVOID
 }
 
 static RPVOID
-    trackerDiffThread
+    osTrackerDiffThread
     (
         rEvent isTimeToStop,
         RPVOID ctx
@@ -226,7 +226,7 @@ RBOOL
             rSequence_getRU32( config, RP_TAGS_TIMEDELTA, &g_diff_timeout );
         }
 
-        if( rThreadPool_task( hbsState->hThreadPool, trackerDiffThread, NULL ) )
+        if( rThreadPool_task( hbsState->hThreadPool, osTrackerDiffThread, NULL ) )
         {
             isSuccess = TRUE;
         }

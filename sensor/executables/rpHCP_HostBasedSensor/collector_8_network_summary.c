@@ -96,6 +96,8 @@ RBOOL
     )
 {
     RBOOL isSuccess = FALSE;
+    Atom parentAtom = { 0 };
+    rSequence wrapper = NULL;
 
     if( NULL != pActivity )
     {
@@ -113,9 +115,28 @@ RBOOL
             {
                 if( rSequence_addLIST( pActivity->proc, RP_TAGS_NETWORK_ACTIVITY, pActivity->net ) )
                 {
-                    rpal_debug_info( "publishing new process net summary" );
-                    rSequence_addTIMESTAMP( pActivity->proc, RP_TAGS_TIMESTAMP, rpal_time_getGlobal() );
-                    notifications_publish( RP_TAGS_NOTIFICATION_NETWORK_SUMMARY, pActivity->proc );
+                    if( NULL != ( wrapper = rSequence_new() ) )
+                    {
+                        if( rSequence_addSEQUENCE( wrapper, RP_TAGS_PROCESS, pActivity->proc ) )
+                        {
+                            parentAtom.key.category = RP_TAGS_NOTIFICATION_NEW_PROCESS;
+                            parentAtom.key.process.pid = pActivity->pid;
+                            // Query the last value since summaries are on process death.
+                            if( atoms_query( &parentAtom, 0 ) )
+                            {
+                                rSequence_addBUFFER( wrapper,
+                                                     RP_TAGS_HBS_PARENT_ATOM,
+                                                     parentAtom.id,
+                                                     sizeof( parentAtom.id ) );
+                            }
+
+                            hbs_timestampEvent( wrapper, 0 );
+                            hbs_publish( RP_TAGS_NOTIFICATION_NETWORK_SUMMARY, wrapper );
+                        }
+
+                        rSequence_shallowFree( wrapper );
+                    }
+
                     pActivity->net = NULL;
                 }
             }

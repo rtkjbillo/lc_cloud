@@ -91,18 +91,18 @@ static RBOOL
             CloseHandle( hSnapshot );
         }
 #elif defined( RPAL_PLATFORM_LINUX )
-        RWCHAR procDir[] = _WCH( "/proc/" );
+        RCHAR procDir[] = "/proc/";
         rDir hProcDir = NULL;
         rFileInfo finfo = {0};
 
-        if( rDir_open( (RPWCHAR)&procDir, &hProcDir ) )
+        if( rDir_open( (RPCHAR)&procDir, &hProcDir ) )
         {
             isSuccess = TRUE;
 
             while( rDir_next( hProcDir, &finfo ) &&
                    MAX_SNAPSHOT_SIZE > i )
             {
-                if( rpal_string_wtoi( (RPWCHAR)finfo.fileName, &( toSnapshot[ i ].pid ) )
+                if( rpal_string_stoi( (RPCHAR)finfo.fileName, &( toSnapshot[ i ].pid ) )
                     && 0 != toSnapshot[ i ].pid )
                 {
                     i++;
@@ -165,8 +165,8 @@ static RBOOL
         RU32 pid,
         RU32 ppid,
         RBOOL isStarting,
-        RNATIVESTR optFilePath,
-        RNATIVESTR optCmdLine,
+        RPNCHAR optFilePath,
+        RPNCHAR optCmdLine,
         RU32 optUserId,
         RU64 optTs
     )
@@ -175,21 +175,40 @@ static RBOOL
     rSequence info = NULL;
     rSequence parentInfo = NULL;
     RU32 tmpUid = 0;
-    RNATIVESTR cleanPath = NULL;
+    RPNCHAR cleanPath = NULL;
+    Atom atom = { 0 };
+    Atom parentAtom = { 0 };
+
+    if( 0 == optTs )
+    {
+        optTs = rpal_time_getGlobalPreciseTime();
+    }
+
+    // The most time sensitive thing to do is register the atom.
+    if( isStarting )
+    {
+        atom.key.category = RP_TAGS_NOTIFICATION_NEW_PROCESS;
+        atom.key.process.pid = pid;
+        atoms_register( &atom );
+    }
+    else
+    {
+        atoms_getOneTime( &atom );
+    }
 
     // We prime the information with whatever was provided
     // to us by the kernel acquisition. If not available
     // we generate using the UM only way.
-    if( 0 != rpal_string_strlenn( optFilePath ) &&
+    if( 0 != rpal_string_strlen( optFilePath ) &&
         ( NULL != info ||
           NULL != ( info = rSequence_new() ) ) )
     {
-        cleanPath = rpal_file_cleann( optFilePath );
+        cleanPath = rpal_file_clean( optFilePath );
         rSequence_addSTRINGN( info, RP_TAGS_FILE_PATH, cleanPath ? cleanPath : optFilePath );
         rpal_memory_free( cleanPath );
     }
 
-    if( 0 != rpal_string_strlenn( optCmdLine ) &&
+    if( 0 != rpal_string_strlen( optCmdLine ) &&
         ( NULL != info ||
           NULL != ( info = rSequence_new() ) ) )
     {
@@ -210,13 +229,25 @@ static RBOOL
     {
         rSequence_addRU32( info, RP_TAGS_PROCESS_ID, pid );
         rSequence_addRU32( info, RP_TAGS_PARENT_PROCESS_ID, ppid );
-        if( 0 != optTs )
+        rSequence_getRU32( info, RP_TAGS_PARENT_PROCESS_ID, &ppid ); // Get whichever ppid came first
+        hbs_timestampEvent( info, optTs );
+        rSequence_addBUFFER( info, RP_TAGS_HBS_THIS_ATOM, atom.id, sizeof( atom.id ) );
+
+        // We should have reliable information on ppid now (sometimes ppid is not available before
+        // querying the process info.
+        if( isStarting )
         {
-            rSequence_addTIMESTAMP( info, RP_TAGS_TIMESTAMP, rpal_time_getGlobalFromLocal( optTs ) );
+            parentAtom.key.category = RP_TAGS_NOTIFICATION_NEW_PROCESS;
+            parentAtom.key.process.pid = ppid;
+            atoms_query( &parentAtom, optTs );
         }
         else
         {
-            rSequence_addTIMESTAMP( info, RP_TAGS_TIMESTAMP, rpal_time_getGlobal() );
+            parentAtom.key.category = RP_TAGS_NOTIFICATION_NEW_PROCESS;
+            parentAtom.key.process.pid = pid;
+            atoms_query( &parentAtom, optTs );
+            atoms_remove( &parentAtom, optTs );
+            atoms_getOneTime( &atom );
         }
 
         if( isStarting )
@@ -230,13 +261,15 @@ static RBOOL
 
         if( isStarting )
         {
+            rSequence_addBUFFER( info, RP_TAGS_HBS_PARENT_ATOM, parentAtom.id, sizeof( parentAtom.id ) );
+
             if( KERNEL_ACQ_NO_USER_ID != optUserId &&
                 !rSequence_getRU32( info, RP_TAGS_USER_ID, &tmpUid ) )
             {
                 rSequence_addRU32( info, RP_TAGS_USER_ID, optUserId );
             }
 
-            if( notifications_publish( RP_TAGS_NOTIFICATION_NEW_PROCESS, info ) )
+            if( hbs_publish( RP_TAGS_NOTIFICATION_NEW_PROCESS, info ) )
             {
                 isSuccess = TRUE;
                 rpal_debug_info( "new process starting: %d / %d", pid, ppid );
@@ -244,7 +277,9 @@ static RBOOL
         }
         else
         {
-            if( notifications_publish( RP_TAGS_NOTIFICATION_TERMINATE_PROCESS, info ) )
+            rSequence_addBUFFER( info, RP_TAGS_HBS_PARENT_ATOM, parentAtom.id, sizeof( parentAtom.id ) );
+
+            if( hbs_publish( RP_TAGS_NOTIFICATION_TERMINATE_PROCESS, info ) )
             {
                 isSuccess = TRUE;
                 rpal_debug_info( "new process terminating: %d / %d", pid, ppid );
@@ -262,7 +297,7 @@ static RBOOL
 }
 
 static RVOID
-    userModeDiff
+    procUserModeDiff
     (
         rEvent isTimeToStop
     )
@@ -282,7 +317,11 @@ static RVOID
 
     perfProfile.enforceOnceIn = 1;
     perfProfile.sanityCeiling = MSEC_FROM_SEC( 10 );
+#ifdef RPAL_PLATFORM_LINUX
+    perfProfile.lastTimeoutValue = 1000;
+#else
     perfProfile.lastTimeoutValue = 100;
+#endif
     perfProfile.targetCpuPerformance = 0;
     perfProfile.globalTargetCpuPerformance = GLOBAL_CPU_USAGE_TARGET;
     perfProfile.timeoutIncrementPerSec = 10;
@@ -291,7 +330,7 @@ static RVOID
            ( !kAcq_isAvailable() ||
              g_is_kernel_failure ) )
     {
-        libOs_timeoutWithProfile( &perfProfile, FALSE );
+        libOs_timeoutWithProfile( &perfProfile, FALSE, isTimeToStop );
 
         tmpSnapshot = currentSnapshot;
         currentSnapshot = previousSnapshot;
@@ -370,12 +409,12 @@ static RVOID
             }
         }
 
-        libOs_timeoutWithProfile( &perfProfile, TRUE );
+        libOs_timeoutWithProfile( &perfProfile, TRUE, isTimeToStop );
     }
 }
 
 static RVOID
-    kernelModeDiff
+    procKernelModeDiff
     (
         rEvent isTimeToStop
     )
@@ -385,6 +424,26 @@ static RVOID
     RU32 nProcessEntries = 0;
     KernelAcqProcess new_from_kernel[ 200 ] = { 0 };
     processEntry tracking_user[ MAX_SNAPSHOT_SIZE ] = { 0 };
+    processLibProcEntry* tmpProcesses = NULL;
+    Atom tmpAtom = { 0 };
+
+    // Prime the list of tracked processes so we see them terminate
+    // and we have their Atoms.
+    if( NULL != ( tmpProcesses = processLib_getProcessEntries( FALSE ) ) )
+    {
+        for( i = 0; i < MAX_SNAPSHOT_SIZE; i++ )
+        {
+            if( 0 == tmpProcesses[ i ].pid ) break;
+            tracking_user[ i ].pid = tmpProcesses[ i ].pid;
+            tracking_user[ i ].ppid = 0;
+            tmpAtom.key.category = RP_TAGS_NOTIFICATION_NEW_PROCESS;
+            tmpAtom.key.process.pid = tmpProcesses[ i ].pid;
+            atoms_register( &tmpAtom );
+        }
+
+        rpal_memory_free( tmpProcesses );
+        tmpProcesses = NULL;
+    }
     
     while( !rEvent_wait( isTimeToStop, 1000 ) )
     {
@@ -407,7 +466,7 @@ static RVOID
                              new_from_kernel[ i ].uid,
                              new_from_kernel[ i ].ts );
 
-            if( nProcessEntries >= ARRAY_N_ELEM( tracking_user ) - 1 )
+            if( nProcessEntries >= ARRAY_N_ELEM( tracking_user ) )
             {
                 continue;
             }
@@ -430,9 +489,12 @@ static RVOID
                                  0 );
                 if( nProcessEntries != i + 1 )
                 {
-                    rpal_memory_memmove( &(tracking_user[ i ]), &(tracking_user[ i + 1 ]), nProcessEntries - i + 1 );
+                    rpal_memory_memmove( &(tracking_user[ i ]), 
+                                         &(tracking_user[ i + 1 ]), 
+                                         ( nProcessEntries - ( i + 1 ) ) * sizeof( *tracking_user ) );
                 }
                 nProcessEntries--;
+                i--;
             }
         }
     }
@@ -455,14 +517,14 @@ static RPVOID
             // We first attempt to get new processes through
             // the kernel mode acquisition driver
             rpal_debug_info( "running kernel acquisition process notification" );
-            kernelModeDiff( isTimeToStop );
+            procKernelModeDiff( isTimeToStop );
         }
         // If the kernel mode fails, or is not available, try
         // to revert to user mode
         else if( !rEvent_wait( isTimeToStop, 0 ) )
         {
             rpal_debug_info( "running usermode acquisition process notification" );
-            userModeDiff( isTimeToStop );
+            procUserModeDiff( isTimeToStop );
         }
     }
 

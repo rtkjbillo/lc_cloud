@@ -125,6 +125,7 @@ RBOOL
     rpHCPModuleContext* modContext = NULL;
 
     OBFUSCATIONLIB_DECLARE( entryName, RP_HCP_CONFIG_MODULE_ENTRY );
+    OBFUSCATIONLIB_DECLARE( recvMessage, RP_HCP_CONFIG_MODULE_RECV_MESSAGE );
 
     if( NULL != seq )
     {
@@ -143,16 +144,16 @@ RBOOL
     {
         // We got an empty spot for our module
         if( rSequence_getRU8( seq, 
-                                RP_TAGS_HCP_MODULE_ID, 
-                                &(g_hcpContext.modules[ moduleIndex ].id) ) &&
+                              RP_TAGS_HCP_MODULE_ID, 
+                              &(g_hcpContext.modules[ moduleIndex ].id) ) &&
             rSequence_getBUFFER( seq,
-                                    RP_TAGS_BINARY, 
-                                    &tmpBuff, 
-                                    &tmpSize ) &&
+                                 RP_TAGS_BINARY, 
+                                 &tmpBuff, 
+                                 &tmpSize ) &&
             rSequence_getBUFFER( seq,
-                                    RP_TAGS_SIGNATURE,
-                                    &tmpSig,
-                                    &tmpSigSize ) )
+                                 RP_TAGS_SIGNATURE,
+                                 &tmpSig,
+                                 &tmpSigSize ) )
         {
             // We got the data, now verify the buffer signature
             if( CryptoLib_verify( tmpBuff, tmpSize, getRootPublicKey(), tmpSig ) )
@@ -175,13 +176,20 @@ RBOOL
                         modContext = &(g_hcpContext.modules[ moduleIndex ].context);
 
                         modContext->pCurrentId = &(g_hcpContext.currentId);
-                        modContext->func_beaconHome = doBeacon;
+                        modContext->func_sendHome = doSend;
                         modContext->isTimeToStop = rEvent_create( TRUE );
                         modContext->rpalContext = rpal_Context_get();
+                        modContext->isOnlineEvent = g_hcpContext.isCloudOnline;
 
                         if( NULL != modContext->isTimeToStop )
                         {
                             g_hcpContext.modules[ moduleIndex ].isTimeToStop  = modContext->isTimeToStop;
+
+                            OBFUSCATIONLIB_TOGGLE( recvMessage );
+                            g_hcpContext.modules[ moduleIndex ].func_recvMessage = 
+                                    (rpHCPModuleMsgEntry)MemoryGetProcAddress( g_hcpContext.modules[ moduleIndex ].hModule,
+                                                                               (RPCHAR)recvMessage );
+                            OBFUSCATIONLIB_TOGGLE( recvMessage );
 
                             g_hcpContext.modules[ moduleIndex ].hThread = rpal_thread_new( pEntry, modContext );
 
@@ -310,7 +318,6 @@ RBOOL
     rpHCPId tmpId = {0};
     RU64 tmpTime = 0;
     rThread hQuitThread = 0;
-    RU64 delta = 0;
 
     rpHCPIdentStore identStore = {0};
     RPU8 token = NULL;
@@ -332,14 +339,6 @@ RBOOL
             case RP_HCP_COMMAND_UNLOAD_MODULE:
                 isSuccess = unloadModule( seq );
                 break;
-            case RP_HCP_COMMAND_SET_NEXT_BEACON:
-                if( rSequence_getTIMEDELTA( seq, RP_TAGS_TIMEDELTA, &delta ) )
-                {
-                    g_hcpContext.beaconTimeout = delta;
-                    rpal_debug_info( "setting next beacon delta to %d", delta );
-                    isSuccess = TRUE;
-                }
-                break;
             case RP_HCP_COMMAND_SET_HCP_ID:
                 if( rSequence_getSEQUENCE( seq, RP_TAGS_HCP_ID, &idSeq ) )
                 {
@@ -356,7 +355,7 @@ RBOOL
                             // Enrollment V2
                             identStore.agentId = tmpId;
                             identStore.enrollmentTokenSize = tokenSize;
-                            if( rFile_open( (RPWCHAR)store, &hStore, RPAL_FILE_OPEN_ALWAYS | RPAL_FILE_OPEN_WRITE ) )
+                            if( rFile_open( (RPNCHAR)store, &hStore, RPAL_FILE_OPEN_ALWAYS | RPAL_FILE_OPEN_WRITE ) )
                             {
                                 if( rFile_write( hStore, sizeof( identStore ), &identStore ) &&
                                     rFile_write( hStore, tokenSize, token ) )
@@ -390,10 +389,10 @@ RBOOL
                         else
                         {
                             // Enrollment V1
-                            if( rpal_file_writew( (RPWCHAR)store, 
-                                                  &g_hcpContext.currentId, 
-                                                  sizeof( g_hcpContext.currentId ), 
-                                                  TRUE ) )
+                            if( rpal_file_write( (RPNCHAR)store, 
+                                                 &g_hcpContext.currentId, 
+                                                 sizeof( g_hcpContext.currentId ), 
+                                                 TRUE ) )
                             {
                                 rpal_debug_info( "agentid set to %x.%x.%x.%x.%x", 
                                                  g_hcpContext.currentId.id.orgId, 

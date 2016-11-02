@@ -78,20 +78,20 @@ void
 	    rSequence signature  
 	)
 {
-	RPCHAR strBuffer = NULL;
-	RPWCHAR wStrBuffer = NULL;
+	RPNCHAR strBuffer = NULL;
+	RPNCHAR wStrBuffer = NULL;
 	RU32   signatureStatus = 0;
 	RU32   byteBufferSize = 0;
 	RU8*   byteBuffer = NULL;
 
-	CU_ASSERT_TRUE( rSequence_getSTRINGW( signature, RP_TAGS_FILE_PATH, &wStrBuffer ) );
+	CU_ASSERT_TRUE( rSequence_getSTRINGN( signature, RP_TAGS_FILE_PATH, &wStrBuffer ) );
 	CU_ASSERT_TRUE( rSequence_getRU32( signature, RP_TAGS_CERT_CHAIN_STATUS, &signatureStatus ) );
-	if( rSequence_getSTRINGA( signature, RP_TAGS_CERT_ISSUER, &strBuffer ) )
+	if( rSequence_getSTRINGN( signature, RP_TAGS_CERT_ISSUER, &strBuffer ) )
 	{
 		CU_ASSERT_TRUE( 0 < rpal_string_strsize( strBuffer ) );
 	}
 		
-	if( rSequence_getSTRINGA( signature, RP_TAGS_CERT_SUBJECT, &strBuffer ) )
+	if( rSequence_getSTRINGN( signature, RP_TAGS_CERT_SUBJECT, &strBuffer ) )
 	{
 		CU_ASSERT_TRUE( 0 < rpal_string_strsize( strBuffer ) );
 	}
@@ -159,11 +159,7 @@ void
 {
     rList svcs = NULL;
     rSequence svc = NULL;
-#if defined( RPAL_PLATFORM_WINDOWS ) || defined( RPAL_PLATFORM_LINUX )
-    RPWCHAR svcName = NULL;
-#elif defined( RPAL_PLATFORM_MACOSX )
-    RPCHAR svcName = NULL;
-#endif
+    RPNCHAR svcName = NULL;
 
     svcs = libOs_getServices( TRUE );
 
@@ -171,19 +167,11 @@ void
 
     CU_ASSERT_TRUE( rList_getSEQUENCE( svcs, RP_TAGS_SVC, &svc ) );
 
-#if defined( RPAL_PLATFORM_WINDOWS ) || defined( RPAL_PLATFORM_LINUX )
-    CU_ASSERT_TRUE( rSequence_getSTRINGW( svc, RP_TAGS_SVC_NAME, &svcName ) );
-
-    CU_ASSERT_PTR_NOT_EQUAL( svcName, NULL );
-
-    CU_ASSERT_NOT_EQUAL( rpal_string_strlenw( svcName ), 0 );
-#elif defined( RPAL_PLATFORM_MACOSX )
-    CU_ASSERT_TRUE( rSequence_getSTRINGA( svc, RP_TAGS_SVC_NAME, &svcName ) );
+    CU_ASSERT_TRUE( rSequence_getSTRINGN( svc, RP_TAGS_SVC_NAME, &svcName ) );
 
     CU_ASSERT_PTR_NOT_EQUAL( svcName, NULL );
 
     CU_ASSERT_NOT_EQUAL( rpal_string_strlen( svcName ), 0 );
-#endif
 
     rSequence_free( svcs );
 }

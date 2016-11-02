@@ -51,6 +51,7 @@
     <Import Project="..\..\property_sheets\windows_x86.props" />
     <Import Project="..\..\property_sheets\obfuscation.props" />
     <Import Project="..\..\property_sheets\CryptoLib.props" />
+    <Import Project="..\..\property_sheets\git_revision.props" />
   </ImportGroup>
   <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="PropertySheets">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
@@ -60,6 +61,7 @@
     <Import Project="..\..\property_sheets\windows_x86.props" />
     <Import Project="..\..\property_sheets\obfuscation.props" />
     <Import Project="..\..\property_sheets\CryptoLib.props" />
+    <Import Project="..\..\property_sheets\git_revision.props" />
   </ImportGroup>
   <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="PropertySheets">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
@@ -69,6 +71,7 @@
     <Import Project="..\..\property_sheets\windows_x64.props" />
     <Import Project="..\..\property_sheets\obfuscation.props" />
     <Import Project="..\..\property_sheets\CryptoLib.props" />
+    <Import Project="..\..\property_sheets\git_revision.props" />
   </ImportGroup>
   <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="PropertySheets">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
@@ -78,6 +81,7 @@
     <Import Project="..\..\property_sheets\windows_x64.props" />
     <Import Project="..\..\property_sheets\obfuscation.props" />
     <Import Project="..\..\property_sheets\CryptoLib.props" />
+    <Import Project="..\..\property_sheets\git_revision.props" />
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup>
@@ -133,6 +137,7 @@
     <ClInclude Include="crashHandling.h" />
     <ClInclude Include="crypto.h" />
     <ClInclude Include="deployments.h" />
+    <ClInclude Include="git_info.h" />
     <ClInclude Include="globalContext.h" />
     <ClInclude Include="obfuscated.h" />
   </ItemGroup>
@@ -140,20 +145,17 @@
     <ProjectReference Include="..\cryptoLib\cryptoLib.vcxproj">
       <Project>{533b36b9-e781-4132-baa7-33bf68de7013}</Project>
     </ProjectReference>
-    <ProjectReference Include="..\libb64\libb64.vcxproj">
-      <Project>{e46202fa-faf8-41b2-9e08-6c3e4ae99d91}</Project>
-    </ProjectReference>
     <ProjectReference Include="..\libOs\libOs.vcxproj">
       <Project>{b344474d-101c-4eeb-ac48-40f1d5489bfd}</Project>
     </ProjectReference>
     <ProjectReference Include="..\librpcm\librpcm.vcxproj">
       <Project>{211cf5f8-3282-4133-a974-2c6fabde66b3}</Project>
     </ProjectReference>
-    <ProjectReference Include="..\liburl\liburl.vcxproj">
-      <Project>{1e843a0e-719b-472e-b865-b48886ebe0c8}</Project>
-    </ProjectReference>
     <ProjectReference Include="..\MemoryModule\MemoryModule.vcxproj">
       <Project>{f94005c9-8884-4bdb-af60-f6b07f6253cb}</Project>
+    </ProjectReference>
+    <ProjectReference Include="..\networkLib\networkLib.vcxproj">
+      <Project>{ce91d7d4-2853-59a4-b328-cfeb4659323a}</Project>
     </ProjectReference>
     <ProjectReference Include="..\obfuscationLib\obfuscationLib.vcxproj">
       <Project>{53e5cf95-eaba-412b-82c4-39632419171f}</Project>

@@ -114,6 +114,7 @@
 					9C91E8891C8AAFBC002C1875 = {
 						CreatedOnToolsVersion = 7.2.1;
 						DevelopmentTeam = N7N82884NH;
+						ProvisioningStyle = Manual;
 					};
 				};
 			};
@@ -243,6 +244,7 @@
 			buildSettings = {
 				CODE_SIGN_IDENTITY = "Developer ID Application";
 				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Developer ID Application";
+				DEVELOPMENT_TEAM = N7N82884NH;
 				GCC_PREPROCESSOR_DEFINITIONS = (
 					"DEBUG=1",
 					"$(inherited)",
@@ -266,6 +268,7 @@
 			buildSettings = {
 				CODE_SIGN_IDENTITY = "Developer ID Application";
 				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Developer ID Application";
+				DEVELOPMENT_TEAM = N7N82884NH;
 				GCC_PREPROCESSOR_DEFINITIONS = RPAL_PLATFORM_KERNEL;
 				HEADER_SEARCH_PATHS = ../../../include/;
 				INFOPLIST_FILE = hbs_kernel_acquisition/Info.plist;

@@ -35,6 +35,12 @@ typedef struct
 } _CryptoLib_FastAsymBuffer;
 #pragma pack(pop)
 
+typedef struct
+{
+    mbedtls_aes_context aes;
+    RU8 iv[ CRYPTOLIB_SYM_IV_SIZE ];
+} _CryptoLib_SymContext;
+
 
 static rMutex g_mutex = NULL;
 static mbedtls_entropy_context g_entropy = { 0 };
@@ -176,57 +182,146 @@ RBOOL
     return isSuccess;
 }
 
+CryptoLib_SymContext
+    CryptoLib_symEncInitContext
+    (
+        RU8 key[ CRYPTOLIB_SYM_KEY_SIZE ],
+        RU8 iv[ CRYPTOLIB_SYM_IV_SIZE ]
+    )
+{
+    _CryptoLib_SymContext* ctx = NULL;
+
+    if( NULL != key &&
+        NULL != iv )
+    {
+        if( NULL != ( ctx = rpal_memory_alloc( sizeof( _CryptoLib_SymContext ) ) ) )
+        {
+            mbedtls_aes_init( &ctx->aes );
+
+            if( 0 == mbedtls_aes_setkey_enc( &ctx->aes, key, 256 ) )
+            {
+                rpal_memory_memcpy( ctx->iv, iv, sizeof( ctx->iv ) );
+            }
+            else
+            {
+                rpal_memory_free( ctx );
+                ctx = NULL;
+            }
+        }
+    }
+
+    return (CryptoLib_SymContext)ctx;
+}
+
+CryptoLib_SymContext
+    CryptoLib_symDecInitContext
+    (
+        RU8 key[ CRYPTOLIB_SYM_KEY_SIZE ],
+        RU8 iv[ CRYPTOLIB_SYM_IV_SIZE ]
+    )
+{
+    _CryptoLib_SymContext* ctx = NULL;
+
+    if( NULL != key &&
+        NULL != iv )
+    {
+        if( NULL != ( ctx = rpal_memory_alloc( sizeof( _CryptoLib_SymContext ) ) ) )
+        {
+            mbedtls_aes_init( &ctx->aes );
+
+            if( 0 == mbedtls_aes_setkey_dec( &ctx->aes, key, 256 ) )
+            {
+                rpal_memory_memcpy( ctx->iv, iv, sizeof( ctx->iv ) );
+            }
+            else
+            {
+                rpal_memory_free( ctx );
+                ctx = NULL;
+            }
+        }
+    }
+
+    return (CryptoLib_SymContext)ctx;
+}
+
+RVOID
+    CryptoLib_symFreeContext
+    (
+        CryptoLib_SymContext ctx
+    )
+{
+    _CryptoLib_SymContext* pCtx = ctx;
+    if( NULL != ctx )
+    {
+        mbedtls_aes_free( &pCtx->aes );
+        rpal_memory_free( pCtx );
+    }
+}
+
 RBOOL
     CryptoLib_symEncrypt
     (
-        RPVOID bufferToEncrypt,
-        RU32 bufferSize,
+        rBlob bufferToEncrypt,
         RU8 key[ CRYPTOLIB_SYM_KEY_SIZE ],
         RU8 iv[ CRYPTOLIB_SYM_IV_SIZE ],
-        RU32* pEncryptedSize
+        CryptoLib_SymContext optContext
     )
 {
     RBOOL isSuccess = FALSE;
 
     mbedtls_aes_context aes = { 0 };
-    RU8 emptyIv[ CRYPTOLIB_SYM_IV_SIZE ] = {0};
-    RU8* tmp = NULL;
     RU32 nPadding = 0;
     RU32 index = 0;
+    RU32 encryptedSize = 0;
+    RU32 bufferSize = 0;
+    RU8 padding[ CRYPTOLIB_SYM_MOD_SIZE ] = { 0 };
+    RPU8 rawBuffer = NULL;
+    _CryptoLib_SymContext* pCtx = ( _CryptoLib_SymContext*)optContext;
 
     if( NULL != bufferToEncrypt &&
-        0 != bufferSize &&
-        NULL != key &&
-        NULL != pEncryptedSize )
+        ( ( NULL != key &&
+            NULL != iv ) ||
+          NULL != optContext ) )
     {
-        nPadding = ( ( CRYPTOLIB_SYM_MOD_SIZE - ( bufferSize % CRYPTOLIB_SYM_MOD_SIZE ) ) ? 
-                     ( CRYPTOLIB_SYM_MOD_SIZE - ( bufferSize % CRYPTOLIB_SYM_MOD_SIZE ) ) : 
-                     CRYPTOLIB_SYM_MOD_SIZE );
-        *pEncryptedSize = bufferSize + nPadding;
+        bufferSize = rpal_blob_getSize( bufferToEncrypt );
+        nPadding = CRYPTOLIB_SYM_BUFFER_PADDING( bufferSize );
+        encryptedSize = bufferSize + nPadding;
 
-        tmp = bufferToEncrypt;
-
-        for( index = bufferSize; index < bufferSize + nPadding; index++ )
+        // Setup the PKCS#7 padding.
+        for( index = 0; index < nPadding; index++ )
         {
-            tmp[ index ] = (RU8)nPadding;
+            padding[ index ] = (RU8)nPadding;
         }
 
-        mbedtls_aes_init( &aes );
-
-        if( 0 == mbedtls_aes_setkey_enc( &aes, key, 256 ) )
+        if( rpal_blob_add( bufferToEncrypt, padding, nPadding ) )
         {
-            if( 0 == mbedtls_aes_crypt_cbc( &aes, 
-                                            MBEDTLS_AES_ENCRYPT, 
-                                            *pEncryptedSize, 
-                                            NULL != iv ? iv : emptyIv, 
-                                            bufferToEncrypt, 
-                                            bufferToEncrypt ) )
+            if( NULL != ( rawBuffer = rpal_blob_getBuffer( bufferToEncrypt ) ) )
             {
-                isSuccess = TRUE;
+                if( NULL == optContext )
+                {
+                    mbedtls_aes_init( &aes );
+                }
+
+                if( NULL != optContext ||
+                    0 == mbedtls_aes_setkey_enc( &aes, key, 256 ) )
+                {
+                    if( 0 == mbedtls_aes_crypt_cbc( NULL != pCtx ? &pCtx->aes : &aes,
+                                                    MBEDTLS_AES_ENCRYPT,
+                                                    encryptedSize,
+                                                    NULL != pCtx ? pCtx->iv : iv,
+                                                    rawBuffer,
+                                                    rawBuffer ) )
+                    {
+                        isSuccess = TRUE;
+                    }
+                }
+
+                if( NULL == optContext )
+                {
+                    mbedtls_aes_free( &aes );
+                }
             }
         }
-
-        mbedtls_aes_free( &aes );
     }
 
     return isSuccess;
@@ -235,64 +330,77 @@ RBOOL
 RBOOL
     CryptoLib_symDecrypt
     (
-        RPVOID bufferToDecrypt,
-        RU32 bufferSize,
+        rBlob bufferToDecrypt,
         RU8 key[ CRYPTOLIB_SYM_KEY_SIZE ],
         RU8 iv[ CRYPTOLIB_SYM_IV_SIZE ],
-        RU32* pDecryptedSize
+        CryptoLib_SymContext optContext
     )
 {
     RBOOL isSuccess = FALSE;
 
     mbedtls_aes_context aes = { 0 };
-    RU8 emptyIv[ CRYPTOLIB_SYM_IV_SIZE ] = {0};
-    RU8* tmp = NULL;
     RU8 nPadding = 0;
     RU32 index = 0;
+    RPU8 rawBuffer = NULL;
+    RU32 bufferSize = 0;
+    _CryptoLib_SymContext* pCtx = (_CryptoLib_SymContext*)optContext;
 
     if( NULL != bufferToDecrypt &&
-        0 != bufferSize &&
-        NULL != pDecryptedSize &&
-        NULL != key )
+        ( ( NULL != key &&
+            NULL != iv ) ||
+          NULL != optContext ) )
     {
-        tmp = bufferToDecrypt;
-
-        mbedtls_aes_init( &aes );
-
-        if( 0 == mbedtls_aes_setkey_dec( &aes, key, 256 ) )
+        if( NULL == optContext )
         {
-            if( 0 == mbedtls_aes_crypt_cbc( &aes,
-                                            MBEDTLS_AES_DECRYPT,
-                                            bufferSize,
-                                            NULL != iv ? iv : emptyIv,
-                                            bufferToDecrypt,
-                                            bufferToDecrypt ) )
+            mbedtls_aes_init( &aes );
+        }
+
+        if( NULL != optContext ||
+            0 == mbedtls_aes_setkey_dec( &aes, key, 256 ) )
+        {
+            if( NULL != ( rawBuffer = rpal_blob_getBuffer( bufferToDecrypt ) ) )
             {
-                nPadding = tmp[ bufferSize - 1 ];
+                bufferSize = rpal_blob_getSize( bufferToDecrypt );
 
-                if( nPadding < bufferSize &&
-                    CRYPTOLIB_SYM_MOD_SIZE >= nPadding )
+                if( 0 == mbedtls_aes_crypt_cbc( NULL != pCtx ? &pCtx->aes : &aes,
+                                                MBEDTLS_AES_DECRYPT,
+                                                bufferSize,
+                                                NULL != pCtx ? pCtx->iv : iv,
+                                                rawBuffer,
+                                                rawBuffer ) )
                 {
-                    isSuccess = TRUE;
+                    nPadding = rawBuffer[ bufferSize - 1 ];
 
-                    for( index = bufferSize - 1; index > ( bufferSize - nPadding ); index-- )
+                    // Removing PKCS#7 padding
+                    if( nPadding < bufferSize &&
+                        CRYPTOLIB_SYM_MOD_SIZE >= nPadding )
                     {
-                        if( tmp[ index ] != nPadding )
+                        isSuccess = TRUE;
+
+                        for( index = bufferSize - 1; index > ( bufferSize - nPadding ); index-- )
                         {
-                            isSuccess = FALSE;
-                            break;
+                            if( rawBuffer[ index ] != nPadding )
+                            {
+                                isSuccess = FALSE;
+                                break;
+                            }
                         }
-                    }
 
-                    if( isSuccess )
-                    {
-                        *pDecryptedSize = bufferSize - nPadding;
+                        if( isSuccess )
+                        {
+                            isSuccess = rpal_blob_remove( bufferToDecrypt, 
+                                                          bufferSize - nPadding, 
+                                                          nPadding );
+                        }
                     }
                 }
             }
         }
 
-        mbedtls_aes_free( &aes );
+        if( NULL == optContext )
+        {
+            mbedtls_aes_free( &aes );
+        }
     }
 
     return isSuccess;
@@ -448,11 +556,8 @@ RBOOL
 RBOOL
     CryptoLib_fastAsymEncrypt
     (
-        RPVOID bufferToEncrypt,
-        RU32 bufferSize,
-        RU8 pubKey[ CRYPTOLIB_ASYM_KEY_SIZE_PUB ],
-        RPU8* pEncryptedBuffer,
-        RU32* pEncryptedSize
+        rBlob bufferToEncrypt,
+        RU8 pubKey[ CRYPTOLIB_ASYM_KEY_SIZE_PUB ]
     )
 {
     RBOOL isSuccess = FALSE;
@@ -460,70 +565,35 @@ RBOOL
     RU8 symKey[ CRYPTOLIB_SYM_KEY_SIZE ] = {0};
     RU8 iv[ CRYPTOLIB_SYM_IV_SIZE ] = {0};
 
-    mbedtls_pk_context key = { 0 };
-
-    _CryptoLib_FastAsymBuffer* asymBuffer = NULL;
-    RU32 asymSize = 0;
-    RSIZET tmpLength = 0;
-
-    RU32 symSize = 0;
+    RPU8 tmpDecrypt = NULL;
+    _CryptoLib_FastAsymBuffer asymBuffer = { 0 };
+    RU32 tmpLength = 0;
 
     if( NULL != bufferToEncrypt &&
-        0 != bufferSize &&
-        NULL != pubKey &&
-        NULL != pEncryptedBuffer &&
-        NULL != pEncryptedSize )
+        NULL != pubKey )
     {
-        mbedtls_pk_init( &key );
-
-        if( 0 == mbedtls_pk_parse_public_key( &key, pubKey, CRYPTOLIB_ASYM_KEY_SIZE_PUB ) )
-	    {
-            if( CryptoLib_genRandomBytes( symKey, sizeof( symKey ) ) &&
-                CryptoLib_genRandomBytes( iv, sizeof( iv ) ) )
+        if( CryptoLib_genRandomBytes( symKey, sizeof( symKey ) ) &&
+            CryptoLib_genRandomBytes( iv, sizeof( iv ) ) )
+        {
+            if( CryptoLib_asymEncrypt( symKey, sizeof(symKey), pubKey, &tmpDecrypt, &tmpLength ) )
             {
-                asymSize = sizeof( _CryptoLib_FastAsymBuffer ) + bufferSize;
+                rpal_memory_memcpy( asymBuffer.symKey, tmpDecrypt, sizeof( asymBuffer.symKey ) );
+                rpal_memory_free( tmpDecrypt );
+                rpal_memory_memcpy( asymBuffer.iv, iv, sizeof( iv ) );
 
-                asymBuffer = rpal_memory_alloc( asymSize + CRYPTOLIB_SYM_MOD_SIZE ); // 16 because of block round-up
-
-                if( rpal_memory_isValid( asymBuffer ) )
+                if( CryptoLib_symEncrypt( bufferToEncrypt, symKey, iv, NULL ) )
                 {
-                    if( 0 == mbedtls_pk_encrypt( &key, 
-                                                 symKey, 
-                                                 sizeof( symKey ), 
-                                                 asymBuffer->symKey, 
-                                                 &tmpLength, 
-                                                 sizeof( asymBuffer->symKey ), 
-                                                 mbedtls_ctr_drbg_random, 
-                                                 &g_rng ) )
+                    if( rpal_blob_insert( bufferToEncrypt, &asymBuffer, sizeof( asymBuffer ), 0 ) )
                     {
-						rpal_memory_memcpy( asymBuffer->iv, iv, sizeof( iv ) );
-
-                        if( CryptoLib_symEncrypt( bufferToEncrypt, bufferSize, symKey, iv, &symSize ) )
-                        {
-                            rpal_memory_memcpy( asymBuffer->data , bufferToEncrypt, symSize );
-
-                            *pEncryptedBuffer = (RPU8)asymBuffer;
-                            *pEncryptedSize = asymSize - bufferSize + symSize;
-
-                            isSuccess = TRUE;
-                        }
-                        else
-                        {
-                            rpal_memory_free( asymBuffer );
-                        }
-                    }
-                    else
-                    {
-                        rpal_memory_free( asymBuffer );
+                        isSuccess = TRUE;
                     }
                 }
-
-                rpal_memory_zero( symKey, sizeof( symKey ) );
-                rpal_memory_zero( iv, sizeof( iv ) );
             }
-        }
 
-        mbedtls_pk_free( &key );
+            rpal_memory_zero( symKey, sizeof( symKey ) );
+            rpal_memory_zero( iv, sizeof( iv ) );
+            rpal_memory_zero( &asymBuffer, sizeof( asymBuffer ) );
+        }
     }
 
     return isSuccess;
@@ -532,11 +602,8 @@ RBOOL
 RBOOL
     CryptoLib_fastAsymDecrypt
     (
-        RPVOID bufferToDecrypt,
-        RU32 bufferSize,
-        RU8 priKey[ CRYPTOLIB_ASYM_KEY_SIZE_PRI ],
-        RPU8* pDecryptedBuffer,
-        RU32* pDecryptedSize
+        rBlob bufferToDecrypt,
+        RU8 priKey[ CRYPTOLIB_ASYM_KEY_SIZE_PRI ]
     )
 {
     RBOOL isSuccess = FALSE;
@@ -544,35 +611,33 @@ RBOOL
     _CryptoLib_FastAsymBuffer* asymBuffer = NULL;
     RPU8 symKey = NULL;
     RU32 symSize = 0;
-    RU32 decryptedSize = 0;
+    RU8 iv[ CRYPTOLIB_SYM_IV_SIZE ] = { 0 };
 
     if( NULL != bufferToDecrypt &&
-        sizeof( _CryptoLib_FastAsymBuffer ) < bufferSize &&
-        NULL != priKey &&
-        NULL != pDecryptedBuffer &&
-        NULL != pDecryptedSize )
+        sizeof( _CryptoLib_FastAsymBuffer ) < rpal_blob_getSize( bufferToDecrypt ) &&
+        NULL != priKey )
     {
-        asymBuffer = bufferToDecrypt;
-
-        if( CryptoLib_asymDecrypt( bufferToDecrypt, 
-                                   CRYPTOLIB_ASYM_2048_MIN_SIZE, 
-                                   priKey, 
-                                   &symKey, 
-                                   &symSize ) )
+        if( NULL != ( asymBuffer = rpal_blob_getBuffer( bufferToDecrypt ) ) )
         {
-            if( CryptoLib_symDecrypt( asymBuffer->data, 
-                                      bufferSize - sizeof( _CryptoLib_FastAsymBuffer ), 
-                                      symKey, 
-                                      asymBuffer->iv, 
-                                      &decryptedSize ) )
+            if( CryptoLib_asymDecrypt( asymBuffer,
+                                       CRYPTOLIB_ASYM_2048_MIN_SIZE,
+                                       priKey,
+                                       &symKey,
+                                       &symSize ) )
             {
-                *pDecryptedSize = decryptedSize;
-                *pDecryptedBuffer = asymBuffer->data;
+                rpal_memory_memcpy( iv, asymBuffer->iv, sizeof( iv ) );
 
-                isSuccess = TRUE;
+                if( rpal_blob_remove( bufferToDecrypt, 0, sizeof( _CryptoLib_FastAsymBuffer ) ) &&
+                    CryptoLib_symDecrypt( bufferToDecrypt,
+                                          symKey,
+                                          iv,
+                                          NULL ) )
+                {
+                    isSuccess = TRUE;
+                }
+
+                rpal_memory_free( symKey );
             }
-
-            rpal_memory_free( symKey );
         }
     }
 
@@ -602,9 +667,9 @@ RBOOL
 
 
 RBOOL
-    CryptoLib_hashFileW
+    CryptoLib_hashFile
     (
-        RPWCHAR fileName,
+        RPNCHAR fileName,
         CryptoLib_Hash* pHash,
         RBOOL isAvoidTimestamps
     )
@@ -612,7 +677,7 @@ RBOOL
     RBOOL isSuccess = FALSE;
 
     mbedtls_sha256_context ctx = { 0 };
-    RU8 buff[1024] = {0};
+    RU8 buff[ 200 * 1024 ] = {0};
     rFile f = NULL;
     RU32 read = 0;
 
@@ -639,30 +704,3 @@ RBOOL
 
     return isSuccess;
 }
-
-RBOOL
-    CryptoLib_hashFileA
-    (
-        RPCHAR fileName,
-        CryptoLib_Hash* pHash,
-        RBOOL isAvoidTimestamps
-    )
-{
-    RBOOL isSuccess = FALSE;
-
-    RPWCHAR wFile = NULL;
-
-    if( NULL != fileName &&
-        NULL != pHash )
-    {
-	    if( NULL != ( wFile = rpal_string_atow( fileName ) ) )
-	    {
-            isSuccess = CryptoLib_hashFileW( wFile, pHash, isAvoidTimestamps );
-	    
-	        rpal_memory_free( wFile );
-	    }
-    }
-
-    return isSuccess;
-}
-

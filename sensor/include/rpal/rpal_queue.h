@@ -69,7 +69,7 @@ RBOOL
         rQueue queue,
         RPVOID* buffer,
         RU32* bufferSize,
-        RU32 miliSecTimeout
+        RU32 milliSecTimeout
     );
 
 RBOOL

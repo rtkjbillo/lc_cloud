@@ -21,6 +21,13 @@ limitations under the License.
 #if defined( RPAL_PLATFORM_MACOSX )
     #include <mach/mach_time.h>
     #include <sys/time.h>
+    #include <mach/clock_types.h>
+    #include <mach/mach_host.h>
+    #include <mach/clock.h>
+#elif defined( RPAL_PLATFORM_LINUX )
+    #include <unistd.h>
+#elif defined( RPAL_PLATFORM_WINDOWS)
+    #define FILETIME2ULARGE( uli, ft )  (uli).u.LowPart = (ft).dwLowDateTime, (uli).u.HighPart = (ft).dwHighDateTime
 #endif
 
 // This resource is not protected from multi-threading
@@ -42,6 +49,139 @@ RU64
 #endif
 }
 
+
+RBOOL
+    rpal_time_getCPU
+    (
+        RU64* cpuTime
+    )
+{
+#if defined( RPAL_PLATFORM_WINDOWS )
+    static GetSystemTimes_f gst = NULL;
+    RBOOL isSuccess = FALSE;
+    FILETIME ftUser = { 0 };
+    FILETIME ftKernel = { 0 };
+    FILETIME ftIdle = { 0 };
+    RCHAR getSystemTime[] = "GetSystemTimes";
+    ULARGE_INTEGER uUser = { 0 };
+    ULARGE_INTEGER uKernel = { 0 };
+    ULARGE_INTEGER uIdle = { 0 };
+
+    if( NULL == cpuTime )
+    {
+        return FALSE;
+    }
+
+    if( NULL == gst )
+    {
+        gst = (GetSystemTimes_f)GetProcAddress( GetModuleHandleW( _WCH( "kernel32.dll" ) ),
+            getSystemTime );
+        if( NULL == gst )
+        {
+            rpal_debug_error( "Cannot get the address to GetSystemTimes -- error code %u.", GetLastError() );
+            isSuccess = FALSE;
+        }
+    }
+
+    if( NULL != gst &&
+        gst( &ftIdle, &ftKernel, &ftUser ) )
+    {
+        FILETIME2ULARGE( uUser, ftUser );
+        FILETIME2ULARGE( uKernel, ftKernel );
+        FILETIME2ULARGE( uIdle, ftIdle );
+
+        *cpuTime = ( uUser.QuadPart + uKernel.QuadPart + uIdle.QuadPart ) / NSEC_100_PER_USEC;
+
+        isSuccess = TRUE;
+    }
+    else
+    {
+        rpal_debug_error( "Unable to get system times -- error code %u.", GetLastError() );
+        isSuccess = FALSE;
+    }
+
+    return isSuccess;
+#elif defined( RPAL_PLATFORM_LINUX )
+    static RU64 user_hz = 0;
+    FILE* proc_stat = NULL;
+    RCHAR line[ 256 ] = { 0 };
+    RCHAR* saveptr = NULL;
+    RCHAR* tok = NULL;
+    RPCHAR unused = NULL;
+
+    if( 0 == user_hz )
+    {
+        long tmp = sysconf( _SC_CLK_TCK );
+        if( tmp < 0 )
+        {
+            rpal_debug_error( "Cannot find the proc clock tick size -- error code %u.", errno );
+            return FALSE;
+        }
+        user_hz = (RU64)tmp;
+    }
+    if( NULL == cpuTime )
+    {
+        return TRUE;
+    }
+
+    if( NULL != ( proc_stat = fopen( "/proc/stat", "r" ) ) )
+    {
+        rpal_memory_zero( line, sizeof( line ) );
+
+        while( !feof( proc_stat ) )
+        {
+            unused = fgets( line, sizeof( line ), proc_stat );
+            if( line == strstr( line, "cpu " ) )
+            {
+                saveptr = NULL;
+                tok = strtok_r( line, " ", &saveptr );
+                *cpuTime = 0;
+
+                while( NULL != tok )
+                {
+                    if( isdigit( tok[ 0 ] ) )
+                    {
+                        *cpuTime += (RU64)atol( tok );
+                    }
+                    tok = strtok_r( NULL, " ", &saveptr );
+                }
+
+                /* user_hz = clock ticks per second; we want time in microseconds. */
+                *cpuTime = ( *cpuTime * 1000000 ) / user_hz;
+                break;
+            }
+        }
+        fclose( proc_stat );
+    }
+    else
+    {
+        rpal_debug_error( "Cannot open /proc/stat -- error code %u.", errno );
+    }
+
+    return *cpuTime > 0;
+#elif defined( RPAL_PLATFORM_MACOSX )
+    static clock_serv_t cclock;
+    static RBOOL isInitialized = FALSE;
+    mach_timespec_t mts;
+    if( !isInitialized )
+    {
+        host_get_clock_service( mach_host_self(), SYSTEM_CLOCK, &cclock );
+        isInitialized = TRUE;
+    }
+
+    clock_get_time( cclock, &mts );
+
+    if( NULL != cpuTime )
+    {
+        *cpuTime = USEC_FROM_NSEC( mts.tv_nsec ) + USEC_FROM_SEC( mts.tv_sec );
+    }
+
+    return TRUE;
+#else
+    rpal_debug_not_implemented();
+#endif
+}
+
 RPAL_DEFINE_API
 ( 
 RU64, 
@@ -49,7 +189,7 @@ RU64,
 )
 {
     RU64 time = 0;
-
+    
     time = rpal_time_getLocal() + g_rpal_time_globalOffset;
 
     return time;
@@ -83,6 +223,71 @@ RU64,
     return localTs + g_rpal_time_globalOffset;
 }
 
+RU64
+    rpal_time_getGlobalPreciseTime
+    (
+
+    )
+{
+    static RU64 lastLocalTime = 0;
+    static RU64 lastCPUCheck = 0;
+    static RU64 lastCPUTime = 0;
+    RU64 cpuTime = 0;
+    RU64 cpuDelta = 0;
+    RU64 ts = 0;
+
+#ifdef RPAL_PLATFORM_WINDOWS
+    FILETIME ft = { 0 };
+    GetSystemTimeAsFileTime( &ft );
+    ts = MS_FILETIME_TO_MSEC_EPOCH( (RU64)ft.dwLowDateTime + ( (RU64)ft.dwHighDateTime << 32 ) );
+#else
+    struct timeval tv = { 0 };
+    gettimeofday( &tv, NULL );
+    ts = MSEC_FROM_SEC((RU64)tv.tv_sec) + MSEC_FROM_USEC( (RU64)tv.tv_usec );
+#endif
+
+    if( 0 != lastLocalTime &&
+        MSEC_FROM_SEC( 10 ) < DELTA_OF( lastLocalTime, ts ) )
+    {
+        // Time hasn't been queried since X world-seconds, that's
+        // a long time, check the CPU time to see if hibernation of some
+        // kind has occurred.
+        if( rpal_time_getCPU( &cpuTime ) )
+        {
+            cpuDelta = MSEC_FROM_USEC( MIN_OF( (RU64)( lastCPUTime - cpuTime ),
+                                       (RU64)( cpuTime - lastCPUTime ) ) );
+            rpal_debug_info( "Delta check: dtime = " RF_U64 " dcpu = " RF_U64, DELTA_OF( lastLocalTime, ts ), cpuDelta );
+            if( MSEC_FROM_SEC( 10 ) < DELTA_OF( cpuDelta,
+                                                DELTA_OF( lastCPUCheck, ts ) ) )
+            {
+                // Ok, change in CPU is more than Y seconds different than
+                // the wall clock, we can't assume our global offset to be
+                // valid anymore since something is clearly syncing the clock
+                // for us (like VMWare) so we'll reset it.
+                rpal_time_setGlobalOffset( 0 );
+                rpal_debug_info( "detected external clock sync, resetting global offset" );
+            }
+        }
+    }
+
+    // Every 30 seconds we cut a new slice of time for CPU
+    // time that we can use to see an external clock sync.
+    if( MSEC_FROM_SEC( 30 ) < DELTA_OF( lastCPUCheck, ts ) )
+    {
+        if( !rpal_time_getCPU( &lastCPUTime ) )
+        {
+            lastCPUTime = 0;
+        }
+
+        lastCPUCheck = ts;
+    }
+
+    lastLocalTime = ts;
+
+    ts += MSEC_FROM_SEC( rpal_time_getGlobalFromLocal( 0 ) );
+
+    return ts;
+}
 
 RBOOL
     rpal_timer_init_interval
@@ -298,17 +503,12 @@ RU64
 
 #ifdef RPAL_PLATFORM_WINDOWS
 RU64 
-    rpal_winFileTimeToTs
+    rpal_winFileTimeToMsTs
     (
         FILETIME ft
     )
 {
-    RU64 epochAsFiletime = 116444736000000000;
-    RU64 hundredOfNanosecondes = 10000000;
-
-    RU64 time = ( (RU64)(ft.dwHighDateTime) << 32 ) | ft.dwLowDateTime;
-
-    return ( time - epochAsFiletime ) / hundredOfNanosecondes;
+    return MS_FILETIME_TO_MSEC_EPOCH( (RU64)ft.dwLowDateTime + ( (RU64)ft.dwHighDateTime << 32 ) );
 }
 #endif
 

@@ -34,8 +34,8 @@ typedef struct
     RU64 modificationTime;
     RU64 lastAccessTime;
     RU64 size;
-    RWCHAR filePath[ RPAL_MAX_PATH ];
-    RPWCHAR fileName;
+    RNCHAR filePath[ RPAL_MAX_PATH ];
+    RPNCHAR fileName;
 
 } rFileInfo;
 
@@ -80,115 +80,89 @@ enum rFileSeek
 RBOOL
     rpal_file_delete
     (
-        RPCHAR filePath,
-        RBOOL isSafeDelete
-    );
-
-RBOOL
-    rpal_file_deletew
-    (
-        RPWCHAR filePath,
+        RPNCHAR filePath,
         RBOOL isSafeDelete
     );
 
 RBOOL
     rpal_file_move
     (
-        RPCHAR srcFilePath,
-        RPCHAR dstFilePath
-    );
-
-RBOOL
-    rpal_file_movew
-    (
-        RPWCHAR srcFilePath,
-        RPWCHAR dstFilePath
+        RPNCHAR srcFilePath,
+        RPNCHAR dstFilePath
     );
 
 RBOOL
     rpal_file_getInfo
     (
-        RPCHAR filePath,
+        RPNCHAR filePath,
         rFileInfo* pFileInfo
     );
 
 RBOOL
-    rpal_file_getInfow
+    rpal_file_getInfo
     (
-        RPWCHAR filePath,
+        RPNCHAR filePath,
         rFileInfo* pFileInfo
     );
 
 RBOOL
     rpal_file_read
     (
-        RPCHAR filePath,
+        RPNCHAR filePath,
         RPVOID* pBuffer,
         RU32* pBufferSize,
+        RBOOL isAvoidTimestamps
+    );
+
+RU32
+    rpal_file_getSizeW
+    (
+        RPWCHAR filePath,
+        RBOOL isAvoidTimestamps
+    );
+
+RU32
+    rpal_file_getSizeA
+    (
+        RPCHAR filePath,
         RBOOL isAvoidTimestamps
     );
 
 RU32
     rpal_file_getSize
     (
-        RPCHAR filePath,
+        RPNCHAR filePath,
         RBOOL isAvoidTimestamps
     );
 
 RBOOL
     rpal_file_write
     (
-        RPCHAR filePath,
+        RPNCHAR filePath,
         RPVOID buffer,
         RU32 bufferSize,
         RBOOL isOverwrite
     );
 
 RBOOL
-    rpal_file_readw
+    rpal_file_pathToLocalSep
     (
-        RPWCHAR filePath,
-        RPVOID* pBuffer,
-        RU32* pBufferSize,
-        RBOOL isAvoidTimestamps
+        RPNCHAR path
     );
-
-RU32
-    rpal_file_getSizew
-    (
-        RPWCHAR filePath,
-        RBOOL isAvoidTimestamps
-    );
-
-RBOOL
-    rpal_file_writew
-    (
-        RPWCHAR filePath,
-        RPVOID buffer,
-        RU32 bufferSize,
-        RBOOL isOverwrite
-    );
-
-RBOOL
-    rpal_file_pathToLocalSepW
-    (
-        RPWCHAR path
-    );
-
 
 RBOOL
     rpal_file_getLinkDest
     (
-        RPWCHAR linkPath,
-        RPWCHAR* pDestination
+        RPNCHAR linkPath,
+        RPNCHAR* pDestination
     );
 
 
 rDirCrawl
     rpal_file_crawlStart
     (
-        RPWCHAR rootExpr,
-        RPWCHAR fileExpr[],
+        RPNCHAR rootExpr,
+        RPNCHAR fileExpr[],
         RU32 nMaxDepth
     );
 
@@ -205,16 +179,16 @@ RVOID
         rDirCrawl hDirCrawl
     );
 
-RPWCHAR
+RPNCHAR
     rpal_file_filePathToFileName
     (
-        RPWCHAR filePath
+        RPNCHAR filePath
     );
 
 RBOOL
     rDir_open
     (
-        RPWCHAR dirPath,
+        RPNCHAR dirPath,
         rDir* phDir
     );
 
@@ -234,13 +208,13 @@ RBOOL
 RBOOL
     rDir_create
     (
-        RPWCHAR dirPath
+        RPNCHAR dirPath
     );
 
 RBOOL
     rFile_open
     (
-        RPWCHAR filePath,
+        RPNCHAR filePath,
         rFile* phFile,
         RU32 flags
     );
@@ -304,7 +278,7 @@ RBOOL
 rDirWatch
     rDirWatch_new
     (
-        RPWCHAR dir,
+        RPNCHAR dir,
         RU32 watchFlags,
         RBOOL includeSubDirs
     );
@@ -320,26 +294,14 @@ RBOOL
     (
         rDirWatch watch,
         RU32 timeout,
-        RPWCHAR* pFilePath,
+        RPNCHAR* pFilePath,
         RU32* pAction
     );
 
-RPWCHAR
-    rpal_file_cleanw
+RPNCHAR
+    rpal_file_clean
     (
-        RPWCHAR filePath
+        RPNCHAR filePath
     );
-
-RPCHAR
-    rpal_file_cleana
-    (
-        RPCHAR filePath
-    );
-
-#ifdef RNATIVE_IS_WIDE
-    #define rpal_file_cleann rpal_file_cleanw
-#else
-    #define rpal_file_cleann rpal_file_cleana
-#endif
 
 #endif

@@ -26,14 +26,19 @@ limitations under the License.
 
 static RBOOL g_is_kernel_failure = FALSE;  // Kernel acquisition failed for this method
 
+static RBOOL g_is_create_enabled = TRUE;
+static RBOOL g_is_delete_enabled = TRUE;
+static RBOOL g_is_modified_enabled = TRUE;
+static RBOOL g_is_read_enabled = TRUE;
+
 static
 RBOOL
     _assemble_full_name
     (
-        RPWCHAR out,
+        RPNCHAR out,
         RU32 outSize,
-        RPWCHAR root,
-        RPWCHAR file
+        RPNCHAR root,
+        RPNCHAR file
     )
 {
     RBOOL isSuccess = FALSE;
@@ -44,11 +49,11 @@ RBOOL
         NULL != file )
     {
         rpal_memory_zero( out, outSize );
-        rpal_string_strcatw( out, root );
+        rpal_string_strcat( out, root );
 
-        if( outSize > ( rpal_string_strlenw( out ) + rpal_string_strlenw( file ) ) * sizeof( RWCHAR ) )
+        if( outSize > ( rpal_string_strlen( out ) + rpal_string_strlen( file ) ) * sizeof( RNCHAR ) )
         {
-            rpal_string_strcatw( out, file );
+            rpal_string_strcat( out, file );
             isSuccess = TRUE;
         }
     }
@@ -64,25 +69,27 @@ RPVOID
     )
 {    
 #ifdef RPAL_PLATFORM_WINDOWS
-    RWCHAR rootEnv[] = _WCH( "%SYSTEMDRIVE%\\" );
+    RNCHAR rootEnv[] = _WCH( "%SYSTEMDRIVE%\\" );
 #else
     RWCHAR rootEnv[] = _WCH( "/" );
 #endif
-    RWCHAR fullName[ 1024 ] = { 0 };
+    RNCHAR fullName[ 1024 ] = { 0 };
     rDirWatch watch = NULL;
-    RPWCHAR root = NULL;
-    RPWCHAR fileName = NULL;
+    RPNCHAR root = NULL;
+    RPNCHAR fileName = NULL;
     RU32 apiAction = 0;
     rpcm_tag event = RP_TAGS_INVALID;
     rSequence notif = 0;
     RU64 curTime = 0;
 
-    if( rpal_string_expandw( (RPWCHAR)&rootEnv, &root ) &&
-        NULL != ( watch = rDirWatch_new( root, 
-                                         RPAL_DIR_WATCH_CHANGE_CREATION |
-                                         RPAL_DIR_WATCH_CHANGE_FILE_NAME | 
-                                         RPAL_DIR_WATCH_CHANGE_LAST_ACCESS, 
-                                         TRUE ) ) )
+    RU32 mask = 0;
+
+    if( g_is_create_enabled ) mask |= RPAL_DIR_WATCH_CHANGE_CREATION;
+    if( g_is_delete_enabled ) mask |= RPAL_DIR_WATCH_CHANGE_FILE_NAME;
+    if( g_is_modified_enabled ) mask |= RPAL_DIR_WATCH_CHANGE_LAST_WRITE;
+
+    if( rpal_string_expand( (RPNCHAR)&rootEnv, &root ) &&
+        NULL != ( watch = rDirWatch_new( root, mask, TRUE ) ) )
     {
         while( rpal_memory_isValid( isTimeToStop ) &&
                !rEvent_wait( isTimeToStop, 0 ) &&
@@ -96,7 +103,7 @@ RPVOID
                   RPAL_DIR_WATCH_ACTION_REMOVED == apiAction ||
                   RPAL_DIR_WATCH_ACTION_MODIFIED  == apiAction ) )
             {
-                curTime = rpal_time_getGlobal();
+                curTime = rpal_time_getGlobalPreciseTime();
 
                 if( _assemble_full_name( fullName, sizeof( fullName ), root, fileName ) )
                 {
@@ -115,10 +122,10 @@ RPVOID
                             event = RP_TAGS_NOTIFICATION_FILE_MODIFIED;
                         }
 
-                        if( rSequence_addSTRINGW( notif, RP_TAGS_FILE_PATH, (RPWCHAR)&fullName ) &&
-                            rSequence_addTIMESTAMP( notif, RP_TAGS_TIMESTAMP, curTime ) )
+                        if( rSequence_addSTRINGN( notif, RP_TAGS_FILE_PATH, (RPNCHAR)&fullName ) &&
+                            hbs_timestampEvent( notif, curTime ) )
                         {
-                            notifications_publish( event, notif );
+                            hbs_publish( event, notif );
                         }
                         
                         rSequence_free( notif );
@@ -148,6 +155,9 @@ RPVOID
     RU32 nScratch = 0;
     KernelAcqFileIo new_from_kernel[ 200 ] = { 0 };
     RU32 i = 0;
+    Atom parentAtom = { 0 };
+    RPNCHAR cleanPath = NULL;
+    RPNCHAR actualPath = NULL;
 
     while( rpal_memory_isValid( isTimeToStop ) &&
            !rEvent_wait( isTimeToStop, 1000 ) )
@@ -163,17 +173,25 @@ RPVOID
 
         for( i = 0; i < nScratch; i++ )
         {
-            if( KERNEL_ACQ_FILE_ACTION_ADDED == new_from_kernel[ i ].action )
+            if( KERNEL_ACQ_FILE_ACTION_ADDED == new_from_kernel[ i ].action &&
+                g_is_create_enabled )
             {
                 event = RP_TAGS_NOTIFICATION_FILE_CREATE;
             }
-            else if( KERNEL_ACQ_FILE_ACTION_REMOVED == new_from_kernel[ i ].action )
+            else if( KERNEL_ACQ_FILE_ACTION_REMOVED == new_from_kernel[ i ].action &&
+                     g_is_delete_enabled )
             {
                 event = RP_TAGS_NOTIFICATION_FILE_DELETE;
             }
-            else if( KERNEL_ACQ_FILE_ACTION_MODIFIED == new_from_kernel[ i ].action )
+            else if( KERNEL_ACQ_FILE_ACTION_MODIFIED == new_from_kernel[ i ].action &&
+                     g_is_modified_enabled )
             {
                 event = RP_TAGS_NOTIFICATION_FILE_MODIFIED;
+            }
+            else if( KERNEL_ACQ_FILE_ACTION_READ == new_from_kernel[ i ].action &&
+                     g_is_read_enabled )
+            {
+                event = RP_TAGS_NOTIFICATION_FILE_READ;
             }
             else
             {
@@ -182,13 +200,31 @@ RPVOID
 
             if( NULL != ( notif = rSequence_new() ) )
             {
-                if( rSequence_addSTRINGN( notif, RP_TAGS_FILE_PATH, new_from_kernel[ i ].path ) &&
-                    rSequence_addTIMESTAMP( notif,
-                                            RP_TAGS_TIMESTAMP,
-                                            rpal_time_getGlobalFromLocal( new_from_kernel[ i ].ts ) ) )
+                parentAtom.key.process.pid = new_from_kernel[ i ].pid;
+                parentAtom.key.category = RP_TAGS_NOTIFICATION_NEW_PROCESS;
+                if( atoms_query( &parentAtom, new_from_kernel[ i ].ts ) )
                 {
-                    notifications_publish( event, notif );
+                    rSequence_addBUFFER( notif, 
+                                         RP_TAGS_HBS_PARENT_ATOM, 
+                                         parentAtom.id, 
+                                         sizeof( parentAtom.id ) );
                 }
+
+                actualPath = new_from_kernel[ i ].path;
+
+                if( NULL != ( cleanPath = rpal_file_clean( new_from_kernel[ i ].path ) ) )
+                {
+                    actualPath = cleanPath;
+                }
+
+                if( rSequence_addSTRINGN( notif, RP_TAGS_FILE_PATH, actualPath ) &&
+                    rSequence_addRU32( notif, RP_TAGS_PROCESS_ID, new_from_kernel[ i ].pid ) &&
+                    hbs_timestampEvent( notif, new_from_kernel[ i ].ts ) )
+                {
+                    hbs_publish( event, notif );
+                }
+
+                rpal_memory_free( cleanPath );
 
                 rSequence_free( notif );
             }
@@ -237,6 +273,7 @@ RPVOID
 rpcm_tag collector_7_events[] = { RP_TAGS_NOTIFICATION_FILE_CREATE,
                                   RP_TAGS_NOTIFICATION_FILE_DELETE,
                                   RP_TAGS_NOTIFICATION_FILE_MODIFIED,
+                                  RP_TAGS_NOTIFICATION_FILE_READ,
                                   0};
 
 RBOOL
@@ -248,11 +285,37 @@ RBOOL
 {
     RBOOL isSuccess = FALSE;
 
+    rList disabledList = NULL;
+    RU32 tagDisabled = 0;
+
     UNREFERENCED_PARAMETER( config );
 
     if( NULL != hbsState )
     {
         g_is_kernel_failure = FALSE;
+
+        if( rSequence_getLIST( config, RP_TAGS_IS_DISABLED, &disabledList ) )
+        {
+            while( rList_getRU32( disabledList, RP_TAGS_IS_DISABLED, &tagDisabled ) )
+            {
+                if( RP_TAGS_NOTIFICATION_FILE_CREATE == tagDisabled )
+                {
+                    g_is_create_enabled = FALSE;
+                }
+                else if( RP_TAGS_NOTIFICATION_FILE_DELETE == tagDisabled )
+                {
+                    g_is_delete_enabled = FALSE;
+                }
+                else if( RP_TAGS_NOTIFICATION_FILE_MODIFIED == tagDisabled )
+                {
+                    g_is_modified_enabled = FALSE;
+                }
+                else if( RP_TAGS_NOTIFICATION_FILE_READ == tagDisabled )
+                {
+                    g_is_read_enabled = FALSE;
+                }
+            }
+        }
 
         if( rThreadPool_task( hbsState->hThreadPool, processFileChanges, NULL ) )
         {

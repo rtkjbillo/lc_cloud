@@ -31,8 +31,8 @@ limitations under the License.
 typedef struct
 {
     rStack stack;
-    RPWCHAR dirExp;
-    RPWCHAR* fileExp;
+    RPNCHAR dirExp;
+    RPNCHAR* fileExp;
     RU32 nMaxDepth;
 
 } _rDirCrawl, *_prDirCrawl;
@@ -45,7 +45,7 @@ typedef struct
 #elif defined( RPAL_PLATFORM_LINUX ) || defined( RPAL_PLATFORM_MACOSX )
     DIR* handle;
 #endif
-    RPWCHAR dirPath;
+    RPNCHAR dirPath;
 } _rDir;
 
 typedef struct
@@ -76,51 +76,20 @@ typedef struct
 #endif
 } _rDirWatch;
 
-
 RBOOL
     rpal_file_delete
     (
-        RPCHAR filePath,
+        RPNCHAR filePath,
         RBOOL isSafeDelete
     )
 {
     RBOOL isDeleted = FALSE;
 
-    RPWCHAR wPath = NULL;
+    RPNCHAR tmpPath = NULL;
 
     if( NULL != filePath )
     {
-        wPath = rpal_string_atow( filePath );
-
-        if( NULL != wPath )
-        {
-            isDeleted = rpal_file_deletew( wPath, isSafeDelete );
-
-            rpal_memory_free( wPath );
-        }
-    }
-
-    return isDeleted;
-}
-
-RBOOL
-    rpal_file_deletew
-    (
-        RPWCHAR filePath,
-        RBOOL isSafeDelete
-    )
-{
-    RBOOL isDeleted = FALSE;
-
-    RPWCHAR tmpPath = NULL;
-
-#if defined( RPAL_PLATFORM_LINUX ) || defined( RPAL_PLATFORM_MACOSX )
-    RPCHAR localFile = NULL;
-#endif
-
-    if( NULL != filePath )
-    {
-        if( rpal_string_expandw( filePath, &tmpPath ) )
+        if( rpal_string_expand( filePath, &tmpPath ) )
         {
             if( isSafeDelete )
             {
@@ -133,13 +102,9 @@ RBOOL
                 isDeleted = TRUE;
             }
 #elif defined( RPAL_PLATFORM_LINUX ) || defined( RPAL_PLATFORM_MACOSX )
-            if( NULL != ( localFile = rpal_string_wtoa( tmpPath ) ) )
+            if( 0 == unlink( tmpPath ) )
             {
-                if( 0 == unlink( localFile ) )
-                {
-                    isDeleted = TRUE;
-                }
-                rpal_memory_free( localFile );
+                isDeleted = TRUE;
             }
 #endif
             rpal_memory_free( tmpPath );
@@ -152,52 +117,19 @@ RBOOL
 RBOOL
     rpal_file_move
     (
-        RPCHAR srcFilePath,
-        RPCHAR dstFilePath
+        RPNCHAR srcFilePath,
+        RPNCHAR dstFilePath
     )
 {
     RBOOL isMoved = FALSE;
 
-    RPWCHAR wSrcPath = NULL;
-    RPWCHAR wDstPath = NULL;
+    RPNCHAR tmpPath1 = NULL;
+    RPNCHAR tmpPath2 = NULL;
 
     if( NULL != srcFilePath && NULL != dstFilePath )
     {
-        if ( NULL != ( wSrcPath = rpal_string_atow( srcFilePath ) ) )
-        {
-            if ( NULL != ( wDstPath = rpal_string_atow( dstFilePath ) ) ) 
-            {
-                isMoved = rpal_file_movew( wSrcPath, wDstPath );
-                rpal_memory_free( wDstPath );
-            }
-            rpal_memory_free( wSrcPath );
-        }
-    }
-
-    return isMoved;
-}
-
-
-RBOOL
-    rpal_file_movew
-    (
-        RPWCHAR srcFilePath,
-        RPWCHAR dstFilePath
-    )
-{
-    RBOOL isMoved = FALSE;
-
-    RPWCHAR tmpPath1 = NULL;
-    RPWCHAR tmpPath2 = NULL;
-
-#if defined( RPAL_PLATFORM_LINUX ) || defined( RPAL_PLATFORM_MACOSX )
-    RPCHAR localFile1 = NULL;
-    RPCHAR localFile2 = NULL;
-#endif
-
-    if( NULL != srcFilePath && NULL != dstFilePath )
-    {
-        if( rpal_string_expandw( srcFilePath, &tmpPath1 ) && rpal_string_expandw( dstFilePath, &tmpPath2 ) )
+        if( rpal_string_expand( srcFilePath, &tmpPath1 ) &&
+            rpal_string_expand( dstFilePath, &tmpPath2 ) )
         {
             
 #ifdef RPAL_PLATFORM_WINDOWS
@@ -206,69 +138,36 @@ RBOOL
                 isMoved = TRUE;
             }
 #elif defined( RPAL_PLATFORM_LINUX ) || defined( RPAL_PLATFORM_MACOSX )
-            if( NULL != ( localFile1 = rpal_string_wtoa( tmpPath1 ) ) && NULL != ( localFile2 = rpal_string_wtoa( tmpPath2 ) ) )
+            if( 0 == rename( tmpPath1, tmpPath2 ) )
             {
-                if( 0 == rename( localFile1, localFile2 ) )
-                {
-                    isMoved = TRUE;
-                }
-                rpal_memory_free( localFile1 );
-                rpal_memory_free( localFile2 );
+                isMoved = TRUE;
             }
 #endif
-            rpal_memory_free( tmpPath1 );
-            rpal_memory_free( tmpPath2 );
         }
     }
 
     return isMoved;
 }
-
 RBOOL
     rpal_file_getInfo
     (
-        RPCHAR filePath,
-        rFileInfo* pFileInfo
-    )
-{
-    RBOOL isSuccess = FALSE;
-
-    RPWCHAR wFilePath = NULL;
-
-    if( NULL != filePath && NULL != pFileInfo )
-    {
-        if ( NULL != ( wFilePath = rpal_string_atow( filePath ) ) )
-        {
-            isSuccess = rpal_file_getInfow( wFilePath, pFileInfo );
-            rpal_memory_free( wFilePath );
-        }
-    }
-
-    return isSuccess;
-}
-
-RBOOL
-    rpal_file_getInfow
-    (
-        RPWCHAR filePath,
+        RPNCHAR filePath,
         rFileInfo* pFileInfo
     )
 {
     RBOOL isSuccess = FALSE;
     
-    RPWCHAR expFilePath = NULL;
+    RPNCHAR expFilePath = NULL;
 
 #ifdef RPAL_PLATFORM_WINDOWS
     WIN32_FIND_DATAW findData = {0};
 #elif defined( RPAL_PLATFORM_LINUX ) || defined( RPAL_PLATFORM_MACOSX )
-    RPCHAR asciiPath = NULL;
     struct stat fileInfo = {0};
-    RPWCHAR widePath = NULL;
 #endif
 
     if ( NULL != filePath && NULL != pFileInfo )
     {
-        if( rpal_string_expandw( filePath, &expFilePath ) )
+        if( rpal_string_expand( filePath, &expFilePath ) )
         {
 #ifdef RPAL_PLATFORM_WINDOWS
 
@@ -301,16 +200,16 @@ RBOOL
                     ENABLE_FLAG( pFileInfo->attributes, RPAL_FILE_ATTRIBUTE_TEMP );
                 }
 
-                pFileInfo->creationTime = rpal_winFileTimeToTs( findData.ftCreationTime );
-                pFileInfo->lastAccessTime = rpal_winFileTimeToTs( findData.ftLastAccessTime );
-                pFileInfo->modificationTime = rpal_winFileTimeToTs( findData.ftLastWriteTime );
+                pFileInfo->creationTime = rpal_winFileTimeToMsTs( findData.ftCreationTime );
+                pFileInfo->lastAccessTime = rpal_winFileTimeToMsTs( findData.ftLastAccessTime );
+                pFileInfo->modificationTime = rpal_winFileTimeToMsTs( findData.ftLastWriteTime );
 
                 pFileInfo->size = ( (RU64)findData.nFileSizeHigh << 32 ) | findData.nFileSizeLow;
 
                 rpal_memory_zero( pFileInfo->filePath, sizeof( pFileInfo->filePath ) );
 
-                if( RPAL_MAX_PATH > rpal_string_strlenw( expFilePath ) && RPAL_MAX_PATH > rpal_string_strlenw( findData.cFileName ) &&
-                    NULL != rpal_string_strcpyw( pFileInfo->filePath, expFilePath ) )
+                if( RPAL_MAX_PATH > rpal_string_strlen( expFilePath ) && RPAL_MAX_PATH > rpal_string_strlen( findData.cFileName ) &&
+                    NULL != rpal_string_strcpy( pFileInfo->filePath, expFilePath ) )
                 {
                     isSuccess = TRUE;
                 }
@@ -318,19 +217,11 @@ RBOOL
 #elif defined( RPAL_PLATFORM_LINUX ) || defined( RPAL_PLATFORM_MACOSX )
             rpal_memory_zero( pFileInfo->filePath, sizeof( pFileInfo->filePath ) );
 
-            if( NULL != ( asciiPath = rpal_string_wtoa( expFilePath ) ) )
+            if( RPAL_MAX_PATH > rpal_string_strlen( expFilePath ) )
             {
-                if( RPAL_MAX_PATH > rpal_string_strlen( asciiPath ) )
+                if( NULL != rpal_string_strcpy( pFileInfo->filePath, expFilePath ) )
                 {
-                    if( NULL != ( widePath = rpal_string_atow( asciiPath )  ) )
-                    {
-                        if( NULL != rpal_string_strcpyw( pFileInfo->filePath, widePath ) )
-                        {
-                            isSuccess = TRUE;
-                        }
-
-                        rpal_memory_free( widePath );
-                    }
+                    isSuccess = TRUE;
                 }
             }
 
@@ -342,7 +233,7 @@ RBOOL
                 pFileInfo->modificationTime = 0;
                 pFileInfo->size = 0;
 
-                if( 0 == stat( asciiPath, &fileInfo ) )
+                if( 0 == stat( expFilePath, &fileInfo ) )
                 {
                     if( S_ISDIR( fileInfo.st_mode ) )
                     {
@@ -356,8 +247,6 @@ RBOOL
                     pFileInfo->size = ( (RU64) fileInfo.st_size );
                 }
             }
-
-            rpal_memory_free( asciiPath );
 #endif
             rpal_memory_free( expFilePath );
         }
@@ -369,7 +258,7 @@ RBOOL
 RBOOL
     rpal_file_read
     (
-        RPCHAR filePath,
+        RPNCHAR filePath,
         RPVOID* pBuffer,
         RU32* pBufferSize,
         RBOOL isAvoidTimestamps
@@ -377,35 +266,7 @@ RBOOL
 {
     RBOOL isSuccess = FALSE;
 
-    RPWCHAR wPath = NULL;
-
-    if( NULL != filePath )
-    {
-        wPath = rpal_string_atow( filePath );
-
-        if( NULL != wPath )
-        {
-            isSuccess = rpal_file_readw( wPath, pBuffer, pBufferSize, isAvoidTimestamps );
-
-            rpal_memory_free( wPath );
-        }
-    }
-
-    return isSuccess;
-}
-
-RBOOL
-    rpal_file_readw
-    (
-        RPWCHAR filePath,
-        RPVOID* pBuffer,
-        RU32* pBufferSize,
-        RBOOL isAvoidTimestamps
-    )
-{
-    RBOOL isSuccess = FALSE;
-
-    RPWCHAR tmpPath = NULL;
+    RPNCHAR tmpPath = NULL;
     RPVOID tmpFile = NULL;
     RU32 fileSize = 0;
 
@@ -424,7 +285,6 @@ RBOOL
     }
 #elif defined( RPAL_PLATFORM_LINUX ) || defined( RPAL_PLATFORM_MACOSX )
     FILE* hFile = NULL;
-    RPCHAR localFile = NULL;
     RU8 localBuffer[ 1024 ] = {0};
     RU32 localRead = 0;
 #endif
@@ -433,7 +293,7 @@ RBOOL
         NULL != pBuffer &&
         NULL != pBufferSize )
     {
-        if( rpal_string_expandw( filePath, &tmpPath ) )
+        if( rpal_string_expand( filePath, &tmpPath ) )
         {
 #ifdef RPAL_PLATFORM_WINDOWS
             hFile = CreateFileW( tmpPath, access, FILE_SHARE_READ, NULL, OPEN_EXISTING, flags, NULL );
@@ -471,40 +331,35 @@ RBOOL
                 CloseHandle( hFile );
             }
 #elif defined( RPAL_PLATFORM_LINUX ) || defined( RPAL_PLATFORM_MACOSX )
-            if( NULL != ( localFile = rpal_string_wtoa( tmpPath ) ) )
+            if( NULL != ( hFile = fopen( tmpPath, "r" ) ) )
             {
-                if( NULL != ( hFile = fopen( localFile, "r" ) ) )
+                // We get the file size as we read since in nix some special files (like in /proc)
+                // will return a file size of 0 if we use the fseek and ftell method.
+                do
                 {
-                    // We get the file size as we read since in nix some special files (like in /proc)
-                    // will return a file size of 0 if we use the fseek and ftell method.
-                    do
-                    {
-                        localRead = (RU32)fread( localBuffer, sizeof( RU8 ), sizeof( localBuffer ), hFile );
+                    localRead = (RU32)fread( localBuffer, sizeof( RU8 ), sizeof( localBuffer ), hFile );
                         
-                        if( 0 != localRead )
-                        {
-                            if( NULL != ( tmpFile = rpal_memory_realloc( tmpFile, fileSize + localRead ) ) )
-                            {
-                                rpal_memory_memcpy( (RPU8)tmpFile + fileSize, localBuffer, localRead );
-                            }
-                            
-                            fileSize += localRead;
-                        }
-                    }
-                    while( localRead == sizeof( localBuffer ) );
-                    
-                    if( NULL != tmpFile )
+                    if( 0 != localRead )
                     {
-                        isSuccess = TRUE;
-                        *pBuffer = tmpFile;
-                        *pBufferSize = fileSize;
-                        rpal_memory_zero( localBuffer, sizeof( localBuffer ) );
+                        if( NULL != ( tmpFile = rpal_memory_realloc( tmpFile, fileSize + localRead ) ) )
+                        {
+                            rpal_memory_memcpy( (RPU8)tmpFile + fileSize, localBuffer, localRead );
+                        }
+                            
+                        fileSize += localRead;
                     }
-                    
-                    fclose( hFile );
                 }
-                
-                rpal_memory_free( localFile );
+                while( localRead == sizeof( localBuffer ) );
+                    
+                if( NULL != tmpFile )
+                {
+                    isSuccess = TRUE;
+                    *pBuffer = tmpFile;
+                    *pBufferSize = fileSize;
+                    rpal_memory_zero( localBuffer, sizeof( localBuffer ) );
+                }
+                    
+                fclose( hFile );
             }
 #endif
             rpal_memory_free( tmpPath );
@@ -516,40 +371,13 @@ RBOOL
 
 
 RU32
-    rpal_file_getSize
-    (
-        RPCHAR filePath,
-        RBOOL isAvoidTimestamps
-    )
-{
-    RBOOL isSuccess = FALSE;
-
-    RPWCHAR wPath = NULL;
-
-    if( NULL != filePath )
-    {
-        wPath = rpal_string_atow( filePath );
-
-        if( NULL != wPath )
-        {
-            isSuccess = rpal_file_getSizew( wPath, isAvoidTimestamps );
-
-            rpal_memory_free( wPath );
-        }
-    }
-
-    return isSuccess;
-}
-
-
-RU32
-    rpal_file_getSizew
+    rpal_file_getSizeW
     (
         RPWCHAR filePath,
         RBOOL isAvoidTimestamps
     )
 {
-    RU32 size = (RU32)(-1);
+    RU32 size = (RU32)( -1 );
 
     RPWCHAR tmpPath = NULL;
 
@@ -557,7 +385,7 @@ RU32
     RU32 flags = 0;
     RU32 access = GENERIC_READ;
     HANDLE hFile = NULL;
-    FILETIME disableFileTime = { (DWORD)(-1), (DWORD)(-1) };
+    FILETIME disableFileTime = { (DWORD)( -1 ), (DWORD)( -1 ) };
 
     flags = 0;
     if( isAvoidTimestamps )
@@ -572,11 +400,11 @@ RU32
 
     if( NULL != filePath )
     {
-        if( rpal_string_expandw( filePath, &tmpPath ) )
+        if( rpal_string_expandW( filePath, &tmpPath ) )
         {
 #ifdef RPAL_PLATFORM_WINDOWS
             hFile = CreateFileW( tmpPath, access, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, NULL, OPEN_EXISTING, flags, NULL );
-            
+
             if( INVALID_HANDLE_VALUE != hFile )
             {
                 if( isAvoidTimestamps )
@@ -585,7 +413,7 @@ RU32
                 }
 
                 size = GetFileSize( hFile, NULL );
-                
+
                 CloseHandle( hFile );
             }
 #elif defined( RPAL_PLATFORM_LINUX ) || defined( RPAL_PLATFORM_MACOSX )
@@ -595,15 +423,15 @@ RU32
                 {
                     if( 0 == fseek( hFile, 0, SEEK_END ) )
                     {
-                        if( (-1) != ( size = (RU32)ftell( hFile ) ) )
+                        if( ( -1 ) != ( size = (RU32)ftell( hFile ) ) )
                         {
                             // Success
                         }
                     }
-                    
+
                     fclose( hFile );
                 }
-                
+
                 rpal_memory_free( localFile );
             }
 #endif
@@ -614,11 +442,90 @@ RU32
     return size;
 }
 
+RU32
+    rpal_file_getSizeA
+    (
+        RPCHAR filePath,
+        RBOOL isAvoidTimestamps
+    )
+{
+    RU32 size = (RU32)( -1 );
+
+    RPCHAR tmpPath = NULL;
+
+#ifdef RPAL_PLATFORM_WINDOWS
+    RU32 flags = 0;
+    RU32 access = GENERIC_READ;
+    HANDLE hFile = NULL;
+    FILETIME disableFileTime = { (DWORD)( -1 ), (DWORD)( -1 ) };
+
+    flags = 0;
+    if( isAvoidTimestamps )
+    {
+        flags |= FILE_FLAG_BACKUP_SEMANTICS;
+        access |= FILE_WRITE_ATTRIBUTES;
+    }
+#elif defined( RPAL_PLATFORM_LINUX ) || defined( RPAL_PLATFORM_MACOSX )
+    FILE* hFile = NULL;
+#endif
+
+    if( NULL != filePath )
+    {
+        if( rpal_string_expandA( filePath, &tmpPath ) )
+        {
+#ifdef RPAL_PLATFORM_WINDOWS
+            hFile = CreateFileA( tmpPath, access, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, NULL, OPEN_EXISTING, flags, NULL );
+
+            if( INVALID_HANDLE_VALUE != hFile )
+            {
+                if( isAvoidTimestamps )
+                {
+                    SetFileTime( hFile, NULL, &disableFileTime, NULL );
+                }
+
+                size = GetFileSize( hFile, NULL );
+
+                CloseHandle( hFile );
+            }
+#elif defined( RPAL_PLATFORM_LINUX ) || defined( RPAL_PLATFORM_MACOSX )
+            if( NULL != ( hFile = fopen( tmpPath, "r" ) ) )
+            {
+                if( 0 == fseek( hFile, 0, SEEK_END ) )
+                {
+                    if( ( -1 ) != ( size = (RU32)ftell( hFile ) ) )
+                    {
+                        // Success
+                    }
+                }
+
+                fclose( hFile );
+            }
+#endif
+            rpal_memory_free( tmpPath );
+        }
+    }
+
+    return size;
+}
+
+RU32
+    rpal_file_getSize
+    (
+        RPNCHAR filePath,
+        RBOOL isAvoidTimestamps
+    )
+{
+#ifdef RNATIVE_IS_WIDE
+    return rpal_file_getSizeW( filePath, isAvoidTimestamps );
+#else
+    return rpal_file_getSizeA( filePath, isAvoidTimestamps );
+#endif
+}
 
 RBOOL
     rpal_file_write
     (
-        RPCHAR filePath,
+        RPNCHAR filePath,
         RPVOID buffer,
         RU32 bufferSize,
         RBOOL isOverwrite
@@ -626,35 +533,7 @@ RBOOL
 {
     RBOOL isSuccess = FALSE;
 
-    RPWCHAR wPath = NULL;
-
-    if( NULL != filePath )
-    {
-        wPath = rpal_string_atow( filePath );
-
-        if( NULL != wPath )
-        {
-            isSuccess = rpal_file_writew( wPath, buffer, bufferSize, isOverwrite );
-
-            rpal_memory_free( wPath );
-        }
-    }
-
-    return isSuccess;
-}
-
-RBOOL
-    rpal_file_writew
-    (
-        RPWCHAR filePath,
-        RPVOID buffer,
-        RU32 bufferSize,
-        RBOOL isOverwrite
-    )
-{
-    RBOOL isSuccess = FALSE;
-
-    RPWCHAR tmpPath = NULL;
+    RPNCHAR tmpPath = NULL;
 
 #ifdef RPAL_PLATFORM_WINDOWS
     RU32 flags = 0;
@@ -669,7 +548,7 @@ RBOOL
         NULL != buffer &&
         0 != bufferSize )
     {
-        if( rpal_string_expandw( filePath, &tmpPath ) )
+        if( rpal_string_expand( filePath, &tmpPath ) )
         {
 #ifdef RPAL_PLATFORM_WINDOWS
             hFile = CreateFileW( tmpPath, 
@@ -691,28 +570,23 @@ RBOOL
                 CloseHandle( hFile );
             }
 #elif defined( RPAL_PLATFORM_LINUX ) || defined( RPAL_PLATFORM_MACOSX )
-            if( NULL != ( localFile = rpal_string_wtoa( tmpPath ) ) )
+            if( isOverwrite ||
+                NULL == ( hFile = fopen( tmpPath, "r" ) ) )
             {
-                if( isOverwrite ||
-                    NULL == ( hFile = fopen( localFile, "r" ) ) )
+                if( NULL != ( hFile = fopen( tmpPath, "w" ) ) )
                 {
-                    if( NULL != ( hFile = fopen( localFile, "w" ) ) )
+                    if( 1 == fwrite( buffer, bufferSize, 1, hFile ) )
                     {
-                        if( 1 == fwrite( buffer, bufferSize, 1, hFile ) )
-                        {
-                            isSuccess = TRUE;
-                        }
-                        
-                        fclose( hFile );
+                        isSuccess = TRUE;
                     }
-                }
-                else
-                {
-                    // File already exists and we're not to overwrite...
+                        
                     fclose( hFile );
                 }
-                
-                rpal_memory_free( localFile );
+            }
+            else
+            {
+                // File already exists and we're not to overwrite...
+                fclose( hFile );
             }
 #endif
             rpal_memory_free( tmpPath );
@@ -725,27 +599,27 @@ RBOOL
 
 
 RBOOL
-    rpal_file_pathToLocalSepW
+    rpal_file_pathToLocalSep
     (
-        RPWCHAR path
+        RPNCHAR path
     )
 {
     RBOOL isSuccess = FALSE;
-    RWCHAR search = 0;
-    RWCHAR replace = 0;
+    RNCHAR search = 0;
+    RNCHAR replace = 0;
     RU32 i = 0;
 
     if( NULL != path )
     {
 #ifdef RPAL_PLATFORM_WINDOWS
-        search = _WCH('/');
-        replace = _WCH('\\');
+        search = _NC('/');
+        replace = _NC('\\');
 #else
-        search = _WCH('\\');
-        replace = _WCH('/');
+        search = '\\';
+        replace = '/';
 #endif
 
-        for( i = 0; i < rpal_string_strlenw( path ); i++ )
+        for( i = 0; i < rpal_string_strlen( path ); i++ )
         {
             if( search == path[ i ] )
             {
@@ -762,13 +636,13 @@ RBOOL
 RBOOL
     rpal_file_getLinkDest
     (
-        RPWCHAR linkPath,
-        RPWCHAR* pDestination
+        RPNCHAR linkPath,
+        RPNCHAR* pDestination
     )
 {
     RBOOL isSuccess = FALSE;
     
-    #ifdef RPAL_PLATFORM_WINDOWS
+#ifdef RPAL_PLATFORM_WINDOWS
     HRESULT hres = 0;
     REFCLSID clsid_shelllink = &CLSID_ShellLink;
     REFIID ref_ishelllink = &IID_IShellLinkW;
@@ -776,9 +650,6 @@ RBOOL
     IShellLinkW* psl = NULL;
     IPersistFile* ppf = NULL;
     WCHAR szGotPath[ MAX_PATH ] = {0};
-
-    UNREFERENCED_PARAMETER( linkPath );
-    UNREFERENCED_PARAMETER( pDestination );
     
     hres = CoInitialize( NULL );
     if( S_OK == hres || 
@@ -800,7 +671,7 @@ RBOOL
 
                     if( SUCCEEDED( hres ) )
                     {
-                        if( NULL != ( *pDestination = rpal_string_strdupw( szGotPath ) ) )
+                        if( NULL != ( *pDestination = rpal_string_strdup( szGotPath ) ) )
                         {
                             isSuccess = TRUE;
                         }
@@ -815,46 +686,42 @@ RBOOL
 
         CoUninitialize();
     }
-    #elif defined( RPAL_PLATFORM_LINUX ) || defined( RPAL_PLATFORM_MACOSX )
+#elif defined( RPAL_PLATFORM_LINUX ) || defined( RPAL_PLATFORM_MACOSX )
     if( NULL != linkPath &&
         NULL != pDestination )
     {
         RS32 size = 0;
         RPCHAR path = NULL;
         RCHAR tmp[ RPAL_MAX_PATH + 1 ] = {0};
-        if( NULL != ( path = rpal_string_wtoa( linkPath ) ) )
+
+        size = (RU32)readlink( linkPath, (RPCHAR)&tmp, sizeof( tmp ) - 1 );
+        if( -1 != size
+            && ( sizeof( tmp ) - 1 ) >= size )
         {
-            size = (RU32)readlink( path, (RPCHAR)&tmp, sizeof( tmp ) - 1 );
-            if( -1 != size
-               && ( sizeof( tmp ) - 1 ) >= size )
+            if( NULL != ( *pDestination = rpal_string_strdup( (RPCHAR)&tmp ) ) )
             {
-                if( NULL != ( *pDestination = rpal_string_atow( (RPCHAR)&tmp ) ) )
-                {
-                    isSuccess = TRUE;
-                }
+                isSuccess = TRUE;
             }
-            
-            rpal_memory_free( path );
         }
     }
-    #endif
+#endif
     
     return isSuccess;
 }
 
-RPWCHAR
+RPNCHAR
     rpal_file_filePathToFileName
     (
-        RPWCHAR filePath
+        RPNCHAR filePath
     )
 {
-    RPWCHAR fileName = NULL;
+    RPNCHAR fileName = NULL;
 
     RU32 len = 0;
 
     if( NULL != filePath )
     {
-        len = rpal_string_strlenw( filePath );
+        len = rpal_string_strlen( filePath );
         while( 0 != len )
         {
             len--;
@@ -863,7 +730,7 @@ RPWCHAR
             if( _WCH( '\\' ) == filePath[ len ] ||
                 _WCH( '/' ) == filePath[ len ] )
 #else
-            if( _WCH( '/' ) == filePath[ len ] )
+            if( '/' == filePath[ len ] )
 #endif
             {
                 fileName = &( filePath[ len + 1 ] );
@@ -884,8 +751,8 @@ static
 rDirCrawl
     _newCrawlDir
     (
-        RPWCHAR rootExpr,
-        RPWCHAR fileExpr[],
+        RPNCHAR rootExpr,
+        RPNCHAR fileExpr[],
         RU32 nMaxDepth
     )
 {
@@ -906,7 +773,7 @@ rDirCrawl
                 pCrawl->fileExp = NULL;
                 pCrawl->nMaxDepth = nMaxDepth;
                 
-                rpal_string_expandw( rootExpr, &(pCrawl->dirExp) );
+                rpal_string_expand( rootExpr, &(pCrawl->dirExp) );
                 pCrawl->fileExp = fileExpr;
 
                 if( NULL == pCrawl->dirExp ||
@@ -919,7 +786,7 @@ rDirCrawl
                 }
                 else
                 {
-                    rpal_file_pathToLocalSepW( pCrawl->dirExp );
+                    rpal_file_pathToLocalSep( pCrawl->dirExp );
                 }
             }
             else
@@ -936,7 +803,7 @@ rDirCrawl
 RBOOL
     _strHasWildcards
     (
-        RPWCHAR str
+        RPNCHAR str
     )
 {
     RBOOL isWild = FALSE;
@@ -944,12 +811,12 @@ RBOOL
     RU32 i = 0;
     RU32 len = 0;
 
-    len = rpal_string_strlenw( str );
+    len = rpal_string_strlen( str );
 
     for( i = 0; i < len; i++ )
     {
-        if( _WCH('*') == str[ i ] ||
-            _WCH('?') == str[ i ] )
+        if( _NC('*') == str[ i ] ||
+            _NC('?') == str[ i ] )
         {
             isWild = TRUE;
             break;
@@ -962,8 +829,8 @@ RBOOL
 RBOOL
     _isFileInfoInCrawl
     (
-        RPWCHAR dirExp,
-        RPWCHAR fileExp[],
+        RPNCHAR dirExp,
+        RPNCHAR fileExp[],
         RU32 nMaxDepth,
         rFileInfo* pInfo,
         RBOOL isPartialOk
@@ -971,16 +838,16 @@ RBOOL
 {
     RBOOL isIncluded = FALSE;
 
-    RWCHAR sep[] = RPAL_FILE_LOCAL_DIR_SEP_W;
+    RNCHAR sep[] = RPAL_FILE_LOCAL_DIR_SEP_N;
 
-    RPWCHAR state1 = NULL;
-    RPWCHAR state2 = NULL;
-    RPWCHAR pPattern = NULL;
-    RPWCHAR pPath = NULL;
+    RPNCHAR state1 = NULL;
+    RPNCHAR state2 = NULL;
+    RPNCHAR pPattern = NULL;
+    RPNCHAR pPath = NULL;
 
     RU32 curDepth = 0;
 
-    RPWCHAR* tmpFileExp = NULL;
+    RPNCHAR* tmpFileExp = NULL;
 
     if( NULL != dirExp &&
         NULL != fileExp &&
@@ -998,26 +865,26 @@ RBOOL
         pPattern = dirExp;
         pPath = pInfo->filePath;
 
-        pPattern = rpal_string_strtokw( pPattern, sep[ 0 ], &state1 );
-        pPath = rpal_string_strtokw( pPath, sep[ 0 ], &state2 );
+        pPattern = rpal_string_strtok( pPattern, sep[ 0 ], &state1 );
+        pPath = rpal_string_strtok( pPath, sep[ 0 ], &state2 );
 
         while( NULL != pPattern &&
                NULL != pPath )
         {
-            if( !rpal_string_matchw( pPattern, pPath, TRUE ) )
+            if( !rpal_string_match( pPattern, pPath, TRUE ) )
             {
                 break;
             }
 
             do
             {
-                pPattern = rpal_string_strtokw( NULL, sep[ 0 ], &state1 );
+                pPattern = rpal_string_strtok( NULL, sep[ 0 ], &state1 );
             }
             while( NULL != pPattern && 0 == pPattern[ 0 ] );    // We do this to support path with "//" or "\\"
 
             do
             {
-                pPath = rpal_string_strtokw( NULL, sep[ 0 ], &state2 );
+                pPath = rpal_string_strtok( NULL, sep[ 0 ], &state2 );
             }
             while( NULL != pPath && 0 == pPath[ 0 ] );
         }
@@ -1045,7 +912,7 @@ RBOOL
             {
                 curDepth++;
             }
-            while( NULL != rpal_string_strtokw( NULL, sep[ 0 ], &state2 ) );
+            while( NULL != rpal_string_strtok( NULL, sep[ 0 ], &state2 ) );
 
             if( curDepth > ( nMaxDepth + 1 ) )
             {
@@ -1057,7 +924,7 @@ RBOOL
         // Unwind the pattern if necessary
         if( NULL != pPattern )
         {
-            while( NULL != rpal_string_strtokw( NULL, sep[ 0 ], &state1 ) ){}
+            while( NULL != rpal_string_strtok( NULL, sep[ 0 ], &state1 ) ){}
         }
 
         // Even if this is a dir, it doesn't hurt to overwrite the sep.
@@ -1075,7 +942,7 @@ RBOOL
                 tmpFileExp = fileExp;
                 while( NULL != *tmpFileExp )
                 {
-                    if( rpal_string_matchw( *tmpFileExp, pInfo->fileName, TRUE ) )
+                    if( rpal_string_match( *tmpFileExp, pInfo->fileName, TRUE ) )
                     {
                         isIncluded = TRUE;
                         break;
@@ -1105,7 +972,7 @@ RVOID
 
     if( NULL != pInfo )
     {
-        len = rpal_string_strlenw( pInfo->filePath );
+        len = rpal_string_strlen( pInfo->filePath );
 
         if( 0 != len )
         {
@@ -1129,16 +996,16 @@ RVOID
 rDirCrawl
     rpal_file_crawlStart
     (
-        RPWCHAR rootExpr,
-        RPWCHAR fileExpr[],
+        RPNCHAR rootExpr,
+        RPNCHAR fileExpr[],
         RU32 nMaxDepth
     )
 {
     _prDirCrawl pCrawl = NULL;
-    RPWCHAR staticRoot = NULL;
-    RPWCHAR tmpStr = NULL;
-    RPWCHAR state = NULL;
-    RPWCHAR sep = RPAL_FILE_LOCAL_DIR_SEP_W;
+    RPNCHAR staticRoot = NULL;
+    RPNCHAR tmpStr = NULL;
+    RPNCHAR state = NULL;
+    RPNCHAR sep = RPAL_FILE_LOCAL_DIR_SEP_N;
     rDir hDir = NULL;
     rFileInfo info = {0};
 
@@ -1148,28 +1015,28 @@ rDirCrawl
     {
         pCrawl->nMaxDepth = nMaxDepth;
         
-        if( NULL != ( tmpStr = rpal_string_strtokw( pCrawl->dirExp, sep[ 0 ], &state ) ) )
+        if( NULL != ( tmpStr = rpal_string_strtok( pCrawl->dirExp, sep[ 0 ], &state ) ) )
         {
             do
             {
                 if( !_strHasWildcards( tmpStr ) )
                 {
-                    staticRoot = rpal_string_strcatExW( staticRoot, tmpStr );
-                    staticRoot = rpal_string_strcatExW( staticRoot, sep );
+                    staticRoot = rpal_string_strcatEx( staticRoot, tmpStr );
+                    staticRoot = rpal_string_strcatEx( staticRoot, sep );
                 }
                 else
                 {
                     // Unwind the tokens to restore the string
-                    while( NULL != ( tmpStr = rpal_string_strtokw( NULL, sep[ 0 ], &state ) ) );
+                    while( NULL != ( tmpStr = rpal_string_strtok( NULL, sep[ 0 ], &state ) ) );
                     break;
                 }
             }
-            while( NULL != ( tmpStr = rpal_string_strtokw( NULL, sep[ 0 ], &state ) ) );
+            while( NULL != ( tmpStr = rpal_string_strtok( NULL, sep[ 0 ], &state ) ) );
         }
 
         if( NULL != staticRoot )
         {
-            staticRoot[ rpal_string_strlenw( staticRoot ) - 1 ] = 0;
+            staticRoot[ rpal_string_strlen( staticRoot ) - 1 ] = 0;
             
             if( rDir_open( staticRoot, &hDir ) )
             {
@@ -1300,7 +1167,7 @@ static
 RBOOL
     _freeStringWrapper
     (
-        RPWCHAR str
+        RPNCHAR str
     )
 {
     RBOOL isSuccess = FALSE;
@@ -1336,23 +1203,20 @@ RVOID
 RBOOL
     rDir_open
     (
-        RPWCHAR dirPath,
+        RPNCHAR dirPath,
         rDir* phDir
     )
 {
     RBOOL isSuccess = FALSE;
     _rDir* dir = NULL;
-    RWCHAR sep[] = RPAL_FILE_LOCAL_DIR_SEP_W;
-    RPWCHAR tmpDir = NULL;
-#if defined( RPAL_PLATFORM_LINUX ) || defined( RPAL_PLATFORM_MACOSX )
-    RPCHAR asciiDir = NULL;
-#endif
+    RNCHAR sep[] = RPAL_FILE_LOCAL_DIR_SEP_N;
+    RPNCHAR tmpDir = NULL;
 
     if( NULL != dirPath &&
         NULL != phDir &&
-        0 < rpal_string_strlenw( dirPath ) )
+        0 < rpal_string_strlen( dirPath ) )
     {
-        if( rpal_string_expandw( dirPath, &tmpDir ) )
+        if( rpal_string_expand( dirPath, &tmpDir ) )
         {
             dir = rpal_memory_alloc( sizeof( *dir ) );
             
@@ -1360,13 +1224,13 @@ RBOOL
             {
                 dir->handle = NULL;
                 
-                if( NULL != ( dir->dirPath = rpal_string_strdupw( tmpDir ) ) )
+                if( NULL != ( dir->dirPath = rpal_string_strdup( tmpDir ) ) )
                 {
-                    rpal_file_pathToLocalSepW( dir->dirPath );
+                    rpal_file_pathToLocalSep( dir->dirPath );
                     
-                    if( sep[ 0 ] != dir->dirPath[ rpal_string_strlenw( dir->dirPath ) - 1  ] )
+                    if( sep[ 0 ] != dir->dirPath[ rpal_string_strlen( dir->dirPath ) - 1  ] )
                     {
-                        dir->dirPath = rpal_string_strcatExW( dir->dirPath, sep );
+                        dir->dirPath = rpal_string_strcatEx( dir->dirPath, sep );
                     }
                     
                     if( NULL != dir->dirPath )
@@ -1375,9 +1239,7 @@ RBOOL
                         *phDir = dir;
                         isSuccess = TRUE;
 #elif defined( RPAL_PLATFORM_LINUX ) || defined( RPAL_PLATFORM_MACOSX )
-                        if( NULL != ( asciiDir = rpal_string_wtoa( dir->dirPath ) ) )
-                        {
-                            if( NULL != ( dir->handle = opendir( asciiDir ) ) )
+                            if( NULL != ( dir->handle = opendir( dir->dirPath ) ) )
                             {
                                 *phDir = dir;
                                 isSuccess = TRUE;
@@ -1387,9 +1249,6 @@ RBOOL
                                 rpal_memory_free( dir->dirPath );
                                 rpal_memory_free( dir );
                             }
-                            
-                            rpal_memory_free( asciiDir );
-                        }
 #endif
                     }
                     else
@@ -1451,9 +1310,7 @@ RBOOL
     WIN32_FIND_DATAW findData = {0};
 #elif defined( RPAL_PLATFORM_LINUX ) || defined( RPAL_PLATFORM_MACOSX )
     struct dirent *findData = NULL;
-    RPCHAR asciiPath = NULL;
     struct stat fileInfo = {0};
-    RPWCHAR widePath = NULL;
 #endif
 
     if( NULL != hDir &&
@@ -1464,9 +1321,9 @@ RBOOL
         {
             if( NULL == dir->handle )
             {
-                if( _WCH('*') != dir->dirPath[ rpal_string_strlenw( dir->dirPath ) - 1 ] )
+                if( _WCH('*') != dir->dirPath[ rpal_string_strlen( dir->dirPath ) - 1 ] )
                 {
-                    dir->dirPath = rpal_string_strcatExW( dir->dirPath, _WCH("*") );
+                    dir->dirPath = rpal_string_strcatEx( dir->dirPath, _WCH("*") );
                 }
 
                 if( INVALID_HANDLE_VALUE == ( dir->handle = FindFirstFileW( dir->dirPath, &findData ) ) )
@@ -1479,7 +1336,7 @@ RBOOL
                 }
 
                 // We can now remove the trailing *
-                dir->dirPath[ rpal_string_strlenw( dir->dirPath ) - 1 ] = 0;
+                dir->dirPath[ rpal_string_strlen( dir->dirPath ) - 1 ] = 0;
             }
 
             if( !isDataReady )
@@ -1496,8 +1353,8 @@ RBOOL
 
             if( isDataReady )
             {
-                while( 0 == rpal_string_strcmpw( _WCH("."), findData.cFileName ) ||
-                       0 == rpal_string_strcmpw( _WCH(".."), findData.cFileName ) )
+                while( 0 == rpal_string_strcmp( _WCH("."), findData.cFileName ) ||
+                       0 == rpal_string_strcmp( _WCH(".."), findData.cFileName ) )
                 {
                     if( !FindNextFileW( dir->handle, &findData ) )
                     {
@@ -1536,19 +1393,19 @@ RBOOL
                     ENABLE_FLAG( pFileInfo->attributes, RPAL_FILE_ATTRIBUTE_EXECUTE );
                 }
 
-                pFileInfo->creationTime = rpal_winFileTimeToTs( findData.ftCreationTime );
-                pFileInfo->lastAccessTime = rpal_winFileTimeToTs( findData.ftLastAccessTime );
-                pFileInfo->modificationTime = rpal_winFileTimeToTs( findData.ftLastWriteTime );
+                pFileInfo->creationTime = rpal_winFileTimeToMsTs( findData.ftCreationTime );
+                pFileInfo->lastAccessTime = rpal_winFileTimeToMsTs( findData.ftLastAccessTime );
+                pFileInfo->modificationTime = rpal_winFileTimeToMsTs( findData.ftLastWriteTime );
 
                 pFileInfo->size = ( (RU64)findData.nFileSizeHigh << 32 ) | findData.nFileSizeLow;
 
                 rpal_memory_zero( pFileInfo->filePath, sizeof( pFileInfo->filePath ) );
 
-                if( RPAL_MAX_PATH > ( rpal_string_strlenw( dir->dirPath ) + 
-                                      rpal_string_strlenw( findData.cFileName ) ) &&
-                    NULL != rpal_string_strcatw( pFileInfo->filePath, dir->dirPath ) &&
-                    NULL != ( pFileInfo->fileName = ( pFileInfo->filePath + rpal_string_strlenw( pFileInfo->filePath ) ) ) &&
-                    NULL != rpal_string_strcatw( pFileInfo->filePath, findData.cFileName ) )
+                if( RPAL_MAX_PATH > ( rpal_string_strlen( dir->dirPath ) + 
+                                      rpal_string_strlen( findData.cFileName ) ) &&
+                    NULL != rpal_string_strcat( pFileInfo->filePath, dir->dirPath ) &&
+                    NULL != ( pFileInfo->fileName = ( pFileInfo->filePath + rpal_string_strlen( pFileInfo->filePath ) ) ) &&
+                    NULL != rpal_string_strcat( pFileInfo->filePath, findData.cFileName ) )
                 {
                     isSuccess = TRUE;
                 }
@@ -1567,8 +1424,8 @@ RBOOL
             
             if( isDataReady )
             {
-                while( 0 == rpal_string_strcmpa( ".", findData->d_name ) ||
-                       0 == rpal_string_strcmpa( "..", findData->d_name ) )
+                while( 0 == rpal_string_strcmp( ".", findData->d_name ) ||
+                       0 == rpal_string_strcmp( "..", findData->d_name ) )
                 {
                     if( NULL == ( findData = readdir( dir->handle ) ) )
                     {
@@ -1582,26 +1439,16 @@ RBOOL
             {
                 rpal_memory_zero( pFileInfo->filePath, sizeof( pFileInfo->filePath ) );
                 
-                if( NULL != ( asciiPath = rpal_string_wtoa( dir->dirPath ) ) )
+                if( ARRAY_N_ELEM( pFileInfo->filePath ) - 1 > 
+                    rpal_string_strlen( dir->dirPath ) + rpal_string_strlen( findData->d_name ) )
                 {
-                    if( NULL != ( asciiPath = rpal_string_strcatExA( asciiPath, findData->d_name ) ) )
-                    {
-                        if( RPAL_MAX_PATH > rpal_string_strlen( asciiPath ) )
-                        {
-                            if( NULL != ( widePath = rpal_string_atow( asciiPath )  ) )
-                            {
-                                if( NULL != rpal_string_strcpyw( pFileInfo->filePath, widePath ) )
-                                {
-                                    pFileInfo->fileName = pFileInfo->filePath + rpal_string_strlenw( dir->dirPath );
-                                    isSuccess = TRUE;
-                                }
-                                
-                                rpal_memory_free( widePath );
-                            }
-                        }
-                    }
+                    rpal_string_strcpy( pFileInfo->filePath, dir->dirPath );
+                    rpal_string_strcat( pFileInfo->filePath, findData->d_name );
+
+                    pFileInfo->fileName = pFileInfo->filePath + rpal_string_strlen( dir->dirPath );
+                    isSuccess = TRUE;
                 }
-                
+
                 if( isSuccess )
                 {
                     pFileInfo->attributes = 0;
@@ -1610,7 +1457,7 @@ RBOOL
                     pFileInfo->modificationTime = 0;
                     pFileInfo->size = 0;
                     
-                    if( 0 == stat( asciiPath, &fileInfo ) )
+                    if( 0 == stat( pFileInfo->filePath, &fileInfo ) )
                     {
                         if( S_ISDIR( fileInfo.st_mode ) )
                         {
@@ -1628,8 +1475,6 @@ RBOOL
                         pFileInfo->size = ( (RU64) fileInfo.st_size );
                     }
                 }
-                
-                rpal_memory_free( asciiPath );
             }
         }
 #endif
@@ -1641,16 +1486,16 @@ RBOOL
 RBOOL
     rDir_create
     (
-        RPWCHAR dirPath
+        RPNCHAR dirPath
     )
 {
     RBOOL isCreated = FALSE;
 
-    RPWCHAR expDir = NULL;
+    RPNCHAR expDir = NULL;
 
     if( NULL != dirPath )
     {
-        if( rpal_string_expandw( dirPath, &expDir ) )
+        if( rpal_string_expand( dirPath, &expDir ) )
         {
 #ifdef RPAL_PLATFORM_WINDOWS
             if( CreateDirectoryW( expDir, NULL ) )
@@ -1658,16 +1503,9 @@ RBOOL
                 isCreated = TRUE;
             }
 #else
-            RPCHAR aDir = NULL;
-
-            if( NULL != ( aDir = rpal_string_wtoa( expDir ) ) )
+            if( 0 == mkdir( expDir, 0700 ) )
             {
-                if( 0 == mkdir( aDir, 0700 ) )
-                {
-                    isCreated = TRUE;
-                }
-
-                rpal_memory_free( aDir );
+                isCreated = TRUE;
             }
 #endif
             rpal_memory_free( expDir );
@@ -1680,14 +1518,14 @@ RBOOL
 RBOOL
     rFile_open
     (
-        RPWCHAR filePath,
+        RPNCHAR filePath,
         rFile* phFile,
         RU32 flags
     )
 {
     RBOOL isSuccess = FALSE;
     _rFile* hFile = NULL;
-    RPWCHAR tmpPath = NULL;
+    RPNCHAR tmpPath = NULL;
 #ifdef RPAL_PLATFORM_WINDOWS
     RU32 osAccessFlags = 0;
     RU32 osCreateFlags = 0;
@@ -1701,10 +1539,10 @@ RBOOL
 
     if( NULL != filePath &&
         NULL != phFile &&
-        rpal_string_expandw( filePath, &tmpPath ) &&
+        rpal_string_expand( filePath, &tmpPath ) &&
         NULL != tmpPath )
     {
-        rpal_file_pathToLocalSepW( tmpPath );
+        rpal_file_pathToLocalSep( tmpPath );
 
         hFile = rpal_memory_alloc( sizeof( *hFile ) );
 
@@ -1738,12 +1576,12 @@ RBOOL
             }
 
             hFile->handle = CreateFileW( tmpPath,
-                                         osAccessFlags,
-                                         FILE_SHARE_DELETE | FILE_SHARE_READ | FILE_SHARE_WRITE,
-                                         NULL,
-                                         osCreateFlags,
-                                         osAttributeFlags,
-                                         NULL );
+                osAccessFlags,
+                FILE_SHARE_DELETE | FILE_SHARE_READ | FILE_SHARE_WRITE,
+                NULL,
+                osCreateFlags,
+                osAttributeFlags,
+                NULL );
 
             if( INVALID_HANDLE_VALUE == hFile->handle )
             {
@@ -1761,97 +1599,93 @@ RBOOL
                 *phFile = hFile;
             }
 #elif defined( RPAL_PLATFORM_LINUX ) || defined( RPAL_PLATFORM_MACOSX )
-            if( NULL != ( asciiPath = rpal_string_wtoa( filePath ) ) )
+            if( IS_FLAG_ENABLED( flags, RPAL_FILE_OPEN_EXISTING ) )
             {
-                if( IS_FLAG_ENABLED( flags, RPAL_FILE_OPEN_EXISTING ) )
+                // THE FILE MUST EXIST
+                //====================
+                if( IS_FLAG_ENABLED( flags, RPAL_FILE_OPEN_READ ) )
                 {
-                    // THE FILE MUST EXIST
-                    //====================
-                    if( IS_FLAG_ENABLED( flags, RPAL_FILE_OPEN_READ ) )
-                    {
-                        if( IS_FLAG_ENABLED( flags, RPAL_FILE_OPEN_WRITE ) )
-                        {
-                            fileMode = "r+";
-                        }
-                        else
-                        {
-                            fileMode = "r";
-                        }
-                    }
-                    else if( IS_FLAG_ENABLED( flags, RPAL_FILE_OPEN_WRITE ) &&
-                             0 == stat( asciiPath, &fileInfo ) )
+                    if( IS_FLAG_ENABLED( flags, RPAL_FILE_OPEN_WRITE ) )
                     {
                         fileMode = "r+";
-                    }
-                }
-                else if ( IS_FLAG_ENABLED( flags, RPAL_FILE_OPEN_NEW ) &&
-                          0 != stat( asciiPath, &fileInfo ) )
-                {
-                    // THE FILE CANNOT EXIST
-                    //======================
-                    if( IS_FLAG_ENABLED( flags, RPAL_FILE_OPEN_READ ) )
-                    {
-                        if( IS_FLAG_ENABLED( flags, RPAL_FILE_OPEN_WRITE ) )
-                        {
-                            fileMode = "w+";
-                        }
-                        else
-                        {
-                            // Makes no sense to open a NEW file for READING
-                            fileMode = "w+";
-                        }
-                    }
-                    else if( IS_FLAG_ENABLED( flags, RPAL_FILE_OPEN_WRITE ) )
-                    {
-                        fileMode = "w";
-                    }
-                }
-                else if( IS_FLAG_ENABLED( flags, RPAL_FILE_OPEN_ALWAYS ) )
-                {
-                    if( 0 != stat( asciiPath, &fileInfo ) )
-                    {
-                        // The file doesn't exist, we create it. None of this is atomic, but
-                        // for now it should be enough to get going...
-                        if( NULL != ( hFile->handle = fopen( asciiPath, "a+" ) ) )
-                        {
-                            fclose( hFile->handle );
-                        }
-                    }
-
-                    // WE DON'T CARE IF IT EXISTS
-                    //======================
-                    if( IS_FLAG_ENABLED( flags, RPAL_FILE_OPEN_READ ) )
-                    {
-                        if( IS_FLAG_ENABLED( flags, RPAL_FILE_OPEN_WRITE ) )
-                        {
-                            fileMode = "r+";
-                        }
-                        else
-                        {
-                            fileMode = "r";
-                        }
-                    }
-                    else if( IS_FLAG_ENABLED( flags, RPAL_FILE_OPEN_WRITE ) )
-                    {
-                        fileMode = "r+";
-                    }
-                }
-
-                // We only proceed if the file mode made sense
-                if( NULL != fileMode )
-                {
-                    if( NULL != ( hFile->handle = fopen( asciiPath, fileMode ) ) )
-                    {
-                        isSuccess = TRUE;
-                        *phFile = hFile;
                     }
                     else
                     {
-                        rpal_memory_free( hFile );
-                        hFile = NULL;
+                        fileMode = "r";
                     }
                 }
-                rpal_memory_free( asciiPath );
+                else if( IS_FLAG_ENABLED( flags, RPAL_FILE_OPEN_WRITE ) &&
+                    0 == stat( filePath, &fileInfo ) )
+                {
+                    fileMode = "r+";
+                }
+            }
+            else if ( IS_FLAG_ENABLED( flags, RPAL_FILE_OPEN_NEW ) &&
+                0 != stat( filePath, &fileInfo ) )
+            {
+                // THE FILE CANNOT EXIST
+                //======================
+                if( IS_FLAG_ENABLED( flags, RPAL_FILE_OPEN_READ ) )
+                {
+                    if( IS_FLAG_ENABLED( flags, RPAL_FILE_OPEN_WRITE ) )
+                    {
+                        fileMode = "w+";
+                    }
+                    else
+                    {
+                        // Makes no sense to open a NEW file for READING
+                        fileMode = "w+";
+                    }
+                }
+                else if( IS_FLAG_ENABLED( flags, RPAL_FILE_OPEN_WRITE ) )
+                {
+                    fileMode = "w";
+                }
+            }
+            else if( IS_FLAG_ENABLED( flags, RPAL_FILE_OPEN_ALWAYS ) )
+            {
+                if( 0 != stat( filePath, &fileInfo ) )
+                {
+                    // The file doesn't exist, we create it. None of this is atomic, but
+                    // for now it should be enough to get going...
+                    if( NULL != ( hFile->handle = fopen( filePath, "a+" ) ) )
+                    {
+                        fclose( hFile->handle );
+                    }
+                }
+
+                // WE DON'T CARE IF IT EXISTS
+                //======================
+                if( IS_FLAG_ENABLED( flags, RPAL_FILE_OPEN_READ ) )
+                {
+                    if( IS_FLAG_ENABLED( flags, RPAL_FILE_OPEN_WRITE ) )
+                    {
+                        fileMode = "r+";
+                    }
+                    else
+                    {
+                        fileMode = "r";
+                    }
+                }
+                else if( IS_FLAG_ENABLED( flags, RPAL_FILE_OPEN_WRITE ) )
+                {
+                    fileMode = "r+";
+                }
+            }
+
+            // We only proceed if the file mode made sense
+            if( NULL != fileMode )
+            {
+                if( NULL != ( hFile->handle = fopen( filePath, fileMode ) ) )
+                {
+                    isSuccess = TRUE;
+                    *phFile = hFile;
+                }
+                else
+                {
+                    rpal_memory_free( hFile );
+                    hFile = NULL;
+                }
             }
 #endif
             rpal_memory_free( tmpPath );
@@ -2048,7 +1882,7 @@ RBOOL
 rDirWatch
     rDirWatch_new
     (
-        RPWCHAR dir,
+        RPNCHAR dir,
         RU32 watchFlags,
         RBOOL includeSubDirs
     )
@@ -2133,7 +1967,7 @@ RBOOL
     (
         rDirWatch watch,
         RU32 timeout,
-        RPWCHAR* pFilePath,
+        RPNCHAR* pFilePath,
         RU32* pAction
     )
 {
@@ -2217,6 +2051,7 @@ RBOOL
 #else
         UNREFERENCED_PARAMETER( pWatch );
         UNREFERENCED_PARAMETER( size );
+        rpal_thread_sleep( MSEC_FROM_SEC(1) );
 #endif
     }
 
@@ -2252,10 +2087,10 @@ static RBOOL
 
                 if( QueryDosDeviceW( tmpDrive, tmpPath, ARRAY_N_ELEM( tmpPath ) ) )
                 {
-                    if( rpal_string_startswithiw( path, tmpPath ) )
+                    if( rpal_string_startswithi( path, tmpPath ) )
                     {
                         *pDrive = tmpDrive[ 0 ];
-                        *pDeviceLength = rpal_string_strlenw( tmpPath );
+                        *pDeviceLength = rpal_string_strlen( tmpPath );
                         isFound = TRUE;
                         break;
                     }
@@ -2271,13 +2106,13 @@ static RBOOL
 
 #endif
 
-RPWCHAR
-    rpal_file_cleanw
+RPNCHAR
+    rpal_file_clean
     (
-        RPWCHAR filePath
+        RPNCHAR filePath
     )
 {
-    RPWCHAR clean = NULL;
+    RPNCHAR clean = NULL;
 
     if( NULL != filePath )
     {
@@ -2306,11 +2141,11 @@ RPWCHAR
         // We cache the current system drive since it'll be used all the time.
         if( 0 == currentSysDrive[ 0 ] )
         {
-            if( rpal_string_expandw( sysDrive, &tmpStr ) )
+            if( rpal_string_expand( sysDrive, &tmpStr ) )
             {
-                if( 2 == rpal_string_strlenw( tmpStr ) )
+                if( 2 == rpal_string_strlen( tmpStr ) )
                 {
-                    rpal_string_strcpyw( currentSysDrive, tmpStr );
+                    rpal_string_strcpy( currentSysDrive, tmpStr );
                 }
                 rpal_memory_free( tmpStr );
             }
@@ -2326,11 +2161,11 @@ RPWCHAR
         // Resolve a few other environment variables.
         if( 0 == currentWinDir[ 0 ] )
         {
-            if( rpal_string_expandw( winDir, &tmpStr ) )
+            if( rpal_string_expand( winDir, &tmpStr ) )
             {
-                if( ARRAY_N_ELEM( currentWinDir ) > rpal_string_strlenw( tmpStr ) )
+                if( ARRAY_N_ELEM( currentWinDir ) > rpal_string_strlen( tmpStr ) )
                 {
-                    rpal_string_strcpyw( currentWinDir, tmpStr );
+                    rpal_string_strcpy( currentWinDir, tmpStr );
                 }
                 rpal_memory_free( tmpStr );
             }
@@ -2338,20 +2173,20 @@ RPWCHAR
 
         if( 0 == currentDefaultPath[ 0 ] )
         {
-            if( rpal_string_expandw( defaultPath, &tmpStr ) )
+            if( rpal_string_expand( defaultPath, &tmpStr ) )
             {
-                if( ARRAY_N_ELEM( currentDefaultPath ) > rpal_string_strlenw( tmpStr ) )
+                if( ARRAY_N_ELEM( currentDefaultPath ) > rpal_string_strlen( tmpStr ) )
                 {
-                    rpal_string_strcpyw( currentDefaultPath, tmpStr );
+                    rpal_string_strcpy( currentDefaultPath, tmpStr );
                 }
                 rpal_memory_free( tmpStr );
             }
         }
 
-        len = rpal_string_strlenw( filePath );
+        len = rpal_string_strlen( filePath );
 
         if( 0 != len &&
-            NULL != ( tmpPath = rpal_stringbuffer_new( 0, 0, TRUE ) ) )
+            NULL != ( tmpPath = rpal_stringbuffer_new( 0, 0 ) ) )
         {
             // Check for a path token, if we have none, default to system32
             isFullPath = FALSE;
@@ -2372,82 +2207,59 @@ RPWCHAR
                 if( _WCH( '\\' ) == filePath[ 0 ] )
                 {
                     // If the entry starts with system32, prefix it as necessary
-                    if( rpal_string_startswithiw( filePath, sys32Dir ) )
+                    if( rpal_string_startswithi( filePath, sys32Dir ) )
                     {
-                        rpal_stringbuffer_addw( tmpPath, currentWinDir );
+                        rpal_stringbuffer_add( tmpPath, currentWinDir );
                     }
                     // If the entry starts with \SystemRoot, prefix it as necessary
-                    else if( rpal_string_startswithiw( filePath, sysRootDir ) )
+                    else if( rpal_string_startswithi( filePath, sysRootDir ) )
                     {
-                        rpal_stringbuffer_addw( tmpPath, currentWinDir );
-                        filePath += rpal_string_strlenw( sysRootDir );
+                        rpal_stringbuffer_add( tmpPath, currentWinDir );
+                        filePath += rpal_string_strlen( sysRootDir );
                     }
                     // If the entry starts with \??\ we can strip the UNC prefix
-                    else if( rpal_string_startswithiw( filePath, uncPath ) )
+                    else if( rpal_string_startswithi( filePath, uncPath ) )
                     {
-                        filePath += rpal_string_strlenw( uncPath );
+                        filePath += rpal_string_strlen( uncPath );
                     }
                     // First check if it's the system drive
-                    else if( rpal_string_startswithiw( filePath, sysDevice ) )
+                    else if( rpal_string_startswithi( filePath, sysDevice ) )
                     {
-                        rpal_stringbuffer_addw( tmpPath, currentSysDrive );
-                        filePath += rpal_string_strlenw( sysDevice );
+                        rpal_stringbuffer_add( tmpPath, currentSysDrive );
+                        filePath += rpal_string_strlen( sysDevice );
                     }
                     // If the path starts at a device not cached, resolve it
-                    else if( rpal_string_startswithiw( filePath, deviceDir ) )
+                    else if( rpal_string_startswithi( filePath, deviceDir ) )
                     {
                         if( _driveFromDevice( filePath, tmpDrive, &i ) )
                         {
-                            rpal_stringbuffer_addw( tmpPath, tmpDrive );
+                            rpal_stringbuffer_add( tmpPath, tmpDrive );
                             filePath += i;
                         }
                     }
                     // Sometimes it's just a path without drive, so add systemdrive
                     else
                     {
-                        rpal_stringbuffer_addw( tmpPath, currentSysDrive );
+                        rpal_stringbuffer_add( tmpPath, currentSysDrive );
                     }
                 }
-                else if( rpal_string_startswithiw( filePath, sys32Prefix ) )
+                else if( rpal_string_startswithi( filePath, sys32Prefix ) )
                 {
-                    rpal_stringbuffer_addw( tmpPath, currentWinDir );
-                    rpal_stringbuffer_addw( tmpPath, _WCH( "\\" ) );
+                    rpal_stringbuffer_add( tmpPath, currentWinDir );
+                    rpal_stringbuffer_add( tmpPath, _WCH( "\\" ) );
                 }
 
-                rpal_stringbuffer_addw( tmpPath, filePath );
+                rpal_stringbuffer_add( tmpPath, filePath );
             }
 
-            tmpStr = rpal_stringbuffer_getStringw( tmpPath );
-            clean = rpal_string_strdupw( tmpStr );
+            tmpStr = rpal_stringbuffer_getString( tmpPath );
+            clean = rpal_string_strdup( tmpStr );
+            rpal_memory_isValid( clean );
             rpal_stringbuffer_free( tmpPath );
         }
 #else
-        clean = rpal_string_strdupw( filePath );
+        clean = rpal_string_strdup( filePath );
 #endif
-    }
-
-    return clean;
-}
-
-RPCHAR
-    rpal_file_cleana
-    (
-        RPCHAR filePath
-    )
-{
-    RPWCHAR tmp = NULL;
-    RPCHAR clean = NULL;
-    RPWCHAR cleanw = NULL;
-    
-    if( NULL != ( tmp = rpal_string_atow( filePath ) ) )
-    {
-        if( NULL != ( cleanw = rpal_file_cleanw( tmp ) ) )
-        {
-            clean = rpal_string_wtoa( cleanw );
-            rpal_memory_free( cleanw );
-        }
-
-        rpal_memory_free( tmp );
     }
 
     return clean;

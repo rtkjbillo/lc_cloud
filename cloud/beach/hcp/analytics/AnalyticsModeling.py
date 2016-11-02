@@ -20,18 +20,19 @@ import base64
 import msgpack
 import datetime
 import random
+import traceback
 from sets import Set
-CassDb = Actor.importLib( '../hcp_databases', 'CassDb' )
-CassPool = Actor.importLib( '../hcp_databases', 'CassPool' )
-AgentId = Actor.importLib( '../hcp_helpers', 'AgentId' )
-_x_ = Actor.importLib( '../hcp_helpers', '_x_' )
-_xm_ = Actor.importLib( '../hcp_helpers', '_xm_' )
-ObjectTypes = Actor.importLib( '../ObjectsDb', 'ObjectTypes' )
-RelationName = Actor.importLib( '../ObjectsDb', 'RelationName' )
-ObjectKey = Actor.importLib( '../ObjectsDb', 'ObjectKey' )
+CassDb = Actor.importLib( '../utils/hcp_databases', 'CassDb' )
+CassPool = Actor.importLib( '../utils/hcp_databases', 'CassPool' )
+AgentId = Actor.importLib( '../utils/hcp_helpers', 'AgentId' )
+_x_ = Actor.importLib( '../utils/hcp_helpers', '_x_' )
+_xm_ = Actor.importLib( '../utils/hcp_helpers', '_xm_' )
+ObjectTypes = Actor.importLib( '../utils/ObjectsDb', 'ObjectTypes' )
+RelationName = Actor.importLib( '../utils/ObjectsDb', 'RelationName' )
+ObjectKey = Actor.importLib( '../utils/ObjectsDb', 'ObjectKey' )
 
 class AnalyticsModeling( Actor ):
-    def init( self, parameters ):
+    def init( self, parameters, resources ):
         self._db = CassDb( parameters[ 'db' ], 'hcp_analytics', consistencyOne = True )
         self.db = CassPool( self._db,
                             rate_limit_per_sec = parameters[ 'rate_limit_per_sec' ],
@@ -51,35 +52,39 @@ class AnalyticsModeling( Actor ):
                                    ObjectTypes.PORT ]
 
         self.statements = {}
-        self.statements[ 'events' ] = self.db.prepare( 'INSERT INTO events ( eventid, event, agentid ) VALUES ( ?, ?, ? ) USING TTL %d' % ( 60 * 60 * 24 * 7 * 2 ) )
-        self.statements[ 'timeline' ] = self.db.prepare( 'INSERT INTO timeline ( agentid, ts, eventid, eventtype ) VALUES ( ?, ?, ?, ? ) USING TTL %d' % ( 60 * 60 * 24 * 7 * 2 ) )
-        self.statements[ 'timeline_by_type' ] = self.db.prepare( 'INSERT INTO timeline_by_type ( agentid, ts, eventid, eventtype ) VALUES ( ?, ?, ?, ? ) USING TTL %d' % ( 60 * 60 * 24 * 7 * 2 ) )
-        self.statements[ 'recent' ] = self.db.prepare( 'UPDATE recentlyActive USING TTL %d SET last = dateOf( now() ) WHERE agentid = ?' % ( 60 * 60 * 24 * 14 ) )
-        self.statements[ 'last' ] = self.db.prepare( 'UPDATE last_events USING TTL %d SET id = ? WHERE agentid = ? AND type = ?' % ( 60 * 60 * 24 * 30 * 1 ) )
-        self.statements[ 'investigation' ] = self.db.prepare( 'INSERT INTO investigation_data ( invid, ts, eid, etype ) VALUES ( ?, ?, ?, ? ) USING TTL %d' % ( 60 * 60 * 24 * 30 * 1 ) )
+        self.statements[ 'events' ] = self.db.prepare( 'INSERT INTO events ( eventid, event, agentid ) VALUES ( ?, ?, ? ) USING TTL %d' % parameters[ 'retention_raw_events' ] )
+        self.statements[ 'timeline' ] = self.db.prepare( 'INSERT INTO timeline ( agentid, ts, eventid, eventtype ) VALUES ( ?, ?, ?, ? ) USING TTL %d' % parameters[ 'retention_raw_events' ] )
+        self.statements[ 'timeline_by_type' ] = self.db.prepare( 'INSERT INTO timeline_by_type ( agentid, ts, eventid, eventtype ) VALUES ( ?, ?, ?, ? ) USING TTL %d' % parameters[ 'retention_raw_events' ] )
+        self.statements[ 'recent' ] = self.db.prepare( 'UPDATE recentlyActive USING TTL %d SET last = dateOf( now() ) WHERE agentid = ?' % parameters[ 'retention_raw_events' ] )
+        self.statements[ 'last' ] = self.db.prepare( 'UPDATE last_events USING TTL %d SET id = ? WHERE agentid = ? AND type = ?' % parameters[ 'retention_raw_events' ] )
+        self.statements[ 'investigation' ] = self.db.prepare( 'INSERT INTO investigation_data ( invid, ts, eid, etype ) VALUES ( ?, ?, ?, ? ) USING TTL %d' % parameters[ 'retention_investigations' ] )
 
-        self.statements[ 'rel_batch_parent' ] = self.db.prepare( '''INSERT INTO rel_man_parent ( parentkey, ctype, cid ) VALUES ( ?, ?, ? ) USING TTL 31536000;''' )
-        self.statements[ 'rel_batch_child' ] = self.db.prepare( '''INSERT INTO rel_man_child ( childkey, ptype, pid ) VALUES ( ?, ?, ? ) USING TTL 31536000;''' )
+        self.statements[ 'rel_batch_parent' ] = self.db.prepare( '''INSERT INTO rel_man_parent ( parentkey, ctype, cid ) VALUES ( ?, ?, ? ) USING TTL %d;''' % parameters[ 'retention_objects_primary' ] )
+        self.statements[ 'rel_batch_child' ] = self.db.prepare( '''INSERT INTO rel_man_child ( childkey, ptype, pid ) VALUES ( ?, ?, ? ) USING TTL %d;''' % parameters[ 'retention_objects_primary' ] )
 
         self.statements[ 'rel_batch_tmp_parent' ] = self.db.prepare( '''INSERT INTO rel_man_parent ( parentkey, ctype, cid ) VALUES ( ?, ?, ? ) USING TTL 15552000;''' )
         self.statements[ 'rel_batch_tmp_child' ] = self.db.prepare( '''INSERT INTO rel_man_child ( childkey, ptype, pid ) VALUES ( ?, ?, ? ) USING TTL 15552000;''' )
 
-        self.statements[ 'obj_batch_man' ] = self.db.prepare( '''INSERT INTO obj_man ( id, obj, otype ) VALUES ( ?, ?, ? ) USING TTL 63072000;''' )
-        self.statements[ 'obj_batch_name' ] = self.db.prepare( '''INSERT INTO obj_name ( obj, id ) VALUES ( ?, ? ) USING TTL 63072000;''' )
-        self.statements[ 'obj_batch_loc' ] = self.db.prepare( '''UPDATE loc USING TTL 63072000 SET last = ? WHERE aid = ? AND otype = ? AND id = ?;''' )
-        self.statements[ 'obj_batch_id' ] = self.db.prepare( '''INSERT INTO loc_by_id ( id, aid, last ) VALUES ( ?, ?, ? ) USING TTL 63072000;''' )
-        self.statements[ 'obj_batch_type' ] = self.db.prepare( '''INSERT INTO loc_by_type ( d256, otype, id, aid ) VALUES ( ?, ?, ?, ? ) USING TTL 259200;''' )
+        self.statements[ 'obj_batch_man' ] = self.db.prepare( '''INSERT INTO obj_man ( id, obj, otype ) VALUES ( ?, ?, ? ) USING TTL %d;''' % parameters[ 'retention_objects_primary' ] )
+        self.statements[ 'obj_batch_name' ] = self.db.prepare( '''INSERT INTO obj_name ( obj, id ) VALUES ( ?, ? ) USING TTL %d;''' % parameters[ 'retention_objects_primary' ] )
+        self.statements[ 'obj_batch_loc' ] = self.db.prepare( '''UPDATE loc USING TTL %d SET last = ? WHERE aid = ? AND otype = ? AND id = ?;''' % parameters[ 'retention_objects_primary' ] )
+        self.statements[ 'obj_batch_id' ] = self.db.prepare( '''INSERT INTO loc_by_id ( id, aid, last ) VALUES ( ?, ?, ? ) USING TTL %d;''' % parameters[ 'retention_objects_primary' ] )
+        self.statements[ 'obj_batch_type' ] = self.db.prepare( '''INSERT INTO loc_by_type ( d256, otype, id, aid ) VALUES ( ?, ?, ?, ? ) USING TTL %d;''' % parameters[ 'retention_objects_primary' ] )
 
-        self.statements[ 'obj_batch_tmp_man' ] = self.db.prepare( '''INSERT INTO obj_man ( id, obj, otype ) VALUES ( ?, ?, ? ) USING TTL 15552000;''' )
-        self.statements[ 'obj_batch_tmp_name' ] = self.db.prepare( '''INSERT INTO obj_name ( obj, id ) VALUES ( ?, ? ) USING TTL 15552000;''' )
-        self.statements[ 'obj_batch_tmp_loc' ] = self.db.prepare( '''UPDATE loc USING TTL 15552000 SET last = ? WHERE aid = ? AND otype = ? AND id = ?;''' )
-        self.statements[ 'obj_batch_tmp_id' ] = self.db.prepare( '''INSERT INTO loc_by_id ( id, aid, last ) VALUES ( ?, ?, ? ) USING TTL 15552000;''' )
-        self.statements[ 'obj_batch_tmp_type' ] = self.db.prepare( '''INSERT INTO loc_by_type ( d256, otype, id, aid ) VALUES ( ?, ?, ?, ? ) USING TTL 259200;''' )
+        self.statements[ 'obj_batch_tmp_man' ] = self.db.prepare( '''INSERT INTO obj_man ( id, obj, otype ) VALUES ( ?, ?, ? ) USING TTL %d;''' % parameters[ 'retention_objects_secondary' ] )
+        self.statements[ 'obj_batch_tmp_name' ] = self.db.prepare( '''INSERT INTO obj_name ( obj, id ) VALUES ( ?, ? ) USING TTL %d;''' % parameters[ 'retention_objects_secondary' ] )
+        self.statements[ 'obj_batch_tmp_loc' ] = self.db.prepare( '''UPDATE loc USING TTL %d SET last = ? WHERE aid = ? AND otype = ? AND id = ?;''' % parameters[ 'retention_objects_secondary' ] )
+        self.statements[ 'obj_batch_tmp_id' ] = self.db.prepare( '''INSERT INTO loc_by_id ( id, aid, last ) VALUES ( ?, ?, ? ) USING TTL %d;''' % parameters[ 'retention_objects_secondary' ] )
+        self.statements[ 'obj_batch_tmp_type' ] = self.db.prepare( '''INSERT INTO loc_by_type ( d256, otype, id, aid ) VALUES ( ?, ?, ?, ? ) USING TTL %d;''' % parameters[ 'retention_objects_secondary' ] )
+
+        self.statements[ 'atoms_children' ] = self.db.prepare( 'INSERT INTO atoms_children ( atomid, child, eid ) VALUES ( ?, ?, ? ) USING TTL %d' % parameters[ 'retention_explorer' ] )
+        self.statements[ 'atoms_lookup' ] = self.db.prepare( 'INSERT INTO atoms_lookup ( atomid, eid ) VALUES ( ?, ? ) USING TTL %d' % parameters[ 'retention_explorer' ] )
 
         for statement in self.statements.values():
             statement.consistency_level = CassDb.CL_Ingest
 
         self.db.start()
+        self.processedCounter = 0
         self.handle( 'analyze', self.analyze )
 
     def deinit( self ):
@@ -138,18 +143,24 @@ class AnalyticsModeling( Actor ):
     def analyze( self, msg ):
         routing, event, mtd = msg.data
 
-        self.log( 'storing new event' )
+        self.processedCounter += 1
+
+        if 0 == ( self.processedCounter % 50 ):
+            self.log( 'MOD_IN %s' % self.processedCounter )
 
         agent = AgentId( routing[ 'agentid' ] )
         aid = agent.invariableToString()
         ts = _x_( event, '?/base.TIMESTAMP' )
+
+        if ts is not None:
+            ts = float( ts ) / 1000
 
         if ts is None or ts > ( 2 * time.time() ):
             ts = _x_( event, 'base.TIMESTAMP' )
             if ts is None:
                 ts = time_uuid.utctime()
             else:
-                ts = int( ts )
+                ts = float( ts ) / 1000
 
         eid = routing[ 'event_id' ]
 
@@ -173,13 +184,45 @@ class AnalyticsModeling( Actor ):
                                                                  aid,
                                                                  routing[ 'event_type' ] ) ) )
 
+        this_atom = _x_( event, '?/hbs.THIS_ATOM' )
+        parent_atom = _x_( event, '?/hbs.PARENT_ATOM' )
+        null_atom = "\x00" * 16
+
+        if this_atom is not None:
+            if this_atom == null_atom:
+                this_atom = None
+            else:
+                try:
+                    this_atom = uuid.UUID( bytes = str( this_atom ) )
+                except:
+                    self.log( 'invalid atom: %s / %s ( %s )' % ( this_atom, type( this_atom ), traceback.format_exc() ) )
+                    this_atom = None
+
+        if parent_atom is not None:
+            if parent_atom == null_atom:
+                parent_atom = None
+            else:
+                try:
+                    parent_atom = uuid.UUID( bytes = str( parent_atom ) )
+                except:
+                    self.log( 'invalid atom: %s / %s ( %s )' % ( parent_atom, type( parent_atom ), traceback.format_exc() ) )
+                    parent_atom = None
+
+        if this_atom is not None:
+            self.db.execute_async( self.statements[ 'atoms_lookup' ].bind( ( this_atom,
+                                                                             eid ) ) )
+
+        if this_atom is not None and parent_atom is not None:
+            self.db.execute_async( self.statements[ 'atoms_children' ].bind( ( parent_atom,
+                                                                               this_atom if this_atom is not None else uuid.UUID( bytes = null_atom ),
+                                                                               eid ) ) )
+
         inv_id = _x_( event, '?/hbs.INVESTIGATION_ID' )
         if inv_id is not None and inv_id != '':
-            self.db.execute_async( self.statements[ 'investigation' ].bind( ( inv_id.upper(),
+            self.db.execute_async( self.statements[ 'investigation' ].bind( ( inv_id.upper().split( '//' )[ 0 ],
                                                                               time_uuid.TimeUUID.with_timestamp( ts ),
                                                                               eid,
                                                                               routing[ 'event_type' ] ) ) )
-        self.log( 'storing objects' )
         new_objects = mtd[ 'obj' ]
         new_relations = mtd[ 'rel' ]
 
@@ -192,5 +235,5 @@ class AnalyticsModeling( Actor ):
 
         if 0 != len( new_objects ) or 0 != len( new_relations ):
             self._ingestObjects( aid, ts, new_objects, new_relations )
-        self.log( 'finished storing objects: %s / %s' % ( len( new_objects ), len( new_relations )) )
+        #self.log( 'finished storing objects %s: %s / %s' % ( routing[ 'event_type' ], len( new_objects ), len( new_relations )) )
         return ( True, )

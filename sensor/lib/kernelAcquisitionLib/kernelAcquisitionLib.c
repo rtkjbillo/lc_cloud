@@ -50,7 +50,7 @@ static RBOOL g_platform_availability[ KERNEL_ACQ_OP_COUNT ] = {
 #elif defined( RPAL_PLATFORM_WINDOWS )
     TRUE, // KERNEL_ACQ_OP_PING
     TRUE, // KERNEL_ACQ_OP_GET_NEW_PROCESSES
-    FALSE, // KERNEL_ACQ_OP_GET_NEW_FILE_IO
+    TRUE, // KERNEL_ACQ_OP_GET_NEW_FILE_IO
     TRUE, // KERNEL_ACQ_OP_NEW_MODULE
 #endif
                                                               };

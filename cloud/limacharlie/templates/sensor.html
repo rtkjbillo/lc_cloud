@@ -114,12 +114,11 @@ $var title = sensor_id
 <div class="row">
     <div class="col-lg-12">
         <hr/>
+        <b>Raw URL: </b><div id="raw_url"></div>
         <table class="table table-striped">
             <thead>
                 <tr>
-                    <th>Time</th>
-                    <th>Type</th>
-                    <th>Event</th>
+                    <th></th>
                     <th></th>
                 </tr>
             </thead>
@@ -151,7 +150,7 @@ $var title = sensor_id
             jQuery('#status_indicator').css( 'color', 'red' );
             if( last_seen )
             {
-                jQuery('#last_seen').text( 'Last seen: ' + ts_to_time( last_seen ) );
+                jQuery('#last_seen').text( 'Last seen: ' + ts_to_time( last_seen * 1000 ) );
             }
         }
         else
@@ -166,7 +165,7 @@ $var title = sensor_id
     function do_refresh_online()
     {
         jQuery.getJSON( '/sensor_state',
-                    { sensor_id : "$sensor_id" } ).done(function(data){set_connected(data.is_online, data.lastseen);})
+                    { sensor_id : "$sensor_id" } ).done(function(data){set_connected(data.live_status, data.lastseen);})
                                                   .fail(function(){set_connected(false);})
                                                   .always(function(){setTimeout( do_refresh_online, 5000 );});
     }
@@ -201,16 +200,26 @@ $var title = sensor_id
 
                 jQuery('#timeline').prepend(
                     jQuery('<tr>').append(
-                        jQuery('<td>').html( ts_to_time( Math.floor( e[ 0 ] / 1000 ) ) )
-                    ).append(
-                        jQuery('<td>').html( e[ 1 ] )
+                        jQuery('<td>').append( jQuery('<i>').html( ts_to_time( Math.floor( e[ 0 ] ) ) ) )
+                                      .append( jQuery('<br>') )
+                                      .append( jQuery('<div>').html( e[ 1 ] ) )
+                                      .append( jQuery('<br>') )
+                                      .append( jQuery('<br>') )
+                                      .append( jQuery('<a>').attr('href','/event?id=' + e[ 2 ] )
+                                                            .attr('title','View Event')
+                                                            .attr('target', '_blank')
+                                                            .addClass('glyphicon' )
+                                                            .addClass('glyphicon-log-in')
+                                                            .css('font-size', '30px') )
+                                      .append(" ")
+                                      .append( jQuery('<a>').attr('href','/explorer_view?id=' + e[ 4 ] )
+                                                            .attr('title','Explore')
+                                                            .attr('target', '_blank')
+                                                            .addClass('glyphicon' )
+                                                            .addClass('glyphicon-tree-conifer')
+                                                            .css('font-size', '30px') )
                     ).append(
                         eventContent
-                    ).append(
-                        jQuery('<td>').append( jQuery('<a>').attr('href','/event?id=' + e[ 2 ] )
-                                                            .attr('title','View Event')
-                                                            .addClass('glyphicon' )
-                                                            .addClass('glyphicon-log-in') )
                     ).attr( 'id', e[ 2 ] )
                      .addClass( 't_event' )
                      .hide()
@@ -235,6 +244,15 @@ $var title = sensor_id
 
     function do_refresh_timeline()
     {
+        jQuery('#raw_url').html('/timeline?sensor_id=$sensor_id&rich=false&max_size=' + 
+                                jQuery('#maxeventsize').find(":selected").text() + '&'
+                                $if before is not None:
+                                    + 'before=' + Date.parse("$before" + " GMT") / 1000
+                                $if after is not None:
+                                    + 'after=' + Date.parse("$after" + " GMT") / 1000
+                                $else:
+                                    + 'after=' + from_time
+                                );
         future = jQuery.getJSON( '/timeline',
                     { sensor_id : "$sensor_id",
                       rich : "true",

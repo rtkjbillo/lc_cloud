@@ -16,25 +16,27 @@ from beach.actor import Actor
 import time
 from sets import Set
 BEAdmin = Actor.importLib( '../admin_lib', 'BEAdmin' )
-Host = Actor.importLib( '../ObjectsDb', 'Host' )
-HostObjects = Actor.importLib( '../ObjectsDb', 'HostObjects' )
-FluxEvent = Actor.importLib( '../ObjectsDb', 'FluxEvent' )
-ObjectTypes = Actor.importLib( '../ObjectsDb', 'ObjectTypes' )
-ObjectKey = Actor.importLib( '../ObjectsDb', 'ObjectKey' )
-RelationNameFromId = Actor.importLib( '../ObjectsDb', 'RelationNameFromId' )
-Reporting = Actor.importLib( '../ObjectsDb', 'Reporting' )
-KeyValueStore = Actor.importLib( '../ObjectsDb', 'KeyValueStore' )
-AgentId = Actor.importLib( '../hcp_helpers', 'AgentId' )
-_xm_ = Actor.importLib( '../hcp_helpers', '_xm_' )
-_x_ = Actor.importLib( '../hcp_helpers', '_x_' )
+Host = Actor.importLib( '../utils/ObjectsDb', 'Host' )
+HostObjects = Actor.importLib( '../utils/ObjectsDb', 'HostObjects' )
+FluxEvent = Actor.importLib( '../utils/ObjectsDb', 'FluxEvent' )
+ObjectTypes = Actor.importLib( '../utils/ObjectsDb', 'ObjectTypes' )
+Atoms = Actor.importLib( '../utils/ObjectsDb', 'Atoms' )
+ObjectKey = Actor.importLib( '../utils/ObjectsDb', 'ObjectKey' )
+RelationNameFromId = Actor.importLib( '../utils/ObjectsDb', 'RelationNameFromId' )
+Reporting = Actor.importLib( '../utils/ObjectsDb', 'Reporting' )
+KeyValueStore = Actor.importLib( '../utils/ObjectsDb', 'KeyValueStore' )
+AgentId = Actor.importLib( '../utils/hcp_helpers', 'AgentId' )
+_xm_ = Actor.importLib( '../utils/hcp_helpers', '_xm_' )
+_x_ = Actor.importLib( '../utils/hcp_helpers', '_x_' )
 
 class ModelView( Actor ):
-    def init( self, parameters ):
-        self.admin = BEAdmin( parameters[ 'beach_config' ], None )
+    def init( self, parameters, resources ):
+        self.admin = BEAdmin( self._beach_config_path, None )
         Host.setDatabase( self.admin, parameters[ 'scale_db' ] )
         HostObjects.setDatabase( parameters[ 'scale_db' ] )
         Reporting.setDatabase( parameters[ 'scale_db' ] )
         KeyValueStore.setDatabase( parameters[ 'scale_db' ] )
+        Atoms.setDatabase( parameters[ 'scale_db' ] )
         self.handle( 'get_timeline', self.get_timeline )
         self.handle( 'get_sensor_info', self.get_sensor_info )
         self.handle( 'get_obj_list', self.get_obj_list )
@@ -46,9 +48,11 @@ class ModelView( Actor ):
         self.handle( 'get_detect', self.get_detect )
         self.handle( 'get_host_changes', self.get_host_changes )
         self.handle( 'set_kv', self.set_kv )
-        self.handle( 'get_kc', self.get_kv )
+        self.handle( 'get_kv', self.get_kv )
         self.handle( 'get_obj_loc', self.get_obj_loc )
         self.handle( 'get_file_in_event', self.get_file_in_event )
+        self.handle( 'get_atoms_from_root', self.get_atoms_from_root )
+        self.handle( 'get_backend_config', self.get_backend_config )
 
     def deinit( self ):
         Host.closeDatabase()
@@ -69,7 +73,7 @@ class ModelView( Actor ):
             pass
 
         if aid is not None:
-            host = Host( msg.data[ 'id_or_host' ] )
+            host = Host( aid )
         else:
             hosts = Host.getHostsMatching( hostname = msg.data[ 'id_or_host' ] )
             if 0 != len( hosts ):
@@ -121,6 +125,8 @@ class ModelView( Actor ):
         info = {}
         info[ 'host' ] = msg.data.get( 'host', None )
         try:
+            if 'id' not in msg.data:
+                msg.data[ 'id' ] = ObjectKey( msg.data[ 'obj_name' ], ObjectTypes.forward[ msg.data[ 'obj_type' ] ] )
             _ = next( HostObjects( msg.data[ 'id' ] ).info() )
         except:
             return ( True, {} )
@@ -220,13 +226,15 @@ class ModelView( Actor ):
     def get_detect( self, msg ):
         detect = Reporting.getDetects( id = msg.data[ 'id' ] )
         isWithEvents = msg.data.get( 'with_events', False )
+        isWithInv = msg.data.get( 'with_inv', False )
 
         detect = ( detect[ 0 ],
                    detect[ 1 ],
                    detect[ 2 ],
                    detect[ 3 ],
                    detect[ 4 ],
-                   FluxEvent.decode( detect[ 5 ] ) )
+                   FluxEvent.decode( detect[ 5 ] ),
+                   detect[ 6 ] )
 
         if isWithEvents:
             events = Reporting.getRelatedEvents( detect[ 1 ].upper(), isIncludeContent = True )
@@ -236,9 +244,21 @@ class ModelView( Actor ):
                        detect[ 3 ],
                        detect[ 4 ],
                        detect[ 5 ],
-                       [ ( x[ 0 ], x[ 1 ], FluxEvent.decode( x[ 2 ] ), x[ 3 ] ) for x in events ] )
+                       detect[ 6 ],
+                       [ ( x[ 0 ], x[ 1 ], FluxEvent.decode( x[ 2 ] ), x[ 3 ], x[ 4 ] ) for x in events ] )
 
-        return ( True, { 'detect' : detect } )
+        ret = { 'detect' : detect }
+
+        if isWithInv:
+            inv = Reporting.getInvestigations( id = detect[ 1 ] )
+            for i in inv.itervalues():
+                for d in i[ 'data' ]:
+                    d[ 'data' ] = FluxEvent.decode( d[ 'data' ] )
+                for t in i[ 'tasks' ]:
+                    t[ 'data' ] = FluxEvent.decode( t[ 'data' ] )
+            ret[ 'inv' ] = inv
+
+        return ( True, ret )
 
     def get_host_changes( self, msg ):
         changes = {}
@@ -312,3 +332,33 @@ class ModelView( Actor ):
             return ( True, { 'data' : fileData, 'path' : filePath } )
         else:
             return ( True, {} )
+
+    def get_atoms_from_root( self, msg ):
+        tmp_atoms = msg.data[ 'id' ]
+        depth = msg.data.get( 'depth', 5 )
+        atoms = []
+        
+        # Get the root by itself
+        atoms.extend( Atoms( tmp_atoms ).fillEventIds().events() )
+        
+        # Then start getting children
+        while 0 != depth:
+            depth -= 1
+            tmp_atoms = [ _ for _ in Atoms( tmp_atoms ).children() ]
+            if 0 == len( tmp_atoms ):
+                break
+            atoms.extend( Atoms( tmp_atoms ).events() )
+
+        return ( True, atoms )
+
+    def get_backend_config( self, msg ):
+        info = {}
+
+        info[ 'hcp_period' ] = self.admin.hcp_getPeriod().data
+        info[ 'hcp_enrollments' ] = self.admin.hcp_getEnrollmentRules().data
+        info[ 'hcp_taskings' ] = self.admin.hcp_getTaskings().data
+        info[ 'hcp_modules' ] = self.admin.hcp_getModules().data
+        info[ 'hbs_period' ] = self.admin.hbs_getPeriod().data
+        info[ 'hbs_profiles' ] = self.admin.hbs_getProfiles().data
+
+        return ( True, info )

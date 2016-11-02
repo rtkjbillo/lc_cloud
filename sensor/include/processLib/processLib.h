@@ -92,7 +92,7 @@ rList
     (
         RU32 processId,
         RBOOL isOnlyReturnNamed,
-        RPWCHAR optSubstring
+        RPNCHAR optSubstring
     );
 
 RBOOL 
@@ -141,6 +141,32 @@ RU32
     processLib_getCurrentThreadId
     (
 
+    );
+
+RBOOL
+    processLib_suspendProcess
+    (
+        RU32 pid
+    );
+
+RBOOL
+    processLib_suspendThread
+    (
+        RU32 pid,
+        rThreadID tid
+    );
+
+RBOOL
+    processLib_resumeProcess
+    (
+        RU32 pid
+    );
+
+RBOOL
+    processLib_resumeThread
+    (
+        RU32 pid,
+        rThreadID tid
     );
 
 #endif

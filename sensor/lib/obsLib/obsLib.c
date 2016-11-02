@@ -425,21 +425,21 @@ RBOOL
 
     if( rpal_memory_isValid( hObs ) &&
         NULL != strPattern &&
-        0 != rpal_string_strlen( strPattern ) )
+        0 != rpal_string_strlenA( strPattern ) )
     {
         if( !isCaseInsensitive )
         {
-            patternLength = rpal_string_strlen( strPattern ) * sizeof( RCHAR );
+            patternLength = rpal_string_strlenA( strPattern ) * sizeof( RCHAR );
             patternLength += ( isIncludeNullEnding ? 1 * sizeof( RCHAR ) : 0 );
             isSuccess = obsLib_addPattern( hObs, (RPU8)strPattern, patternLength, context );
         }
         else
         {
-            if( NULL != ( tmp = rpal_string_strdupa( strPattern ) ) )
+            if( NULL != ( tmp = rpal_string_strdupA( strPattern ) ) )
             {
                 // Iteratively generate all cases for the string.
-                rpal_string_tolowera( tmp );
-                strLen = rpal_string_strlen( tmp );
+                rpal_string_tolowerA( tmp );
+                strLen = rpal_string_strlenA( tmp );
                 patternLength = strLen * sizeof( RCHAR );
                 patternLength += ( isIncludeNullEnding ? 1 * sizeof( RCHAR ) : 0 );
 
@@ -447,13 +447,13 @@ RBOOL
                 {
                     for( i = 0; i < strLen; i++ )
                     {
-                        if( rpal_string_charIsUpper( tmp[ i ] ) )
+                        if( rpal_string_charIsUpperA( tmp[ i ] ) )
                         {
-                            tmp[ i ] = rpal_string_charToLower( tmp[ i ] );
+                            tmp[ i ] = rpal_string_charToLowerA( tmp[ i ] );
                         }
-                        else if( rpal_string_charIsLower( tmp[ i ] ) )
+                        else if( rpal_string_charIsLowerA( tmp[ i ] ) )
                         {
-                            tmp[ i ] = rpal_string_charToUpper( tmp[ i ] );
+                            tmp[ i ] = rpal_string_charToUpperA( tmp[ i ] );
                             break;
                         }
                     }
@@ -497,21 +497,21 @@ RBOOL
 
     if( rpal_memory_isValid( hObs ) &&
         NULL != strPattern &&
-        0 != rpal_string_strlenw( strPattern ) )
+        0 != rpal_string_strlenW( strPattern ) )
     {
         if( !isCaseInsensitive )
         {
-            patternLength = rpal_string_strlenw( strPattern ) * sizeof( RWCHAR );
+            patternLength = rpal_string_strlenW( strPattern ) * sizeof( RWCHAR );
             patternLength += ( isIncludeNullEnding ? 1 * sizeof( RWCHAR ) : 0 );
             isSuccess = obsLib_addPattern( hObs, (RPU8)strPattern, patternLength, context );
         }
         else
         {
-            if( NULL != ( tmp = rpal_string_strdupw( strPattern ) ) )
+            if( NULL != ( tmp = rpal_string_strdupW( strPattern ) ) )
             {
                 // Iteratively generate all cases for the string.
-                rpal_string_tolowerw( tmp );
-                strLen = rpal_string_strlenw( tmp );
+                rpal_string_tolowerW( tmp );
+                strLen = rpal_string_strlenW( tmp );
                 patternLength = strLen * sizeof( RWCHAR );
                 patternLength += ( isIncludeNullEnding ? 1 * sizeof( RWCHAR ) : 0 );
 
@@ -519,13 +519,13 @@ RBOOL
                 {
                     for( i = 0; i < strLen; i++ )
                     {
-                        if( rpal_string_wcharIsUpper( tmp[ i ] ) )
+                        if( rpal_string_charIsUpperW( tmp[ i ] ) )
                         {
-                            tmp[ i ] = rpal_string_wcharToLower( tmp[ i ] );
+                            tmp[ i ] = rpal_string_charToLowerW( tmp[ i ] );
                         }
-                        else if( rpal_string_wcharIsLower( tmp[ i ] ) )
+                        else if( rpal_string_charIsLowerW( tmp[ i ] ) )
                         {
-                            tmp[ i ] = rpal_string_wcharToUpper( tmp[ i ] );
+                            tmp[ i ] = rpal_string_charToUpperW( tmp[ i ] );
                             break;
                         }
                     }
@@ -549,6 +549,23 @@ RBOOL
     }
 
     return isSuccess;
+}
+
+RBOOL
+    obsLib_addStringPatternN
+    (
+        HObs hObs,
+        RPNCHAR strPattern,
+        RBOOL isIncludeNullEnding,
+        RBOOL isCaseInsensitive,
+        RPVOID context
+    )
+{
+#ifdef RNATIVE_IS_WIDE
+    return obsLib_addStringPatternW( hObs, strPattern, isIncludeNullEnding, isCaseInsensitive, context );
+#else
+    return obsLib_addStringPatternA( hObs, strPattern, isIncludeNullEnding, isCaseInsensitive, context );
+#endif
 }
 
 RBOOL

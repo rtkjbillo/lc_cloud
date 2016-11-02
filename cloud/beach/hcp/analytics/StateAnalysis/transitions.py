@@ -15,8 +15,8 @@
 
 from beach.actor import Actor
 import re
-_x_ = Actor.importLib( '../../hcp_helpers', '_x_' )
-_xm_ = Actor.importLib( '../../hcp_helpers', '_xm_' )
+_x_ = Actor.importLib( '../../utils/hcp_helpers', '_x_' )
+_xm_ = Actor.importLib( '../../utils/hcp_helpers', '_xm_' )
 
 def NewProcessNamed( regexp ):
     regexp = re.compile( regexp )
@@ -28,11 +28,11 @@ def NewProcessNamed( regexp ):
             return False
     return _processNamed
 
-def HistoryOlderThan( nSeconds ):
+def HistoryOlderThan( nMilliseconds ):
     def _historyOlderThan( history, event ):
         newTs = event.event.get( 'base.TIMESTAMP', 0 )
         newest = max( x.event.get( 'base.TIMESTAMP', 0 ) for x in history )
-        if newTs > newest + nSeconds:
+        if newTs > newest + nMilliseconds:
             return True
         else:
             return False
@@ -68,6 +68,14 @@ def RunningPidReset():
 
         return False
     return _runningPidReset
+
+def SensorRestart():
+    def _sensorRestart( history, event ):
+        if( 'notification.STARTING_UP' == event.routing[ 'event_type' ] or
+            'notification.SHUTTING_DOWN' == event.routing[ 'event_type' ] ):
+            return True
+        return False
+    return _sensorRestart
 
 def AlwaysReturn( bValue ):
     def _alwaysReturn( history, event ):

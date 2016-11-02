@@ -55,7 +55,7 @@ static RS32
 }
 
 static RPVOID
-    trackerDiffThread
+    volumeTrackerDiffThread
     (
         rEvent isTimeToStop,
         RPVOID ctx
@@ -76,14 +76,14 @@ static RPVOID
 
     perfProfile.enforceOnceIn = 1;
     perfProfile.sanityCeiling = MSEC_FROM_SEC( 10 );
-    perfProfile.lastTimeoutValue = 10;
+    perfProfile.lastTimeoutValue = 2000;
     perfProfile.targetCpuPerformance = 0;
     perfProfile.globalTargetCpuPerformance = GLOBAL_CPU_USAGE_TARGET;
     perfProfile.timeoutIncrementPerSec = 1;
     
     while( !rEvent_wait( isTimeToStop, 0 ) )
     {
-        libOs_timeoutWithProfile( &perfProfile, FALSE );
+        libOs_timeoutWithProfile( &perfProfile, FALSE, isTimeToStop );
 
         if( NULL != ( snapshot = libOs_getVolumes() ) )
         {
@@ -95,7 +95,7 @@ static RPVOID
                 while( !rEvent_wait( isTimeToStop, 0 ) &&
                        rList_getSEQUENCE( snapshot, RP_TAGS_VOLUME, &volume ) )
                 {
-                    libOs_timeoutWithProfile( &perfProfile, TRUE );
+                    libOs_timeoutWithProfile( &perfProfile, TRUE, isTimeToStop );
 
                     if( NULL != ( serial = rpal_blob_create( 0, 0 ) ) )
                     {
@@ -113,7 +113,7 @@ static RPVOID
                                                                 &( newVolumes[ nNewVolumes ] ),
                                                                 (rpal_ordering_func)_cmpHashes ) )
                             {
-                                notifications_publish( RP_TAGS_NOTIFICATION_VOLUME_MOUNT, volume );
+                                hbs_publish( RP_TAGS_NOTIFICATION_VOLUME_MOUNT, volume );
                                 rpal_debug_info( "new volume mounted" );
                             }
 
@@ -133,7 +133,7 @@ static RPVOID
 
                     for( i = 0; i < nVolumes; i++ )
                     {
-                        libOs_timeoutWithProfile( &perfProfile, TRUE );
+                        libOs_timeoutWithProfile( &perfProfile, TRUE, isTimeToStop );
 
                         if( ( -1 ) == rpal_binsearch_array( newVolumes,
                                                             nNewVolumes,
@@ -141,7 +141,7 @@ static RPVOID
                                                             &( prevVolumes[ i ].hash ),
                                                             (rpal_ordering_func)_cmpHashes ) )
                         {
-                            notifications_publish( RP_TAGS_NOTIFICATION_VOLUME_UNMOUNT,
+                            hbs_publish( RP_TAGS_NOTIFICATION_VOLUME_UNMOUNT,
                                                    prevVolumes[ i ].volume );
                             rpal_debug_info( "volume unmounted" );
                         }
@@ -202,7 +202,7 @@ RBOOL
             }
         }
 
-        if( rThreadPool_task( hbsState->hThreadPool, trackerDiffThread, NULL ) )
+        if( rThreadPool_task( hbsState->hThreadPool, volumeTrackerDiffThread, NULL ) )
         {
             isSuccess = TRUE;
         }

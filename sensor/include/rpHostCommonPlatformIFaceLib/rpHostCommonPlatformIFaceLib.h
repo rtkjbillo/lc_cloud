@@ -26,6 +26,7 @@ limitations under the License.
 //=============================================================================
 // extern RpHcp_ModuleId g_Current_Module_id;
 // extern RU32 (RPAL_THREAD_FUNC *RpHcpI_mainThread)( rEvent isTimeToStop );
+// extern RVOID (RPAL_THREAD_FUNC *RpHcpI_receiveMessage)( rSequence message );
 
 //=============================================================================
 //  API For rpHcpLib
@@ -38,14 +39,21 @@ RPAL_THREAD_FUNC
         rpHCPModuleContext* moduleContext
     );
 
+RU32
+RPAL_EXPORT
+RPAL_THREAD_FUNC
+    rpHcpI_receiveMessage
+    (
+        rSequence message
+    );
+
 //=============================================================================
 //  API For Module
 //=============================================================================
 RBOOL
-    rpHcpI_beaconHome
+    rpHcpI_sendHome
     (
-        rList requests,
-        rList* responses
+        rList requests
     );
 
 RBOOL
@@ -64,6 +72,12 @@ rpHCPId
     rpHcpI_seqToHcpId
     (
         rSequence seq
+    );
+
+rEvent
+    rpHcpI_getOnlineEvent
+    (
+
     );
 
 #endif

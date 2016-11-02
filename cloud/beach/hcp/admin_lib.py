@@ -27,12 +27,12 @@ try:
 except:
     # When in an actor, use the relative import
     from beach.actor import Actor
-    rpcm = Actor.importLib( 'rpcm', 'rpcm' )
-    rSequence = Actor.importLib( 'rpcm', 'rSequence' )
-    rList = Actor.importLib( 'rpcm', 'rList' )
+    rpcm = Actor.importLib( 'utils/rpcm', 'rpcm' )
+    rSequence = Actor.importLib( 'utils/rpcm', 'rSequence' )
+    rList = Actor.importLib( 'utils/rpcm', 'rList' )
     Symbols = Actor.importLib( 'Symbols', 'Symbols' )
     Signing = Actor.importLib( 'signing', 'Signing' )
-    AgentId = Actor.importLib( 'hcp_helpers', 'AgentId' )
+    AgentId = Actor.importLib( 'utils/hcp_helpers', 'AgentId' )
 
 #===============================================================================
 # Library section to be used by Python code for automation
@@ -81,12 +81,10 @@ class BEAdmin( object ):
                                                          'new_subnet' : newSubnet,
                                                          'hostname' : hostname } )
     
-    def hcp_delEnrollmentRule( self, mask, externalIp, internalIp, newOrg, newSubnet, hostname ):
+    def hcp_delEnrollmentRule( self, mask, externalIp, internalIp, hostname ):
         return self._query( 'hcp.del_enrollment_rule', { 'mask' : mask,
                                                          'external_ip' : externalIp,
                                                          'internal_ip' : internalIp,
-                                                         'new_org' : newOrg,
-                                                         'new_subnet' : newSubnet,
                                                          'hostname' : hostname } )
     
     def hcp_getTaskings( self ):
@@ -160,4 +158,4 @@ class BEAdmin( object ):
         final = r.serialise( rSequence().addBuffer( tags.base.BINARY, toSign )
                                         .addBuffer( tags.base.SIGNATURE, sig ) )
         
-        return self._query( 'hbs.task_agent', { 'task' : final, 'agentid' : str( a ) } )
+        return self._query( 'hbs.task_agent', { 'task' : final, 'agentid' : str( a ), 'expiry' : expiry } )

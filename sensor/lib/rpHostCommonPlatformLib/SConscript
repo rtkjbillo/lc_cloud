@@ -5,12 +5,12 @@ import profiles
 profiles.StaticLibrary(
         'rpHostCommonPlatformLib',
         profiles.ObfuscatedHeader(),
+        profiles.GitInfo(),
         profiles.RpalModule(),
         ).Target(
             env,
             Glob( '*.c' ),
             compmap,
-            'cryptoLib', 'obfuscationLib', 'MemoryModule', 'b64', 'z', 'curl', 'rpcm', 'Os'
+            'cryptoLib', 'obfuscationLib', 'MemoryModule', 'z', 'rpcm', 'Os', 'networkLib'
             )
-
 # EOF

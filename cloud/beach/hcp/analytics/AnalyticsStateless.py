@@ -13,15 +13,20 @@
 # limitations under the License.
 
 from beach.actor import Actor
-AgentId = Actor.importLib( '../hcp_helpers', 'AgentId' )
+AgentId = Actor.importLib( '../utils/hcp_helpers', 'AgentId' )
 
 class AnalyticsStateless( Actor ):
-    def init( self, parameters ):
+    def init( self, parameters, resources ):
         self.handleCache = {}
         self.modulesCommon = {}
         self.modulesWindows = {}
         self.modulesOsx = {}
         self.modulesLinux = {}
+        self.specific = resources[ 'specific' ]
+        self.allConsumer = self.getActorHandleGroup( resources[ 'all' ],
+                                                     timeout = 30,
+                                                     nRetries = 3 )
+        self.outputs = self.getActorHandleGroup( resources[ 'output' ] )
 
         self.handle( 'analyze', self.analyze )
 
@@ -35,29 +40,31 @@ class AnalyticsStateless( Actor ):
         agent = AgentId( routing[ 'agentid' ] )
 
         if etype not in self.modulesCommon:
-            self.modulesCommon[ etype ] = self.getActorHandleGroup( 'analytics/stateless/common/%s/' % etype,
+            self.modulesCommon[ etype ] = self.getActorHandleGroup( self.specific % ( 'common', etype ),
                                                                     timeout = 30,
                                                                     nRetries = 3 )
         self.modulesCommon[ etype ].shoot( 'process', msg.data )
 
         if agent.isWindows():
             if etype not in self.modulesWindows:
-                self.modulesWindows[ etype ] = self.getActorHandleGroup( 'analytics/stateless/windows/%s/' % etype,
+                self.modulesWindows[ etype ] = self.getActorHandleGroup( self.specific % ( 'windows', etype ),
                                                                          timeout = 30,
                                                                          nRetries = 3 )
             self.modulesWindows[ etype ].shoot( 'process', msg.data )
         elif agent.isMacOSX():
             if etype not in self.modulesOsx:
-                self.modulesOsx[ etype ] = self.getActorHandleGroup( 'analytics/stateless/osx/%s/' % etype,
+                self.modulesOsx[ etype ] = self.getActorHandleGroup( self.specific % ( 'osx', etype ),
                                                                      timeout = 30,
                                                                      nRetries = 3 )
             self.modulesOsx[ etype ].shoot( 'process', msg.data )
         elif agent.isLinux():
             if etype not in self.modulesLinux:
-                self.modulesLinux[ etype ] = self.getActorHandleGroup( 'analytics/stateless/linux/%s/' % etype,
+                self.modulesLinux[ etype ] = self.getActorHandleGroup( self.specific % ( 'linux', etype ),
                                                                        timeout = 30,
                                                                        nRetries = 3 )
             self.modulesLinux[ etype ].shoot( 'process', msg.data )
 
+        self.allConsumer.shoot( 'process', msg.data )
+        self.outputs.shoot( 'log', msg.data )
 
         return ( True, )

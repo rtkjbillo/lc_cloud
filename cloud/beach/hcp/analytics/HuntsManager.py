@@ -18,8 +18,8 @@ from beach.beach_api import Beach
 from sets import Set
 
 class HuntsManager( Actor ):
-    def init( self, parameters ):
-        self.beach_api = Beach( parameters[ 'beach_config' ], realm = 'hcp' )
+    def init( self, parameters, resources ):
+        self.beach_api = Beach( self._beach_config_path, realm = 'hcp' )
         self.handle( 'reg_detect', self.handleRegDetect )
         self.handle( 'reg_inv', self.handleRegInvestigation )
         self.handle( 'unreg_detect', self.handleRegDetect )
@@ -31,8 +31,9 @@ class HuntsManager( Actor ):
     def handleRegDetect( self, msg ):
         uid = msg.data[ 'uid' ]
         name = msg.data[ 'name' ]
+        hunter_type = msg.data[ 'hunter_type' ]
 
-        isSuccess = self.beach_api.addToCategory( uid, 'analytics/detects/%s' % ( name, ) )
+        isSuccess = self.beach_api.addToCategory( uid, 'analytics/detects/%s/%s' % ( name, hunter_type ) )
         self.log( 'registering detect %s to %s: %s' % ( uid, name, isSuccess ) )
 
         return ( isSuccess, )
@@ -40,8 +41,9 @@ class HuntsManager( Actor ):
     def handleUnRegDetect( self, msg ):
         uid = msg.data[ 'uid' ]
         name = msg.data[ 'name' ]
+        hunter_type = msg.data[ 'hunter_type' ]
 
-        isSuccess = self.beach_api.removeFromCategory( uid, 'analytics/detects/%s' % ( name, ) )
+        isSuccess = self.beach_api.removeFromCategory( uid, 'analytics/detects/%s/%s' % ( name, hunter_type ) )
         self.log( 'unregistering detect %s to %s: %s' % ( uid, name, isSuccess ) )
 
         return ( isSuccess, )

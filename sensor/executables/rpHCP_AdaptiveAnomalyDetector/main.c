@@ -402,8 +402,17 @@ static RBOOL
 }
 
 //=============================================================================
-//  Entry Point
+//  Entry Points
 //=============================================================================
+RVOID
+    RpHcpI_receiveMessage
+    (
+        rSequence message
+    )
+{
+    UNREFERENCED_PARAMETER( message );
+}
+
 RU32
 RPAL_THREAD_FUNC
     RpHcpI_mainThread

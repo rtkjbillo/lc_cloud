@@ -14,7 +14,7 @@
 
 from beach.actor import Actor
 from threading import Lock
-CreateOnAccess = Actor.importLib( 'hcp_helpers', 'CreateOnAccess' )
+CreateOnAccess = Actor.importLib( 'utils/hcp_helpers', 'CreateOnAccess' )
 
 import time
 import uuid
@@ -73,14 +73,14 @@ class Hunt ( Actor ):
         else:
             inv_id = str( inv_id )
         isSuccess = self._registerToInvData( inv_id )
-        self._handleDetects( None, { 'report_id' : inv_id, 'detect' : {} } )
+        self._handleDetects( None, { 'detect_id' : inv_id, 'detect' : {} } )
         if isSuccess:
             return inv_id
         else:
             return False
 
     def postUpdatedDetect( self, context ):
-        self.log( 'updating report %s with new context' % context[ 'report_id' ] )
+        self.log( 'updating report %s with new context' % context[ 'detect_id' ] )
         self._reporting.shoot( 'report', context )
 
     def _handleDetects( self, msg, manualDetect = None ):
@@ -88,8 +88,8 @@ class Hunt ( Actor ):
             detect = manualDetect
         else:
             detect = msg.data
-        if detect[ 'report_id' ] not in self._contexts:
-            inv_id = detect[ 'report_id' ]
+        if detect[ 'detect_id' ] not in self._contexts:
+            inv_id = detect[ 'detect_id' ]
             self._registerToInvData( inv_id )
             self._contexts[ inv_id ] = ( detect, Lock() )
             self._contexts[ inv_id ][ 1 ].acquire()

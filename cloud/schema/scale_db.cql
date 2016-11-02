@@ -2,12 +2,79 @@ CREATE KEYSPACE "hcp_analytics" WITH REPLICATION = { 'class' : 'SimpleStrategy',
 
 use hcp_analytics;
 
+CREATE TABLE sensor_states(
+  org int,
+  subnet int,
+  unique int,
+  platform int,
+  enroll timestamp,
+  alive timestamp,
+  dead timestamp,
+  ext_ip varchar,
+  int_ip varchar,
+  hostname varchar,
+  PRIMARY KEY( org, subnet, unique, platform )
+) WITH compaction = { 'class' : 'DateTieredCompactionStrategy' } AND gc_grace_seconds = 86400;
+
+CREATE TABLE sensor_hostnames(
+  hostname varchar,
+  aid varchar,
+  PRIMARY KEY( hostname, aid )
+) WITH compaction = { 'class' : 'DateTieredCompactionStrategy' } AND gc_grace_seconds = 86400;
+
+CREATE TABLE enrollment(
+  aid varchar,
+  ext_ip varchar,
+  int_ip varchar,
+  hostname varchar,
+  new_org int,
+  new_subnet int,
+  PRIMARY KEY( aid, ext_ip, int_ip, hostname )
+) WITH compaction = { 'class' : 'DateTieredCompactionStrategy' } AND gc_grace_seconds = 86400;
+
+CREATE TABLE sensor_reloc(
+  aid varchar,
+  new_org int,
+  new_subnet int,
+  PRIMARY KEY( aid )
+) WITH compaction = { 'class' : 'DateTieredCompactionStrategy' } AND gc_grace_seconds = 86400;
+
+CREATE TABLE hcp_modules(
+  mid int,
+  mhash varchar,
+  mdat blob,
+  msig blob,
+  description varchar,
+  PRIMARY KEY( mid, mhash )
+) WITH compaction = { 'class' : 'DateTieredCompactionStrategy' } AND gc_grace_seconds = 86400;
+
+CREATE TABLE hcp_module_tasking(
+  aid varchar,
+  mid int,
+  mhash varchar,
+  PRIMARY KEY( aid, mid, mhash )
+) WITH compaction = { 'class' : 'DateTieredCompactionStrategy' } AND gc_grace_seconds = 86400;
+
+CREATE TABLE hbs_profiles(
+  aid varchar,
+  cprofile blob,
+  oprofile varchar,
+  hprofile varchar,
+  PRIMARY KEY( aid )
+) WITH compaction = { 'class' : 'DateTieredCompactionStrategy' } AND gc_grace_seconds = 86400;
+
+CREATE TABLE hbs_queue(
+  aid varchar,
+  task blob,
+  PRIMARY KEY( aid, task )
+) WITH compaction = { 'class' : 'DateTieredCompactionStrategy' } AND gc_grace_seconds = 86400;
+
 CREATE TABLE events(
   eventid varchar,
   event varchar,
   agentid varchar,
   PRIMARY KEY( eventid )
-) WITH compaction = { 'class' : 'DateTieredCompactionStrategy', 'timestamp_resolution' : 'SECONDS' } AND gc_grace_seconds = 86400;
+) WITH compaction = { 'class' : 'DateTieredCompactionStrategy' } AND gc_grace_seconds = 86400;
 
 CREATE TABLE timeline(
   agentid varchar,
@@ -15,7 +82,7 @@ CREATE TABLE timeline(
   eventtype varchar,
   eventid varchar,
   PRIMARY KEY( agentid, ts )
-) WITH compaction = { 'class' : 'DateTieredCompactionStrategy', 'timestamp_resolution' : 'SECONDS' } AND gc_grace_seconds = 86400;
+) WITH compaction = { 'class' : 'DateTieredCompactionStrategy' } AND gc_grace_seconds = 86400;
 
 CREATE TABLE timeline_by_type(
   agentid varchar,
@@ -23,7 +90,7 @@ CREATE TABLE timeline_by_type(
   eventtype varchar,
   eventid varchar,
   PRIMARY KEY( agentid, eventtype, ts )
-) WITH compaction = { 'class' : 'DateTieredCompactionStrategy', 'timestamp_resolution' : 'SECONDS' } AND gc_grace_seconds = 86400;
+) WITH compaction = { 'class' : 'DateTieredCompactionStrategy' } AND gc_grace_seconds = 86400;
 
 CREATE TABLE obj_man
 (
@@ -103,15 +170,6 @@ CREATE TABLE last_events
   PRIMARY KEY( agentid, type )
 ) WITH compaction = { 'class' : 'LeveledCompactionStrategy' } AND gc_grace_seconds = 86400;
 
-CREATE TABLE investigation_data
-(
-  invid varchar,
-  ts timeuuid,
-  eid varchar,
-  etype varchar,
-  PRIMARY KEY( invid, ts )
-) WITH compaction = { 'class' : 'SizeTieredCompactionStrategy' } AND gc_grace_seconds = 86400;
-
 CREATE TABLE ref_loc
 (
   id varchar,
@@ -121,26 +179,27 @@ CREATE TABLE ref_loc
   PRIMARY KEY( id, plat )
 ) WITH compaction = { 'class' : 'LeveledCompactionStrategy' } AND gc_grace_seconds = 86400;
 
-CREATE TABLE reports
+CREATE TABLE detects
 (
-  repid varchar,
+  did varchar,
   gen timestamp,
   source varchar,
   dtype varchar,
   events varchar,
   detect varchar,
+  why varchar,
 
-  PRIMARY KEY( repid )
-) WITH compaction = { 'class' : 'DateTieredCompactionStrategy', 'timestamp_resolution' : 'SECONDS' } AND gc_grace_seconds = 86400;
+  PRIMARY KEY( did )
+) WITH compaction = { 'class' : 'DateTieredCompactionStrategy' } AND gc_grace_seconds = 86400;
 
-CREATE TABLE report_timeline
+CREATE TABLE detect_timeline
 (
   d int,
   ts timeuuid,
-  repid varchar,
+  did varchar,
 
   PRIMARY KEY( d, ts )
-) WITH compaction = { 'class' : 'DateTieredCompactionStrategy', 'timestamp_resolution' : 'SECONDS' } AND gc_grace_seconds = 86400;
+) WITH compaction = { 'class' : 'DateTieredCompactionStrategy' } AND gc_grace_seconds = 86400;
 
 CREATE TABLE keyvalue
 (
@@ -150,5 +209,65 @@ CREATE TABLE keyvalue
   v varchar,
 
   PRIMARY KEY( k, c )
-) WITH compaction = { 'class' : 'DateTieredCompactionStrategy', 'timestamp_resolution' : 'SECONDS' } AND gc_grace_seconds = 86400;
+) WITH compaction = { 'class' : 'DateTieredCompactionStrategy' } AND gc_grace_seconds = 86400;
 
+CREATE TABLE atoms_children
+(
+  atomid uuid,
+  child uuid,
+  eid varchar,
+  PRIMARY KEY( atomid, child )
+) WITH compaction = { 'class' : 'DateTieredCompactionStrategy' } AND gc_grace_seconds = 86400;
+
+CREATE TABLE atoms_lookup
+(
+  atomid uuid,
+  eid varchar,
+  PRIMARY KEY( atomid, eid )
+) WITH compaction = { 'class' : 'DateTieredCompactionStrategy' } AND gc_grace_seconds = 86400;
+
+CREATE TABLE investigation_data
+(
+  invid varchar,
+  ts timeuuid,
+  eid varchar,
+  etype varchar,
+  PRIMARY KEY( invid, ts )
+) WITH compaction = { 'class' : 'SizeTieredCompactionStrategy' } AND gc_grace_seconds = 86400;
+
+CREATE TABLE investigation
+(
+  invid varchar,
+  hunter varchar,
+  gen timestamp,
+  closed timestamp,
+  nature int,
+  conclusion int,
+  why varchar,
+
+  PRIMARY KEY( invid, hunter )
+) WITH compaction = { 'class' : 'DateTieredCompactionStrategy' } AND gc_grace_seconds = 86400;
+
+CREATE TABLE inv_data
+(
+  invid varchar,
+  hunter varchar,
+  gen timeuuid,
+  why varchar,
+  data blob,
+
+  PRIMARY KEY( invid, hunter, gen )
+) WITH compaction = { 'class' : 'DateTieredCompactionStrategy' } AND gc_grace_seconds = 86400;
+
+CREATE TABLE inv_task
+(
+  invid varchar,
+  hunter varchar,
+  gen timeuuid,
+  why varchar,
+  dest varchar,
+  data blob,
+  sent int,
+
+  PRIMARY KEY( invid, hunter, gen )
+) WITH compaction = { 'class' : 'DateTieredCompactionStrategy' } AND gc_grace_seconds = 86400;

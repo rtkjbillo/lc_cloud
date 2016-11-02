@@ -25,12 +25,11 @@ FORCE_LINK_THIS(HCP_IFACE);
 
 rpHCPModuleContext* g_Module_Context = NULL;
 extern RpHcp_ModuleId g_current_Module_id;
-extern RU32 (RPAL_THREAD_FUNC RpHcpI_mainThread)( rEvent isTimeToStop );
+extern RU32( RPAL_THREAD_FUNC RpHcpI_mainThread )( rEvent isTimeToStop );
+extern RVOID( RpHcpI_receiveMessage )( rSequence message );
 
 RU32
-#ifdef RPAL_PLATFORM_WINDOWS
-__declspec(dllexport)
-#endif
+RPAL_EXPORT
 RPAL_THREAD_FUNC
     rpHcpI_entry
     (
@@ -84,19 +83,30 @@ RPAL_THREAD_FUNC
     return ret;
 }
 
-RBOOL
-    rpHcpI_beaconHome
+RU32
+RPAL_EXPORT
+RPAL_THREAD_FUNC
+    rpHcpI_receiveMessage
     (
-        rList requests,
-        rList* responses
+        rSequence message
+    )
+{
+    RpHcpI_receiveMessage( message );
+    return 0;
+}
+
+RBOOL
+    rpHcpI_sendHome
+    (
+        rList requests
     )
 {
     RBOOL isSuccess = FALSE;
 
     if( NULL != g_Module_Context &&
-        NULL != g_Module_Context->func_beaconHome )
+        NULL != g_Module_Context->func_sendHome )
     {
-        isSuccess = g_Module_Context->func_beaconHome( g_current_Module_id, requests, responses );
+        isSuccess = g_Module_Context->func_sendHome( g_current_Module_id, requests );
     }
 
     return isSuccess;
@@ -178,3 +188,18 @@ rpHCPId
     return id;
 }
 
+rEvent
+    rpHcpI_getOnlineEvent
+    (
+
+    )
+{
+    rEvent isOnlineEvent = NULL;
+
+    if( NULL != g_Module_Context )
+    {
+        isOnlineEvent = g_Module_Context->isOnlineEvent;
+    }
+
+    return isOnlineEvent;
+}

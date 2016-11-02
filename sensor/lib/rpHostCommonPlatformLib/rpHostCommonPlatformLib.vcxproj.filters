@@ -65,6 +65,7 @@
     <ClInclude Include="crashHandling.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="git_info.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="obfuscated.txt" />

@@ -26,7 +26,7 @@ limitations under the License.
 // Common Macros
 #define IS_FLAG_ENABLED(flags,toTest)	( 0 != ( (flags) & (toTest) ) )
 #define ENABLE_FLAG(flags,toEnable)		( (flags) = (flags) | (toEnable) )
-#define DISABLE_FLAG(flags,toDisable)	( (flags) = (flags) & ( (toDisable) ^ (toDisable) ) )
+#define DISABLE_FLAG(flags,toDisable)	( (flags) = (flags) & ( (toDisable) ^ (-1) ) )
 #define IS_WITHIN_BOUNDS(elem,elemSize,container,containerSize) (((RU64)(elem) >= (RU64)(container)) &&\
                                                                  ((RU64)(elem) + (RU64)(elemSize) <= (RU64)(container) + (RU64)(containerSize)))
 #define ARRAY_N_ELEM(arr)               (sizeof(arr) / sizeof((arr)[0]))
@@ -37,6 +37,8 @@ limitations under the License.
 
 #define MIN_OF(a,b)     ( (a) > (b) ? (b) : (a) )
 #define MAX_OF(a,b)     ( (a) > (b) ? (a) : (b) )
+
+#define DELTA_OF(a,b)   ( MAX_OF((a),(b)) - MIN_OF((a),(b)) )
 
 #define FORCE_LINK_THIS(x) int force_link_##x = 0;
 #define FORCE_LINK_THAT(x) { extern int force_link_##x; force_link_##x = 1; }

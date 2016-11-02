@@ -3,7 +3,7 @@ Import( 'compmap' )
 
 for subdir in [
     'rpal_test',
-    'rpHCP_test',
+    #'rpHCP_test',
     'processLib_test',
     ]:
     SConscript(

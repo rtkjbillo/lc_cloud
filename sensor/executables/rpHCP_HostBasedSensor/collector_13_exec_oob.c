@@ -142,9 +142,9 @@ RBOOL
     {
         while( rList_getSEQUENCE( mods, RP_TAGS_DLL, &mod ) )
         {
-            if( rSequence_getSTRINGW( mod, RP_TAGS_FILE_PATH, &nameW ) )
+            if( rSequence_getSTRINGN( mod, RP_TAGS_FILE_PATH, &nameW ) )
             {
-                if( NULL != rpal_string_stristrw( nameW, dotNetDir ) )
+                if( NULL != rpal_string_stristr( nameW, dotNetDir ) )
                 {
                     isJITPresent = TRUE;
                     break;
@@ -186,6 +186,8 @@ RPVOID
     RU32 curProcId = 0;
     RBOOL isJITPresent = FALSE;
     RTIME runTime = 0;
+    Atom parentAtom = { 0 };
+    RU64 curTime = 0;
 
     curProcId = processLib_getCurrentPid();
     curThreadId = processLib_getCurrentThreadId();
@@ -214,7 +216,7 @@ RPVOID
             while( !rEvent_wait( isTimeToStop, 0 ) &&
                    rList_getRU32( threads, RP_TAGS_THREAD_ID, &threadId ) )
             {
-                libOs_timeoutWithProfile( perfProfile, FALSE );
+                libOs_timeoutWithProfile( perfProfile, FALSE, isTimeToStop );
 
                 // We get the modules for every thread right before getting the
                 // stack trace to limit time difference between both snapshots.
@@ -269,7 +271,7 @@ RPVOID
                     rList_free( mods );
                 }
 
-                libOs_timeoutWithProfile( perfProfile, TRUE );
+                libOs_timeoutWithProfile( perfProfile, TRUE, isTimeToStop );
             }
 
             rList_free( threads );
@@ -280,15 +282,24 @@ RPVOID
         if( isFound &&
             NULL != ( notif = processLib_getProcessInfo( processId, NULL ) ) )
         {
+            curTime = rpal_time_getGlobalPreciseTime();
+
             if( !rSequence_addLIST( notif, RP_TAGS_STACK_TRACES, traces ) )
             {
                 rList_free( traces );
             }
 
-            hbs_markAsRelated( originalRequest, notif );
-            rSequence_addTIMESTAMP( notif, RP_TAGS_TIMESTAMP, rpal_time_getGlobal() );
+            parentAtom.key.category = RP_TAGS_NOTIFICATION_NEW_PROCESS;
+            parentAtom.key.process.pid = processId;
+            if( atoms_query( &parentAtom, curTime ) )
+            {
+                rSequence_addBUFFER( notif, RP_TAGS_HBS_PARENT_ATOM, parentAtom.id, sizeof( parentAtom.id ) );
+            }
 
-            notifications_publish( RP_TAGS_NOTIFICATION_EXEC_OOB, notif );
+            hbs_markAsRelated( originalRequest, notif );
+            hbs_timestampEvent( notif, curTime );
+
+            hbs_publish( RP_TAGS_NOTIFICATION_EXEC_OOB, notif );
 
             rSequence_free( notif );
         }
@@ -442,11 +453,11 @@ RPVOID
     LibOsPerformanceProfile perfProfile = { 0 };
 
     perfProfile.enforceOnceIn = 1;
-    perfProfile.sanityCeiling = MSEC_FROM_SEC( 30 );
+    perfProfile.sanityCeiling = MSEC_FROM_SEC( 15 );
     perfProfile.lastTimeoutValue = MSEC_FROM_SEC( 1 );
     perfProfile.targetCpuPerformance = 0;
     perfProfile.globalTargetCpuPerformance = GLOBAL_CPU_USAGE_TARGET;
-    perfProfile.timeoutIncrementPerSec = 100;
+    perfProfile.timeoutIncrementPerSec = 50;
 
     while( rpal_memory_isValid( isTimeToStop ) &&
            !rEvent_wait( isTimeToStop, 0 ) )
@@ -461,7 +472,7 @@ RPVOID
             {
                 lookForExecOobIn( isTimeToStop, proc->pid, originalRequest, &perfProfile );
 
-                libOs_timeoutWithProfile( &perfProfile, TRUE );
+                libOs_timeoutWithProfile( &perfProfile, TRUE, isTimeToStop );
 
                 proc++;
             }

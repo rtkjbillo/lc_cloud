@@ -26,6 +26,7 @@ import os.path
 import sys
 import syslog
 import base64
+import uuid
 
 try:
     from admin_lib import BEAdmin
@@ -37,9 +38,9 @@ try:
 except:
     from beach.actor import Actor
     BEAdmin = Actor.importLib( 'admin_lib', 'BEAdmin' )
-    AgentId = Actor.importLib( 'hcp_helpers', 'AgentId' )
-    rSequence = Actor.importLib( 'rpcm', 'rSequence' )
-    rList = Actor.importLib( 'rpcm', 'rList' )
+    AgentId = Actor.importLib( 'utils/hcp_helpers', 'AgentId' )
+    rSequence = Actor.importLib( 'utils/rpcm', 'rSequence' )
+    rList = Actor.importLib( 'utils/rpcm', 'rList' )
     Symbols = Actor.importLib( 'Symbols', 'Symbols' )
     Signing = Actor.importLib( 'signing', 'Signing' )
 
@@ -71,6 +72,7 @@ class HcpCli ( cmd.Cmd ):
     prompt = '<NEED_LOGIN> %> '
 
     def __init__( self, beachConfig = None, token = None, hbsKey = None, logFile = None ):
+        self.histFile = os.path.expanduser( '~/.lc_history' )
         self.logFile = logFile
         if self.logFile is not None:
             self.logFile = open( self.logFile, 'w', 0 )
@@ -83,6 +85,13 @@ class HcpCli ( cmd.Cmd ):
         self.investigationId = None
         self.tags = Symbols()
         readline.set_completer_delims(":;'\"? \t")
+        readline.set_history_length( 100 )
+        try:
+            readline.read_history_file( self.histFile )
+        except:
+            self.outputString( 'Failed to load history file' )
+            open( self.histFile, 'w' ).close()
+
 
         if beachConfig is not None:
             self.connectWithConfig( beachConfig, token )
@@ -127,7 +136,7 @@ class HcpCli ( cmd.Cmd ):
             parser.add_argument( '-x',
                                   type = int,
                                   required = False,
-                                  default = ( 60 * 60 * 1 ),
+                                  default = 0,
                                   help = 'set this command\'s specific expiry time in seconds.',
                                   dest = 'expiry' )
 
@@ -169,6 +178,7 @@ class HcpCli ( cmd.Cmd ):
             return [ x[ 3 : ] for x in dir( self ) if x.startswith( 'do_' ) ]
 
     def execAndPrintResponse( self, command, arguments, isHbsTask = False ):
+        readline.write_history_file( self.histFile )
         if isHbsTask:
             tmp = arguments
             arguments = argparse.Namespace()
@@ -463,16 +473,6 @@ class HcpCli ( cmd.Cmd ):
                              default = '255.255.255.255',
                              help = 'external ip mask the rule applies to (255 wildcard)',
                              dest = 'externalIp' )
-        parser.add_argument( '-s', '--newsubnet',
-                             type = hexArg,
-                             required = True,
-                             help = 'new subnet to give to agents matching this rule (hex)',
-                             dest = 'newSubnet' )
-        parser.add_argument( '-o', '--neworg',
-                             type = hexArg,
-                             required = True,
-                             help = 'new org to give to agents matching this rule (hex)',
-                             dest = 'newOrg' )
         parser.add_argument( '-n', '--hostname',
                              type = str,
                              required = False,
@@ -953,6 +953,50 @@ class HcpCli ( cmd.Cmd ):
                                      arguments )
 
     @report_errors
+    def do_os_suspend( self, s ):
+        '''Suspend a process or thread on the host.'''
+
+        parser = self.getParser( 'os_suspend', True )
+        parser.add_argument( '-p', '--pid',
+                             type = int,
+                             required = True,
+                             help = 'process id' )
+        parser.add_argument( '-t', '--tid',
+                             type = int,
+                             required = False,
+                             help = 'thread id' )
+        arguments = self.parse( parser, s )
+        if arguments is not None:
+            payload = rSequence().addInt32( self.tags.base.PROCESS_ID, arguments.pid )
+            if arguments.tid is not None:
+                payload.addInt32( self.tags.base.THREAD_ID, arguments.tid )
+            self._executeHbsTasking( self.tags.notification.OS_SUSPEND_REQ,
+                                     payload,
+                                     arguments )
+
+    @report_errors
+    def do_os_resume( self, s ):
+        '''Resume a process or thread on the host.'''
+
+        parser = self.getParser( 'os_resume', True )
+        parser.add_argument( '-p', '--pid',
+                             type = int,
+                             required = True,
+                             help = 'process id' )
+        parser.add_argument( '-t', '--tid',
+                             type = int,
+                             required = False,
+                             help = 'thread id' )
+        arguments = self.parse( parser, s )
+        if arguments is not None:
+            payload = rSequence().addInt32( self.tags.base.PROCESS_ID, arguments.pid )
+            if arguments.tid is not None:
+                payload.addInt32( self.tags.base.THREAD_ID, arguments.tid )
+            self._executeHbsTasking( self.tags.notification.OS_RESUME_REQ,
+                                     payload,
+                                     arguments )
+
+    @report_errors
     def do_os_processes( self, s ):
         '''Generate a new process snapshot.'''
 
@@ -1203,10 +1247,32 @@ class HcpCli ( cmd.Cmd ):
         '''Dump the full recent history of events on the sensor.'''
 
         parser = self.getParser( 'history_dump', True )
+        parser.add_argument( '-r', '--rootatom',
+                             type = uuid.UUID,
+                             required = False,
+                             dest = 'root',
+                             help = 'dump events present in the tree rooted at this atom' )
+        parser.add_argument( '-a', '--atom',
+                             type = uuid.UUID,
+                             required = False,
+                             dest = 'atom',
+                             help = 'dump the event with this specific atom' )
+        parser.add_argument( '-e', '--event',
+                             type = eventArg,
+                             required = False,
+                             dest = 'event',
+                             help = 'dump events of this type only' )
         arguments = self.parse( parser, s )
         if arguments is not None:
+            e = rSequence()
+            if arguments.root is not None:
+                e.addBuffer( self.tags.hbs.PARENT_ATOM, arguments.root.bytes )
+            if arguments.atom is not None:
+                e.addBuffer( self.tags.hbs.THIS_ATOM, arguments.atom.bytes )
+            if arguments.event is not None:
+                e.addInt32( self.tags.hbs.NOTIFICATION_ID, arguments.event )
             self._executeHbsTasking( self.tags.notification.HISTORY_DUMP_REQ,
-                                     rSequence(),
+                                     e,
                                      arguments )
 
     @report_errors

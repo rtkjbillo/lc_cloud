@@ -33,6 +33,12 @@ typedef struct
     RU8 _[ CRYPTOLIB_HASH_SIZE ];
 } CryptoLib_Hash;
 
+typedef RPVOID CryptoLib_SymContext;
+
+#define CRYPTOLIB_SYM_BUFFER_PADDING(size) ( ( CRYPTOLIB_SYM_MOD_SIZE - ( (size) % CRYPTOLIB_SYM_MOD_SIZE ) ) ? \
+                                             ( CRYPTOLIB_SYM_MOD_SIZE - ( (size) % CRYPTOLIB_SYM_MOD_SIZE ) ) :\
+                                             CRYPTOLIB_SYM_MOD_SIZE )
+
 RBOOL
     CryptoLib_init
     (
@@ -63,24 +69,42 @@ RBOOL
         RU8 signature[ CRYPTOLIB_SIGNATURE_SIZE ]
     );
 
+CryptoLib_SymContext
+    CryptoLib_symEncInitContext
+    (
+        RU8 key[ CRYPTOLIB_SYM_KEY_SIZE ],
+        RU8 iv[ CRYPTOLIB_SYM_IV_SIZE ]
+    );
+
+CryptoLib_SymContext
+    CryptoLib_symDecInitContext
+    (
+        RU8 key[ CRYPTOLIB_SYM_KEY_SIZE ],
+        RU8 iv[ CRYPTOLIB_SYM_IV_SIZE ]
+    );
+
+RVOID
+    CryptoLib_symFreeContext
+    (
+        CryptoLib_SymContext ctx
+    );
+
 RBOOL
     CryptoLib_symEncrypt
     (
-        RPVOID bufferToEncrypt,
-        RU32 bufferSize,
+        rBlob bufferToEncrypt,
         RU8 key[ CRYPTOLIB_SYM_KEY_SIZE ],
         RU8 iv[ CRYPTOLIB_SYM_IV_SIZE ],
-        RU32* pEncryptedSize
+        CryptoLib_SymContext optContext
     );
 
 RBOOL
     CryptoLib_symDecrypt
     (
-        RPVOID bufferToDecrypt,
-        RU32 bufferSize,
+        rBlob bufferToDecrypt,
         RU8 key[ CRYPTOLIB_SYM_KEY_SIZE ],
         RU8 iv[ CRYPTOLIB_SYM_IV_SIZE ],
-        RU32* pDecryptedSize
+        CryptoLib_SymContext optContext
     );
 
 RBOOL
@@ -113,21 +137,15 @@ RBOOL
 RBOOL
     CryptoLib_fastAsymEncrypt
     (
-        RPVOID bufferToEncrypt,
-        RU32 bufferSize,
-        RU8 pubKey[ CRYPTOLIB_ASYM_KEY_SIZE_PUB ],
-        RPU8* pEncryptedBuffer,
-        RU32* pEncryptedSize
+        rBlob bufferToEncrypt,
+        RU8 pubKey[ CRYPTOLIB_ASYM_KEY_SIZE_PUB ]
     );
 
 RBOOL
     CryptoLib_fastAsymDecrypt
     (
-        RPVOID bufferToDecrypt,
-        RU32 bufferSize,
-        RU8 priKey[ CRYPTOLIB_ASYM_KEY_SIZE_PRI ],
-        RPU8* pDecryptedBuffer,
-        RU32* pDecryptedSize
+        rBlob bufferToDecrypt,
+        RU8 priKey[ CRYPTOLIB_ASYM_KEY_SIZE_PRI ]
     );
 
 RBOOL
@@ -139,19 +157,11 @@ RBOOL
     );
 
 RBOOL
-    CryptoLib_hashFileW
+    CryptoLib_hashFile
     (
-        RPWCHAR fileName,
+        RPNCHAR fileName,
         CryptoLib_Hash* pHash,
         RBOOL isAvoidTimestamps
     );
     
-RBOOL
-    CryptoLib_hashFileA
-    (
-        RPCHAR fileName,
-        CryptoLib_Hash* pHash,
-        RBOOL isAvoidTimestamps
-    );
-
 #endif

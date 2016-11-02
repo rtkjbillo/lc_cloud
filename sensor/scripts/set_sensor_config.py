@@ -17,11 +17,11 @@ import sys
 sys.path.append( os.path.join( os.path.dirname( os.path.abspath( __file__ ) ), '..', '..', 'cloud', 'beach' ) )
 os.chdir( os.path.join( os.path.dirname( os.path.abspath( __file__ ) ), '..', '..' ) )
 
-from hcp.rpcm import rpcm
-from hcp.rpcm import rSequence
-from hcp.rpcm import rList
+from hcp.utils.rpcm import rpcm
+from hcp.utils.rpcm import rSequence
+from hcp.utils.rpcm import rList
 from hcp.Symbols import Symbols
-from hcp.hcp_helpers import AgentId
+from hcp.utils.hcp_helpers import AgentId
 
 import sys
 import tarfile

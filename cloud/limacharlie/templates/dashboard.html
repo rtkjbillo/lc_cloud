@@ -10,7 +10,8 @@ $var title = "Dashboard"
                     <th>Internal IP &nbsp;&nbsp;<small><span class="glyphicon glyphicon-retweet"></span></small></th></th>
                     <th>External IP &nbsp;&nbsp;<small><span class="glyphicon glyphicon-retweet"></span></small></th></th>
                     <th>Enrollment &nbsp;&nbsp;<small><span class="glyphicon glyphicon-retweet"></span></small></th></th>
-                    <th>Last Seen &nbsp;&nbsp;<small><span class="glyphicon glyphicon-retweet"></span></small></th></th>
+                    <th>Last Connect &nbsp;&nbsp;<small><span class="glyphicon glyphicon-retweet"></span></small></th></th>
+                    <th>Last Disconnect &nbsp;&nbsp;<small><span class="glyphicon glyphicon-retweet"></span></small></th></th>
                     <th></th>
                 </tr>
             </thead>
@@ -33,7 +34,10 @@ $var title = "Dashboard"
                         $sensor[ 'enrollment_date' ]
                     </td>
                     <td>
-                        $sensor[ 'date_last_seen' ]
+                        $sensor[ 'last_connect_date' ]
+                    </td>
+                    <td>
+                        $sensor[ 'last_disconnect_date' ]
                     </td>
                     <td>
                         <a href="/sensor?sensor_id=$sensor[ 'agent_id' ]" title="View Sensor Info" class="glyphicon glyphicon-log-in"></a>

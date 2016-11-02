@@ -94,7 +94,7 @@ $var title = 'Detects'
 
                 jQuery('#timeline').prepend(
                     jQuery('<tr>').append(
-                        jQuery('<td>').html( ts_to_time( Math.floor( e[ 0 ] / 1000 ) ) )
+                        jQuery('<td>').html( ts_to_time( Math.floor( e[ 0 ] ) ) )
                     ).append(
                         jQuery('<td>').html( e[ 2 ] )
                     ).append(

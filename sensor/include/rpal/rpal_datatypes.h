@@ -29,10 +29,13 @@ limitations under the License.
         #define  _WIN32_WINNT 0x0500
     #endif
     #ifdef RPAL_PLATFORM_KERNEL
-        #include <ntddk.h>
+        #include <fltKernel.h>
     #else
+        #define WIN32_LEAN_AND_MEAN
         #include <windows.h>
+        #include <winsock2.h>
         #include <windows_undocumented.h>
+        #include <winioctl.h>
     #endif
     #include <string.h>
     #include <stdlib.h>
@@ -87,10 +90,27 @@ limitations under the License.
     typedef float           RFLOAT;
     typedef double          RDOUBLE;
 
-    typedef RWCHAR          RNATIVECHAR;
-    typedef RPWCHAR         RNATIVESTR;
-    #define RNATIVE_LITERAL(str) _WCH(str)
+    typedef RWCHAR          RNCHAR;
+    typedef RPWCHAR         RPNCHAR;
+    #define _NC(str)        _WCH(str)
     #define RNATIVE_IS_WIDE
+
+    // Printf format helpers
+    #define RF_STR_W        "%S"
+    #define RF_STR_A        "%s"
+    #define RF_STR_N        RF_STR_W
+    #define RF_U32          "%I32u"
+    #define RF_S32          "%I32d"
+    #define RF_X32          "%I32X"
+    #define RF_U64          "%I64u"
+    #define RF_S64          "%I64d"
+    #define RF_X64          "%I64X"
+    #define RF_SIZET        "%Iu"
+    #ifdef RPAL_PLATFORM_64_BIT
+        #define RF_PTR          "0x%016p"
+    #else
+        #define RF_PTR          "0x%08p"
+    #endif
 
 #elif defined( RPAL_PLATFORM_LINUX ) || defined( RPAL_PLATFORM_MACOSX )
     #include <stdint.h>
@@ -137,10 +157,36 @@ limitations under the License.
     typedef float           RFLOAT;
     typedef double          RDOUBLE;
 
-    typedef RCHAR           RNATIVECHAR;
-    typedef RPCHAR          RNATIVESTR;
-    #define RNATIVE_LITERAL(str) str
+    typedef RCHAR           RNCHAR;
+    typedef RPCHAR          RPNCHAR;
+    #define _NC(str)        str
     #define RNATIVE_IS_BYTE
+
+    // Printf format helpers
+    #define RF_STR_W        "%ls"
+    #define RF_STR_A        "%s"
+    #define RF_STR_N        RF_STR_W
+    #ifdef RPAL_PLATFORM_MACOSX
+        #define RF_U32          "%u"
+        #define RF_S32          "%d"
+        #define RF_X32          "%X"
+        #define RF_U64          "%llu"
+        #define RF_S64          "%lld"
+        #define RF_X64          "%llX"
+    #else
+        #define RF_U32          "%u"
+        #define RF_S32          "%d"
+        #define RF_X32          "%X"
+        #define RF_U64          "%lu"
+        #define RF_S64          "%ld"
+        #define RF_X64          "%lX"
+    #endif
+    #define RF_SIZET        "%zu"
+    #ifdef RPAL_PLATFORM_64_BIT
+        #define RF_PTR          "0x%p"
+    #else
+        #define RF_PTR          "0x%p"
+    #endif
 #endif
 
 // Common values
@@ -171,15 +217,37 @@ limitations under the License.
     #define UNREFERENCED_PARAMETER(p) (p=p)
 #endif
 
+#ifdef RPAL_PLATFORM_WINDOWS
+    #define RASSERT(e)          if(!(e)){ DebugBreak(); }
+#else
+    #define RASSERT(e)          if(!(e)){ raise( SIGTRAP ); }
+#endif
+
 #define IS_PTR_ALIGNED(ptr) (0 == (RSIZET)(ptr) % sizeof(RU32))
 
 // Export Visibility Control
 #ifdef RPAL_PLATFORM_WINDOWS
     #define RPAL_EXPORT         __declspec(dllexport)
     #define RPAL_DONT_EXPORT
+    #define RPAL_NATIVE_MAIN \
+int\
+    RPAL_EXPORT\
+        wmain\
+        (\
+            int argc,\
+            RWCHAR* argv[]\
+        )
 #elif defined( RPAL_PLATFORM_LINUX ) || defined( RPAL_PLATFORM_MACOSX )
     #define RPAL_EXPORT         __attribute__((visibility("default")))
     #define RPAL_DONT_EXPORT    __attribute__((visibility("hidden")))
+    #define RPAL_NATIVE_MAIN \
+int\
+    RPAL_EXPORT\
+        main\
+        (\
+            int argc,\
+            RCHAR* argv[]\
+        )
 #endif
 
 //=============================================================================

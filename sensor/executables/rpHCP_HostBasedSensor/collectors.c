@@ -17,6 +17,7 @@ limitations under the License.
 #include "collectors.h"
 #include <rpHostCommonPlatformLib/rTags.h>
 #include <libOs/libOs.h>
+#include <notificationsLib/notificationsLib.h>
 
 #define RPAL_FILE_ID        103
 
@@ -28,6 +29,15 @@ typedef struct
     RU32 maxTotalSize;
 
 } _HbsRingBuffer;
+
+typedef struct
+{
+    rBTree events;
+    RU32 nMilliSeconds;
+    rEvent newElemEvent;
+    rMutex mutex;
+    RTIME oldestItem;
+} _HbsDelayBuffer;
 
 RBOOL
     hbs_markAsRelated
@@ -55,6 +65,33 @@ RBOOL
     }
 
     return isSuccess;
+}
+
+RBOOL
+    hbs_timestampEvent
+    (
+        rSequence event,
+        RTIME optOriginal
+    )
+{
+    RBOOL isTimestamped = FALSE;
+    RTIME ts = 0;
+
+    if( NULL != event )
+    {
+        if( 0 != optOriginal )
+        {
+            ts = optOriginal;
+        }
+        else
+        {
+            ts = rpal_time_getGlobalPreciseTime();
+        }
+
+        isTimestamped = rSequence_addTIMESTAMP( event, RP_TAGS_TIMESTAMP, ts );
+    }
+
+    return isTimestamped;
 }
 
 RBOOL
@@ -277,4 +314,320 @@ RBOOL
     }
 
     return isFound;
+}
+
+RBOOL
+    hbs_sendCompletionEvent
+    (
+        rSequence originalRequest,
+        rpcm_tag eventType,
+        RU32 errorCode,
+        RPCHAR errorMessage
+    )
+{
+    RBOOL isSuccess = FALSE;
+
+    rSequence event = NULL;
+
+    if( NULL != ( event = rSequence_new() ) )
+    {
+        if( rSequence_addRU32( event, RP_TAGS_ERROR, errorCode ) &&
+            ( NULL == errorMessage || rSequence_addSTRINGA( event, RP_TAGS_ERROR_MESSAGE, errorMessage ) ) )
+        {
+            hbs_markAsRelated( originalRequest, event );
+            hbs_timestampEvent( event, 0 );
+            isSuccess = notifications_publish( eventType, event );
+        }
+
+        rSequence_free( event );
+    }
+
+    return isSuccess;
+}
+
+RBOOL
+    hbs_publish
+    (
+        rpcm_tag eventType,
+        rSequence event
+    )
+{
+    RBOOL isSuccess = FALSE;
+    RPU8 pAtomId = NULL;
+    Atom atom = { 0 };
+    RU32 atomSize = 0;
+    RTIME ts = 0;
+
+    if( NULL != event )
+    {
+        // We will add a one-off atom for free if it's not there.
+        // But if you need a registered atom you will need to generate it and 
+        // add it yourself.
+        if( !rSequence_getBUFFER( event, RP_TAGS_HBS_THIS_ATOM, &pAtomId, &atomSize ) )
+        {
+            atoms_getOneTime( &atom );
+            rSequence_addBUFFER( event, RP_TAGS_HBS_THIS_ATOM, atom.id, sizeof( atom.id ) );
+        }
+
+        if( !rSequence_getTIMESTAMP( event, RP_TAGS_TIMESTAMP, &ts ) )
+        {
+            hbs_timestampEvent( event, 0 );
+        }
+
+        isSuccess = notifications_publish( eventType, event );
+
+        rSequence_unTaintRead( event );
+    }
+
+    return isSuccess;
+}
+
+typedef struct
+{
+    rpcm_tag type;
+    RTIME ts;
+    rSequence event;
+} _EventStub;
+
+static
+RS32
+    _cmpEventTimes
+    (
+        _EventStub* evt1,
+        _EventStub* evt2
+    )
+{
+    RS32 ret = 0;
+    RTIME t1 = 0;
+    RTIME t2 = 0;
+
+    if( NULL != evt1 &&
+        NULL != evt2 )
+    {
+        t1 = evt1->ts;
+        t2 = evt2->ts;
+
+        // First key is the time and the pointer value is the tie breaker.
+        if( t1 > t2 )
+        {
+            ret = 1;
+        }
+        else if( t2 > t1 )
+        {
+            ret = -1;
+        }
+        else if( evt1->event > evt2->event )
+        {
+            ret = 1;
+        }
+        else if( evt2->event > evt1->event )
+        {
+            ret = -1;
+        }
+        else
+        {
+            ret = 0;
+        }
+    }
+
+    return ret;
+}
+
+static
+RVOID
+    _freeStub
+    (
+        _EventStub* evt
+    )
+{
+    if( NULL != evt )
+    {
+        rSequence_free( evt->event );
+    }
+}
+
+HbsDelayBuffer
+    HbsDelayBuffer_new
+    (
+        RU32 nMilliSeconds
+    )
+{
+    _HbsDelayBuffer* hdb = NULL;
+
+    if( NULL != ( hdb = rpal_memory_alloc( sizeof( *hdb ) ) ) )
+    {
+        hdb->nMilliSeconds = nMilliSeconds;
+        hdb->oldestItem = (RTIME)(-1);
+        if( NULL == ( hdb->events = rpal_btree_create( sizeof( _EventStub ),
+                                                       (rpal_btree_comp_f)_cmpEventTimes,
+                                                       (rpal_btree_free_f)_freeStub ) ) ||
+            NULL == ( hdb->newElemEvent = rEvent_create( FALSE ) ) ||
+            NULL == ( hdb->mutex = rMutex_create() ) )
+        {
+            rEvent_free( hdb->newElemEvent );
+            rMutex_free( hdb->mutex );
+            rpal_btree_destroy( hdb->events, FALSE );
+            rpal_memory_free( hdb );
+            hdb = NULL;
+        }
+    }
+
+    return hdb;
+}
+
+RBOOL
+    HbsDelayBuffer_add
+    (
+        HbsDelayBuffer hdb,
+        rpcm_tag eventType,
+        rSequence event
+    )
+{
+    RBOOL isAdded = FALSE;
+    _HbsDelayBuffer* pHdb = (_HbsDelayBuffer*)hdb;
+    RTIME newTime = 0;
+    _EventStub stub = { 0 };
+
+    if( NULL != pHdb )
+    {
+        if( rMutex_lock( pHdb->mutex ) )
+        {
+            stub.event = event;
+            stub.type = eventType;
+
+            if( rSequence_getTIMESTAMP( event, RP_TAGS_TIMESTAMP, &newTime ) )
+            {
+                stub.ts = newTime;
+
+                if( rpal_btree_add( pHdb->events, &stub, FALSE ) )
+                {
+                    if( newTime < pHdb->oldestItem )
+                    {
+                        pHdb->oldestItem = newTime;
+                        rEvent_set( pHdb->newElemEvent );
+                    }
+
+                    isAdded = TRUE;
+                }
+            }
+            rMutex_unlock( pHdb->mutex );
+        }
+    }
+
+    return isAdded;
+}
+
+RVOID
+    HbsDelayBuffer_free
+    (
+        HbsDelayBuffer hdb
+    )
+{
+    _HbsDelayBuffer* pHdb = (_HbsDelayBuffer*)hdb;
+
+    if( NULL != pHdb )
+    {
+        rMutex_lock( pHdb->mutex );
+        rEvent_free( pHdb->newElemEvent );
+        rMutex_free( pHdb->mutex );
+        rpal_btree_destroy( pHdb->events, TRUE );
+        rpal_memory_free( pHdb );
+    }
+}
+
+RBOOL
+    HbsDelayBuffer_remove
+    (
+        HbsDelayBuffer hdb,
+        rSequence* pEvent,
+        rpcm_tag* pEventType,
+        RU32 milliSecTimeout
+    )
+{
+    RBOOL isSuccess = FALSE;
+    _HbsDelayBuffer* pHdb = (_HbsDelayBuffer*)hdb;
+    RTIME curTime = 0;
+    RTIME endWait = 0;
+    RTIME toWait = 0;
+    RBOOL isItemReady = FALSE;
+    _EventStub stub = { 0 };
+
+    if( NULL != pHdb &&
+        NULL != pEvent &&
+        NULL != pEventType )
+    {
+        if( rMutex_lock( pHdb->mutex ) )
+        {
+            curTime = rpal_time_getGlobalPreciseTime();
+            endWait = curTime + milliSecTimeout;
+
+            do
+            {
+                if( (RTIME)( -1 ) != pHdb->oldestItem )
+                {
+                    if( pHdb->oldestItem + pHdb->nMilliSeconds <= curTime )
+                    {
+                        isItemReady = TRUE;
+                        break;
+                    }
+
+                    if( endWait <= curTime )
+                    {
+                        break;
+                    }
+
+                    toWait = MIN_OF( ( pHdb->oldestItem + pHdb->nMilliSeconds ) - curTime, endWait - curTime );
+                }
+                else if( endWait <= curTime )
+                {
+                    break;
+                }
+                else
+                {
+                    toWait = milliSecTimeout;
+                }
+
+                rMutex_unlock( pHdb->mutex );
+
+                // We add a sanity check for max timeout here since in some rare cases
+                // (mainly related to running both a Cloud and a sensor in VMs on a laptop
+                // going in hibernation) we could end up with wild values.
+                if( !rEvent_wait( pHdb->newElemEvent, (RU32)MIN_OF( toWait, milliSecTimeout ) ) )
+                {
+                    isItemReady = TRUE;
+                }
+
+                rMutex_lock( pHdb->mutex );
+
+                curTime = rpal_time_getGlobalPreciseTime();
+
+            } while( !isItemReady );
+
+            if( isItemReady )
+            {
+                if( rpal_btree_minimum( pHdb->events, &stub, TRUE ) &&
+                    curTime >= stub.ts + pHdb->nMilliSeconds &&
+                    rpal_btree_remove( pHdb->events, &stub, &stub, TRUE ) )
+                {
+                    *pEvent = stub.event;
+                    *pEventType = stub.type;
+
+                    if( rpal_btree_minimum( pHdb->events, &stub, TRUE ) )
+                    {
+                        pHdb->oldestItem = stub.ts;
+                    }
+                    else
+                    {
+                        pHdb->oldestItem = (RTIME)(-1);
+                    }
+
+                    isSuccess = TRUE;
+                }
+            }
+
+            rMutex_unlock( pHdb->mutex );
+        }
+    }
+
+    return isSuccess;
 }

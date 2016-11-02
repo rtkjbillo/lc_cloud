@@ -69,6 +69,7 @@ typedef struct
     RU32 enforceOnceIn;
     RU32 counter;
     RTIME lastUpdate;
+    RTIME lastSummary;
     LibOsThreadTimeContext threadTimeContext;
 } LibOsPerformanceProfile;
 
@@ -115,19 +116,13 @@ RBOOL
 RBOOL
     libOs_getSignature
 	(
-	    RPWCHAR    pwfilePath,
+	    RPNCHAR  pwfilePath,
 		rSequence* signature,
 		RU32       operation,
 		RBOOL*     pIsSigned,
 		RBOOL*     pIsVerified_local,
 		RBOOL*     pIsVerified_global
 	);
-
-RBOOL
-    libOs_getSystemCPUTime
-    (
-        RU64* cpuTime
-    );
 
 RBOOL
     libOs_getProcessInfo
@@ -169,11 +164,15 @@ RU8
 
     );
 
+#define libOs_timeoutWithProfile( perfProfile, isEnforce, isTimeToStop ) libOs_timeoutWithProfileFrom((perfProfile),(isEnforce),(isTimeToStop),(RPCHAR)__FUNCTION__)
+
 RVOID
-    libOs_timeoutWithProfile
+    libOs_timeoutWithProfileFrom
     (
         LibOsPerformanceProfile* perfProfile,
-        RBOOL isEnforce
+        RBOOL isEnforce,
+        rEvent isTimeToStop,
+        RPCHAR from
     );
 
 rList

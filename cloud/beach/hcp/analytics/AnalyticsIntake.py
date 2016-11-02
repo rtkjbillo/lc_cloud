@@ -14,38 +14,41 @@
 
 from sets import Set
 from beach.actor import Actor
-_xm_ = Actor.importLib( '../hcp_helpers', '_xm_' )
-_x_ = Actor.importLib( '../hcp_helpers', '_x_' )
-exeFromPath = Actor.importLib( '../hcp_helpers', 'exeFromPath' )
-ObjectTypes = Actor.importLib( '../ObjectsDb', 'ObjectTypes' )
-ObjectNormalForm = Actor.importLib( '../ObjectsDb', 'ObjectNormalForm' )
-AgentId = Actor.importLib( '../hcp_helpers', 'AgentId' )
+_xm_ = Actor.importLib( '../utils/hcp_helpers', '_xm_' )
+_x_ = Actor.importLib( '../utils/hcp_helpers', '_x_' )
+exeFromPath = Actor.importLib( '../utils/hcp_helpers', 'exeFromPath' )
+ObjectTypes = Actor.importLib( '../utils/ObjectsDb', 'ObjectTypes' )
+ObjectNormalForm = Actor.importLib( '../utils/ObjectsDb', 'ObjectNormalForm' )
+AgentId = Actor.importLib( '../utils/hcp_helpers', 'AgentId' )
 
 class AnalyticsIntake( Actor ):
-    def init( self, parameters ):
+    def init( self, parameters, resources ):
         self.handle( 'analyze', self.analyze )
-        self.analytics_stateless = self.getActorHandle( 'analytics/stateless/intake', timeout = 30, nRetries = 3 )
-        self.analytics_stateful = self.getActorHandle( 'analytics/stateful/intake', timeout = 30, nRetries = 3 )
-        self.analytics_modeling = self.getActorHandle( 'analytics/modeling/intake', timeout = 120, nRetries = 3 )
-        self.analytics_investigation = self.getActorHandle( 'analytics/investigation/intake', timeout = 120, nRetries = 3 )
+        self.analytics_stateless = self.getActorHandle( resources[ 'stateless' ], timeout = 30, nRetries = 3 )
+        self.analytics_stateful = self.getActorHandle( resources[ 'stateful' ], timeout = 30, nRetries = 3 )
+        self.analytics_modeling = self.getActorHandle( resources[ 'modeling' ], timeout = 120, nRetries = 3 )
+        self.async_builder = self.getActorHandle( resources[ 'relation_builder' ], timeout = 120, nRetries = 3 )
+        self.analytics_investigation = self.getActorHandle( resources[ 'investigation' ], timeout = 120, nRetries = 3 )
+
+        self.processedCounter = 0
 
     def deinit( self ):
         pass
 
     def _addObj( self, mtd, o, oType ):
         if type( o ) is not int:
-            if o is None or 0 == len( o ) or 1024 < len( o ):
+            if o is None or 0 == len( o ) or 10240 < len( o ):
                 self.log( 'unexpected obj len: %s, rest of mtd: %s' % ( o, str( mtd ) ) )
                 return
         mtd[ 'obj' ].setdefault( oType, Set() ).add( o )
 
     def _addRel( self, mtd, parent, parentType, child, childType ):
         if type( parent ) is not int:
-            if parent is None or 0 == len( parent ) or 1024 < len( parent ):
+            if parent is None or 0 == len( parent ) or 10240 < len( parent ):
                 self.log( 'unexpected obj len: %s, rest of mtd: %s' % ( parent, str( mtd ) ) )
                 return
         if type( child ) is not int:
-            if child is None or 0 == len( child ) or 1024 < len( parent ):
+            if child is None or 0 == len( child ) or 10240 < len( parent ):
                 self.log( 'unexpected obj len: %s, rest of mtd: %s' % ( child, str( mtd ) ) )
                 return
         mtd[ 'rel' ].setdefault( ( parentType, childType ), Set() ).add( ( parent, child ) )
@@ -168,6 +171,9 @@ class AnalyticsIntake( Actor ):
                           'notification.TERMINATE_PROCESS' ):
             curExe = self._extractProcess( agent, mtd, eventRoot )
             parent = eventRoot.get( 'base.PARENT', None )
+            user = eventRoot.get( 'base.USER_NAME', None )
+            if user is not None:
+                self._addRel( mtd, user, ObjectTypes.USER_NAME, curExe, ObjectTypes.PROCESS_NAME )
             if parent is not None:
                 parentExe = self._extractProcess( agent, mtd, parent )
                 if parentExe is not None:
@@ -213,6 +219,11 @@ class AnalyticsIntake( Actor ):
 
     def analyze( self, msg ):
 
+        for i in range( len( msg.data ) ):
+            self.processedCounter += 1
+            if 0 == ( self.processedCounter % 50 ):
+                self.log( 'ANA_IN %s' % self.processedCounter )
+
         for event in msg.data:
             # Enhance the data
             event = self._extractObjects( event )
@@ -221,13 +232,12 @@ class AnalyticsIntake( Actor ):
             self.analytics_modeling.shoot( 'analyze', event )
             self.analytics_stateless.shoot( 'analyze', event )
             self.analytics_stateful.shoot( 'analyze', event )
+            self.async_builder.shoot( 'analyze', event )
 
             routing, rawEvent, mtd = event
             if 'investigation_id' in routing:
                 self.analytics_investigation.shoot( 'analyze', event )
                 self.log( 'routing event to investigation (%d)' % self.analytics_investigation.getNumAvailable() )
-
-            self.log( 'received %s' % routing[ 'event_type' ] )
 
         return ( True, )
 

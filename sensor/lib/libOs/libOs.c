@@ -27,13 +27,6 @@ limitations under the License.
 #include <setupapi.h>
 #define FILETIME2ULARGE( uli, ft )  (uli).u.LowPart = (ft).dwLowDateTime, (uli).u.HighPart = (ft).dwHighDateTime
 
-typedef struct
-{
-    HKEY root;
-    RPWCHAR path;
-    RPWCHAR keyName;
-} _KeyInfo;
-
 #elif defined( RPAL_PLATFORM_LINUX ) || defined( RPAL_PLATFORM_MACOSX )
 #include <stdio.h>
 #include <string.h>
@@ -60,6 +53,8 @@ typedef struct
 #include <sys/param.h>
 #include <sys/ucred.h>
 #include <sys/mount.h>
+#include <mach/clock.h>
+#include <mach/mach.h>
 #elif defined( RPAL_PLATFORM_LINUX )
 #include <mntent.h>
 #endif
@@ -94,7 +89,7 @@ static
 RBOOL
     libOs_getFileSignature
     (
-        RPWCHAR   pwfilePath,
+        RPNCHAR   pwfilePath,
         rSequence signature,
         RU32      operation,
         RBOOL*    pIsSigned,
@@ -112,7 +107,7 @@ RBOOL
 {
     RBOOL isLoaded = FALSE;
 
-    RCHAR importCrypt32[] = "crypt32.dll";
+    RWCHAR importCrypt32[] = _NC( "crypt32.dll" );
     RCHAR import1[] = "CertNameToStrA";
     RCHAR import2[] = "CertFreeCertificateChainEngine";
     RCHAR import3[] = "CertFreeCertificateChain";
@@ -124,7 +119,7 @@ RBOOL
     {
         // Some potential weird race condition, but extremely unlikely
         if( NULL != ( crypt32 = GetModuleHandle( (RPCHAR)&importCrypt32  ) ) ||
-            NULL != ( crypt32 = LoadLibraryA( (RPCHAR)&importCrypt32 ) ) )
+            NULL != ( crypt32 = LoadLibraryW( (RPWCHAR)&importCrypt32 ) ) )
         {
             RCertNameToStr = (CertNameToStr_f)GetProcAddress( crypt32, (RPCHAR)&import1 );
             RCertFreeCertificateChainEngine = (CertFreeCertificateChainEngine_f)GetProcAddress( crypt32, (RPCHAR)&import2 );
@@ -158,7 +153,7 @@ RBOOL
 {
     RBOOL isLoaded = FALSE;
 
-    RCHAR importLibWintrust[] = "wintrust.dll";
+    RWCHAR importLibWintrust[] = _NC( "wintrust.dll" );
     RCHAR import1[] = "WinVerifyTrust";
     RCHAR import2[] = "WTHelperGetProvSignerFromChain";
     RCHAR import3[] = "WTHelperProvDataFromStateData";
@@ -172,7 +167,7 @@ RBOOL
     if( NULL == wintrustLib )
     {
         // Some potential weird race condition, but extremely unlikely
-        if( NULL != ( wintrustLib = LoadLibraryA( (RPCHAR)&importLibWintrust ) ) )
+        if( NULL != ( wintrustLib = LoadLibraryW( (RPWCHAR)&importLibWintrust ) ) )
         {
             WinVerifyTrust = (WinVerifyTrust_f)GetProcAddress( wintrustLib, (RPCHAR)&import1 );
             WTHelperGetProvSignerFromChain = (WTHelperGetProvSignerFromChain_f)GetProcAddress( wintrustLib, (RPCHAR)&import2 );
@@ -251,7 +246,7 @@ RPCHAR
     {
         if( 0 == gethostname( (RPCHAR)&name, 256 ) )
         {
-            outName = rpal_string_strdupa( name );
+            outName = rpal_string_strdupA( name );
         }
     }
 
@@ -309,49 +304,49 @@ RU32
 
     if( 0 <= ( sd = socket( PF_INET, SOCK_STREAM, 0 ) ) )
     {
-		if( 0 == ( r = ioctl( sd, SIOCGIFCONF, (char *)&ifconf ) ) )
-		{
-			ifc_num = ifconf.ifc_len / sizeof( struct ifreq );
-			for( i = 0; i < ifc_num; ++i )
-			{
-				if( AF_INET != ifreqs[ i ].ifr_addr.sa_family ||
-					0x0100007F == (RU32)( (struct sockaddr_in *)&ifreqs[ i ].ifr_addr )->sin_addr.s_addr )
-				{
-					continue;
-				}
-		
-				ip = (RU32)( (struct sockaddr_in *)&ifreqs[ i ].ifr_addr )->sin_addr.s_addr;
-				break;
-			}
-		}
+        if( 0 == ( r = ioctl( sd, SIOCGIFCONF, (char *)&ifconf ) ) )
+        {
+            ifc_num = ifconf.ifc_len / sizeof( struct ifreq );
+            for( i = 0; i < ifc_num; ++i )
+            {
+                if( AF_INET != ifreqs[ i ].ifr_addr.sa_family ||
+                    0x0100007F == (RU32)( (struct sockaddr_in *)&ifreqs[ i ].ifr_addr )->sin_addr.s_addr )
+                {
+                    continue;
+                }
+        
+                ip = (RU32)( (struct sockaddr_in *)&ifreqs[ i ].ifr_addr )->sin_addr.s_addr;
+                break;
+            }
+        }
     }
 
     close( sd );
 #elif defined( RPAL_PLATFORM_MACOSX )
-	struct ifaddrs *interfaces = NULL;
-	struct ifaddrs *temp_addr = NULL;
-	int success = 0;
-	
-	// retrieve the current interfaces - returns 0 on success
-	if( 0 == ( success = getifaddrs( &interfaces ) ) )
-	{
-		// Loop through linked list of interfaces
-		temp_addr = interfaces;
-		while( NULL != temp_addr )
-		{
-			if( AF_INET == temp_addr->ifa_addr->sa_family &&
-			    0x0100007F != (RU32)( ( (struct sockaddr_in *)temp_addr->ifa_addr )->sin_addr.s_addr ) )
-			{
-				ip = (RU32)( ( (struct sockaddr_in *)temp_addr->ifa_addr )->sin_addr.s_addr );
-				break;
-			}
-			
-			temp_addr = temp_addr->ifa_next;
-		}
-	}
-	
-	// Free memory
-	freeifaddrs( interfaces );
+    struct ifaddrs *interfaces = NULL;
+    struct ifaddrs *temp_addr = NULL;
+    int success = 0;
+    
+    // retrieve the current interfaces - returns 0 on success
+    if( 0 == ( success = getifaddrs( &interfaces ) ) )
+    {
+        // Loop through linked list of interfaces
+        temp_addr = interfaces;
+        while( NULL != temp_addr )
+        {
+            if( AF_INET == temp_addr->ifa_addr->sa_family &&
+                0x0100007F != (RU32)( ( (struct sockaddr_in *)temp_addr->ifa_addr )->sin_addr.s_addr ) )
+            {
+                ip = (RU32)( ( (struct sockaddr_in *)temp_addr->ifa_addr )->sin_addr.s_addr );
+                break;
+            }
+            
+            temp_addr = temp_addr->ifa_next;
+        }
+    }
+    
+    // Free memory
+    freeifaddrs( interfaces );
 #else
     rpal_debug_not_implemented();
 #endif
@@ -435,10 +430,10 @@ RU8
     if( NULL != ( hStat = fopen( (RPCHAR)statFile, "r" ) ) )
     {
         unused = fscanf( hStat, "cpu %llu %llu %llu %llu",
-  			 &tUser,
-			 &tUserLow,
-			 &tKernel,
-			 &tIdle );
+             &tUser,
+             &tUserLow,
+             &tKernel,
+             &tIdle );
     
         fclose( hStat );
     
@@ -625,7 +620,7 @@ RBOOL
                             if( REG_SZ == type ||
                                 REG_EXPAND_SZ == type )
                             {
-                                size = rpal_string_strlenw( tmp ) * sizeof( RWCHAR );
+                                size = rpal_string_strlen( tmp ) * sizeof( RWCHAR );
                                 rpal_memory_memcpy( &(*pPackages)[ i - 1 ].name, tmp, size >= sizeof( (*pPackages)[ i - 1 ].name ) ? sizeof( (*pPackages)[ i - 1 ].name ) - sizeof( RWCHAR ) : size );
                             }
                         }
@@ -635,7 +630,7 @@ RBOOL
                             if( REG_SZ == type ||
                                 REG_EXPAND_SZ == type )
                             {
-                                size = rpal_string_strlenw( tmp );
+                                size = rpal_string_strlen( tmp );
                                 rpal_memory_memcpy( &(*pPackages)[ i - 1 ].version, tmp, size >= sizeof( (*pPackages)[ i - 1 ].version ) ? sizeof( (*pPackages)[ i - 1 ].version ) - sizeof( RWCHAR ) : size );
                             }
                         }
@@ -988,12 +983,12 @@ static
 RBOOL
     libOs_getFileSignature
     (
-        RPWCHAR   pwfilePath,
-        rSequence signature,
-        RU32      operation,
-        RBOOL*    pIsSigned,
-        RBOOL*    pIsVerified_local,
-        RBOOL*    pIsVerified_global
+        RPNCHAR pwfilePath,
+        rSequence  signature,
+        RU32       operation,
+        RBOOL*     pIsSigned,
+        RBOOL*     pIsVerified_local,
+        RBOOL*     pIsVerified_global
     )
 {
     RBOOL isSucceed = FALSE;
@@ -1064,6 +1059,9 @@ RBOOL
                 rpal_debug_warning( "file IO error 0x%x", lStatus );
                 break;
 
+            case TRUST_E_SUBJECT_FORM_UNKNOWN:
+                break;
+
             default:
                 rpal_debug_warning( "error checking sig 0x%x", lStatus );
                 break;
@@ -1083,7 +1081,7 @@ RBOOL
 RBOOL
     libOs_getSignature
     (
-        RPWCHAR    pwfilePath,
+        RPNCHAR  pwfilePath,
         rSequence* signature,
         RU32       operation,
         RBOOL*     pIsSigned,
@@ -1092,7 +1090,7 @@ RBOOL
     )
 {
     RBOOL isSucceed = FALSE;
-    RPWCHAR tmpPath = NULL;
+    RPNCHAR tmpPath = NULL;
 
     if( NULL != signature &&
         NULL != pIsSigned  &&
@@ -1100,8 +1098,8 @@ RBOOL
         NULL != pIsVerified_global &&
         NULL != ( *signature = rSequence_new() ) )
     {
-        rpal_string_expandw( pwfilePath, &tmpPath );
-        rSequence_addSTRINGW( *signature, RP_TAGS_FILE_PATH, tmpPath ? tmpPath : pwfilePath );
+        rpal_string_expand( pwfilePath, &tmpPath );
+        rSequence_addSTRINGN( *signature, RP_TAGS_FILE_PATH, tmpPath ? tmpPath : pwfilePath );
         isSucceed = libOs_getFileSignature( tmpPath ? tmpPath : pwfilePath, *signature, operation, pIsSigned, pIsVerified_local, pIsVerified_global );
 
         if( !isSucceed && NULL != *signature )
@@ -1114,155 +1112,6 @@ RBOOL
     }
     return isSucceed;
 }
-
-
-RBOOL
-    libOs_getSystemCPUTime
-    (
-        RU64* cpuTime
-    )
-{
-#if defined( RPAL_PLATFORM_WINDOWS )
-    static GetSystemTimes_f gst = NULL;
-    RBOOL isSuccess = FALSE;
-    FILETIME ftUser = { 0 };
-    FILETIME ftKernel = { 0 };
-    FILETIME ftIdle = { 0 };
-    RCHAR getSystemTime[] = "GetSystemTimes";
-    ULARGE_INTEGER uUser = { 0 };
-    ULARGE_INTEGER uKernel = { 0 };
-    ULARGE_INTEGER uIdle = { 0 };
-
-    if( NULL == cpuTime )
-    {
-        return FALSE;
-    }
-
-    if( NULL == gst )
-    {
-        gst = (GetSystemTimes_f)GetProcAddress( GetModuleHandleW( _WCH( "kernel32.dll" ) ),
-                                                getSystemTime );
-        if( NULL == gst )
-        {
-            rpal_debug_error( "Cannot get the address to GetSystemTimes -- error code %u.", GetLastError() );
-            isSuccess = FALSE;
-        }
-    }
-
-    if( NULL != gst && 
-        gst( &ftIdle, &ftKernel, &ftUser ) )
-    {
-        FILETIME2ULARGE( uUser, ftUser );
-        FILETIME2ULARGE( uKernel, ftKernel );
-        FILETIME2ULARGE( uIdle, ftIdle );
-        
-        *cpuTime = uUser.QuadPart + uKernel.QuadPart + uIdle.QuadPart;
-        
-        isSuccess = TRUE;
-    }
-    else
-    {
-        rpal_debug_error( "Unable to get system times -- error code %u.", GetLastError() );
-        isSuccess = FALSE;
-    }
-
-    return isSuccess;
-#elif defined( RPAL_PLATFORM_LINUX )
-    static RU64 user_hz = 0;
-    FILE* proc_stat = NULL;
-    RCHAR line[ 256 ] = { 0 };
-    RCHAR* saveptr = NULL;
-    RCHAR* tok = NULL;
-    RPCHAR unused = NULL;
-
-    if( 0 == user_hz )
-    {
-        long tmp = sysconf( _SC_CLK_TCK );
-        if( tmp < 0 )
-        {
-            rpal_debug_error( "Cannot find the proc clock tick size -- error code %u.", errno );
-            return FALSE;
-        }
-        user_hz = (RU64)tmp;
-    }
-    if( NULL == cpuTime )
-    {
-        return TRUE;
-    }
-
-    if( NULL != ( proc_stat = fopen( "/proc/stat", "r" ) ) )
-    {
-        rpal_memory_zero( line, sizeof( line ) );
-
-        while( !feof( proc_stat ) )
-        {
-            unused = fgets( line, sizeof( line ), proc_stat );
-            if( line == strstr( line, "cpu " ) )
-            {
-                saveptr = NULL;
-                tok = strtok_r( line, " ", &saveptr );
-                *cpuTime = 0;
-                
-                while( NULL != tok )
-                {
-                    if( isdigit( tok[ 0 ] ) )
-                    {
-                        *cpuTime += (RU64)atol( tok );
-                    }
-                    tok = strtok_r( NULL, " ", &saveptr );
-                }
-
-                /* user_hz = clock ticks per second; we want time in microseconds. */
-                *cpuTime = ( *cpuTime * 1000000 ) / user_hz;
-                break;
-            }
-        }
-        fclose( proc_stat );
-    }
-    else
-    {
-        rpal_debug_error( "Cannot open /proc/stat -- error code %u.", errno );
-    }
-
-    return *cpuTime > 0;
-#elif defined( RPAL_PLATFORM_MACOSX )
-    static RU64 numCPU = 0;
-    struct timeval now = { 0 };
-    RS32 iCPU = 0;
-    size_t len = 4;
-
-    if( 0 == numCPU )
-    {
-        if( 0 == sysctlbyname( "hw.ncpu", &iCPU, &len, NULL, 0 ) )
-        {
-            numCPU = (RU64)iCPU;
-        }
-        else
-        {
-            rpal_debug_error( "Cannot get the number of CPUs -- error code %u.", errno );
-            return FALSE;
-        }
-    }
-
-    if( 0 == gettimeofday( &now, NULL ) )
-    {
-        if( NULL != cpuTime )
-        {
-            *cpuTime = numCPU * ( (RU64)now.tv_sec * 1000000 + (RU64)now.tv_usec );
-        }
-        return TRUE;
-    }
-    else
-    {
-        rpal_debug_error( "Cannot get the system time -- error code %u.", errno );
-    }
-
-    return FALSE;
-#else
-    rpal_debug_not_implemented();
-#endif
-}
-
 
 RBOOL
     libOs_getProcessInfo
@@ -1549,7 +1398,7 @@ RU8
     {
         percent = ctx->lastResult;
     }
-    else if( libOs_getSystemCPUTime( &curSystemTime ) &&
+    else if( rpal_time_getCPU( &curSystemTime ) &&
              libOs_getThreadTime( 0, &curThreadTime ) )
     {
         if( curSystemTime >= ctx->lastSystemTime &&
@@ -1577,24 +1426,44 @@ RU8
 }
 
 RVOID
-    libOs_timeoutWithProfile
+    libOs_timeoutWithProfileFrom
     (
         LibOsPerformanceProfile* perfProfile,
-        RBOOL isEnforce
+        RBOOL isEnforce,
+        rEvent isTimeToStop,
+        RPCHAR from
     )
 {
     RU8 currentPerformance = 0;
     RTIME currentTime = 0;
     RU32 increment = 0;
-
+    
+#ifndef RPAL_PLATFORM_DEBUG
+    UNREFERENCED_PARAMETER( from );
+#endif
+    
     if( NULL != perfProfile )
     {
-        currentTime = rpal_time_getLocal();
+        rpal_time_getCPU( &currentTime );
+        currentTime = SEC_FROM_MSEC( currentTime / NSEC_100_PER_MSEC );
+
         if( 0 == perfProfile->lastUpdate ) perfProfile->lastUpdate = currentTime;
+        if( 0 == perfProfile->lastSummary ) perfProfile->lastSummary = currentTime;
 
         if( !isEnforce &&
-            currentTime != perfProfile->lastUpdate )
+            currentTime >= perfProfile->lastUpdate + 1 )
         {
+            // We look for time aberrations where the clock has changed by a large amount
+            // which may be due to some form of hibernation or rollover. We try to use a 
+            // realtime clock but for some reason sometimes it fails.
+            if( currentTime < perfProfile->lastUpdate )
+            {
+                // Let's not try to calculate the actual value, cut our losses and assume
+                // things haven't changed much.
+                perfProfile->lastUpdate = currentTime;
+                return;
+            }
+
             increment = (RU32)( perfProfile->timeoutIncrementPerSec * ( currentTime - perfProfile->lastUpdate ) );
             perfProfile->lastUpdate = currentTime;
             currentPerformance = libOs_getCurrentThreadCpuUsage( &perfProfile->threadTimeContext );
@@ -1605,7 +1474,7 @@ RVOID
             }
             else if( currentPerformance > perfProfile->targetCpuPerformance )
             {
-                if( perfProfile->sanityCeiling > increment )
+                if( perfProfile->sanityCeiling > perfProfile->lastTimeoutValue + increment )
                 {
                     perfProfile->lastTimeoutValue += increment;
                     //rpal_debug_info( "INCREMENT: %d (%d)", perfProfile->lastTimeoutValue, currentPerformance );
@@ -1615,8 +1484,16 @@ RVOID
                      perfProfile->lastTimeoutValue > 0 )
             {
                 perfProfile->lastTimeoutValue -= MIN_OF( increment,
-                    perfProfile->lastTimeoutValue );
+                                                         perfProfile->lastTimeoutValue );
                 //rpal_debug_info( "DECREMENT: %d (%d)", perfProfile->lastTimeoutValue, currentPerformance );
+            }
+
+            if( 0xFF != currentPerformance && 20 < currentPerformance )
+            {
+                rpal_debug_warning( "Thread running hot: %s / %d%% (%d)", 
+                                    from, 
+                                    currentPerformance, 
+                                    perfProfile->lastTimeoutValue );
             }
 
             currentPerformance = libOs_getCurrentProcessCpuUsage();
@@ -1635,8 +1512,18 @@ RVOID
             else if( perfProfile->globalTimeoutValue > 0 )
             {
                 perfProfile->globalTimeoutValue -= MIN_OF( increment,
-                    perfProfile->globalTimeoutValue );
+                                                           perfProfile->globalTimeoutValue );
                 //rpal_debug_info( "GLOBAL DECREMENT: %d (%d)", perfProfile->globalTimeoutValue, currentPerformance );
+            }
+
+            if( ( 60 * 1 ) <= currentTime - perfProfile->lastSummary )
+            {
+                rpal_debug_info( "Profile: %s = last(%d) global(%d)",
+                                 from,
+                                 perfProfile->lastTimeoutValue,
+                                 perfProfile->globalTimeoutValue );
+
+                perfProfile->lastSummary = currentTime;
             }
         }
         else
@@ -1645,7 +1532,7 @@ RVOID
             {
                 perfProfile->counter = 0;
 
-                rpal_thread_sleep( perfProfile->lastTimeoutValue + perfProfile->globalTimeoutValue );
+                rEvent_wait( isTimeToStop, perfProfile->lastTimeoutValue + perfProfile->globalTimeoutValue );
             }
 
             perfProfile->counter++;
@@ -1804,7 +1691,7 @@ RU8
     {
         percent = lastResult;
     }
-    else if( libOs_getSystemCPUTime( &curSystemTime ) &&
+    else if( rpal_time_getCPU( &curSystemTime ) &&
              libOs_getProcessTime( 0, &curProcessTime ) )
     {
         if( curSystemTime >= lastSystemTime &&
@@ -1830,7 +1717,9 @@ RU8
     return percent;
 }
 
-RBOOL
+#ifdef RPAL_PLATFORM_WINDOWS
+
+static RBOOL
     _getAssociatedExecutable
     (
         RPWCHAR serviceName,
@@ -1840,7 +1729,6 @@ RBOOL
 {
     RBOOL isSuccess = FALSE;
 
-#ifdef RPAL_PLATFORM_WINDOWS
     HKEY root = HKEY_LOCAL_MACHINE;
     HKEY curService = 0;
     RWCHAR services[] = _WCH( "system\\currentcontrolset\\services\\" );
@@ -1859,9 +1747,9 @@ RBOOL
         *executable = NULL;
         *dll = NULL;
 
-        if( ( ( ( sizeof( services ) / sizeof( RWCHAR ) ) + rpal_string_strlenw( serviceName ) + 1 ) < ( sizeof( fullService ) / sizeof( RWCHAR ) ) - 1 ) &&
-            rpal_string_strcatw( fullService, services ) &&
-            rpal_string_strcatw( fullService, serviceName ) )
+        if( ( ( ARRAY_N_ELEM( services ) + rpal_string_strlen( serviceName ) + 1 ) < ARRAY_N_ELEM( fullService ) - 1 ) &&
+            rpal_string_strcat( fullService, services ) &&
+            rpal_string_strcat( fullService, serviceName ) )
         {
             if( ERROR_SUCCESS == RegOpenKeyW( root, fullService, &curService ) )
             {
@@ -1871,7 +1759,7 @@ RBOOL
                     REG_SZ == type )
                 {
                     *(RPWCHAR)( (RPU8)&tmp + size ) = 0;
-                    *executable = rpal_string_strdupw( tmp );
+                    *executable = rpal_string_strdup( tmp );
                     isSuccess = TRUE;
                 }
 
@@ -1882,10 +1770,10 @@ RBOOL
         rpal_memory_zero( fullService, sizeof( fullService ) );
         rpal_memory_zero( tmp, sizeof( tmp ) );
 
-        if( ( ( ( sizeof( services ) / sizeof( RWCHAR ) ) + rpal_string_strlenw( serviceName ) + ( sizeof( forDll ) / sizeof( RWCHAR ) ) + 1 ) < ( sizeof( fullService ) / sizeof( RWCHAR ) ) - 1 ) &&
-            rpal_string_strcatw( fullService, services ) &&
-            rpal_string_strcatw( fullService, serviceName ) &&
-            rpal_string_strcatw( fullService, forDll ) )
+        if( ( ( ARRAY_N_ELEM( services ) + rpal_string_strlen( serviceName ) + ARRAY_N_ELEM( forDll ) + 1 ) < ARRAY_N_ELEM( fullService ) - 1 ) &&
+            rpal_string_strcat( fullService, services ) &&
+            rpal_string_strcat( fullService, serviceName ) &&
+            rpal_string_strcat( fullService, forDll ) )
         {
             if( ERROR_SUCCESS == RegOpenKeyW( root, fullService, &curService ) )
             {
@@ -1895,7 +1783,7 @@ RBOOL
                     REG_SZ == type )
                 {
                     *(RPWCHAR)( (RPU8)&tmp + size ) = 0;
-                    *dll = rpal_string_strdupw( tmp );
+                    *dll = rpal_string_strdup( tmp );
                     isSuccess = TRUE;
                 }
 
@@ -1906,15 +1794,10 @@ RBOOL
         rpal_memory_zero( fullService, sizeof( fullService ) );
         rpal_memory_zero( tmp, sizeof( tmp ) );
     }
-#else
-    rpal_debug_not_implemented();
-#endif
 
     return isSuccess;
 }
 
-
-#ifdef RPAL_PLATFORM_WINDOWS
 static rList
     _getWindowsService
     (
@@ -1981,7 +1864,7 @@ static rList
                                 {
                                     if( NULL != assExe )
                                     {
-                                        cleanPath = rpal_file_cleanw( assExe );
+                                        cleanPath = rpal_file_clean( assExe );
 
                                         // TODO: Fix in a more permanent way the issues in glibc with undocumented'
                                         // incompatibility with mis-aligned pointers in things like strlen and wcstombs.
@@ -1993,7 +1876,7 @@ static rList
 
                                     if( NULL != assDll )
                                     {
-                                        cleanPath = rpal_file_cleanw( assDll );
+                                        cleanPath = rpal_file_clean( assDll );
 
                                         // TODO: Fix in a more permanent way the issues in glibc with undocumented'
                                         // incompatibility with mis-aligned pointers in things like strlen and wcstombs.
@@ -2027,10 +1910,10 @@ static rList
 
 static
 RBOOL
-    _thorough_file_hashW
+    _thorough_file_hash
     (
-        RPWCHAR filePath,
-        RPWCHAR* pEffectivePath,
+        RPNCHAR filePath,
+        RPNCHAR* pEffectivePath,
         CryptoLib_Hash* pHash
     )
 {
@@ -2053,7 +1936,7 @@ RBOOL
     if( NULL != filePath &&
         NULL != pHash )
     {
-        if( CryptoLib_hashFileW( filePath, pHash, TRUE ) )
+        if( CryptoLib_hashFile( filePath, pHash, TRUE ) )
         {
             isHashed = TRUE;
         }
@@ -2061,7 +1944,7 @@ RBOOL
 #ifdef RPAL_PLATFORM_WINDOWS
         do
         {
-            if( NULL == ( dupPath = rpal_string_strdupw( filePath ) ) )
+            if( NULL == ( dupPath = rpal_string_strdup( filePath ) ) )
             {
                 break;
             }
@@ -2082,69 +1965,69 @@ RBOOL
                 }
                 cleanPath[ i ] = 0;
 
-                if( CryptoLib_hashFileW( cleanPath, pHash, TRUE ) )
+                if( CryptoLib_hashFile( cleanPath, pHash, TRUE ) )
                 {
                     isHashed = TRUE;
                     if( NULL != pEffectivePath )
                     {
-                        *pEffectivePath = rpal_string_strdupw( cleanPath );
+                        *pEffectivePath = rpal_string_strdup( cleanPath );
                     }
                     break;
                 }
             }
 
             // Next check for an executable with args lile ...some.exe /somearg
-            if( NULL != ( pPattern = rpal_string_stristrw( cleanPath, extPattern ) ) )
+            if( NULL != ( pPattern = rpal_string_stristr( cleanPath, extPattern ) ) )
             {
                 pPattern += ARRAY_N_ELEM( extPattern ) - 2;
                 *pPattern = 0;
 
-                if( CryptoLib_hashFileW( cleanPath, pHash, TRUE ) )
+                if( CryptoLib_hashFile( cleanPath, pHash, TRUE ) )
                 {
                     isHashed = TRUE;
                     if( NULL != pEffectivePath )
                     {
-                        *pEffectivePath = rpal_string_strdupw( cleanPath );
+                        *pEffectivePath = rpal_string_strdup( cleanPath );
                     }
                     break;
                 }
             }
 
             // If this is not an absolute path, try the default system paths
-            if( !rpal_string_stristrw( cleanPath, _WCH( "\\" ) ) )
+            if( !rpal_string_stristr( cleanPath, _WCH( "\\" ) ) )
             {
-                if( NULL != ( tmpString = rpal_stringbuffer_new( 0, 0, TRUE ) ) )
+                if( NULL != ( tmpString = rpal_stringbuffer_new( 0, 0 ) ) )
                 {
-                    if( rpal_stringbuffer_addw( tmpString, sysDir ) &&
-                        rpal_stringbuffer_addw( tmpString, cleanPath ) )
+                    if( rpal_stringbuffer_add( tmpString, sysDir ) &&
+                        rpal_stringbuffer_add( tmpString, cleanPath ) )
                     {
-                        if( CryptoLib_hashFileW( rpal_stringbuffer_getStringw( tmpString ), pHash, TRUE ) )
+                        if( CryptoLib_hashFile( rpal_stringbuffer_getString( tmpString ), pHash, TRUE ) )
                         {
                             isHashed = TRUE;
                         }
                         else
                         {
-                            originalLength = rpal_string_strlenw( cleanPath );
+                            originalLength = rpal_string_strlen( cleanPath );
 
                             // If there is no file extension, try the default ones
                             if( 4 > originalLength ||
                                 _WCH( '.' ) != cleanPath[ originalLength - 4 ] )
                             {
-                                if( rpal_stringbuffer_addw( tmpString, defaultExt ) )
+                                if( rpal_stringbuffer_add( tmpString, defaultExt ) )
                                 {
-                                    if( CryptoLib_hashFileW( rpal_stringbuffer_getStringw( tmpString ), pHash, TRUE ) )
+                                    if( CryptoLib_hashFile( rpal_stringbuffer_getString( tmpString ), pHash, TRUE ) )
                                     {
                                         isHashed = TRUE;
                                     }
                                     else
                                     {
-                                        if( NULL != ( tmpPath = rpal_stringbuffer_getStringw( tmpString ) ) )
+                                        if( NULL != ( tmpPath = rpal_stringbuffer_getString( tmpString ) ) )
                                         {
-                                            tmpLen = rpal_string_strlenw( tmpPath );
+                                            tmpLen = rpal_string_strlen( tmpPath );
                                             rpal_memory_memcpy( &( tmpPath[ tmpLen - 3 ] ), 
                                                                 defaultExt2, 
                                                                 sizeof( defaultExt2 ) - sizeof( RWCHAR ) );
-                                            if( CryptoLib_hashFileW( rpal_stringbuffer_getStringw( tmpString ), pHash, TRUE ) )
+                                            if( CryptoLib_hashFile( rpal_stringbuffer_getString( tmpString ), pHash, TRUE ) )
                                             {
                                                 isHashed = TRUE;
                                             }
@@ -2158,19 +2041,19 @@ RBOOL
                     if( isHashed &&
                         NULL != pEffectivePath )
                     {
-                        *pEffectivePath = rpal_string_strdupw( rpal_stringbuffer_getStringw( tmpString ) );
+                        *pEffectivePath = rpal_string_strdup( rpal_stringbuffer_getString( tmpString ) );
                     }
 
                     rpal_stringbuffer_free( tmpString );
                 }
 
-                if( NULL != ( tmpString = rpal_stringbuffer_new( 0, 0, TRUE ) ) )
+                if( NULL != ( tmpString = rpal_stringbuffer_new( 0, 0 ) ) )
                 {
                     if( !isHashed &&
-                        rpal_stringbuffer_addw( tmpString, winDir ) &&
-                        rpal_stringbuffer_addw( tmpString, cleanPath ) )
+                        rpal_stringbuffer_add( tmpString, winDir ) &&
+                        rpal_stringbuffer_add( tmpString, cleanPath ) )
                     {
-                        if( CryptoLib_hashFileW( rpal_stringbuffer_getStringw( tmpString ), pHash, TRUE ) )
+                        if( CryptoLib_hashFile( rpal_stringbuffer_getString( tmpString ), pHash, TRUE ) )
                         {
                             isHashed = TRUE;
                         }
@@ -2180,9 +2063,9 @@ RBOOL
                             if( 4 > originalLength ||
                                 _WCH( '.' ) != cleanPath[ originalLength - 4 ] )
                             {
-                                if( rpal_stringbuffer_addw( tmpString, defaultExt ) )
+                                if( rpal_stringbuffer_add( tmpString, defaultExt ) )
                                 {
-                                    if( CryptoLib_hashFileW( rpal_stringbuffer_getStringw( tmpString ), pHash, TRUE ) )
+                                    if( CryptoLib_hashFile( rpal_stringbuffer_getString( tmpString ), pHash, TRUE ) )
                                     {
                                         isHashed = TRUE;
                                     }
@@ -2194,7 +2077,7 @@ RBOOL
                     if( isHashed &&
                         NULL != pEffectivePath )
                     {
-                        *pEffectivePath = rpal_string_strdupw( rpal_stringbuffer_getStringw( tmpString ) );
+                        *pEffectivePath = rpal_string_strdup( rpal_stringbuffer_getString( tmpString ) );
                     }
                 }
 
@@ -2210,38 +2093,6 @@ RBOOL
     return isHashed;
 }
 
-static
-RBOOL
-    _thorough_file_hashA
-    (
-        RPCHAR filePath,
-        RPCHAR* pEffectivePath,
-        CryptoLib_Hash* pHash
-    )
-{
-    RBOOL isSuccess = FALSE;
-    RPWCHAR tmpW = NULL;
-    RPWCHAR effectivePath = NULL;
-
-    if( NULL != ( tmpW = rpal_string_atow( filePath ) ) )
-    {
-        isSuccess = _thorough_file_hashW( tmpW, pEffectivePath ? &effectivePath : NULL, pHash );
-
-        if( NULL != effectivePath )
-        {
-            if( NULL != pEffectivePath )
-            {
-                *pEffectivePath = rpal_string_wtoa( effectivePath );
-            }
-
-            rpal_memory_free( effectivePath );
-        }
-
-        rpal_memory_free( tmpW );
-    }
-
-    return isSuccess;
-}
 
 static
 RVOID
@@ -2251,60 +2102,41 @@ RVOID
     )
 {
     rSequence svcEntry = NULL;
-    RPWCHAR entryDllW = NULL;
-    RPWCHAR entryExeW = NULL;
-    RPCHAR entryDllA = NULL;
-    RPCHAR entryExeA = NULL;
+    RPNCHAR entryDll = NULL;
+    RPNCHAR entryExe = NULL;
     CryptoLib_Hash hash = { 0 };
-    RPWCHAR effectiveW = NULL;
-    RPCHAR effectiveA = NULL;
+    RPNCHAR effective = NULL;
 
     while( rList_getSEQUENCE( svcList, RP_TAGS_SVC, &svcEntry ) )
     {
-        entryExeW = NULL;
-        entryDllW = NULL;
-        entryExeA = NULL;
-        entryDllA = NULL;
-        effectiveW = NULL;
-        effectiveA = NULL;
+        entryExe = NULL;
+        entryDll = NULL;
+        effective = NULL;
 
-        if( !rSequence_getSTRINGW( svcEntry, RP_TAGS_EXECUTABLE, &entryExeW ) )
-        {
-            rSequence_getSTRINGA( svcEntry, RP_TAGS_EXECUTABLE, &entryExeA );
-        }
+        rSequence_getSTRINGN( svcEntry, RP_TAGS_EXECUTABLE, &entryExe );
 
-        if( !rSequence_getSTRINGW( svcEntry, RP_TAGS_DLL, &entryDllW ) )
-        {
-            rSequence_getSTRINGA( svcEntry, RP_TAGS_DLL, &entryDllA );
-        }
+        rSequence_getSTRINGN( svcEntry, RP_TAGS_DLL, &entryDll );
 
         rSequence_unTaintRead( svcEntry );
 
-        if( ( NULL == entryDllW && NULL == entryDllA ) &&
-            ( NULL != entryExeW || NULL != entryExeA ) )
+        if( NULL == entryDll )
         {
-            if( ( NULL != entryExeW && _thorough_file_hashW( entryExeW, &effectiveW, &hash ) ) ||
-                ( NULL != entryExeA && _thorough_file_hashA( entryExeA, &effectiveA, &hash ) ) )
+            if( NULL != entryExe && _thorough_file_hash( entryExe, &effective, &hash ) )
             {
                 rSequence_addBUFFER( svcEntry, RP_TAGS_HASH, (RPU8)&hash, sizeof( hash ) );
-                rSequence_addSTRINGW( svcEntry, RP_TAGS_FILE_PATH, effectiveW );
-                rSequence_addSTRINGA( svcEntry, RP_TAGS_FILE_PATH, effectiveA );
+                rSequence_addSTRINGN( svcEntry, RP_TAGS_FILE_PATH, effective );
             }
         }
-        else if( NULL != entryDllW ||
-                 NULL != entryDllA )
+        else
         {
-            if( ( NULL != entryDllW && _thorough_file_hashW( entryDllW, &effectiveW, &hash ) ) ||
-                ( NULL != entryDllA && _thorough_file_hashA( entryDllA, &effectiveA, &hash ) ) )
+            if( NULL != entryDll && _thorough_file_hash( entryDll, &effective, &hash ) )
             {
                 rSequence_addBUFFER( svcEntry, RP_TAGS_HASH, (RPU8)&hash, sizeof( hash ) );
-                rSequence_addSTRINGW( svcEntry, RP_TAGS_FILE_PATH, effectiveW );
-                rSequence_addSTRINGA( svcEntry, RP_TAGS_FILE_PATH, effectiveA );
+                rSequence_addSTRINGN( svcEntry, RP_TAGS_FILE_PATH, effective );
             }
         }
 
-        rpal_memory_free( effectiveW );
-        rpal_memory_free( effectiveA );
+        rpal_memory_free( effective );
     }
 }
 
@@ -2331,22 +2163,22 @@ void
             // For a complet list of attributes :
             // https://developer.apple.com/library/mac/documentation/Darwin/Reference/Manpages/man5/launchd.plist.5.html
             case LAUNCH_DATA_STRING:
-                if( 0 == rpal_string_strcmpa( attrName, "Program" ) )
+                if( 0 == rpal_string_strcmp( attrName, "Program" ) )
                 {
                     rSequence_addSTRINGA( svc, RP_TAGS_EXECUTABLE, (const RPCHAR)launch_data_get_string( data ) );
                 }
-                else if( 0 == rpal_string_strcmpa( attrName, "Label" ) )
+                else if( 0 == rpal_string_strcmp( attrName, "Label" ) )
                 {
                     rSequence_addSTRINGA( svc, RP_TAGS_SVC_NAME, (const RPCHAR)launch_data_get_string( data ) );
                 }
-                else if( 0 == rpal_string_strcmpa( attrName, "ProcessType" ) )
+                else if( 0 == rpal_string_strcmp( attrName, "ProcessType" ) )
                 {
                     rSequence_addSTRINGA( svc, RP_TAGS_SVC_TYPE, (const RPCHAR)launch_data_get_string( data ) );
                 }
                 break;
 
             case LAUNCH_DATA_ARRAY:
-                if( 0 == rpal_string_strcmpa( attrName, "ProgramArguments" ) )
+                if( 0 == rpal_string_strcmp( attrName, "ProgramArguments" ) )
                 {
                     // Get first argument ( executable path )
                     launch_data_t iterator = launch_data_array_get_index( data, 0 );
@@ -2359,7 +2191,7 @@ void
                 break;
 
             case LAUNCH_DATA_INTEGER:
-                if( 0 == rpal_string_strcmpa( attrName, "PID" ) )
+                if( 0 == rpal_string_strcmp( attrName, "PID" ) )
                 {
                     rSequence_addRU64( svc, RP_TAGS_EXECUTABLE, (RU64)launch_data_get_string( data ) );
                 }
@@ -2414,16 +2246,16 @@ rList
 #ifdef RPAL_PLATFORM_WINDOWS
     services = _getWindowsService( SERVICE_WIN32 );
 #elif defined( RPAL_PLATFORM_LINUX )
-    const RPWCHAR rootDir = _WCH( "/etc/init.d/" );
+    const RPCHAR rootDir = "/etc/init.d/";
     RU32 nMaxDepth = 1;
-    RPWCHAR fileExp[] = { _WCH( "*" ), NULL };
+    RPCHAR fileExp[] = { "*", NULL };
     rDirCrawl hCrawl = NULL;
     rFileInfo fileInfo = { 0 };
     rSequence svc = NULL;
 
     if( NULL != ( services = rList_new( RP_TAGS_SVC, RPCM_SEQUENCE ) ) )
     {
-        if( NULL != ( hCrawl = rpal_file_crawlStart( rootDir, (RPWCHAR*)&fileExp, 0 ) ) )
+        if( NULL != ( hCrawl = rpal_file_crawlStart( rootDir, (RPNCHAR*)&fileExp, 0 ) ) )
         {
             while( rpal_file_crawlNextFile( hCrawl, &fileInfo ) )
             {
@@ -2432,7 +2264,7 @@ rList
                 {
                     if( NULL != ( svc = rSequence_new() ) )
                     {
-                        rSequence_addSTRINGW( svc, RP_TAGS_SVC_NAME, fileInfo.fileName );
+                        rSequence_addSTRINGN( svc, RP_TAGS_SVC_NAME, fileInfo.fileName );
                         if( !rList_addSEQUENCE( services, svc ) )
                         {
                             rSequence_free( svc );
@@ -2475,7 +2307,7 @@ rList
 rList
     libOs_getDrivers
     (
-    RBOOL isWithHashes
+        RBOOL isWithHashes
     )
 {
     rList drivers = NULL;
@@ -2502,19 +2334,16 @@ RVOID
     )
 {
     rSequence autoEntry = NULL;
-    RPWCHAR entryExeW = NULL;
-    RPCHAR entryExeA = NULL;
+    RPNCHAR entryExe = NULL;
     CryptoLib_Hash hash = { 0 };
 
     while( rList_getSEQUENCE( autoList, RP_TAGS_AUTORUN, &autoEntry ) )
     {
-        if( rSequence_getSTRINGW( autoEntry, RP_TAGS_FILE_PATH, &entryExeW ) ||
-            rSequence_getSTRINGA( autoEntry, RP_TAGS_FILE_PATH, &entryExeA ) )
+        if( rSequence_getSTRINGN( autoEntry, RP_TAGS_FILE_PATH, &entryExe ) )
         {
             rSequence_unTaintRead( autoEntry );
 
-            if( ( NULL != entryExeW && _thorough_file_hashW( entryExeW, NULL, &hash ) ) ||
-                ( NULL != entryExeA && _thorough_file_hashA( entryExeA, NULL, &hash ) ) )
+            if( NULL != entryExe && _thorough_file_hash( entryExe, NULL, &hash ) )
             {
                 rSequence_addBUFFER( autoEntry, RP_TAGS_HASH, (RPU8)&hash, sizeof( hash ) );
             }
@@ -2526,7 +2355,7 @@ RVOID
 
 static
 RBOOL
-    _processRegKey
+    _processRegValue
     (
         DWORD type,
         RPWCHAR path,
@@ -2557,9 +2386,9 @@ RBOOL
         *(RPWCHAR)( value + size ) = 0;
 
         // We remove any NULL characters in the string as it's a technique used by some malware.
-        rpal_string_fillw( (RPWCHAR)value, size / sizeof( RWCHAR ) - 1, _WCH( ' ' ) );
+        rpal_string_fill( (RPWCHAR)value, size / sizeof( RWCHAR ) - 1, _WCH( ' ' ) );
 
-        tmp = rpal_string_strtokw( (RPWCHAR)value, _WCH( ',' ), &state );
+        tmp = rpal_string_strtok( (RPWCHAR)value, _WCH( ',' ), &state );
 
         while( NULL != tmp &&
                0 != tmp[ 0 ] )
@@ -2571,16 +2400,16 @@ RBOOL
                 {
                     keyValue[ 0 ] = 0;
 
-                    pathLen = rpal_string_strlenw( path );
+                    pathLen = rpal_string_strlen( path );
 
-                    if( sizeof( keyValue ) > ( pathLen + rpal_string_strlenw( keyName ) + rpal_string_strlenw( _WCH( "\\" ) ) ) * sizeof( RWCHAR ) )
+                    if( sizeof( keyValue ) > ( pathLen + rpal_string_strlen( keyName ) + rpal_string_strlen( _WCH( "\\" ) ) ) * sizeof( RWCHAR ) )
                     {
-                        rpal_string_strcpyw( (RPWCHAR)&keyValue, path );
+                        rpal_string_strcpy( (RPWCHAR)&keyValue, path );
                         if( _WCH( '\\' ) != path[ pathLen - 1 ] )
                         {
-                            rpal_string_strcatw( (RPWCHAR)&keyValue, _WCH( "\\" ) );
+                            rpal_string_strcat( (RPWCHAR)&keyValue, _WCH( "\\" ) );
                         }
-                        rpal_string_strcatw( (RPWCHAR)&keyValue, keyName );
+                        rpal_string_strcat( (RPWCHAR)&keyValue, keyName );
                         rSequence_addSTRINGW( entry, RP_TAGS_REGISTRY_KEY, (RPWCHAR)&keyValue );
                     }
                     else
@@ -2601,7 +2430,7 @@ RBOOL
                 }
             }
 
-            tmp = rpal_string_strtokw( NULL, _WCH( ',' ), &state );
+            tmp = rpal_string_strtok( NULL, _WCH( ',' ), &state );
             while( NULL != tmp && _WCH( ' ' ) == tmp[ 0 ] )
             {
                 tmp++;
@@ -2619,9 +2448,9 @@ RBOOL
 
         tmp = (RPWCHAR)value;
         while( (RPU8)tmp < ( (RPU8)value + size ) &&
-            (RPU8)( tmp + rpal_string_strlenw( tmp ) ) <= ( (RPU8)value + size ) )
+            (RPU8)( tmp + rpal_string_strlen( tmp ) ) <= ( (RPU8)value + size ) )
         {
-            if( 0 != rpal_string_strlenw( tmp ) )
+            if( 0 != rpal_string_strlen( tmp ) )
             {
                 if( NULL != ( entry = rSequence_new() ) )
                 {
@@ -2629,8 +2458,8 @@ RBOOL
                     if( rSequence_addSTRINGW( entry, RP_TAGS_FILE_PATH, tmp ) )
                     {
                         keyValue[ 0 ] = 0;
-                        rpal_string_strcpyw( (RPWCHAR)&keyValue, path );
-                        rpal_string_strcatw( (RPWCHAR)&keyValue, keyName );
+                        rpal_string_strcpy( (RPWCHAR)&keyValue, path );
+                        rpal_string_strcat( (RPWCHAR)&keyValue, keyName );
                         rSequence_addSTRINGW( entry, RP_TAGS_REGISTRY_KEY, (RPWCHAR)&keyValue );
 
                         if( !rList_addSEQUENCE( listEntries, entry ) )
@@ -2647,8 +2476,91 @@ RBOOL
                 }
             }
 
-            tmp += rpal_string_strlenw( tmp ) + 1;
+            tmp += rpal_string_strlen( tmp ) + 1;
         }
+    }
+
+    return isSuccess;
+}
+
+static
+RBOOL
+    _processRegKey
+    (
+        HKEY keyRoot,
+        RPWCHAR keyPath,
+        RPWCHAR valueExpr,
+        rList autoruns
+    )
+{
+    RBOOL isSuccess = FALSE;
+    HKEY hKey = NULL;
+    DWORD type = 0;
+    RU8 value[ 1024 ] = { 0 };
+    DWORD size = 0;
+    RU32 iKey = 0;
+    DWORD tmpKeyNameSize = 0;
+    RWCHAR tmpKeyName[ 1024 ] = { 0 };
+
+    if( ERROR_SUCCESS == RegOpenKeyW( keyRoot, keyPath, &hKey ) )
+    {
+        if( _WCH( '*' ) != valueExpr[ 0 ] )
+        {
+            // This key is a specific leaf value
+            size = sizeof( value ) - sizeof( RWCHAR );
+            if( ERROR_SUCCESS == RegQueryValueExW( hKey,
+                                                   valueExpr,
+                                                   NULL,
+                                                   &type,
+                                                   (LPBYTE)&value,
+                                                   &size ) )
+            {
+                if( !_processRegValue( type, 
+                                       keyPath, 
+                                       valueExpr, 
+                                       (RPU8)&value, 
+                                       size, 
+                                       autoruns ) )
+                {
+                    rpal_debug_warning( "key contains unexpected data" );
+                }
+                else
+                {
+                    isSuccess = TRUE;
+                }
+            }
+        }
+        else
+        {
+            isSuccess = TRUE;
+
+            // This key is *, meaning all leaf values so we must enumerate
+            tmpKeyNameSize = ARRAY_N_ELEM( tmpKeyName );
+            size = sizeof( value ) - sizeof( RWCHAR );
+            while( ERROR_SUCCESS == RegEnumValueW( hKey, 
+                                                   iKey, 
+                                                   (RPWCHAR)&tmpKeyName, 
+                                                   &tmpKeyNameSize, 
+                                                   NULL, 
+                                                   &type, 
+                                                   (RPU8)&value, 
+                                                   &size ) )
+            {
+                tmpKeyName[ tmpKeyNameSize ] = 0;
+
+                if( !_processRegValue( type, keyPath, tmpKeyName, (RPU8)&value, size, autoruns ) )
+                {
+                    rpal_debug_warning( "key contains unexpected data" );
+                    isSuccess = FALSE;
+                }
+
+                iKey++;
+                tmpKeyNameSize = ARRAY_N_ELEM( tmpKeyName );
+                size = sizeof( value ) - sizeof( RWCHAR );
+            }
+        }
+
+        RegCloseKey( hKey );
     }
 
     return isSuccess;
@@ -2664,28 +2576,35 @@ RBOOL
     RBOOL isSuccess = FALSE;
 
     rDirCrawl dirCrawl = NULL;
-    RPWCHAR crawlFiles[] = { _WCH( "*" ), NULL };
-    RPWCHAR paths[] = { _WCH( "%ALLUSERSPROFILE%\\Start Menu\\Programs\\Startup" ),
-                        _WCH( "%ProgramData%\\Microsoft\\Windows\\Start Menu\\Programs\\Startup" ),
-                        _WCH( "%systemdrive%\\users\\*\\Start Menu\\Programs\\Startup" ),
-                        _WCH( "%systemdrive%\\users\\*\\AppData\\Roaming\\Microsoft\\Windows\\Start" ),
-                        _WCH( "%systemdrive%\\documents and settings\\*\\Start Menu\\Programs\\Startup" ),
-                        _WCH( "%systemdrive%\\documents and settings\\*\\AppData\\Roaming\\Microsoft\\Windows\\Start" ) };
+    struct
+    {
+        RPWCHAR path;
+        RPWCHAR fileExpr[ 2 ];
+    } crawlInfo[] = { { _WCH( "%ALLUSERSPROFILE%\\Start Menu\\Programs\\Startup" ), { _WCH( "*" ), NULL } },
+                      { _WCH( "%ProgramData%\\Microsoft\\Windows\\Start Menu\\Programs\\Startup" ), { _WCH( "*" ), NULL } },
+                      { _WCH( "%systemdrive%\\users\\*\\Start Menu\\Programs\\Startup" ), { _WCH( "*" ), NULL } },
+                      { _WCH( "%systemdrive%\\users\\*\\AppData\\Roaming\\Microsoft\\Windows\\Start" ), { _WCH( "*" ), NULL } },
+                      { _WCH( "%systemdrive%\\documents and settings\\*\\Start Menu\\Programs\\Startup" ), { _WCH( "*" ), NULL } },
+                      { _WCH( "%systemdrive%\\documents and settings\\*\\AppData\\Roaming\\Microsoft\\Windows\\Start" ), { _WCH( "*" ), NULL } },
+                      { _WCH( "%systemroot%\\Tasks" ), { _WCH( "*.job" ), NULL } },
+                      { _WCH( "%systemroot%\\system32\\Tasks" ), { _WCH( "*.job" ), NULL } } };
     rFileInfo finfo = { 0 };
 
     RU32 i = 0;
-    DWORD type = 0;
-    RU8 value[ 1024 ] = { 0 };
-    DWORD size = 0;
     RPWCHAR lnkDest = NULL;
-    HKEY hKey = NULL;
     rSequence entry = NULL;
     RU32 iKey = 0;
-    DWORD tmpKeyNameSize = 0;
+    HKEY hKey = NULL;
+    RU32 iTermKey = 0;
     RWCHAR tmpKeyName[ 1024 ] = { 0 };
     RPWCHAR tmp = NULL;
 
-    _KeyInfo keys[] = { 
+    struct
+    {
+        HKEY root;
+        RPWCHAR path;
+        RPWCHAR keyName;
+    } keys[] = {
         { HKEY_LOCAL_MACHINE, _WCH( "Software\\Microsoft\\Windows\\CurrentVersion\\Run\\" ), _WCH( "*" ) },
         { HKEY_LOCAL_MACHINE, _WCH( "Software\\Microsoft\\Windows\\CurrentVersion\\RunOnce\\" ), _WCH( "*" ) },
         { HKEY_LOCAL_MACHINE, _WCH( "SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Terminal Server\\Install\\Software\\Microsoft\\Windows\\CurrentVersion\\RunOnce" ), _WCH( "*" ) },
@@ -2709,8 +2628,8 @@ RBOOL
         { HKEY_LOCAL_MACHINE, _WCH( "Software\\Wow6432Node\\Microsoft\\Windows\\CurrentVersion\\Explorer\\" ), _WCH( "Browser Helper Objects" ) },
         { HKEY_LOCAL_MACHINE, _WCH( "Software\\Microsoft\\Windows NT\\CurrentVersion\\" ), _WCH( "Drivers32" ) },
         { HKEY_LOCAL_MACHINE, _WCH( "Software\\Wow6432Node\\Microsoft\\Windows NT\\CurrentVersion\\" ), _WCH( "Drivers32" ) },
-        { HKEY_LOCAL_MACHINE, _WCH( "Software\\Microsoft\\Windows NT\\CurrentVersion\\" ), _WCH( "Image File Execution Options" ) },
-        { HKEY_LOCAL_MACHINE, _WCH( "Software\\Wow6432Node\\Microsoft\\Windows NT\\CurrentVersion\\" ), _WCH( "Image File Execution Options" ) },
+        { HKEY_LOCAL_MACHINE, _WCH( "Software\\Microsoft\\Windows NT\\CurrentVersion\\Image File Execution Options\\*\\" ), _WCH( "debugger" ) },
+        { HKEY_LOCAL_MACHINE, _WCH( "Software\\Wow6432Node\\Microsoft\\Windows NT\\CurrentVersion\\Image File Execution Options\\*\\" ), _WCH( "debugger" ) },
         { HKEY_LOCAL_MACHINE, _WCH( "SOFTWARE\\Classes\\Exefile\\Shell\\Open\\Command\\" ), _WCH( "*" ) },
         { HKEY_LOCAL_MACHINE, _WCH( "SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Windows\\" ), _WCH( "Appinit_Dlls" ) },
         { HKEY_LOCAL_MACHINE, _WCH( "SOFTWARE\\Wow6432Node\\Microsoft\\Windows NT\\CurrentVersion\\Windows\\" ), _WCH( "Appinit_Dlls" ) },
@@ -2811,76 +2730,54 @@ RBOOL
     // First we check for Registry autoruns
     for( i = 0; i < ARRAY_N_ELEM( keys ); i++ )
     {
-        if( ERROR_SUCCESS == RegOpenKeyW( keys[ i ].root, keys[ i ].path, &hKey ) )
+        if( rpal_string_endswith( keys[ i ].path, _WCH( "\\*\\" ) ) )
         {
-            if( _WCH( '*' ) != keys[ i ].keyName[ 0 ] )
+            iKey = 0;
+            iTermKey = rpal_string_strlen( keys[ i ].path ) - 2;
+            if( NULL != ( tmp = rpal_string_strdup( keys[ i ].path ) ) )
             {
-                // This key is a specific leaf value
-                size = sizeof( value ) - sizeof( RWCHAR );
-                if( ERROR_SUCCESS == RegQueryValueExW( hKey,
-                                                       keys[ i ].keyName,
-                                                       NULL,
-                                                       &type,
-                                                       (LPBYTE)&value,
-                                                       &size ) )
+                tmp[ iTermKey ] = 0;
+                if( ERROR_SUCCESS == RegOpenKeyW( keys[ i ].root, tmp, &hKey ) )
                 {
-                    if( !_processRegKey( type, 
-                                         keys[ i ].path, 
-                                         keys[ i ].keyName, 
-                                         (RPU8)&value, 
-                                         size, 
-                                         autoruns ) )
+                    while( ERROR_SUCCESS == RegEnumKeyW( hKey, iKey, tmpKeyName, ARRAY_N_ELEM( tmpKeyName ) ) )
                     {
-                        rpal_debug_warning( "key contains unexpected data" );
-                    }
-                }
-            }
-            else
-            {
-                // This key is *, meaning all leaf values so we must enumerate
-                tmpKeyNameSize = ARRAY_N_ELEM( tmpKeyName );
-                size = sizeof( value ) - sizeof( RWCHAR );
-                while( ERROR_SUCCESS == RegEnumValueW( hKey, 
-                                                       iKey, 
-                                                       (RPWCHAR)&tmpKeyName, 
-                                                       &tmpKeyNameSize, 
-                                                       NULL, 
-                                                       &type, 
-                                                       (RPU8)&value, 
-                                                       &size ) )
-                {
-                    tmpKeyName[ tmpKeyNameSize ] = 0;
+                        if( NULL != ( tmp = rpal_string_strcatEx( tmp, tmpKeyName ) ) )
+                        {
+                            _processRegKey( keys[ i ].root, tmp, keys[ i ].keyName, autoruns );
+                        }
 
-                    if( !_processRegKey( type, keys[ i ].path, tmpKeyName, (RPU8)&value, size, autoruns ) )
-                    {
-                        rpal_debug_warning( "key contains unexpected data" );
+                        tmp[ iTermKey ] = 0;
+
+                        iKey++;
                     }
 
-                    iKey++;
-                    tmpKeyNameSize = ARRAY_N_ELEM( tmpKeyName );
-                    size = sizeof( value ) - sizeof( RWCHAR );
+                    RegCloseKey( hKey );
                 }
-            }
 
-            RegCloseKey( hKey );
+                rpal_memory_free( tmp );
+            }
+        }
+        else
+        {
+            _processRegKey( keys[ i ].root, keys[ i ].path, keys[ i ].keyName, autoruns );
         }
     }
 
     // Now we look for dir-based autoruns
-    for( i = 0; i < ARRAY_N_ELEM( paths ); i++ )
+    for( i = 0; i < ARRAY_N_ELEM( crawlInfo ); i++ )
     {
-        if( NULL != ( dirCrawl = rpal_file_crawlStart( paths[ i ], crawlFiles, 1 ) ) )
+        if( NULL != ( dirCrawl = rpal_file_crawlStart( crawlInfo[ i ].path, crawlInfo[ i ].fileExpr, 1 ) ) )
         {
             while( rpal_file_crawlNextFile( dirCrawl, &finfo ) )
             {
                 if( !IS_FLAG_ENABLED( finfo.attributes, RPAL_FILE_ATTRIBUTE_DIRECTORY ) &&
-                    0 != rpal_string_stricmpw( _WCH( "desktop.ini" ), finfo.fileName ) &&
+                    0 != rpal_string_stricmp( _WCH( "desktop.ini" ), finfo.fileName ) &&
                     NULL != ( entry = rSequence_new() ) )
                 {
                     tmp = finfo.filePath;
                     lnkDest = NULL;
 
-                    if( rpal_string_endswithw( finfo.filePath, _WCH( ".lnk" ) ) )
+                    if( rpal_string_endswith( finfo.filePath, _WCH( ".lnk" ) ) )
                     {
                         if( rpal_file_getLinkDest( tmp, &lnkDest ) )
                         {
@@ -2923,10 +2820,10 @@ static
     RU32 i = 0;
     rSequence entry = NULL;
     rDirCrawl dirCrawl = NULL;
-    RPWCHAR crawlFiles[] = { _WCH( "*" ), NULL };
-    RPWCHAR paths[] = {
-        _WCH( "/System/Library/StartupItems" ),
-        _WCH( "/Library/StartupItems" ) };
+    RPCHAR crawlFiles[] = { "*", NULL };
+    RPCHAR paths[] = {
+        "/System/Library/StartupItems",
+        "/Library/StartupItems" };
     rFileInfo finfo = { 0 };
 
     // Look for dir-based autoruns
@@ -2939,7 +2836,7 @@ static
                 if( !IS_FLAG_ENABLED( finfo.attributes, RPAL_FILE_ATTRIBUTE_DIRECTORY ) &&
                     NULL != ( entry = rSequence_new() ) )
                 {
-                    rSequence_addSTRINGW( entry, RP_TAGS_FILE_PATH, finfo.filePath );
+                    rSequence_addSTRINGA( entry, RP_TAGS_FILE_PATH, finfo.filePath );
 
                     if( !rList_addSEQUENCE( autoruns, entry ) )
                     {

@@ -40,6 +40,12 @@ typedef mach_port_t rThreadID;
 typedef RS32 rThreadID;
 #endif
 
+typedef struct
+{
+    rThreadID tid;
+    RU32 fileId;
+    RU32 lineNum;
+} rThreadPoolTask;
 
 //=============================================================================
 // Threads and thread IDs
@@ -123,31 +129,40 @@ RBOOL
     );
 
 RBOOL
-    rThreadPool_task
+    rThreadPool_taskEx
     (
         rThreadPool pool,
         rpal_thread_pool_func taskFunction,
-        RPVOID taskData
+        RPVOID taskData,
+        RU32 fileId,
+        RU32 lineNum
     );
+#define rThreadPool_task(pool, taskFunction, taskData) (rThreadPool_taskEx((pool), (taskFunction), (taskData), RPAL_FILE_ID, __LINE__))
 
 RBOOL
-    rThreadPool_scheduleOneTime
+    rThreadPool_scheduleOneTimeEx
     (
         rThreadPool pool,
         RU64 absoluteTime,
         rpal_thread_pool_func taskFunction,
-        RPVOID taskData
+        RPVOID taskData,
+        RU32 fileId,
+        RU32 lineNum
     );
+#define rThreadPool_scheduleOneTime(pool, absoluteTime, taskFunction, taskData) (rThreadPool_scheduleOneTimeEx((pool), (absoluteTime), (taskFunction), (taskData), RPAL_FILE_ID, __LINE__))
 
 RBOOL
-    rThreadPool_scheduleRecurring
+    rThreadPool_scheduleRecurringEx
     (
         rThreadPool pool,
         RU64 timeInterval,
         rpal_thread_pool_func taskFunction,
         RPVOID taskData,
-        RBOOL isRandomStartOffset
+        RBOOL isRandomStartOffset,
+        RU32 fileId,
+        RU32 lineNum
     );
+#define rThreadPool_scheduleRecurring(pool, timeInterval, taskFunction, taskData, isRandomStartOffset) (rThreadPool_scheduleRecurringEx((pool), (timeInterval), (taskFunction), (taskData), (isRandomStartOffset), RPAL_FILE_ID, __LINE__))
 
 RBOOL
     rThreadPool_pause
@@ -165,6 +180,14 @@ RBOOL
     rThreadPool_isIdle
     (
         rThreadPool pool
+    );
+
+RBOOL
+    rThreadPool_getRunning
+    (
+        rThreadPool pool,
+        rThreadPoolTask** pTasks,
+        RU32* nTasks
     );
 
 #endif

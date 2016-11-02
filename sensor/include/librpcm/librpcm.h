@@ -204,7 +204,7 @@ RBOOL
     (
         rSequence seq,
         rpcm_tag tag,
-        RNATIVESTR string
+        RPNCHAR string
     );
 
 RBOOL
@@ -351,7 +351,7 @@ RBOOL
     rList_addSTRINGN
     (
         rList list,
-        RNATIVESTR string
+        RPNCHAR string
     );
 
 RBOOL
@@ -515,7 +515,7 @@ RBOOL
     (
         rSequence seq,
         rpcm_tag tag,
-        RNATIVESTR* pVal
+        RPNCHAR* pVal
     );
 
 RBOOL
@@ -662,7 +662,7 @@ RBOOL
     (
         rList list,
         rpcm_tag tag,
-        RNATIVESTR* pVal
+        RPNCHAR* pVal
     );
 
 RBOOL

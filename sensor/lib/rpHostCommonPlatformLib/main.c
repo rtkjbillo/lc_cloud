@@ -63,7 +63,7 @@ BOOL
         // will kill us very shortly, so let's just clean up
         // the CC so we don't report a pointless "crash".
         OBFUSCATIONLIB_TOGGLE( store );
-        rpal_file_deletew( (RPWCHAR)store, FALSE );
+        rpal_file_delete( (RPWCHAR)store, FALSE );
         OBFUSCATIONLIB_TOGGLE( store );
     }
 
@@ -147,7 +147,7 @@ RBOOL
 
     OBFUSCATIONLIB_TOGGLE( store );
 
-    if( rpal_file_readw( (RPWCHAR)store, (RPVOID)&storeFile, &storeFileSize, FALSE ) )
+    if( rpal_file_read( (RPNCHAR)store, (RPVOID)&storeFile, &storeFileSize, FALSE ) )
     {
         if( sizeof( rpHCPIdentStore ) <= storeFileSize )
         {
@@ -166,7 +166,7 @@ RBOOL
             else
             {
                 rpal_debug_warning( "inconsistent ident store, reseting" );
-                rpal_file_deletew( (RPWCHAR)store, FALSE );
+                rpal_file_delete( (RPNCHAR)store, FALSE );
             }
         }
 
@@ -220,8 +220,8 @@ RBOOL
     rpHostCommonPlatformLib_launch
     (
         RU8 configHint,
-        RPCHAR primaryHomeUrl,
-        RPCHAR secondaryHomeUrl
+        RPNCHAR primaryHomeUrl,
+        RPNCHAR secondaryHomeUrl
     )
 {
     RBOOL isInitSuccessful = FALSE;
@@ -230,6 +230,7 @@ RBOOL
     rSequence tmpSeq = NULL;
     RPU8 tmpBuffer = NULL;
     RU32 tmpSize = 0;
+    RU16 tmpPort = 0;
 
     rpal_debug_info( "launching hcp" );
 
@@ -251,24 +252,35 @@ RBOOL
         {
             CryptoLib_init();
 
+            if( NULL == ( g_hcpContext.cloudConnectionMutex = rMutex_create() ) ||
+                NULL == ( g_hcpContext.isCloudOnline = rEvent_create( TRUE ) ) )
+            {
+                rMutex_free( g_hcpContext.cloudConnectionMutex );
+                rpal_debug_error( "could not create cloud connection mutex or event" );
+                return FALSE;
+            }
+
             g_hcpContext.currentId.raw = g_idTemplate.raw;
 
             // We attempt to load some initial config from the serialized
             // rSequence that can be patched in this binary.
             if( NULL != ( staticConfig = getStaticConfig() ) )
             {
-                if( rSequence_getSTRINGA( staticConfig, RP_TAGS_HCP_PRIMARY_URL, &tmpStr ) )
+                if( rSequence_getSTRINGA( staticConfig, RP_TAGS_HCP_PRIMARY_URL, &tmpStr ) &&
+                    rSequence_getRU16( staticConfig, RP_TAGS_HCP_PRIMARY_PORT, &tmpPort ) )
                 {
-                    g_hcpContext.primaryUrl = rpal_string_strdupa( tmpStr );
+                    g_hcpContext.primaryUrl = rpal_string_strdupA( tmpStr );
+                    g_hcpContext.primaryPort = tmpPort;
                     rpal_debug_info( "loading primary url from static config" );
                 }
 
-                if( rSequence_getSTRINGA( staticConfig, RP_TAGS_HCP_SECONDARY_URL, &tmpStr ) )
+                if( rSequence_getSTRINGA( staticConfig, RP_TAGS_HCP_SECONDARY_URL, &tmpStr ) &&
+                    rSequence_getRU16( staticConfig, RP_TAGS_HCP_SECONDARY_PORT, &tmpPort ) )
                 {
-                    g_hcpContext.secondaryUrl = rpal_string_strdupa( tmpStr );
+                    g_hcpContext.secondaryUrl = rpal_string_strdupA( tmpStr );
+                    g_hcpContext.secondaryPort = tmpPort;
                     rpal_debug_info( "loading secondary url from static config" );
                 }
-
                 if( rSequence_getSEQUENCE( staticConfig, RP_TAGS_HCP_ID, &tmpSeq ) )
                 {
                     g_hcpContext.currentId = seqToHcpId( tmpSeq );
@@ -289,7 +301,7 @@ RBOOL
 
                 if( rSequence_getSTRINGA( staticConfig, RP_TAGS_HCP_DEPLOYMENT_KEY, &tmpStr ) )
                 {
-                    g_hcpContext.deploymentKey = rpal_string_strdupa( tmpStr );
+                    g_hcpContext.deploymentKey = rpal_string_strdupA( tmpStr );
                     rpal_debug_info( "loading deployment key from static config" );
                 }
 
@@ -306,7 +318,7 @@ RBOOL
                     rpal_memory_free( g_hcpContext.primaryUrl );
                     g_hcpContext.primaryUrl = NULL;
                 }
-                g_hcpContext.primaryUrl = rpal_string_strdupa( primaryHomeUrl );
+                g_hcpContext.primaryUrl = rpal_string_ntoa( primaryHomeUrl );
             }
 
             if( NULL != secondaryHomeUrl &&
@@ -317,7 +329,7 @@ RBOOL
                     rpal_memory_free( g_hcpContext.secondaryUrl );
                     g_hcpContext.secondaryUrl = NULL;
                 }
-                g_hcpContext.secondaryUrl = rpal_string_strdupa( secondaryHomeUrl );
+                g_hcpContext.secondaryUrl = rpal_string_ntoa( secondaryHomeUrl );
             }
 
             g_hcpContext.enrollmentToken = NULL;
@@ -381,6 +393,11 @@ RBOOL
         SetConsoleCtrlHandler( (PHANDLER_ROUTINE)ctrlHandler, FALSE );
 #endif
 
+        rMutex_free( g_hcpContext.cloudConnectionMutex );
+        rEvent_free( g_hcpContext.isCloudOnline );
+        g_hcpContext.cloudConnectionMutex = NULL;
+        g_hcpContext.isCloudOnline = NULL;
+
         rpal_Context_cleanup();
 
         rpal_Context_deinitialize();
@@ -409,7 +426,8 @@ RBOOL
 RBOOL
     rpHostCommonPlatformLib_load
     (
-        RPWCHAR modulePath
+        RPNCHAR modulePath,
+        RU32 moduleId
     )
 {
     RBOOL isSuccess = FALSE;
@@ -420,6 +438,7 @@ RBOOL
     RPCHAR errorStr = NULL;
 
     OBFUSCATIONLIB_DECLARE( entrypoint, RP_HCP_CONFIG_MODULE_ENTRY );
+    OBFUSCATIONLIB_DECLARE( recvMessage, RP_HCP_CONFIG_MODULE_RECV_MESSAGE );
 
     if( NULL != modulePath )
     {
@@ -431,12 +450,7 @@ RBOOL
 #ifdef RPAL_PLATFORM_WINDOWS
                 g_hcpContext.modules[ moduleIndex ].hModule = LoadLibraryW( modulePath );
 #elif defined( RPAL_PLATFORM_LINUX ) || defined( RPAL_PLATFORM_MACOSX )
-                RPCHAR tmpPath = NULL;
-                if( NULL != ( tmpPath = rpal_string_wtoa( modulePath ) ) )
-                {
-                    g_hcpContext.modules[ moduleIndex ].hModule = dlopen( tmpPath, RTLD_NOW | RTLD_LOCAL );
-                    rpal_memory_free( tmpPath );
-                }
+                g_hcpContext.modules[ moduleIndex ].hModule = dlopen( modulePath, RTLD_NOW | RTLD_LOCAL );
 #endif
                 if( NULL != g_hcpContext.modules[ moduleIndex ].hModule )
                 {
@@ -454,14 +468,25 @@ RBOOL
                         modContext = &(g_hcpContext.modules[ moduleIndex ].context);
 
                         modContext->pCurrentId = &(g_hcpContext.currentId);
-                        modContext->func_beaconHome = doBeacon;
+                        modContext->func_sendHome = doSend;
                         modContext->isTimeToStop = rEvent_create( TRUE );
                         modContext->rpalContext = rpal_Context_get();
+                        modContext->isOnlineEvent = g_hcpContext.isCloudOnline;
 
                         if( NULL != modContext->isTimeToStop )
                         {
+                            g_hcpContext.modules[ moduleIndex ].id = (RpHcp_ModuleId)moduleId;
                             g_hcpContext.modules[ moduleIndex ].isTimeToStop  = modContext->isTimeToStop;
-
+                            OBFUSCATIONLIB_TOGGLE( recvMessage );
+#ifdef RPAL_PLATFORM_WINDOWS
+                            g_hcpContext.modules[ moduleIndex ].func_recvMessage = 
+                                    (rpHCPModuleMsgEntry)GetProcAddress( (HMODULE)g_hcpContext.modules[ moduleIndex ].hModule,
+                                                                         (RPCHAR)recvMessage );
+#elif defined( RPAL_PLATFORM_LINUX ) || defined( RPAL_PLATFORM_MACOSX )
+                            g_hcpContext.modules[ moduleIndex ].func_recvMessage = 
+                                    (rpHCPModuleMsgEntry)dlsym( g_hcpContext.modules[ moduleIndex ].hModule, (RPCHAR)recvMessage );
+#endif
+                            OBFUSCATIONLIB_TOGGLE( recvMessage );
                             g_hcpContext.modules[ moduleIndex ].hThread = rpal_thread_new( pEntry, modContext );
 
                             if( 0 != g_hcpContext.modules[ moduleIndex ].hThread )

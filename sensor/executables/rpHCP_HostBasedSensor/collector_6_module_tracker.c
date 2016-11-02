@@ -63,7 +63,7 @@ RS32
 
 static
 RPVOID
-    userModeDiff
+    modUserModeDiff
     (
         rEvent isTimeToStop
     )
@@ -76,6 +76,8 @@ RPVOID
     rList modules = NULL;
     rSequence module = NULL;
     LibOsPerformanceProfile perfProfile = { 0 };
+    Atom parentAtom = { 0 };
+    RU64 curTime = 0;
 
     perfProfile.enforceOnceIn = 1;
     perfProfile.lastTimeoutValue = 10;
@@ -94,7 +96,7 @@ RPVOID
             if( NULL != ( newSnapshot = rpal_blob_create( 1000 * sizeof( _moduleHistEntry ),
                                                           1000 * sizeof( _moduleHistEntry ) ) ) )
             {
-                libOs_timeoutWithProfile( &perfProfile, FALSE );
+                libOs_timeoutWithProfile( &perfProfile, FALSE, isTimeToStop );
 
                 curProc = processes;
                 while( rpal_memory_isValid( isTimeToStop ) &&
@@ -108,11 +110,13 @@ RPVOID
                 {
                     if( NULL != ( modules = processLib_getProcessModules( curProc->pid ) ) )
                     {
+                        curTime = rpal_time_getGlobalPreciseTime();
+
                         while( rpal_memory_isValid( isTimeToStop ) &&
                                !rEvent_wait( isTimeToStop, 0 ) &&
                                rList_getSEQUENCE( modules, RP_TAGS_DLL, &module ) )
                         {
-                            libOs_timeoutWithProfile( &perfProfile, TRUE );
+                            libOs_timeoutWithProfile( &perfProfile, TRUE, isTimeToStop );
 
                             if( rSequence_getPOINTER64( module,
                                                         RP_TAGS_BASE_ADDRESS, 
@@ -131,11 +135,16 @@ RPVOID
                                                                 &curModule, 
                                                                 (rpal_ordering_func)_cmpModule ) )
                                 {
-                                    rSequence_addTIMESTAMP( module,
-                                                            RP_TAGS_TIMESTAMP,
-                                                            rpal_time_getGlobal() );
-                                    notifications_publish( RP_TAGS_NOTIFICATION_MODULE_LOAD,
-                                                           module );
+                                    hbs_timestampEvent( module, curTime );
+                                    parentAtom.key.category = RP_TAGS_NOTIFICATION_NEW_PROCESS;
+                                    parentAtom.key.process.pid = curProc->pid;
+                                    if( atoms_query( &parentAtom, curTime ) )
+                                    {
+                                        rSequence_addBUFFER( module, RP_TAGS_HBS_PARENT_ATOM, parentAtom.id, sizeof( parentAtom.id ) );
+                                    }
+                                    rpal_memory_zero( &parentAtom, sizeof( parentAtom ) );
+                                    hbs_publish( RP_TAGS_NOTIFICATION_MODULE_LOAD,
+                                                 module );
                                 }
                             }
                         }
@@ -184,21 +193,29 @@ static RBOOL
     rSequence notif = NULL;
     RU32 pathLength = 0;
     RU32 i = 0;
-    RNATIVESTR dirSep = RPAL_FILE_LOCAL_DIR_SEP_N;
-    RNATIVESTR cleanPath = NULL;
-
+    RPNCHAR dirSep = RPAL_FILE_LOCAL_DIR_SEP_N;
+    RPNCHAR cleanPath = NULL;
+    Atom parentAtom = { 0 };
+    
     if( NULL != module )
     {
         if( NULL != ( notif = rSequence_new() ) )
         {
-            rSequence_addTIMESTAMP( notif, RP_TAGS_TIMESTAMP, module->ts );
+            hbs_timestampEvent( notif, module->ts );
+            parentAtom.key.category = RP_TAGS_NOTIFICATION_NEW_PROCESS;
+            parentAtom.key.process.pid = module->pid;
+            if( atoms_query( &parentAtom, module->ts ) )
+            {
+                rSequence_addBUFFER( notif, RP_TAGS_HBS_PARENT_ATOM, parentAtom.id, sizeof( parentAtom.id ) );
+            }
+
             rSequence_addRU32( notif, RP_TAGS_PROCESS_ID, module->pid );
             rSequence_addPOINTER64( notif, RP_TAGS_BASE_ADDRESS, (RU64)module->baseAddress );
             rSequence_addRU64( notif, RP_TAGS_MEMORY_SIZE, module->imageSize );
 
-            if( 0 != ( pathLength = rpal_string_strlenn( module->path ) ) )
+            if( 0 != ( pathLength = rpal_string_strlen( module->path ) ) )
             {
-                cleanPath = rpal_file_cleann( module->path );
+                cleanPath = rpal_file_clean( module->path );
                 rSequence_addSTRINGN( notif, RP_TAGS_FILE_PATH, cleanPath ? cleanPath : module->path );
                 rpal_memory_free( cleanPath );
 
@@ -214,8 +231,8 @@ static RBOOL
 
                 rSequence_addSTRINGN( notif, RP_TAGS_MODULE_NAME, &( module->path[ i ] ) );
 
-                if( notifications_publish( RP_TAGS_NOTIFICATION_MODULE_LOAD,
-                                           notif ) )
+                if( hbs_publish( RP_TAGS_NOTIFICATION_MODULE_LOAD,
+                                 notif ) )
                 {
                     isSuccess = TRUE;
                 }
@@ -229,7 +246,7 @@ static RBOOL
 }
 
 static RVOID
-    kernelModeDiff
+    modKernelModeDiff
     (
         rEvent isTimeToStop
     )
@@ -274,14 +291,14 @@ static RPVOID
             // We first attempt to get new modules through
             // the kernel mode acquisition driver
             rpal_debug_info( "running kernel acquisition module notification" );
-            kernelModeDiff( isTimeToStop );
+            modKernelModeDiff( isTimeToStop );
         }
         // If the kernel mode fails, or is not available, try
         // to revert to user mode
         else if( !rEvent_wait( isTimeToStop, 0 ) )
         {
             rpal_debug_info( "running usermode acquisition module notification" );
-            userModeDiff( isTimeToStop );
+            modUserModeDiff( isTimeToStop );
         }
     }
 

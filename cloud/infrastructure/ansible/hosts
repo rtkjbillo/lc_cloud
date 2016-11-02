@@ -5,8 +5,5 @@ beach-2
 [endpoints]
 http-1
 
-[state_db]
-state-db-1
-
 [scale_db]
 scale-db-1

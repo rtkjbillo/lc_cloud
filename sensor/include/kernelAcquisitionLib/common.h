@@ -22,6 +22,7 @@ limitations under the License.
 #ifdef RPAL_PLATFORM_MACOSX
     #define ACQUISITION_COMMS_NAME          "com.refractionpoint.hbs.acq"
 #elif defined( RPAL_PLATFORM_WINDOWS )
+    
     #define ACQUISITION_COMMS_NAME          _WCH("rp_hcp_hbs_acq")
     #define DEVICE_ID                       44223
     #define DEVICE_FUNCTION_CODE            0x400
@@ -73,8 +74,8 @@ typedef struct
     RU32 ppid;
     RU32 uid;
     RU64 ts;
-    RNATIVECHAR path[ 513 ];
-    RNATIVECHAR cmdline[ 513 ];
+    RNCHAR path[ 513 ];
+    RNCHAR cmdline[ 513 ];
 
 } KernelAcqProcess;
 
@@ -83,13 +84,14 @@ typedef struct
 #define KERNEL_ACQ_FILE_ACTION_MODIFIED     3
 #define KERNEL_ACQ_FILE_ACTION_RENAME_OLD   4
 #define KERNEL_ACQ_FILE_ACTION_RENAME_NEW   5
+#define KERNEL_ACQ_FILE_ACTION_READ         6
 typedef struct
 {
     RU32 action;
     RU32 pid;
     RU32 uid;
     RU64 ts;
-    RNATIVECHAR path[ 513 ];
+    RNCHAR path[ 513 ];
 
 } KernelAcqFileIo;
 
@@ -99,7 +101,7 @@ typedef struct
     RPVOID baseAddress;
     RU64 imageSize;
     RU64 ts;
-    RNATIVECHAR path[ 513 ];
+    RNCHAR path[ 513 ];
 } KernelAcqModule;
 
 #endif
