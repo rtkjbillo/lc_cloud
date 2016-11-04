@@ -175,7 +175,7 @@ RBOOL
                         rpal_btree_remove( g_atoms, &tmpAtom, NULL, FALSE );
                     }
                 }
-                while( rpal_btree_next( g_atoms, &tmpAtom, &tmpAtom, FALSE ) );
+                while( rpal_btree_after( g_atoms, &tmpAtom, &tmpAtom, FALSE ) );
             }
 
             rpal_debug_info( "atom cleanup finished, %d left", rpal_btree_getSize( g_atoms, FALSE ) );
