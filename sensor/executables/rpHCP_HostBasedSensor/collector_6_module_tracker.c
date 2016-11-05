@@ -253,7 +253,9 @@ static RVOID
 {
     RU32 i = 0;
     RU32 nScratch = 0;
+    RU32 prev_nScratch = 0;
     KernelAcqModule new_from_kernel[ 200 ] = { 0 };
+    KernelAcqModule prev_from_kernel[ 200 ] = { 0 };
 
     while( !rEvent_wait( isTimeToStop, 1000 ) )
     {
@@ -266,10 +268,13 @@ static RVOID
             break;
         }
 
-        for( i = 0; i < nScratch; i++ )
+        for( i = 0; i < prev_nScratch; i++ )
         {
-            notifyOfKernelModule( &(new_from_kernel[ i ]) );
+            notifyOfKernelModule( &(prev_from_kernel[ i ]) );
         }
+
+        rpal_memory_memcpy( prev_from_kernel, new_from_kernel, sizeof( prev_from_kernel ) );
+        prev_nScratch = nScratch;
     }
 }
 

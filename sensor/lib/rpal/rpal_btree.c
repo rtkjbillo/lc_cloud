@@ -208,10 +208,10 @@ static btnode node_Search(BTREE tree, btnode node, void *key)
   if (node) {
     while (node && (result = data_compare(tree, data(tree, node), key))) {
       if (result > 0) {
-	node = left(node);
+	    node = left(node);
       }
       else {
-	node = right(node);
+	    node = right(node);
       }
     }
   }
@@ -313,6 +313,73 @@ static btnode node_Successor(btnode node)
     node = node2;
   }
   return node;
+}
+
+/* ---------------------------------------------------------------------- */
+static btnode node_Predecessor( btnode node )
+{
+    btnode node2;
+
+    if( left( node ) )
+    {
+        node = node_Minimum( left( node ) );
+    }
+    else
+    {
+        node2 = parent( node );
+        while( node2 && node == left( node2 ) )
+        {
+            node = node2;
+            node2 = parent( node );
+        }
+        node = node2;
+    }
+    return node;
+}
+
+
+/* ---------------------------------------------------------------------- */
+static btnode node_Next( BTREE tree, btnode node, void *key )
+{
+    int result;
+    btnode lastTraversed = NULL;
+    RBOOL wasLow = TRUE;
+
+    if( node )
+    {
+        while( node && ( result = data_compare( tree, data( tree, node ), key ) ) )
+        {
+            lastTraversed = node;
+
+            if( result > 0 )
+            {
+                wasLow = FALSE;;
+                node = left( node );
+            }
+            else
+            {
+                wasLow = TRUE;
+                node = right( node );
+            }
+        }
+
+        if( node )
+        {
+            node = node_Successor( node );
+        }
+        else
+        {
+            if( wasLow )
+            {
+                node = lastTraversed;
+            }
+            else
+            {
+                node = node_Predecessor( lastTraversed );
+            }
+        }
+    }
+    return node;
 }
  
 /* ---------------------------------------------------------------------- */
@@ -1074,6 +1141,41 @@ RBOOL
         {
             if( 0 == btree_Successor( pTree->tree, key, ret ) )
             {
+                isSuccess = TRUE;
+            }
+
+            if( !isBypassLocks )
+            {
+                rRwLock_read_unlock( pTree->lock );
+            }
+        }
+    }
+
+    return isSuccess;
+}
+
+
+RBOOL
+    rpal_btree_after
+    (
+        rBTree tree,
+        RPVOID key,
+        RPVOID ret,
+        RBOOL isBypassLocks
+    )
+{
+    RBOOL isSuccess = FALSE;
+    _rBTree* pTree = (_rBTree*)tree;
+    btnode node;
+
+    if( rpal_memory_isValid( tree ) )
+    {
+        if( isBypassLocks ||
+            rRwLock_read_lock( pTree->lock ) )
+        {
+            if( 0 != ( node = node_Next( pTree->tree, root( pTree->tree), key ) ) )
+            {
+                data_copy( pTree->tree, ret, data( pTree->tree, node ) );
                 isSuccess = TRUE;
             }
 

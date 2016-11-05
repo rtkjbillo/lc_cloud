@@ -25,10 +25,236 @@ limitations under the License.
 #define RPAL_FILE_ID 72
 
 #define _MAX_FILE_HASH_SIZE                 (1024 * 1024 * 20)
+#define _CLEANUP_INEERVAL                   MSEC_FROM_SEC(60)
+#define _CODE_INFO_TTL                      MSEC_FROM_SEC(60 * 60 * 24)
 
-static rBloom g_knownCode = NULL;
 static rMutex g_mutex = NULL;
+static rBTree g_reportedCode = NULL;
+static RU64 g_lastCleanup = 0;
 
+typedef struct
+{
+    struct
+    {
+        RNCHAR fileName[ RPAL_MAX_PATH ];
+        CryptoLib_Hash fileHash;
+    } info;
+    struct
+    {
+        RERROR lastError;
+        RU64 timeGenerated;
+        RU64 lastCodeHitTime;
+        RU8 thisCodeHitAtom[ HBS_ATOM_ID_SIZE ];
+        RU8 parentCodeHitAtom[ HBS_ATOM_ID_SIZE ];
+    } mtd;
+} CodeInfo;
+
+static
+RS32
+    _compCodeInfo
+    (
+        CodeInfo* info1,
+        CodeInfo* info2
+    )
+{
+    RS32 ret = 0;
+
+    if( NULL != info1 &&
+        NULL != info2 )
+    {
+#ifdef RPAL_PLATFORM_WINDOWS
+        ret = rpal_string_stricmp( info1->info.fileName, info2->info.fileName );
+#else
+        ret = rpal_string_strcmp( info1->info.fileName, info2->info.fileName );
+#endif
+    }
+
+    return ret;
+}
+
+static
+RBOOL
+    cleanupTree
+    (
+
+    )
+{
+    RBOOL isSuccess = FALSE;
+    CodeInfo info = { 0 };
+    RU64 curTime = rpal_time_getGlobalPreciseTime();
+
+    if( g_lastCleanup > curTime - _CLEANUP_INEERVAL )
+    {
+        // Not time to cleanup yet
+        return TRUE;
+    }
+
+    rpal_debug_info( "initiate a tree cleanup" );
+    g_lastCleanup = curTime;
+    isSuccess = TRUE;
+
+    if( rpal_btree_minimum( g_reportedCode, &info, FALSE ) )
+    {
+        do
+        {
+            if( info.mtd.timeGenerated < curTime - _CODE_INFO_TTL )
+            {
+                // Over TTL, remove.
+                if( rpal_btree_remove( g_reportedCode, &info, NULL, FALSE ) )
+                {
+                    //rpal_debug_info( "REMOVED OLD ENTRY" );
+                }
+                else
+                {
+                    isSuccess = FALSE;
+                }
+            }
+        }
+        while( rpal_btree_after( g_reportedCode, &info, &info, TRUE ) );
+    }
+
+    if( !isSuccess )
+    {
+        rpal_debug_error( "error removing old code info" );
+    }
+
+    return isSuccess;
+}
+
+static
+RBOOL
+    populateCodeInfo
+    (
+        CodeInfo* tmpInfo,
+        CryptoLib_Hash* pHash,
+        rSequence originalEvent
+    )
+{
+    RBOOL isCanBeReported = TRUE;
+
+    if( NULL != tmpInfo )
+    {
+        if( !rSequence_getTIMESTAMP( originalEvent, RP_TAGS_TIMESTAMP, &tmpInfo->mtd.timeGenerated ) )
+        {
+            tmpInfo->mtd.timeGenerated = rpal_time_getGlobalPreciseTime();
+        }
+
+        if( NULL != pHash )
+        {
+            // We already have a hash so use it.
+            rpal_memory_memcpy( &tmpInfo->info.fileHash, pHash, sizeof( *pHash ) );
+        }
+        else
+        {
+            // We need to try to hash this file.
+            if( _MAX_FILE_HASH_SIZE < rpal_file_getSize( tmpInfo->info.fileName, TRUE ) )
+            {
+                // Too big for us to try to hash it.
+                tmpInfo->mtd.lastError = RPAL_ERROR_FILE_TOO_LARGE;
+            }
+            else
+            {
+                if( !CryptoLib_hashFile( tmpInfo->info.fileName, &tmpInfo->info.fileHash, TRUE ) )
+                {
+                    rpal_debug_info( "unable to fetch file hash for ident" );
+                    tmpInfo->mtd.lastError = RPAL_ERROR_FILE_NOT_FOUND;
+                }
+            }
+        }
+
+        if( !rpal_btree_add( g_reportedCode, tmpInfo, FALSE ) &&
+            !rpal_btree_update( g_reportedCode, tmpInfo, tmpInfo, FALSE ) )
+        {
+            // To avoid a situation where for whatever reason we cannot add to
+            // history and we start spamming the same code over and over.
+            rpal_debug_error( "error adding to known code" );
+            isCanBeReported = FALSE;
+        }
+    }
+
+    return isCanBeReported;
+}
+
+static
+RBOOL
+    checkNewIdent
+    (
+        CodeInfo* tmpInfo,
+        CryptoLib_Hash* pHash,
+        rSequence originalEvent,
+        RBOOL isBypassMutex
+    )
+{
+    RBOOL isNeedsReporting = FALSE;
+    CodeInfo infoFound = { 0 };
+    RPU8 tmpAtom = NULL;
+    RU32 atomSize = 0;
+    CryptoLib_Hash emptyHash = { 0 };
+
+    if( NULL != tmpInfo )
+    {
+        if( isBypassMutex ||
+            rMutex_lock( g_mutex ) )
+        {
+            // Check if it's time to cull the tree.
+            cleanupTree();
+
+            // First can we find this file name.
+            if( rpal_btree_search( g_reportedCode, tmpInfo, &infoFound, FALSE ) )
+            {
+                // So the path matches, if a hash was already provided, check to see if the hash matches.
+                if( 0 != rpal_memory_memcmp( &tmpInfo->info.fileHash, &infoFound.info.fileHash, sizeof( infoFound.info.fileHash ) ) &&
+                    0 != rpal_memory_memcmp( &emptyHash, &tmpInfo->info.fileHash, sizeof( emptyHash ) ) )
+                {
+                    // Never seen this hash, report it.
+                    isNeedsReporting = populateCodeInfo( tmpInfo, pHash, originalEvent );
+
+                    // We only keep the last hash at a specific file.
+                    *tmpInfo = infoFound;
+                }
+                else
+                {
+                    // Ok we've seen this path before, add ourselves to the code hit list.
+                    if( !rSequence_getTIMESTAMP( originalEvent, RP_TAGS_TIMESTAMP, &infoFound.mtd.lastCodeHitTime ) )
+                    {
+                        infoFound.mtd.lastCodeHitTime = rpal_time_getGlobalPreciseTime();
+                    }
+
+                    if( rSequence_getBUFFER( originalEvent, RP_TAGS_HBS_THIS_ATOM, &tmpAtom, &atomSize ) )
+                    {
+                        rpal_memory_memcpy( infoFound.mtd.thisCodeHitAtom,
+                                            tmpAtom,
+                                            MIN_OF( atomSize, sizeof( infoFound.mtd.thisCodeHitAtom ) ) );
+                    }
+
+                    if( rSequence_getBUFFER( originalEvent, RP_TAGS_HBS_PARENT_ATOM, &tmpAtom, &atomSize ) )
+                    {
+                        rpal_memory_memcpy( infoFound.mtd.parentCodeHitAtom,
+                                            tmpAtom,
+                                            MIN_OF( atomSize, sizeof( infoFound.mtd.parentCodeHitAtom ) ) );
+                    }
+
+                    if( !rpal_btree_update( g_reportedCode, tmpInfo, &infoFound, FALSE ) )
+                    {
+                        rpal_debug_error( "error updating last code hit" );
+                    }
+                }
+            }
+            else
+            {
+                // We've never seen this file, process it.
+                isNeedsReporting = populateCodeInfo( tmpInfo, pHash, originalEvent );
+            }
+
+            if( !isBypassMutex )
+            {
+                rMutex_unlock( g_mutex );
+            }
+        }
+    }
+
+    return isNeedsReporting;
+}
 
 static
 RVOID
@@ -36,17 +262,12 @@ RVOID
     (
         RPNCHAR name,
         CryptoLib_Hash* pFileHash,
-        RU64 codeSize,
-        rSequence originalEvent
+        rSequence originalEvent,
+        RPU8 pThisAtom,
+        RPU8 pParentAtom,
+        RBOOL isBypassMutex
     )
 {
-    struct
-    {
-        CryptoLib_Hash fileHash;
-        RU64 codeSize;
-        RNCHAR fileName[ RPAL_MAX_PATH ];
-    } ident = { 0 };
-
     rSequence notif = NULL;
     rSequence sig = NULL;
     RBOOL isSigned = FALSE;
@@ -54,71 +275,65 @@ RVOID
     RBOOL isVerifiedGlobal = FALSE;
     RPU8 pAtomId = NULL;
     RU32 atomSize = 0;
+    CodeInfo tmpInfo = { 0 };
     
-    ident.codeSize = codeSize;
-
     if( NULL != name )
     {
-        rpal_memory_memcpy( &ident.fileName, 
-                            name, 
-                            MIN_OF( sizeof( ident.fileName ), 
+        rpal_memory_memcpy( tmpInfo.info.fileName,
+                            name,
+                            MIN_OF( sizeof( tmpInfo.info.fileName ),
                                     rpal_string_strsize( name ) ) );
     }
 
     if( NULL != pFileHash )
     {
-        rpal_memory_memcpy( &ident.fileHash, pFileHash, sizeof( *pFileHash ) );
+        rpal_memory_memcpy( &tmpInfo.info.fileHash, pFileHash, sizeof( *pFileHash ) );
     }
 
-    if( rMutex_lock( g_mutex ) )
+    if( checkNewIdent( &tmpInfo, pFileHash, originalEvent, isBypassMutex ) )
     {
-        if( rpal_bloom_addIfNew( g_knownCode, &ident, sizeof( ident ) ) )
+        if( NULL != ( notif = rSequence_new() ) )
         {
-            rMutex_unlock( g_mutex );
+            hbs_markAsRelated( originalEvent, notif );
 
-            if( NULL != ( notif = rSequence_new() ) )
+            if( rSequence_addSTRINGN( notif, RP_TAGS_FILE_PATH, name )  &&
+                hbs_timestampEvent( notif, 0 ) )
             {
-                hbs_markAsRelated( originalEvent, notif );
-
-                if( ( rSequence_addSTRINGN( notif, RP_TAGS_FILE_PATH, name ) ||
-                      rSequence_addSTRINGN( notif, RP_TAGS_DLL, name ) ||
-                      rSequence_addSTRINGN( notif, RP_TAGS_EXECUTABLE, name ) ) &&
-                    rSequence_addRU32( notif, RP_TAGS_MEMORY_SIZE, (RU32)codeSize ) &&
-                    hbs_timestampEvent( notif, 0 ) )
+                if( NULL == originalEvent &&
+                    NULL != pThisAtom &&
+                    NULL != pParentAtom )
                 {
-                    if( rSequence_getBUFFER( originalEvent, RP_TAGS_HBS_THIS_ATOM, &pAtomId, &atomSize ) )
-                    {
-                        rSequence_removeElement( notif, RP_TAGS_HBS_PARENT_ATOM, RPCM_BUFFER );
-                        rSequence_addBUFFER( notif, RP_TAGS_HBS_PARENT_ATOM, pAtomId, atomSize );
-                        rSequence_removeElement( notif, RP_TAGS_HBS_THIS_ATOM, RPCM_BUFFER );
-                    }
-
-                    if( NULL != pFileHash )
-                    {
-                        rSequence_addBUFFER( notif, RP_TAGS_HASH, (RPU8)pFileHash, sizeof( *pFileHash ) );
-                    }
-
-                    if( libOs_getSignature( name,
-                                            &sig,
-                                            ( OSLIB_SIGNCHECK_NO_NETWORK | OSLIB_SIGNCHECK_CHAIN_VERIFICATION ),
-                                            &isSigned,
-                                            &isVerifiedLocal,
-                                            &isVerifiedGlobal ) )
-                    {
-                        if( !rSequence_addSEQUENCE( notif, RP_TAGS_SIGNATURE, sig ) )
-                        {
-                            rSequence_free( sig );
-                        }
-                    }
-
-                    hbs_publish( RP_TAGS_NOTIFICATION_CODE_IDENTITY, notif );
+                    rSequence_addBUFFER( notif, RP_TAGS_HBS_THIS_ATOM, pThisAtom, HBS_ATOM_ID_SIZE );
+                    rSequence_addBUFFER( notif, RP_TAGS_HBS_PARENT_ATOM, pParentAtom, HBS_ATOM_ID_SIZE );
                 }
-                rSequence_free( notif );
+                else if( rSequence_getBUFFER( originalEvent, RP_TAGS_HBS_THIS_ATOM, &pAtomId, &atomSize ) )
+                {
+                    rSequence_removeElement( notif, RP_TAGS_HBS_PARENT_ATOM, RPCM_BUFFER );
+                    rSequence_addBUFFER( notif, RP_TAGS_HBS_PARENT_ATOM, pAtomId, atomSize );
+                    rSequence_removeElement( notif, RP_TAGS_HBS_THIS_ATOM, RPCM_BUFFER );
+                }
+
+                rSequence_addBUFFER( notif, RP_TAGS_HASH, (RPU8)&tmpInfo.info.fileHash, sizeof( tmpInfo.info.fileHash ) );
+                rSequence_addRU32( notif, RP_TAGS_ERROR, tmpInfo.mtd.lastError );
+
+                if( libOs_getSignature( name,
+                                        &sig,
+                                        ( OSLIB_SIGNCHECK_NO_NETWORK | OSLIB_SIGNCHECK_CHAIN_VERIFICATION ),
+                                        &isSigned,
+                                        &isVerifiedLocal,
+                                        &isVerifiedGlobal ) )
+                {
+                    if( !rSequence_addSEQUENCE( notif, RP_TAGS_SIGNATURE, sig ) )
+                    {
+                        rSequence_free( sig );
+                    }
+                }
+
+                rpal_debug_info( "NEW CODE IDENT: " RF_STR_N, name );
+                hbs_publish( RP_TAGS_NOTIFICATION_CODE_IDENTITY, notif );
             }
-        }
-        else
-        {
-            rMutex_unlock( g_mutex );
+
+            rSequence_free( notif );
         }
     }
 }
@@ -132,36 +347,14 @@ RVOID
     )
 {
     RPNCHAR nameN = NULL;
-    CryptoLib_Hash fileHash = { 0 };
-    RU64 size = 0;
-
+    
     UNREFERENCED_PARAMETER( notifType );
 
     if( rpal_memory_isValid( event ) )
     {
         if( rSequence_getSTRINGN( event, RP_TAGS_FILE_PATH, &nameN ) )
         {
-            if( _MAX_FILE_HASH_SIZE < rpal_file_getSize( nameN, TRUE ) )
-            {
-                // We already read from the event, but we will be careful.
-                rSequence_unTaintRead( event );
-                rSequence_addRU32( event, RP_TAGS_ERROR, RPAL_ERROR_FILE_TOO_LARGE );
-
-                // We need to re-get the paths in case adding the error triggered
-                // a change in the structure.
-                rSequence_getSTRINGN( event, RP_TAGS_FILE_PATH, &nameN );
-            }
-            else
-            {
-                if( !CryptoLib_hashFile( nameN, &fileHash, TRUE ) )
-                {
-                    rpal_debug_info( "unable to fetch file hash for ident" );
-                }
-            }
-            
-            rSequence_getRU64( event, RP_TAGS_MEMORY_SIZE, &size );
-
-            processCodeIdent( nameN, &fileHash, size, event );
+            processCodeIdent( nameN, NULL, event, NULL, NULL, FALSE );
         }
     }
 }
@@ -176,36 +369,14 @@ RVOID
     )
 {
     RPNCHAR nameN = NULL;
-    CryptoLib_Hash fileHash = { 0 };
-    RU64 size = 0;
-
+    
     UNREFERENCED_PARAMETER( notifType );
 
     if( rpal_memory_isValid( event ) )
     {
         if( rSequence_getSTRINGN( event, RP_TAGS_FILE_PATH, &nameN ) )
         {
-            if( _MAX_FILE_HASH_SIZE < rpal_file_getSize( nameN, TRUE ) )
-            {
-                // We already read from the event, but we will be careful.
-                rSequence_unTaintRead( event );
-                rSequence_addRU32( event, RP_TAGS_ERROR, RPAL_ERROR_FILE_TOO_LARGE );
-
-                // We need to re-get the paths in case adding the error triggered
-                // a change in the structure.
-                rSequence_getSTRINGN( event, RP_TAGS_FILE_PATH, &nameN );
-            }
-            else
-            {
-                if( !CryptoLib_hashFile( nameN, &fileHash, TRUE ) )
-                {
-                    rpal_debug_info( "unable to fetch file hash for ident" );
-                }
-            }
-
-            rSequence_getRU64( event, RP_TAGS_MEMORY_SIZE, &size );
-
-            processCodeIdent( nameN, &fileHash, size, event );
+            processCodeIdent( nameN, NULL, event, NULL, NULL, FALSE );
         }
     }
 }
@@ -221,7 +392,6 @@ RVOID
 {
     RPNCHAR nameN = NULL;
     CryptoLib_Hash* pHash = NULL;
-    CryptoLib_Hash localHash = { 0 };
     
     UNREFERENCED_PARAMETER( notifType );
 
@@ -231,29 +401,12 @@ RVOID
             rSequence_getSTRINGN( event, RP_TAGS_DLL, &nameN ) ||
             rSequence_getSTRINGN( event, RP_TAGS_EXECUTABLE, &nameN ) )
         {
-            rSequence_getBUFFER( event, RP_TAGS_HASH, (RPU8*)&pHash, NULL );
-            
-            if( NULL == pHash )
+            if( !rSequence_getBUFFER( event, RP_TAGS_HASH, (RPU8*)&pHash, NULL ) )
             {
-                if( _MAX_FILE_HASH_SIZE < rpal_file_getSize( nameN, TRUE ) )
-                {
-                    rSequence_unTaintRead( event );
-                    rSequence_addRU32( event, RP_TAGS_ERROR, RPAL_ERROR_FILE_TOO_LARGE );
-
-                    if( rSequence_getSTRINGN( event, RP_TAGS_FILE_PATH, &nameN ) ||
-                        rSequence_getSTRINGN( event, RP_TAGS_DLL, &nameN ) ||
-                        rSequence_getSTRINGN( event, RP_TAGS_EXECUTABLE, &nameN ) )
-                    {
-                        // Find the name again with shortcircuit
-                    }
-                }
-                else if( CryptoLib_hashFile( nameN, &localHash, TRUE ) )
-                {
-                    pHash = &localHash;
-                }
+                pHash = NULL;
             }
 
-            processCodeIdent( nameN, pHash, 0, event );
+            processCodeIdent( nameN, pHash, event, NULL, NULL, FALSE );
         }
     }
 }
@@ -286,6 +439,50 @@ RVOID
     }
 }
 
+static
+RVOID
+    processFileEvents
+    (
+        rpcm_tag notifType,
+        rSequence event
+    )
+{
+    RPNCHAR nameN = NULL;
+    CodeInfo infoFound = { 0 };
+    RTIME curTime = 0;
+    RBOOL isRerunCodeHit = FALSE;
+    UNREFERENCED_PARAMETER( notifType );
+
+    if( rSequence_getSTRINGN( event, RP_TAGS_FILE_PATH, &nameN ) )
+    {
+        rpal_memory_memcpy( infoFound.info.fileName,
+                            nameN,
+                            MIN_OF( sizeof( infoFound.info.fileName ),
+                                    rpal_string_strsize( nameN ) ) );
+
+        if( rpal_btree_search( g_reportedCode, &infoFound, &infoFound, FALSE ) )
+        {
+            // We've reported on this file before. Before expelling it, check to see
+            // if we've had a race condition with a load.
+            if( rSequence_getTIMESTAMP( event, RP_TAGS_TIMESTAMP, &curTime ) &&
+                curTime <= infoFound.mtd.lastCodeHitTime )
+            {
+                // Ok so there is a race condition, let's report this code hit.
+                isRerunCodeHit = TRUE;
+            }
+
+            // Expell the entry.
+            rpal_btree_remove( g_reportedCode, &infoFound, NULL, FALSE );
+
+            // If we need to rerun the code hit, do it.
+            if( isRerunCodeHit )
+            {
+                processCodeIdent( nameN, NULL, NULL, infoFound.mtd.thisCodeHitAtom, infoFound.mtd.parentCodeHitAtom, TRUE );
+            }
+        }
+    }
+}
+
 //=============================================================================
 // COLLECTOR INTERFACE
 //=============================================================================
@@ -307,7 +504,7 @@ RBOOL
     {
         if( NULL != ( g_mutex = rMutex_create() ) )
         {
-            if( NULL != ( g_knownCode = rpal_bloom_create( 50000, 0.00001 ) ) )
+            if( NULL != ( g_reportedCode = rpal_btree_create( sizeof( CodeInfo ), (rpal_btree_comp_f)_compCodeInfo, NULL ) ) )
             {
                 isSuccess = FALSE;
 
@@ -319,7 +516,10 @@ RBOOL
                     notifications_subscribe( RP_TAGS_NOTIFICATION_OS_SERVICES_REP, NULL, 0, NULL, processGenericSnapshot ) &&
                     notifications_subscribe( RP_TAGS_NOTIFICATION_OS_DRIVERS_REP, NULL, 0, NULL, processGenericSnapshot ) &&
                     notifications_subscribe( RP_TAGS_NOTIFICATION_OS_PROCESSES_REP, NULL, 0, NULL, processGenericSnapshot ) &&
-                    notifications_subscribe( RP_TAGS_NOTIFICATION_OS_AUTORUNS_REP, NULL, 0, NULL, processGenericSnapshot ) )
+                    notifications_subscribe( RP_TAGS_NOTIFICATION_OS_AUTORUNS_REP, NULL, 0, NULL, processGenericSnapshot ) &&
+                    notifications_subscribe( RP_TAGS_NOTIFICATION_FILE_CREATE, NULL, 0, NULL, processFileEvents ) &&
+                    notifications_subscribe( RP_TAGS_NOTIFICATION_FILE_DELETE, NULL, 0, NULL, processFileEvents ) &&
+                    notifications_subscribe( RP_TAGS_NOTIFICATION_FILE_MODIFIED, NULL, 0, NULL, processFileEvents ) )
                 {
                     isSuccess = TRUE;
                 }
@@ -334,7 +534,12 @@ RBOOL
                     notifications_unsubscribe( RP_TAGS_NOTIFICATION_OS_DRIVERS_REP, NULL, processGenericSnapshot );
                     notifications_unsubscribe( RP_TAGS_NOTIFICATION_OS_PROCESSES_REP, NULL, processGenericSnapshot );
                     notifications_unsubscribe( RP_TAGS_NOTIFICATION_OS_AUTORUNS_REP, NULL, processGenericSnapshot );
-                    rpal_bloom_destroy( g_knownCode );
+                    notifications_unsubscribe( RP_TAGS_NOTIFICATION_FILE_CREATE, NULL, processFileEvents );
+                    notifications_unsubscribe( RP_TAGS_NOTIFICATION_FILE_DELETE, NULL, processFileEvents );
+                    notifications_unsubscribe( RP_TAGS_NOTIFICATION_FILE_MODIFIED, NULL, processFileEvents );
+                    
+                    rpal_btree_destroy( g_reportedCode, FALSE );
+                    g_reportedCode = NULL;
                     rMutex_free( g_mutex );
                     g_mutex = NULL;
                 }
@@ -371,13 +576,16 @@ RBOOL
             notifications_unsubscribe( RP_TAGS_NOTIFICATION_OS_SERVICES_REP, NULL, processGenericSnapshot ) &&
             notifications_unsubscribe( RP_TAGS_NOTIFICATION_OS_DRIVERS_REP, NULL, processGenericSnapshot ) &&
             notifications_unsubscribe( RP_TAGS_NOTIFICATION_OS_PROCESSES_REP, NULL, processGenericSnapshot ) &&
-            notifications_unsubscribe( RP_TAGS_NOTIFICATION_OS_AUTORUNS_REP, NULL, processGenericSnapshot ) )
+            notifications_unsubscribe( RP_TAGS_NOTIFICATION_OS_AUTORUNS_REP, NULL, processGenericSnapshot ) &&
+            notifications_unsubscribe( RP_TAGS_NOTIFICATION_FILE_CREATE, NULL, processFileEvents ) &&
+            notifications_unsubscribe( RP_TAGS_NOTIFICATION_FILE_DELETE, NULL, processFileEvents ) &&
+            notifications_unsubscribe( RP_TAGS_NOTIFICATION_FILE_MODIFIED, NULL, processFileEvents ) )
         {
             isSuccess = TRUE;
         }
 
-        rpal_bloom_destroy( g_knownCode );
-        g_knownCode = NULL;
+        rpal_btree_destroy( g_reportedCode, FALSE );
+        g_reportedCode = NULL;
 
         rMutex_free( g_mutex );
         g_mutex = NULL;

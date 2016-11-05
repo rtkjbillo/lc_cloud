@@ -105,6 +105,15 @@ RBOOL
     );
 
 RBOOL
+    rpal_btree_after
+    (
+        rBTree tree,
+        RPVOID key,
+        RPVOID ret,
+        RBOOL isBypassLocks
+    );
+
+RBOOL
     rpal_btree_previous
     (
         rBTree tree,
