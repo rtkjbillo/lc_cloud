@@ -329,7 +329,6 @@ RVOID
                     }
                 }
 
-                rpal_debug_info( "NEW CODE IDENT: " RF_STR_N, name );
                 hbs_publish( RP_TAGS_NOTIFICATION_CODE_IDENTITY, notif );
             }
 
