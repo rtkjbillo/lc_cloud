@@ -89,6 +89,7 @@ RBOOL
         return TRUE;
     }
 
+    rpal_debug_info( "initiate a tree cleanup" );
     g_lastCleanup = curTime;
     isSuccess = TRUE;
 
@@ -161,7 +162,8 @@ RBOOL
             }
         }
 
-        if( !rpal_btree_add( g_reportedCode, tmpInfo, FALSE ) )
+        if( !rpal_btree_add( g_reportedCode, tmpInfo, FALSE ) &&
+            !rpal_btree_update( g_reportedCode, tmpInfo, tmpInfo, FALSE ) )
         {
             // To avoid a situation where for whatever reason we cannot add to
             // history and we start spamming the same code over and over.
@@ -187,6 +189,7 @@ RBOOL
     CodeInfo infoFound = { 0 };
     RPU8 tmpAtom = NULL;
     RU32 atomSize = 0;
+    CryptoLib_Hash emptyHash = { 0 };
 
     if( NULL != tmpInfo )
     {
@@ -199,8 +202,9 @@ RBOOL
             // First can we find this file name.
             if( rpal_btree_search( g_reportedCode, tmpInfo, &infoFound, FALSE ) )
             {
-                // So the path matches, check to see if the hash matches.
-                if( 0 != rpal_memory_memcmp( &tmpInfo->info.fileHash, &infoFound.info.fileHash, sizeof( infoFound.info.fileHash ) ) )
+                // So the path matches, if a hash was already provided, check to see if the hash matches.
+                if( 0 != rpal_memory_memcmp( &tmpInfo->info.fileHash, &infoFound.info.fileHash, sizeof( infoFound.info.fileHash ) ) &&
+                    0 != rpal_memory_memcmp( &emptyHash, &tmpInfo->info.fileHash, sizeof( emptyHash ) ) )
                 {
                     // Never seen this hash, report it.
                     isNeedsReporting = populateCodeInfo( tmpInfo, pHash, originalEvent );
@@ -343,36 +347,14 @@ RVOID
     )
 {
     RPNCHAR nameN = NULL;
-    CryptoLib_Hash fileHash = { 0 };
-    RU64 size = 0;
-
+    
     UNREFERENCED_PARAMETER( notifType );
 
     if( rpal_memory_isValid( event ) )
     {
         if( rSequence_getSTRINGN( event, RP_TAGS_FILE_PATH, &nameN ) )
         {
-            if( _MAX_FILE_HASH_SIZE < rpal_file_getSize( nameN, TRUE ) )
-            {
-                // We already read from the event, but we will be careful.
-                rSequence_unTaintRead( event );
-                rSequence_addRU32( event, RP_TAGS_ERROR, RPAL_ERROR_FILE_TOO_LARGE );
-
-                // We need to re-get the paths in case adding the error triggered
-                // a change in the structure.
-                rSequence_getSTRINGN( event, RP_TAGS_FILE_PATH, &nameN );
-            }
-            else
-            {
-                if( !CryptoLib_hashFile( nameN, &fileHash, TRUE ) )
-                {
-                    rpal_debug_info( "unable to fetch file hash for ident" );
-                }
-            }
-            
-            rSequence_getRU64( event, RP_TAGS_MEMORY_SIZE, &size );
-
-            processCodeIdent( nameN, &fileHash, event, NULL, NULL, FALSE );
+            processCodeIdent( nameN, NULL, event, NULL, NULL, FALSE );
         }
     }
 }
@@ -387,36 +369,14 @@ RVOID
     )
 {
     RPNCHAR nameN = NULL;
-    CryptoLib_Hash fileHash = { 0 };
-    RU64 size = 0;
-
+    
     UNREFERENCED_PARAMETER( notifType );
 
     if( rpal_memory_isValid( event ) )
     {
         if( rSequence_getSTRINGN( event, RP_TAGS_FILE_PATH, &nameN ) )
         {
-            if( _MAX_FILE_HASH_SIZE < rpal_file_getSize( nameN, TRUE ) )
-            {
-                // We already read from the event, but we will be careful.
-                rSequence_unTaintRead( event );
-                rSequence_addRU32( event, RP_TAGS_ERROR, RPAL_ERROR_FILE_TOO_LARGE );
-
-                // We need to re-get the paths in case adding the error triggered
-                // a change in the structure.
-                rSequence_getSTRINGN( event, RP_TAGS_FILE_PATH, &nameN );
-            }
-            else
-            {
-                if( !CryptoLib_hashFile( nameN, &fileHash, TRUE ) )
-                {
-                    rpal_debug_info( "unable to fetch file hash for ident" );
-                }
-            }
-
-            rSequence_getRU64( event, RP_TAGS_MEMORY_SIZE, &size );
-
-            processCodeIdent( nameN, &fileHash, event, NULL, NULL, FALSE );
+            processCodeIdent( nameN, NULL, event, NULL, NULL, FALSE );
         }
     }
 }
@@ -432,7 +392,6 @@ RVOID
 {
     RPNCHAR nameN = NULL;
     CryptoLib_Hash* pHash = NULL;
-    CryptoLib_Hash localHash = { 0 };
     
     UNREFERENCED_PARAMETER( notifType );
 
@@ -442,26 +401,9 @@ RVOID
             rSequence_getSTRINGN( event, RP_TAGS_DLL, &nameN ) ||
             rSequence_getSTRINGN( event, RP_TAGS_EXECUTABLE, &nameN ) )
         {
-            rSequence_getBUFFER( event, RP_TAGS_HASH, (RPU8*)&pHash, NULL );
-            
-            if( NULL == pHash )
+            if( !rSequence_getBUFFER( event, RP_TAGS_HASH, (RPU8*)&pHash, NULL ) )
             {
-                if( _MAX_FILE_HASH_SIZE < rpal_file_getSize( nameN, TRUE ) )
-                {
-                    rSequence_unTaintRead( event );
-                    rSequence_addRU32( event, RP_TAGS_ERROR, RPAL_ERROR_FILE_TOO_LARGE );
-
-                    if( rSequence_getSTRINGN( event, RP_TAGS_FILE_PATH, &nameN ) ||
-                        rSequence_getSTRINGN( event, RP_TAGS_DLL, &nameN ) ||
-                        rSequence_getSTRINGN( event, RP_TAGS_EXECUTABLE, &nameN ) )
-                    {
-                        // Find the name again with shortcircuit
-                    }
-                }
-                else if( CryptoLib_hashFile( nameN, &localHash, TRUE ) )
-                {
-                    pHash = &localHash;
-                }
+                pHash = NULL;
             }
 
             processCodeIdent( nameN, pHash, event, NULL, NULL, FALSE );
