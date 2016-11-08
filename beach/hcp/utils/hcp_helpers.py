@@ -168,7 +168,10 @@ class HbsCollectorId ( object ):
     YARA = 16
     OS_TRACKER = 17
     DOC_COLLECTOR = 18
-    VOLUME_TRACKER = 18
+    VOLUME_TRACKER = 19
+    STATEFUL_TRACKING = 20
+    USER_TRACKER = 21
+    FILE_TYPE_TRACKER = 22
 
     lookup = {
         0 : 'EXFIL',
@@ -189,7 +192,11 @@ class HbsCollectorId ( object ):
         15 : 'PROCESS_HOLLOWING',
         16 : 'YARA',
         17 : 'OS_TRACKER',
-        18 : 'DOC_COLLECTOR'
+        18 : 'DOC_COLLECTOR',
+        19 : 'VOLUME_TRACKER',
+        20 : 'STATEFUL_TRACKING',
+        21 : 'USER_TRACKER',
+        22 : 'FILE_TYPE_TRACKER'
     }
 
 class InvestigationNature:
