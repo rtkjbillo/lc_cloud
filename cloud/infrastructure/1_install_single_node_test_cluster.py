@@ -14,6 +14,7 @@
 
 import os
 import sys
+import argparse
 
 if os.geteuid() != 0:
     print( 'Please run me as root to setup this test, but don\'t ever do that in production!' )
@@ -22,6 +23,15 @@ if os.geteuid() != 0:
 root = os.path.join( os.path.abspath( os.path.dirname( __file__ ) ), '..', '..' )
 originalDir = os.getcwd()
 os.chdir( root )
+
+parser = argparse.ArgumentParser()
+parser.add_argument( '-g', '--genkeys',
+                     required = False,
+                     action = 'store_true',
+                     default = False,
+                     help = 'If present, generate a new set of keys.',
+                     dest = 'genkeys' )
+arguments = parser.parse_args()
 
 def printStep( step, *ret ):
     msg = '''
@@ -53,6 +63,19 @@ printStep( 'Updating repo and upgrading existing components.',
 
 printStep( 'Installing some basic packages required for Beach (mainly).',
     os.system( 'apt-get install python-pip python-dev debconf-utils python-m2crypto python-pexpect autoconf libtool git flex byacc bison unzip -y' ) )
+
+if arguments.genkeys:
+    printStep( 'Clean old keys and generate a new set.',
+                os.system( 'rm -rf %s' % os.path.join( root, 'keys', '*' ) ),
+                os.system( 'python %s %s' % ( os.path.join( root, 'tools', 'generate_key.py' ),
+                                              os.path.join( root, 'keys', 'c2' ) ) ),
+                os.system( 'python %s %s' % ( os.path.join( root, 'tools', 'generate_key.py' ),
+                                              os.path.join( root, 'keys', 'hbs_root' ) ) ),
+                os.system( 'python %s %s' % ( os.path.join( root, 'tools', 'generate_key.py' ),
+                                              os.path.join( root, 'keys', 'root' ) ) ),
+                os.system( '%s %s %s "-pass pass:letmein"' % ( os.path.join( root, 'tools', 'encrypt_key.sh' ),
+                                                               os.path.join( root, 'keys', 'hbs_root.priv.der' ),
+                                                               os.path.join( root, 'keys', 'hbs_root.priv.enc' ) ) ) )
 
 print( 'Download prefixtree (expected to fail).' )
 os.system( 'pip download prefixtree' )

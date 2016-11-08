@@ -18,6 +18,8 @@ import hashlib
 import argparse
 
 root = os.path.join( os.path.abspath( os.path.dirname( __file__ ) ), '..', '..' )
+originalDir = os.getcwd()
+os.chdir( root )
 binaryPath = os.path.join( root, 'prebuilt_binaries' )
 hcpRootKey = os.path.join( root, 'keys', 'root.priv.der' )
 hcpConfig = None
@@ -44,12 +46,6 @@ parser.add_argument( '-k', '--rootkey',
                      required = False,
                      help = 'Path to the HCP root private key to sign modules with.',
                      dest = 'key' )
-parser.add_argument( '-g', '--genkeys',
-                     required = False,
-                     action = 'store_true',
-                     default = False,
-                     help = 'If present, generate a new set of keys.',
-                     dest = 'genkeys' )
 arguments = parser.parse_args()
 
 if arguments.binaries is not None:
@@ -101,19 +97,6 @@ def execInBackend( script ):
                                                                         'admin_cli.py' ), ) )
     os.unlink( '_tmp_script' )
     return ret
-
-if arguments.genkeys:
-    printStep( 'Clean old keys and generate a new set.',
-                os.system( 'rm -rf %s' % os.path.join( root, 'keys', '*' ) ),
-                os.system( 'python %s %s' % ( os.path.join( root, 'tools', 'generate_key.py' ),
-                                              os.path.join( root, 'keys', 'c2' ) ) ),
-                os.system( 'python %s %s' % ( os.path.join( root, 'tools', 'generate_key.py' ),
-                                              os.path.join( root, 'keys', 'hbs_root' ) ) ),
-                os.system( 'python %s %s' % ( os.path.join( root, 'tools', 'generate_key.py' ),
-                                              os.path.join( root, 'keys', 'root' ) ) ),
-                os.system( '%s %s %s "-pass pass:letmein"' % ( os.path.join( root, 'tools', 'encrypt_key.sh' ),
-                                                               os.path.join( root, 'keys', 'hbs_root.priv.der' ),
-                                                               os.path.join( root, 'keys', 'hbs_root.priv.enc' ) ) ) )
 
 printStep( 'Downloading prebuilt release sensor binaries.',
            os.chdir( binaryPath ),
@@ -191,3 +174,5 @@ printStep( 'Setting HBS profile.',
                                                                                                 'cloud',
                                                                                                 'beach',
                                                                                                 'production_hbs.profile' ) ) ) )
+
+os.chdir( originalDir )
