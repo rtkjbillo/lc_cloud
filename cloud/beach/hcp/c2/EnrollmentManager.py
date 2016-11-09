@@ -92,12 +92,12 @@ class EnrollmentManager( Actor ):
             newRules.append( EnrollmentRule( self, row[ 0 ], row[ 1 ], row[ 2 ], row[ 3 ], row[ 4 ], row[ 5 ] ) )
         self.rules = newRules
 
-    def getUniqueFor( self, org, subnet ):
+    def getUniqueFor( self, org, subnet, platform ):
         self.lock.lock()
         try:
             newUnique = self.states.setdefault( org, {} ).setdefault( subnet, 0 ) + 1
-            self.db.execute( 'INSERT INTO sensor_states ( org, subnet, unique, enroll ) VALUES ( %s, %s, %s, dateOf( now() ) )', 
-                             ( org, subnet, newUnique ) )
+            self.db.execute( 'INSERT INTO sensor_states ( org, subnet, unique, platform, enroll ) VALUES ( %s, %s, %s, %s, dateOf( now() ) )', 
+                             ( org, subnet, newUnique, platform ) )
             self.states[ org ][ subnet ] = newUnique
         finally:
             self.lock.unlock()
@@ -118,7 +118,7 @@ class EnrollmentManager( Actor ):
             if tmpAid is not False:
                 aid.org = tmpAid[ 0 ]
                 aid.subnet = tmpAid[ 1 ]
-                aid.unique = self.getUniqueFor( aid.org, aid.unique )
+                aid.unique = self.getUniqueFor( aid.org, aid.subnet, aid.platform )
                 newAid = aid
                 self.log( 'enrolling new sensor to %s' % aid.invariableToString() )
                 break
