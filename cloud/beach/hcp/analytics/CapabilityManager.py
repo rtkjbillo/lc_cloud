@@ -41,6 +41,11 @@ class CapabilityManager( Actor ):
     def deinit( self ):
         pass
 
+    def massageUrl( self, url ):
+        if url.startswith( 'https://github.com/' ):
+            url = url.replace( 'https://github.com/', 'https://raw.githubusercontent.com/' ).replace( '/blob/', '/' )
+        return url
+
     def getDetectionMtdFromContent( self, detection ):
         mtd = []
         isMtdStarted = False
@@ -92,6 +97,7 @@ class CapabilityManager( Actor ):
 
     def loadCapability( self, msg ):
         url = msg.data[ 'url' ]
+        url = self.massageUrl( url )
         userDefinedName = msg.data[ 'user_defined_name' ]
         arguments = msg.data[ 'args' ]
         arguments = json.loads( arguments ) if ( arguments is not None and 0 != len( arguments ) ) else {}
