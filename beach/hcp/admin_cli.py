@@ -421,13 +421,13 @@ class HcpCli ( cmd.Cmd ):
         parser.add_argument( '-i', '--internalip',
                              type = str,
                              required = False,
-                             default = '255.255.255.255',
+                             default = '0.0.0.0/0',
                              help = 'internal ip mask the rule applies to (255 wildcard)',
                              dest = 'internalIp' )
         parser.add_argument( '-e', '--externalip',
                              type = str,
                              required = False,
-                             default = '255.255.255.255',
+                             default = '0.0.0.0/0',
                              help = 'external ip mask the rule applies to (255 wildcard)',
                              dest = 'externalIp' )
         parser.add_argument( '-s', '--newsubnet',
