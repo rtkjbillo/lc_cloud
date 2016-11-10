@@ -173,6 +173,7 @@ class AnalyticsIntake( Actor ):
             parent = eventRoot.get( 'base.PARENT', None )
             user = eventRoot.get( 'base.USER_NAME', None )
             if user is not None:
+                self._addObj( mtd, user, ObjectTypes.USER_NAME )
                 self._addRel( mtd, user, ObjectTypes.USER_NAME, curExe, ObjectTypes.PROCESS_NAME )
             if parent is not None:
                 parentExe = self._extractProcess( agent, mtd, parent )
@@ -204,6 +205,10 @@ class AnalyticsIntake( Actor ):
                 self._extractAutoruns( agent, mtd, a )
         elif eventType in ( 'notification.CODE_IDENTITY', ):
             self._extractCodeIdentity( agent, mtd, eventRoot )
+        elif eventType in ( 'notification.USER_OBSERVED', ):
+            user = eventRoot.get( 'base.USER_NAME', None )
+            if user is not None:
+                self._addObj( mtd, user, ObjectTypes.USER_NAME )
 
         # Ensure we cleanup the mtd
         self._convertToNormalForm( mtd, not agent.isWindows() )
