@@ -19,6 +19,8 @@ import traceback
 synchronized = Actor.importLib( './hcp_helpers', 'synchronized' )
 from collections import deque
 import gevent
+import datetime
+epoch = datetime.datetime.utcfromtimestamp( 0 )
 
 
 try:
@@ -121,6 +123,9 @@ class CassDb( object ):
             self.cluster.shutdown()
             time.sleep( 0.5 )
 
+    def timeToMsTs( self, t ):
+        return ( t - epoch ).total_seconds() * 1000.0
+
 class CassPool( object ):
 
     def __init__( self, db, maxConcurrent = 1, error_log_func = None, rate_limit_per_sec = None, blockOnQueueSize = None ):
@@ -205,3 +210,6 @@ class CassPool( object ):
     def getOne( self, query, params = {} ):
         self.rateLimit( isAdvisory = True )
         return self.db.getOne( query, params )
+
+    def timeToMsTs( self, t ):
+        return self.db.timeToMsTs( t )
