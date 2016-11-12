@@ -32,6 +32,7 @@ class FileEventsOutput( Actor ):
             self.logCritical( 'output_dir exists but is not a directory: %s' % self._output_dir )
             return
         self._file_logger = logging.getLogger( 'limacharlie_events_file' )
+        self._file_logger.propagate = False
         handler = logging.handlers.RotatingFileHandler( os.path.join( self._output_dir, self.name ), 
                                                         maxBytes = parameters.get( 'max_bytes', 1024 * 1024 * 10 ), 
                                                         backupCount = parameters.get( 'backup_count', 3 ) )
