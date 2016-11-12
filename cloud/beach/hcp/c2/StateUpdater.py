@@ -51,7 +51,7 @@ class StateUpdater( Actor ):
         hostName = msg.data[ 'hostname' ]
 
         self.db.execute_async( self.recordLive.bind( ( extIp, intIp, hostName, aid.org, aid.subnet, aid.unique, aid.platform ) ) )
-        self.db.execute_async( self.recordHostName.bind( ( hostName, aid.invariableToString() ) ) )
+        self.db.execute_async( self.recordHostName.bind( ( hostName.upper(), aid.invariableToString() ) ) )
         return ( True, )
 
     def setDead( self, msg ):

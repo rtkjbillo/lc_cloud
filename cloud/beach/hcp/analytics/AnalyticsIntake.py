@@ -38,18 +38,18 @@ class AnalyticsIntake( Actor ):
     def _addObj( self, mtd, o, oType ):
         if type( o ) is not int:
             if o is None or 0 == len( o ) or 10240 < len( o ):
-                self.log( 'unexpected obj len: %s, rest of mtd: %s' % ( o, str( mtd ) ) )
+                self.log( 'unexpected obj len: %s ( %s ), rest of mtd: %s' % ( o, oType, str( mtd ) ) )
                 return
         mtd[ 'obj' ].setdefault( oType, Set() ).add( o )
 
     def _addRel( self, mtd, parent, parentType, child, childType ):
         if type( parent ) is not int:
             if parent is None or 0 == len( parent ) or 10240 < len( parent ):
-                self.log( 'unexpected obj len: %s, rest of mtd: %s' % ( parent, str( mtd ) ) )
+                self.log( 'unexpected rel parent len: %s ( %s ), %s ( %s ) rest of mtd: %s' % ( parent, parentType, child, childType, str( mtd ) ) )
                 return
         if type( child ) is not int:
             if child is None or 0 == len( child ) or 10240 < len( parent ):
-                self.log( 'unexpected obj len: %s, rest of mtd: %s' % ( child, str( mtd ) ) )
+                self.log( 'unexpected rel child len: %s ( %s ), %s ( %s ) rest of mtd: %s' % ( child, childType, parent, parentType, str( mtd ) ) )
                 return
         mtd[ 'rel' ].setdefault( ( parentType, childType ), Set() ).add( ( parent, child ) )
 
@@ -174,8 +174,9 @@ class AnalyticsIntake( Actor ):
             user = eventRoot.get( 'base.USER_NAME', None )
             if user is not None:
                 self._addObj( mtd, user, ObjectTypes.USER_NAME )
-                self._addRel( mtd, user, ObjectTypes.USER_NAME, curExe, ObjectTypes.PROCESS_NAME )
-            if parent is not None:
+                if curExe is not None:
+                    self._addRel( mtd, user, ObjectTypes.USER_NAME, curExe, ObjectTypes.PROCESS_NAME )
+            if parent is not None and curExe is not None:
                 parentExe = self._extractProcess( agent, mtd, parent )
                 if parentExe is not None:
                     self._addRel( mtd, parentExe, ObjectTypes.PROCESS_NAME, curExe, ObjectTypes.PROCESS_NAME )
