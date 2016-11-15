@@ -129,6 +129,8 @@ RU32
         {
             iMid = ( ( iMax - iMin ) / 2 ) + iMin;
 
+            if( iMid >= nElements ) break;
+
             order = orderFunc( _ARRAY_ELEM( pArray, iMid, elemSize ), key );
 
             if( 0 == order )

@@ -21,9 +21,6 @@ limitations under the License.
 #if defined( RPAL_PLATFORM_LINUX ) || defined( RPAL_PLATFORM_MACOSX )
 #include <pthread.h>
 #include <time.h>
-#endif
-
-#if defined( RPAL_PLATFORM_MACOSX )
 #include <sys/time.h>
 #endif
 
@@ -438,7 +435,7 @@ RBOOL
 #elif defined( RPAL_PLATFORM_LINUX ) || defined( RPAL_PLATFORM_MACOSX )
         struct timespec abs_time;
         struct timeval cur_time;
-        struct timespec ts;
+        struct timezone ts;
         int err = 0;
         gettimeofday( &cur_time, &ts );
         

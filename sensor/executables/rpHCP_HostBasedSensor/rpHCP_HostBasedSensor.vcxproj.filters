@@ -81,6 +81,9 @@
     <ClCompile Include="collector_21_user_tracker.c">
       <Filter>collectors</Filter>
     </ClCompile>
+    <ClCompile Include="collector_22_file_type_tracker.c">
+      <Filter>collectors</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\include\rpHostCommonPlatformLib\rTags.h" />

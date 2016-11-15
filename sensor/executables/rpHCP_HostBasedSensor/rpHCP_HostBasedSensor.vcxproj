@@ -134,6 +134,7 @@
     <ClCompile Include="collector_1_process_tracker.c" />
     <ClCompile Include="collector_20_stateful_tracking.c" />
     <ClCompile Include="collector_21_user_tracker.c" />
+    <ClCompile Include="collector_22_file_type_tracker.c" />
     <ClCompile Include="collector_2_dns_tracker.c" />
     <ClCompile Include="collector_3_code_ident.c" />
     <ClCompile Include="collector_4_network_tracker.c" />

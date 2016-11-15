@@ -76,7 +76,7 @@ RVOID
         if( rSequence_getSTRINGN( notif, RP_TAGS_FILE_PATH, &fileN ) &&
             obsLib_setTargetBuffer( g_matcher,
                                     fileN, 
-                                    ( rpal_string_strlen( fileN ) + 1 ) * sizeof( RNCHAR ) ) &&
+                                    rpal_string_strsize( fileN ) ) &&
             obsLib_nextHit( g_matcher, NULL, NULL ) )
         {
             // This means it's a file of interest.

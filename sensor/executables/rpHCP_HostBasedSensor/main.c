@@ -86,7 +86,8 @@ HbsState g_hbs_state = { NULL,
                            DISABLED_LINUX_COLLECTOR( 18 ),
                            ENABLED_COLLECTOR( 19 ),
                            ENABLED_COLLECTOR( 20 ),
-                           ENABLED_COLLECTOR( 21 ) } };
+                           ENABLED_COLLECTOR( 21 ),
+                           ENABLED_COLLECTOR( 22 ) } };
 RU8* hbs_cloud_pub_key = hbs_cloud_default_pub_key;
 
 //=============================================================================
