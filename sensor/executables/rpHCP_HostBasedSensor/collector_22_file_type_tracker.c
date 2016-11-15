@@ -364,10 +364,13 @@ RBOOL
         notifications_unsubscribe( RP_TAGS_NOTIFICATION_TERMINATE_PROCESS, NULL, processTerminateProcesses );
         obsLib_free( g_extensions );
         g_extensions = NULL;
-        for( i = 0; i < g_procContexts->nElements; i++ )
+        if( NULL != g_procContexts )
         {
-            rpal_memory_free( ( (ProcExtInfo*)g_procContexts->elements[ i ] )->processPath );
-            rpal_memory_free( g_procContexts->elements[ i ] );
+            for( i = 0; i < g_procContexts->nElements; i++ )
+            {
+                rpal_memory_free( ( (ProcExtInfo*)g_procContexts->elements[ i ] )->processPath );
+                rpal_memory_free( g_procContexts->elements[ i ] );
+            }
         }
         rpal_vector_free( g_procContexts );
         g_procContexts = NULL;
@@ -400,10 +403,13 @@ RBOOL
         notifications_unsubscribe( RP_TAGS_NOTIFICATION_TERMINATE_PROCESS, NULL, processTerminateProcesses );
         obsLib_free( g_extensions );
         g_extensions = NULL;
-        for( i = 0; i < g_procContexts->nElements; i++ )
+        if( NULL != g_procContexts )
         {
-            rpal_memory_free( ( (ProcExtInfo*)g_procContexts->elements[ i ] )->processPath );
-            rpal_memory_free( g_procContexts->elements[ i ] );
+            for( i = 0; i < g_procContexts->nElements; i++ )
+            {
+                rpal_memory_free( ( (ProcExtInfo*)g_procContexts->elements[ i ] )->processPath );
+                rpal_memory_free( g_procContexts->elements[ i ] );
+            }
         }
         rpal_vector_free( g_procContexts );
         g_procContexts = NULL;
