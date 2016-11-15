@@ -64,12 +64,6 @@ class BEAdmin( object ):
             filters[ 'hostname' ] = hostname
         return self._query( 'hcp.get_agent_states', filters )
     
-    def hcp_getPeriod( self ):
-        return self._query( 'hcp.get_period' )
-    
-    def hcp_setPeriod( self, period ):
-        return self._query( 'hcp.set_period', { 'period' : int( period ) } )
-    
     def hcp_getEnrollmentRules( self ):
         return self._query( 'hcp.get_enrollment_rules' )
     
@@ -112,12 +106,6 @@ class BEAdmin( object ):
     
     def hcp_getRelocations( self ):
         return self._query( 'hcp.get_relocations' )
-    
-    def hbs_getPeriod( self ):
-        return self._query( 'hbs.get_period' )
-    
-    def hbs_setPeriod( self, period ):
-        return self._query( 'hbs.set_period', { 'period' : int( period ) } )
     
     def hbs_getProfiles( self ):
         return self._query( 'hbs.get_profiles' )
