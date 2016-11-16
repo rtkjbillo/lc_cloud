@@ -164,8 +164,8 @@ class SensorState:
             live_status = False
             transfered = 0
         else:
-            live_status = True if live_status.data.get( 'endpoint', None ) is not None else False
             transfered = live_status.data.get( 'transfered', 0 )
+            live_status = True if live_status.data.get( 'endpoint', None ) is not None else False
 
         if not info.isSuccess:
             raise web.HTTPError( '503 Service Unavailable: %s' % str( info ) )

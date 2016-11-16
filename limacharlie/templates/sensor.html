@@ -161,7 +161,7 @@ $var title = sensor_id
             jQuery('#status_indicator').addClass( 'glyphicon-ok' );
             jQuery('#status_indicator').css( 'color', 'green' );
             jQuery('#last_seen').text( '' );
-            jQuery('#transfered').text( 'Transfered ' + ( bytes_transfered / 1024 ) + ' kb this session' );
+            jQuery('#transfered').text( 'Transfered ' + ( bytes_transfered / 1024 ).toFixed(2) + ' kb this session' );
         }
     }
 
