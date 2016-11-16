@@ -31,6 +31,7 @@ class SensorDirectory( Actor ):
         
         self.handle( 'live', self.setLive )
         self.handle( 'dead', self.setDead )
+        self.handle( 'transfered', self.addTransfered )
         self.handle( 'get_endpoint', self.getEndpoint )
 
     def deinit( self ):
@@ -39,16 +40,23 @@ class SensorDirectory( Actor ):
     def setLive( self, msg ):
         aid = msg.data[ 'aid' ]
         endpoint = msg.data[ 'endpoint' ]
-        self.directory[ aid ] = endpoint
+        self.directory[ aid ] = ( endpoint, 0 )
         return ( True, )
 
     def setDead( self, msg ):
         aid = msg.data[ 'aid' ]
-        endpoint = msg.data[ 'endpoint' ]
         del( self.directory[ aid ] )
+        return ( True, )
+
+    def addTransfered( self, msg ):
+        aid = msg.data[ 'aid' ]
+        newBytes = msg.data[ 'bytes_transfered' ]
+        curEndpoint, curBytes = self.directory.get( aid, ( None, 0 ) )
+        self.directory[ aid ] = ( curEndpoint, curBytes + newBytes )
+        self.log( '%s transfered %d new bytes.' % ( aid, newBytes ) )
         return ( True, )
 
     def getEndpoint( self, msg ):
         aid = AgentId( msg.data[ 'aid' ] ).invariableToString()
-        endpoint = self.directory.get( aid, None )
-        return ( True, { 'aid' : aid, 'endpoint' : endpoint } )
+        endpoint, transfered = self.directory.get( aid, ( None, 0 ) )
+        return ( True, { 'aid' : aid, 'endpoint' : endpoint, 'transfered' : transfered } )
