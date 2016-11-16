@@ -5,6 +5,7 @@ $var title = sensor_id
         <h2>$sensor_id</h2>
         <h4>Online: <i id="status_indicator" class="glyphicon glyphicon-remove"></i></h4>
         <i id="last_seen"></i>
+        <i id="transfered"></i>
         <h5>Events per page:</h5>
         <select id="eventsperpage">
             $for t in ('10','50','100','500'):
@@ -141,7 +142,7 @@ $var title = sensor_id
         jQuery("#timeline").children(":not(:contains('" + filterValue + "'))").hide();
     }
 
-    function set_connected( isConnected, last_seen )
+    function set_connected( isConnected, last_seen, bytes_transfered )
     {
         if( !isConnected )
         {
@@ -152,6 +153,7 @@ $var title = sensor_id
             {
                 jQuery('#last_seen').text( 'Last seen: ' + ts_to_time( last_seen * 1000 ) );
             }
+            jQuery('#transfered').text( '' );
         }
         else
         {
@@ -159,13 +161,14 @@ $var title = sensor_id
             jQuery('#status_indicator').addClass( 'glyphicon-ok' );
             jQuery('#status_indicator').css( 'color', 'green' );
             jQuery('#last_seen').text( '' );
+            jQuery('#transfered').text( 'Transfered ' + ( bytes_transfered / 1024 ) + ' kb this session' );
         }
     }
 
     function do_refresh_online()
     {
         jQuery.getJSON( '/sensor_state',
-                    { sensor_id : "$sensor_id" } ).done(function(data){set_connected(data.live_status, data.lastseen);})
+                    { sensor_id : "$sensor_id" } ).done(function(data){set_connected(data.live_status, data.lastseen, data.transfered);})
                                                   .fail(function(){set_connected(false);})
                                                   .always(function(){setTimeout( do_refresh_online, 5000 );});
     }
