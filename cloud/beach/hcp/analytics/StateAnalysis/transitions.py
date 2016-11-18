@@ -19,7 +19,10 @@ _x_ = Actor.importLib( '../../utils/hcp_helpers', '_x_' )
 _xm_ = Actor.importLib( '../../utils/hcp_helpers', '_xm_' )
 
 def NewProcessNamed( regexp ):
-    regexp = re.compile( regexp )
+    try:
+        regexp.match( '' )
+    except:
+        regexp = re.compile( regexp )
     def _processNamed( history, event ):
         newProcName = _x_( event.event, 'notification.NEW_PROCESS/base.FILE_PATH' )
         if newProcName is not None and regexp.match( newProcName ):
