@@ -83,5 +83,5 @@ printStep( 'Starting the LIMA CHARLIE web interface on port 8888 (in a screen).'
                                                                  'app.py' ),
                                                    beachCluster ) ) )
 
-printStep( 'Starting the BEACH REST interface on port 8000 (in a screen).',
-    os.system( 'screen -d -m python -m beach.restbridge 8000 %s hcp'% ( beachCluster, ) ) )
+printStep( 'Starting the BEACH REST interface on port 8889 (in a screen).',
+    os.system( 'screen -d -m python -m beach.restbridge 8889 %s hcp'% ( beachCluster, ) ) )
