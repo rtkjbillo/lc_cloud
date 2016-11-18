@@ -354,11 +354,9 @@ class ModelView( Actor ):
     def get_backend_config( self, msg ):
         info = {}
 
-        info[ 'hcp_period' ] = self.admin.hcp_getPeriod().data
         info[ 'hcp_enrollments' ] = self.admin.hcp_getEnrollmentRules().data
         info[ 'hcp_taskings' ] = self.admin.hcp_getTaskings().data
         info[ 'hcp_modules' ] = self.admin.hcp_getModules().data
-        info[ 'hbs_period' ] = self.admin.hbs_getPeriod().data
         info[ 'hbs_profiles' ] = self.admin.hbs_getProfiles().data
 
         return ( True, info )
