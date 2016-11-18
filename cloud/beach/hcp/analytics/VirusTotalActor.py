@@ -45,6 +45,10 @@ class VirusTotalActor ( Actor ):
         fileHash = msg.data.get( 'hash', None )
         if fileHash is None: return ( False, 'missing hash' )
 
+        if not all( x in "1234567890abcdef" for x in fileHash.lower() ) and len( fileHash ) in [ 32, 40, 64 ]:
+            fileHash = fileHash.encode( 'hex' )
+        fileHash = fileHash.lower()
+
         if fileHash not in self.cache:
             retries = 0
             report = None
