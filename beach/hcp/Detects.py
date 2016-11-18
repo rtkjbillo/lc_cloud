@@ -185,8 +185,8 @@ class StatefulActor ( Actor ):
                                                tuple( Set( [ e.routing[ 'event_id' ] for e in reportContent ] ) ),
                                                reportType,
                                                [ x.event for x in reportContent ],
-                                               reportPriority,
-                                               reportSummary )
+                                               reportSummary,
+                                               reportPriority )
                 self._reporting.shoot( 'detect', report )
                 self._detects.setdefault( reportType,
                                           self.getActorHandle( self._detectsEndpoint % reportType ) ).broadcast( 'detect', report )
