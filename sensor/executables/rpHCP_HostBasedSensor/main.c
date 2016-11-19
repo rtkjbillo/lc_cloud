@@ -1046,10 +1046,7 @@ RPAL_THREAD_FUNC
         hbs_cloud_pub_key = NULL;
     }
 
-    if( kAcq_isAvailable() )
-    {
-        kAcq_deinit();
-    }
+    kAcq_deinit();
     
     atoms_deinit();
 

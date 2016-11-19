@@ -55,100 +55,11 @@ static RBOOL g_platform_availability[ KERNEL_ACQ_OP_COUNT ] = {
 #endif
                                                               };
 
-static
-RU32
-    _krnlSendReceive
-    (
-        RU32 op,
-        RPU8 pArgs,
-        RU32 argsSize,
-        RPU8 pResult,
-        RU32 resultSize,
-        RU32* pSizeUsed
-    )
-{
-    RU32 error = (RU32)(-1);
-
-    // Check whether this particular function is available on
-    // this platform via kernel.
-    if( op >= KERNEL_ACQ_OP_COUNT ||
-        !g_platform_availability[ op ] )
-    {
-        return error;
-    }
-
-    if( rMutex_lock( g_km_mutex ) )
-    {
-#ifdef RPAL_PLATFORM_MACOSX
-        KernelAcqCommand cmd = { 0 };
-        cmd.pArgs = pArgs;
-        cmd.argsSize = argsSize;
-        cmd.pResult = pResult;
-        cmd.resultSize = resultSize;
-        cmd.pSizeUsed = pSizeUsed;
-        fd_set readset = { 0 };
-        struct timeval timeout = { 0 };
-        int waitVal = 0;
-
-        error = setsockopt( g_km_socket, SYSPROTO_CONTROL, op, &cmd, sizeof( cmd ) );
-#elif defined( RPAL_PLATFORM_WINDOWS )
-        RU32 ioBufferSize = sizeof( KernelAcqCommand ) + argsSize;
-        RPU8 ioBuffer = NULL;
-        KernelAcqCommand* pCmd = NULL;
-
-        if( NULL != ( ioBuffer = rpal_memory_alloc( ioBufferSize ) ) )
-        {
-            pCmd = (KernelAcqCommand*)ioBuffer;
-            pCmd->op = op;
-            pCmd->dataOffset = sizeof( KernelAcqCommand );
-            pCmd->argsSize = argsSize;
-            if( NULL != pArgs && 0 != argsSize )
-            {
-                rpal_memory_memcpy( pCmd->data, pArgs, argsSize );
-            }
-
-            if( DeviceIoControl( g_km_handle,
-                                 (DWORD)IOCTL_EXCHANGE_DATA,
-                                 ioBuffer,
-                                 ioBufferSize,
-                                 pResult,
-                                 resultSize,
-                                 (LPDWORD)pSizeUsed,
-                                 NULL ) )
-            {
-                error = 0;
-            }
-            else
-            {
-                error = rpal_error_getLast();
-            }
-
-            rpal_memory_free( ioBuffer );
-        }
-        else
-        {
-            error = RPAL_ERROR_NOT_ENOUGH_MEMORY;
-        }
-#else
-        UNREFERENCED_PARAMETER( op );
-        UNREFERENCED_PARAMETER( pArgs );
-        UNREFERENCED_PARAMETER( argsSize );
-        UNREFERENCED_PARAMETER( pResult );
-        UNREFERENCED_PARAMETER( resultSize );
-        UNREFERENCED_PARAMETER( pSizeUsed );
-#endif
-
-        rMutex_unlock( g_km_mutex );
-    }
-
-    return error;
-}
-
 
 RBOOL
-    kAcq_init
+    _kAcq_init
     (
-
+        RBOOL isLock
     )
 {
     RBOOL isSuccess = FALSE;
@@ -157,15 +68,16 @@ RBOOL
     int result = 0;
     struct ctl_info info = { 0 };
     struct sockaddr_ctl addr = { 0 };
-    if( (-1) == g_km_socket )
+    if( ( -1 ) == g_km_socket )
     {
         g_is_available = FALSE;
 
-        if( NULL != ( g_km_mutex = rMutex_create() ) )
+        if( !isLock ||
+            NULL != ( g_km_mutex = rMutex_create() ) )
         {
-            if( (-1) != ( g_km_socket = socket( PF_SYSTEM, SOCK_DGRAM, SYSPROTO_CONTROL ) ) )
+            if( ( -1 ) != ( g_km_socket = socket( PF_SYSTEM, SOCK_DGRAM, SYSPROTO_CONTROL ) ) )
             {
-                strncpy( info.ctl_name, ACQUISITION_COMMS_NAME, sizeof(info.ctl_name) );
+                strncpy( info.ctl_name, ACQUISITION_COMMS_NAME, sizeof( info.ctl_name ) );
                 if( 0 == ioctl( g_km_socket, CTLIOCGINFO, &info ) )
                 {
                     addr.sc_id = info.ctl_id;
@@ -173,8 +85,9 @@ RBOOL
                     addr.sc_len = sizeof( struct sockaddr_ctl );
                     addr.sc_family = AF_SYSTEM;
                     addr.ss_sysaddr = AF_SYS_CONTROL;
-                    if( 0 == ( result = connect( g_km_socket, (struct sockaddr *)&addr, sizeof(addr) ) ) )
+                    if( 0 == ( result = connect( g_km_socket, ( struct sockaddr * )&addr, sizeof( addr ) ) ) )
                     {
+                        g_is_available = TRUE;
                         isSuccess = TRUE;
                     }
                 }
@@ -182,11 +95,12 @@ RBOOL
                 if( !isSuccess )
                 {
                     close( g_km_socket );
-                    g_km_socket = (-1);
+                    g_km_socket = ( -1 );
                 }
             }
 
-            if( !isSuccess )
+            if( !isSuccess &&
+                isLock )
             {
                 rMutex_free( g_km_mutex );
                 g_km_mutex = NULL;
@@ -202,7 +116,8 @@ RBOOL
     {
         g_is_available = FALSE;
 
-        if( NULL != ( g_km_mutex = rMutex_create() ) )
+        if( !isLock ||
+            NULL != ( g_km_mutex = rMutex_create() ) )
         {
             if( INVALID_HANDLE_VALUE != ( g_km_handle = CreateFileW( LOCAL_COMMS_NAME,
                                                                      GENERIC_READ,
@@ -215,7 +130,7 @@ RBOOL
                 g_is_available = TRUE;
                 isSuccess = TRUE;
             }
-            else
+            else if( isLock )
             {
                 rMutex_free( g_km_mutex );
                 g_km_mutex = NULL;
@@ -233,23 +148,33 @@ RBOOL
 }
 
 RBOOL
-    kAcq_deinit
+    kAcq_init
     (
 
+    )
+{
+    return _kAcq_init( TRUE );
+}
+
+RBOOL
+    _kAcq_deinit
+    (
+        RBOOL isLock
     )
 {
     RBOOL isSuccess = FALSE;
 
 
-    if( rMutex_lock( g_km_mutex ) )
+    if( !isLock ||
+        rMutex_lock( g_km_mutex ) )
     {
         g_is_available = FALSE;
 
 #ifdef RPAL_PLATFORM_MACOSX
-        if( (-1) != g_km_socket )
+        if( ( -1 ) != g_km_socket )
         {
             close( g_km_socket );
-            g_km_socket = (-1);
+            g_km_socket = ( -1 );
             isSuccess = TRUE;
         }
 #elif defined( RPAL_PLATFORM_WINDOWS )
@@ -259,11 +184,132 @@ RBOOL
             g_km_handle = INVALID_HANDLE_VALUE;
         }
 #endif
-        rMutex_free( g_km_mutex );
-        g_km_mutex = NULL;
+        if( isLock )
+        {
+            rMutex_free( g_km_mutex );
+            g_km_mutex = NULL;
+        }
     }
 
     return isSuccess;
+}
+
+RBOOL
+    kAcq_deinit
+    (
+
+    )
+{
+    return _kAcq_deinit( TRUE );
+}
+
+static
+RU32
+    _krnlSendReceive
+    (
+        RU32 op,
+        RPU8 pArgs,
+        RU32 argsSize,
+        RPU8 pResult,
+        RU32 resultSize,
+        RU32* pSizeUsed
+    )
+{
+    RU32 error = (RU32)(-1);
+    RU32 nRetries = 1;
+
+    // Check whether this particular function is available on
+    // this platform via kernel.
+    if( op >= KERNEL_ACQ_OP_COUNT ||
+        !g_platform_availability[ op ] )
+    {
+        return error;
+    }
+
+    if( rMutex_lock( g_km_mutex ) )
+    {
+        while( 0 != nRetries )
+        {
+#ifdef RPAL_PLATFORM_MACOSX
+            KernelAcqCommand cmd = { 0 };
+            cmd.pArgs = pArgs;
+            cmd.argsSize = argsSize;
+            cmd.pResult = pResult;
+            cmd.resultSize = resultSize;
+            cmd.pSizeUsed = pSizeUsed;
+            fd_set readset = { 0 };
+            struct timeval timeout = { 0 };
+            int waitVal = 0;
+
+            error = setsockopt( g_km_socket, SYSPROTO_CONTROL, op, &cmd, sizeof( cmd ) );
+#elif defined( RPAL_PLATFORM_WINDOWS )
+            RU32 ioBufferSize = sizeof( KernelAcqCommand ) + argsSize;
+            RPU8 ioBuffer = NULL;
+            KernelAcqCommand* pCmd = NULL;
+
+            if( NULL != ( ioBuffer = rpal_memory_alloc( ioBufferSize ) ) )
+            {
+                pCmd = (KernelAcqCommand*)ioBuffer;
+                pCmd->op = op;
+                pCmd->dataOffset = sizeof( KernelAcqCommand );
+                pCmd->argsSize = argsSize;
+                if( NULL != pArgs && 0 != argsSize )
+                {
+                    rpal_memory_memcpy( pCmd->data, pArgs, argsSize );
+                }
+
+                if( DeviceIoControl( g_km_handle,
+                                     (DWORD)IOCTL_EXCHANGE_DATA,
+                                     ioBuffer,
+                                     ioBufferSize,
+                                     pResult,
+                                     resultSize,
+                                     (LPDWORD)pSizeUsed,
+                                     NULL ) )
+                {
+                    error = 0;
+                }
+                else
+                {
+                    error = rpal_error_getLast();
+                }
+
+                rpal_memory_free( ioBuffer );
+            }
+            else
+            {
+                error = RPAL_ERROR_NOT_ENOUGH_MEMORY;
+            }
+#else
+            UNREFERENCED_PARAMETER( op );
+            UNREFERENCED_PARAMETER( pArgs );
+            UNREFERENCED_PARAMETER( argsSize );
+            UNREFERENCED_PARAMETER( pResult );
+            UNREFERENCED_PARAMETER( resultSize );
+            UNREFERENCED_PARAMETER( pSizeUsed );
+            break;
+#endif
+
+            // Success, return in.
+            if( 0 == error )
+            {
+                break;
+            }
+
+            // Looks like we had a failure, this may be a sign from the kernel
+            // that it must unload, so we'll give it a chance and toggle our
+            // connection.
+            _kAcq_deinit( FALSE );
+            if( !_kAcq_init( FALSE ) )
+            {
+                break;
+            }
+            nRetries--;
+        }
+        rMutex_unlock( g_km_mutex );
+    }
+
+    return error;
 }
 
 RBOOL

@@ -361,12 +361,7 @@ RBOOL
                                     rFile_write( hStore, tokenSize, token ) )
                                 {
 #if defined( RPAL_PLATFORM_LINUX ) || defined( RPAL_PLATFORM_MACOSX )
-                                    RPCHAR tmpStore = NULL;
-                                    if( NULL != ( tmpStore = rpal_string_wtoa( (RPWCHAR)store ) ) )
-                                    {
-                                        chmod( tmpStore, S_IRUSR | S_IWUSR );
-                                        rpal_memory_free( tmpStore );
-                                    }
+                                    chmod( (RPNCHAR)store, S_IRUSR | S_IWUSR );
 #endif
                                     isSuccess = TRUE;
                                 }
