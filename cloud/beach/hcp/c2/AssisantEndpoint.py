@@ -55,8 +55,8 @@ class AssistantEndpoint( Actor ):
                     sensors = [ x for x in sensors if AgentId( x ).isWindows() ]
                 elif platform == 'linux':
                     sensors = [ x for x in sensors if AgentId( x ).isLinux() ]
-            return ( "Found %s%s sensors" % ( len( sensors ), '' if ( platform is None ) else ( ' ' + platform ) ),
-                     "Found %s%s sensors" % ( len( sensors ), '' if ( platform is None ) else ( ' ' + platform ) ) )
+            return ( "%s%s sensors are currently online." % ( len( sensors ), '' if ( platform is None ) else ( ' ' + platform ) ),
+                     "%s%s are currently online." % ( len( sensors ), '' if ( platform is None ) else ( ' ' + platform ) ) )
         else:
             return( "Couldn't get sensor list.",
                     "Couldn't get sensor list." )
