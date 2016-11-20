@@ -105,10 +105,10 @@ os.system( 'apt-get install cassandra=3.0.9 -y' )
 
 printStep( 'Initializing Cassandra schema.',
     os.system( 'sleep 30' ),
-    os.system( 'cqlsh < %s' % ( os.path.join( root,
-                                              'cloud',
-                                              'schema',
-                                              'scale_db.cql' ), ) ) )
+    os.system( 'cqlsh -f %s' % ( os.path.join( root,
+                                               'cloud',
+                                               'schema',
+                                               'scale_db.cql' ), ) ) )
 
 printStep( 'Installing pip packages for various analytics components.',
     os.system( 'pip install time_uuid cassandra-driver==3.7.1 virustotal' ),
