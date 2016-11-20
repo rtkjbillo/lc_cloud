@@ -276,6 +276,7 @@ RVOID
     RPU8 pAtomId = NULL;
     RU32 atomSize = 0;
     CodeInfo tmpInfo = { 0 };
+    RU8 emptyHash[ CRYPTOLIB_HASH_SIZE ] = { 0 };
     
     if( NULL != name )
     {
@@ -313,7 +314,10 @@ RVOID
                     rSequence_removeElement( notif, RP_TAGS_HBS_THIS_ATOM, RPCM_BUFFER );
                 }
 
-                rSequence_addBUFFER( notif, RP_TAGS_HASH, (RPU8)&tmpInfo.info.fileHash, sizeof( tmpInfo.info.fileHash ) );
+                if( 0 != rpal_memory_memcmp( emptyHash, (RPU8)&tmpInfo.info.fileHash, sizeof( emptyHash ) ) )
+                {
+                    rSequence_addBUFFER( notif, RP_TAGS_HASH, (RPU8)&tmpInfo.info.fileHash, sizeof( tmpInfo.info.fileHash ) );
+                }
                 rSequence_addRU32( notif, RP_TAGS_ERROR, tmpInfo.mtd.lastError );
 
                 if( libOs_getSignature( name,

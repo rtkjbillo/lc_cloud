@@ -664,7 +664,8 @@ Patrol( 'AnalyticsModelView',
                              'max_concurrent' : 10 },
             'trustedIdents' : [ 'lc/0bf01f7e-62bd-4cc4-9fec-4c52e82eb903',
                                 'hunter/8e0f55c0-6593-4747-9d02-a4937fa79517',
-                                'assistant/2f25cc4a-7386-42c2-af64-04fca2503086' ],
+                                'assistant/2f25cc4a-7386-42c2-af64-04fca2503086',
+                                'virustotal/697bfbf7-aa78-41f3-adb8-26f59bdba0da' ],
             'n_concurrent' : 5,
             'isIsolated' : True } )
 
@@ -816,7 +817,7 @@ Patrol( 'VirusTotalActor',
         actorArgs = ( 'analytics/VirusTotalActor',
                       'analytics/virustotal/1.0' ),
         actorKwArgs = {
-            'resources' : {},
+            'resources' : { 'modeling' : 'models' },
             'parameters' : { 'qpm' : 4 },
             'secretIdent' : 'virustotal/697bfbf7-aa78-41f3-adb8-26f59bdba0da',
             'trustedIdents' : [ 'analysis/038528f5-5135-4ca8-b79f-d6b8ffc53bf5',

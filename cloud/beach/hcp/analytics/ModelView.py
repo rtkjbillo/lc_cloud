@@ -295,7 +295,8 @@ class ModelView( Actor ):
         k = msg.data[ 'k' ]
         v = msg.data[ 'v' ]
         ttl = msg.data.get( 'ttl', ( 60 * 60 * 24 * 30 ) )
-        return ( KeyValueStore.setKey( cat, k, v, ttl ), )
+        KeyValueStore.setKey( cat, k, v, ttl )
+        return ( True, )
 
     def get_kv( self, msg ):
         cat = msg.data[ 'cat' ]
