@@ -326,7 +326,7 @@ class HostObjects( object ):
 
         for ids in chunks( self._ids, self._queryChunks ):
             for row in self._db.execute( 'SELECT id, aid , last FROM loc_by_id WHERE id IN ( \'%s\' )' % '\',\''.join( ids ) ):
-                ts = int( time.mktime( row[ 2 ].timetuple() ) ) if row[ 2 ] is not None else 0
+                ts = self._db.timeToMsTs( row[ 2 ] )
                 if within is None:
                     yield ( row[ 0 ], row[ 1 ], ts )
                 else:

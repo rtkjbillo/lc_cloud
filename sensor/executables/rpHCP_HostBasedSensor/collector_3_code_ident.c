@@ -93,14 +93,14 @@ RBOOL
     g_lastCleanup = curTime;
     isSuccess = TRUE;
 
-    if( rpal_btree_minimum( g_reportedCode, &info, FALSE ) )
+    if( rpal_btree_minimum( g_reportedCode, &info, TRUE ) )
     {
         do
         {
             if( info.mtd.timeGenerated < curTime - _CODE_INFO_TTL )
             {
                 // Over TTL, remove.
-                if( rpal_btree_remove( g_reportedCode, &info, NULL, FALSE ) )
+                if( rpal_btree_remove( g_reportedCode, &info, NULL, TRUE ) )
                 {
                     //rpal_debug_info( "REMOVED OLD ENTRY" );
                 }
@@ -162,8 +162,8 @@ RBOOL
             }
         }
 
-        if( !rpal_btree_add( g_reportedCode, tmpInfo, FALSE ) &&
-            !rpal_btree_update( g_reportedCode, tmpInfo, tmpInfo, FALSE ) )
+        if( !rpal_btree_add( g_reportedCode, tmpInfo, TRUE ) &&
+            !rpal_btree_update( g_reportedCode, tmpInfo, tmpInfo, TRUE ) )
         {
             // To avoid a situation where for whatever reason we cannot add to
             // history and we start spamming the same code over and over.
@@ -200,7 +200,7 @@ RBOOL
             cleanupTree();
 
             // First can we find this file name.
-            if( rpal_btree_search( g_reportedCode, tmpInfo, &infoFound, FALSE ) )
+            if( rpal_btree_search( g_reportedCode, tmpInfo, &infoFound, TRUE ) )
             {
                 // So the path matches, if a hash was already provided, check to see if the hash matches.
                 if( 0 != rpal_memory_memcmp( &tmpInfo->info.fileHash, &infoFound.info.fileHash, sizeof( infoFound.info.fileHash ) ) &&
@@ -234,7 +234,7 @@ RBOOL
                                             MIN_OF( atomSize, sizeof( infoFound.mtd.parentCodeHitAtom ) ) );
                     }
 
-                    if( !rpal_btree_update( g_reportedCode, tmpInfo, &infoFound, FALSE ) )
+                    if( !rpal_btree_update( g_reportedCode, tmpInfo, &infoFound, TRUE ) )
                     {
                         rpal_debug_error( "error updating last code hit" );
                     }
@@ -276,6 +276,7 @@ RVOID
     RPU8 pAtomId = NULL;
     RU32 atomSize = 0;
     CodeInfo tmpInfo = { 0 };
+    RU8 emptyHash[ CRYPTOLIB_HASH_SIZE ] = { 0 };
     
     if( NULL != name )
     {
@@ -313,7 +314,10 @@ RVOID
                     rSequence_removeElement( notif, RP_TAGS_HBS_THIS_ATOM, RPCM_BUFFER );
                 }
 
-                rSequence_addBUFFER( notif, RP_TAGS_HASH, (RPU8)&tmpInfo.info.fileHash, sizeof( tmpInfo.info.fileHash ) );
+                if( 0 != rpal_memory_memcmp( emptyHash, (RPU8)&tmpInfo.info.fileHash, sizeof( emptyHash ) ) )
+                {
+                    rSequence_addBUFFER( notif, RP_TAGS_HASH, (RPU8)&tmpInfo.info.fileHash, sizeof( tmpInfo.info.fileHash ) );
+                }
                 rSequence_addRU32( notif, RP_TAGS_ERROR, tmpInfo.mtd.lastError );
 
                 if( libOs_getSignature( name,
@@ -329,7 +333,6 @@ RVOID
                     }
                 }
 
-                rpal_debug_info( "NEW CODE IDENT: " RF_STR_N, name );
                 hbs_publish( RP_TAGS_NOTIFICATION_CODE_IDENTITY, notif );
             }
 
@@ -460,25 +463,35 @@ RVOID
                             MIN_OF( sizeof( infoFound.info.fileName ),
                                     rpal_string_strsize( nameN ) ) );
 
-        if( rpal_btree_search( g_reportedCode, &infoFound, &infoFound, FALSE ) )
+        if( rMutex_lock( g_mutex ) )
         {
-            // We've reported on this file before. Before expelling it, check to see
-            // if we've had a race condition with a load.
-            if( rSequence_getTIMESTAMP( event, RP_TAGS_TIMESTAMP, &curTime ) &&
-                curTime <= infoFound.mtd.lastCodeHitTime )
+            if( rpal_btree_search( g_reportedCode, &infoFound, &infoFound, TRUE ) )
             {
-                // Ok so there is a race condition, let's report this code hit.
-                isRerunCodeHit = TRUE;
+                // We've reported on this file before. Before expelling it, check to see
+                // if we've had a race condition with a load.
+                if( rSequence_getTIMESTAMP( event, RP_TAGS_TIMESTAMP, &curTime ) &&
+                    curTime <= infoFound.mtd.lastCodeHitTime )
+                {
+                    // Ok so there is a race condition, let's report this code hit.
+                    isRerunCodeHit = TRUE;
+                }
+
+                // Expell the entry.
+                rpal_btree_remove( g_reportedCode, &infoFound, NULL, TRUE );
+
+                // If we need to rerun the code hit, do it.
+                if( isRerunCodeHit )
+                {
+                    processCodeIdent( nameN, 
+                                      NULL, 
+                                      NULL, 
+                                      infoFound.mtd.thisCodeHitAtom, 
+                                      infoFound.mtd.parentCodeHitAtom, 
+                                      TRUE );
+                }
             }
 
-            // Expell the entry.
-            rpal_btree_remove( g_reportedCode, &infoFound, NULL, FALSE );
-
-            // If we need to rerun the code hit, do it.
-            if( isRerunCodeHit )
-            {
-                processCodeIdent( nameN, NULL, NULL, infoFound.mtd.thisCodeHitAtom, infoFound.mtd.parentCodeHitAtom, TRUE );
-            }
+            rMutex_unlock( g_mutex );
         }
     }
 }
@@ -538,7 +551,7 @@ RBOOL
                     notifications_unsubscribe( RP_TAGS_NOTIFICATION_FILE_DELETE, NULL, processFileEvents );
                     notifications_unsubscribe( RP_TAGS_NOTIFICATION_FILE_MODIFIED, NULL, processFileEvents );
                     
-                    rpal_btree_destroy( g_reportedCode, FALSE );
+                    rpal_btree_destroy( g_reportedCode, TRUE );
                     g_reportedCode = NULL;
                     rMutex_free( g_mutex );
                     g_mutex = NULL;
@@ -584,7 +597,7 @@ RBOOL
             isSuccess = TRUE;
         }
 
-        rpal_btree_destroy( g_reportedCode, FALSE );
+        rpal_btree_destroy( g_reportedCode, TRUE );
         g_reportedCode = NULL;
 
         rMutex_free( g_mutex );

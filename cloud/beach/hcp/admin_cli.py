@@ -386,29 +386,6 @@ class HcpCli ( cmd.Cmd ):
             self.execAndPrintResponse( self.be.hcp_getAgentStates, arguments )
 
     @report_errors
-    def do_hcp_setPeriod( self, s ):
-        '''Set the period agents beacon back.'''
-
-        parser = self.getParser( 'setPeriod' )
-        parser.add_argument( 'period',
-                             type = int,
-                             help = 'new period to schedule hcp beacons over' )
-        arguments = self.parse( parser, s )
-
-        if arguments is not None:
-            self.execAndPrintResponse( self.be.hcp_setPeriod, arguments )
-
-    @report_errors
-    def do_hcp_getPeriod( self, s ):
-        '''Get the current agent beacon period.'''
-
-        parser = self.getParser( 'getPeriod' )
-        arguments = self.parse( parser, s )
-
-        if arguments is not None:
-            self.execAndPrintResponse( self.be.hcp_getPeriod, arguments )
-
-    @report_errors
     def do_hcp_addEnrollmentRule( self, s ):
         '''Add a new enrollment rule for new agents.'''
 
@@ -488,7 +465,7 @@ class HcpCli ( cmd.Cmd ):
     def do_hcp_getEnrollmentRules( self, s ):
         '''Get the list of enrollment rules for new agents.'''
 
-        parser = self.getParser( 'getPeriod' )
+        parser = self.getParser( 'getEnrollmentRules' )
         arguments = self.parse( parser, s )
 
         if arguments is not None:
@@ -664,28 +641,6 @@ class HcpCli ( cmd.Cmd ):
     #===========================================================================
     #   HBS COMMANDS
     #===========================================================================
-    def do_hbs_setPeriod( self, s ):
-        '''Set the period agents beacon back.'''
-
-        parser = self.getParser( 'setPeriod' )
-        parser.add_argument( 'period',
-                             type = int,
-                             help = 'new period to schedule hcp beacons over' )
-        arguments = self.parse( parser, s )
-
-        if arguments is not None:
-            self.execAndPrintResponse( self.be.hbs_setPeriod, arguments )
-
-    @report_errors
-    def do_hbs_getPeriod( self, s ):
-        '''Get the current agent beacon period.'''
-
-        parser = self.getParser( 'getPeriod' )
-        arguments = self.parse( parser, s )
-
-        if arguments is not None:
-            self.execAndPrintResponse( self.be.hbs_getPeriod, arguments )
-
     @report_errors
     def do_hbs_addProfile( self, s ):
         '''Add an execution profile.'''

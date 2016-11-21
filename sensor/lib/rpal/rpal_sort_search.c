@@ -122,11 +122,14 @@ RU32
     RS32 order = 0;
 
     if( NULL != pArray &&
-        NULL != orderFunc )
+        NULL != orderFunc &&
+        0 != nElements )
     {
         while( iMin <= iMax )
         {
             iMid = ( ( iMax - iMin ) / 2 ) + iMin;
+
+            if( iMid >= nElements ) break;
 
             order = orderFunc( _ARRAY_ELEM( pArray, iMid, elemSize ), key );
 

@@ -384,9 +384,9 @@ RPAL_THREAD_FUNC
             {
                 // On OSX the KM stays alive as long as there are clients connected
                 // so we may encounter race conditions with other components disconnecting.
-                for( nRetries = 0; nRetries < 10; nRetries++ )
+                for( nRetries = 0; nRetries < 20; nRetries++ )
                 {
-                    rpal_thread_sleep( 100 );
+                    rpal_thread_sleep( 200 );
 
                     if( 0 == ( error = system( tmpUnload ) ) )
                     {

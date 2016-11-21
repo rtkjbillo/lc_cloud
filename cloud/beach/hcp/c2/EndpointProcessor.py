@@ -148,7 +148,7 @@ class _ClientContext( object ):
         frame = frame[ 1 : ]
         self.r.setBuffer( frame )
         messages = self.r.deserialise( isList = True )
-        return ( moduleId, messages )
+        return ( moduleId, messages, frameSize + 4 )
 
     def sendFrame( self, moduleId, messages, timeout = None ):
         msgList = rList()
@@ -212,6 +212,7 @@ class EndpointProcessor( Actor ):
     #==========================================================================
     def handleNewClient( self, socket, address ):
         aid = None
+        tmpBytesReceived = 0
         try:
             self.log( 'New connection from %s:%s' % address )
             c = _ClientContext( self, socket )
@@ -227,7 +228,7 @@ class EndpointProcessor( Actor ):
             del( handshake )
             self.log( 'Handshake valid, getting headers' )
 
-            moduleId, headers = c.recvFrame( timeout = 30.0 )
+            moduleId, headers, _ = c.recvFrame( timeout = 30.0 )
             if HcpModuleId.HCP != moduleId:
                 raise DisconnectException( 'Headers not from expected module' )
             if headers is None:
@@ -287,8 +288,17 @@ class EndpointProcessor( Actor ):
                                                'hostname' : hostName } )
 
             self.log( 'Client %s registered, beginning to receive data' % str( aid ) )
+            frameIndex = 0
             while True:
-                moduleId, messages = c.recvFrame( timeout = 60 * 60 )
+                moduleId, messages, nRawBytes = c.recvFrame( timeout = 60 * 60 )
+                tmpBytesReceived += nRawBytes
+                if 100 == frameIndex:
+                    self.stateChanges.shoot( 'transfered', { 'aid' : aid.invariableToString(), 
+                                             'bytes_transfered' : tmpBytesReceived } )
+                    tmpBytesReceived = 0
+                    frameIndex = 0
+                else:
+                    frameIndex += 1
                 handler = self.moduleHandlers.get( moduleId, None )
                 
                 if handler is None:
@@ -307,6 +317,8 @@ class EndpointProcessor( Actor ):
             if aid is not None:
                 if aid.invariableToString() in self.currentClients:
                     del( self.currentClients[ aid.invariableToString() ] )
+                    self.stateChanges.shoot( 'transfered', { 'aid' : aid.invariableToString(), 
+                                             'bytes_transfered' : tmpBytesReceived } )
                     self.stateChanges.shoot( 'dead', { 'aid' : aid.invariableToString(), 
                                                        'endpoint' : self.name } )
                 self.log( 'Connection terminated: %s' % aid.invariableToString() )

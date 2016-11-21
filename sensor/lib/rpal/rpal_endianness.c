@@ -16,6 +16,9 @@ limitations under the License.
 
 #include <rpal/rpal_endianness.h>
 
+#ifdef RPAL_PLATFORM_LINUX
+#include <arpa/inet.h>
+#endif
 
 RU64
     rpal_ntoh64

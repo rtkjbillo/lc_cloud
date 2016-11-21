@@ -14,6 +14,7 @@
 
 from beach.actor import Actor
 import virustotal
+import json
 RingCache = Actor.importLib( '../utils/hcp_helpers', 'RingCache' )
 
 class VirusTotalActor ( Actor ):
@@ -27,6 +28,8 @@ class VirusTotalActor ( Actor ):
         if self.key is not None:
             self.vt = virustotal.VirusTotal( self.key, limit_per_min = self.qpm )
 
+        self.Model = self.getActorHandle( resources[ 'modeling' ], timeout = 3, nRetries = 0 )
+
         # Cache size
         self.cache_size = parameters.get( 'cache_size', 1000 )
 
@@ -39,26 +42,53 @@ class VirusTotalActor ( Actor ):
     def deinit( self ):
         pass
 
+    def getReportFromCache( self, fileHash ):
+        report = False
+
+        # First level of cache is in memory.
+        if fileHash in self.cache:
+            report = self.cache.get( fileHash )
+
+        # Second level of cache is in the key value store.
+        if report is False:
+            resp = self.Model.request( 'get_kv', { 'cat' : 'vt', 'k' : fileHash } )
+            if resp.isSuccess:
+                try:
+                    report = json.loads( resp.data[ 'v' ] )
+                except:
+                    report = False
+
+        return report
+
+    def recordNewReport( self, fileHash, report ):
+        # Set it in memory.
+        self.cache.add( fileHash, report )
+        # Set it in key value store.
+        resp = self.Model.request( 'set_kv', { 'cat' : 'vt', 
+                                               'k' : fileHash, 
+                                               'v' : json.dumps( report ), 
+                                               'ttl' : ( 60 * 60 * 24 ) } )
+        if not resp.isSuccess:
+            self.log( 'error storing new report in key value store' )
+
     def getReport( self, msg ):
         if self.key is None: return ( False, 'no key set' )
 
         fileHash = msg.data.get( 'hash', None )
         if fileHash is None: return ( False, 'missing hash' )
 
-        if fileHash not in self.cache:
-            retries = 0
-            report = None
-            while retries < 3:
-                vtReport = self.vt.get( fileHash )
-                if vtReport is not None:
-                    report = {}
-                    for av, r in vtReport:
-                        report[ av ] = r
-                    break
-            if report is None: return ( False, 'API error' )
-        else:
-            report = self.cache.get( fileHash )
+        if not all( x in "1234567890abcdef" for x in fileHash.lower() ) and len( fileHash ) in [ 32, 40, 64 ]:
+            fileHash = fileHash.encode( 'hex' )
+        fileHash = fileHash.lower()
 
-        self.cache.add( fileHash, report )
+        report = self.getReportFromCache( fileHash )
+        if report is False:
+            report = None
+            vtReport = self.vt.get( fileHash )
+            if vtReport is not None:
+                report = {}
+                for av, r in vtReport:
+                    report[ ','.join( av  ) ] = r
+                self.recordNewReport( fileHash, report )
 
         return ( True, { 'report' : report, 'hash' : fileHash } )

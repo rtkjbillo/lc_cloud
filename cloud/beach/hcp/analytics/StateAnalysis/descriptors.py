@@ -25,7 +25,7 @@ ParentProcessInHistory = Actor.importLib( './transitions', 'ParentProcessInHisto
 NotParentProcessInHistory = Actor.importLib( './transitions', 'NotParentProcessInHistory' )
 SensorRestart = Actor.importLib( './transitions', 'SensorRestart' )
 
-def ProcessBurst( priority, summary, name, procRegExp, nPerBurst, withinMilliSeconds ):
+def ProcessBurst( name, priority, summary, procRegExp, nPerBurst, withinMilliSeconds ):
     states = []
     for i in xrange( 0, nPerBurst ):
         states.append( State( StateTransition( isRecordOnMatch = True, 
@@ -36,7 +36,7 @@ def ProcessBurst( priority, summary, name, procRegExp, nPerBurst, withinMilliSec
                                                evalFunc = HistoryOlderThan( withinMilliSeconds ) ) ) )
     return StateMachineDescriptor( priority, summary, name, *states )
 
-def ProcessDescendant( priority, summary, name, parentRegExp, childRegExp, isDirectOnly ):
+def ProcessDescendant( name, priority, summary, parentRegExp, childRegExp, isDirectOnly ):
     parentState = State( StateTransition( isRecordOnMatch = True,
                                           toState = 1,
                                           evalFunc = NewProcessNamed( parentRegExp ) ) )
@@ -59,7 +59,7 @@ def ProcessDescendant( priority, summary, name, parentRegExp, childRegExp, isDir
 
     return StateMachineDescriptor( priority, summary, name, parentState, descendantState )
 
-def EventBurst( priority, summary, name, eventType, nPerBurst, withinMilliSeconds ):
+def EventBurst( name, priority, summary, eventType, nPerBurst, withinMilliSeconds ):
     states = []
     for i in xrange( 0, nPerBurst ):
         states.append( State( StateTransition( isRecordOnMatch = True, 

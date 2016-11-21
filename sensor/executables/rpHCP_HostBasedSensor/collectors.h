@@ -36,7 +36,7 @@ typedef struct _HbsState
         RBOOL( *cleanup )( struct _HbsState* hbsState, rSequence config );
         rSequence conf;
         rpcm_tag* externalEvents;
-    } collectors[ 21 ];
+    } collectors[ 23 ];
 } HbsState;
 
 #define GLOBAL_CPU_USAGE_TARGET             1
@@ -101,6 +101,8 @@ DECLARE_COLLECTOR( 17 );
 DECLARE_COLLECTOR( 18 );
 DECLARE_COLLECTOR( 19 );
 DECLARE_COLLECTOR( 20 );
+DECLARE_COLLECTOR( 21 );
+DECLARE_COLLECTOR( 22 );
 
 //=============================================================================
 //  Higher Level Helper Data Structures

@@ -78,10 +78,12 @@ class AdminEndpoint( Actor ):
         request = msg.data
         hostName = request.get( 'hostname', None )
         aids = []
-        if 'agent_id' in request:
+        if 'agent_id' in request and request[ 'agent_id' ] is not None:
             aids.append( AgentId( request[ 'agent_id' ] ) )
         elif hostName is not None:
-            aids = [ AgentId( x ) for x in self.db.getOne( 'SELECT aid FROM sensor_hostnames WHERE hostname = %s', hostName ) ]
+            found = self.db.getOne( 'SELECT aid FROM sensor_hostnames WHERE hostname = %s', ( hostName.upper().strip(), ) )
+            if found is not None:
+                aids = [ AgentId( x ) for x in found ]
         else:
             aids = None
 

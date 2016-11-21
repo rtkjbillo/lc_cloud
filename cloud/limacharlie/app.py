@@ -162,7 +162,9 @@ class SensorState:
         live_status = sensordir.request( 'get_endpoint', { 'aid' : params.sensor_id } )
         if not live_status.isSuccess:
             live_status = False
+            transfered = 0
         else:
+            transfered = live_status.data.get( 'transfered', 0 )
             live_status = True if live_status.data.get( 'endpoint', None ) is not None else False
 
         if not info.isSuccess:
@@ -172,6 +174,7 @@ class SensorState:
             raise web.HTTPError( '204 No Content: sensor not found' )
 
         info.data[ 'live_status' ] = live_status
+        info.data[ 'transfered' ] = transfered
 
         return info.data
 

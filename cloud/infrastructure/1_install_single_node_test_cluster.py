@@ -103,16 +103,12 @@ printStep( 'Installing Cassandra.',
 # Ignoring errors here because of a bug in the Ubuntu package.
 os.system( 'apt-get install cassandra=3.0.9 -y' )
 
-printStep( 'Starting Cassandra after hotfix.',
-           os.system( """sed -i 's/"$JVM_PATCH_VERSION" \\\< "25"/$JVM_PATCH_VERSION -lt 25/g' /etc/cassandra/cassandra-env.sh""" ),
-           os.system( 'service cassandra start' ) )
-
 printStep( 'Initializing Cassandra schema.',
     os.system( 'sleep 30' ),
-    os.system( 'cqlsh < %s' % ( os.path.join( root,
-                                              'cloud',
-                                              'schema',
-                                              'scale_db.cql' ), ) ) )
+    os.system( 'cqlsh -f %s' % ( os.path.join( root,
+                                               'cloud',
+                                               'schema',
+                                               'scale_db.cql' ), ) ) )
 
 printStep( 'Installing pip packages for various analytics components.',
     os.system( 'pip install time_uuid cassandra-driver==3.7.1 virustotal' ),

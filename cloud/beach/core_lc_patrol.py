@@ -332,6 +332,37 @@ Patrol( 'EndpointProcessor',
             'n_concurrent' : 5,
             'isIsolated' : False } )
 
+#######################################
+# AssistantEndpoint
+# This actor will serve as a comms
+# endpoint by the admin_lib/cli
+# to administer the LC.
+# Parameters:
+# db: the Cassandra seed nodes to
+#    connect to for storage.
+# rate_limit_per_sec: number of db ops
+#    per second, limiting to avoid
+#    db overload since C* is bad at that.
+# max_concurrent: number of concurrent
+#    db queries.
+# block_on_queue_size: stop queuing after
+#    n number of items awaiting ingestion.
+#######################################
+Patrol( 'AssistantEndpoint',
+        initialInstances = 1,
+        maxInstances = None,
+        relaunchOnFailure = True,
+        scalingFactor = 5000,
+        actorArgs = ( 'c2/AssistantEndpoint',
+                      'c2/assistant/1.0' ),
+        actorKwArgs = {
+            'resources' : { 'modeling' : 'models' },
+            'parameters' : {},
+            'secretIdent' : 'assistant/2f25cc4a-7386-42c2-af64-04fca2503086',
+            'trustedIdents' : [ 'restbridge/67581309-3aa1-42b6-864e-a14eab681a13' ],
+            'n_concurrent' : 5,
+            'isIsolated' : False } )
+
 ###############################################################################
 # Analysis Intake
 ###############################################################################
@@ -632,7 +663,9 @@ Patrol( 'AnalyticsModelView',
                              'rate_limit_per_sec' : 500,
                              'max_concurrent' : 10 },
             'trustedIdents' : [ 'lc/0bf01f7e-62bd-4cc4-9fec-4c52e82eb903',
-                                'hunter/8e0f55c0-6593-4747-9d02-a4937fa79517' ],
+                                'hunter/8e0f55c0-6593-4747-9d02-a4937fa79517',
+                                'assistant/2f25cc4a-7386-42c2-af64-04fca2503086',
+                                'virustotal/697bfbf7-aa78-41f3-adb8-26f59bdba0da' ],
             'n_concurrent' : 5,
             'isIsolated' : True } )
 
@@ -784,7 +817,7 @@ Patrol( 'VirusTotalActor',
         actorArgs = ( 'analytics/VirusTotalActor',
                       'analytics/virustotal/1.0' ),
         actorKwArgs = {
-            'resources' : {},
+            'resources' : { 'modeling' : 'models' },
             'parameters' : { 'qpm' : 4 },
             'secretIdent' : 'virustotal/697bfbf7-aa78-41f3-adb8-26f59bdba0da',
             'trustedIdents' : [ 'analysis/038528f5-5135-4ca8-b79f-d6b8ffc53bf5',

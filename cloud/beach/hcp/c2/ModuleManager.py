@@ -102,6 +102,6 @@ class ModuleManager( Actor ):
     	self.modules = newModules
     	self.taskings = newTaskings
 
-    	self.log( 'reloade %d modules and %d taskings' % ( len( newModules ), len( newTaskings ) ) )
+    	self.log( 'reloaded %d modules and %d taskings' % ( len( newModules ), len( newTaskings ) ) )
 
     	return ( True, )
