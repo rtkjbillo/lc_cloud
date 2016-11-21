@@ -807,6 +807,8 @@ Patrol( 'PagingActor',
 #    subscription level, default of 4
 #    which matches their free tier.
 # cache_size: how many results to cache.
+# ttl: number of seconds each report is
+# valid.
 #######################################
 Patrol( 'VirusTotalActor',
         initialInstances = 1,
@@ -818,7 +820,7 @@ Patrol( 'VirusTotalActor',
                       'analytics/virustotal/1.0' ),
         actorKwArgs = {
             'resources' : { 'modeling' : 'models' },
-            'parameters' : { 'qpm' : 4 },
+            'parameters' : { 'qpm' : 4, 'ttl' : ( 60 * 60 * 24 ) },
             'secretIdent' : 'virustotal/697bfbf7-aa78-41f3-adb8-26f59bdba0da',
             'trustedIdents' : [ 'analysis/038528f5-5135-4ca8-b79f-d6b8ffc53bf5',
                                 'hunter/8e0f55c0-6593-4747-9d02-a4937fa79517' ],

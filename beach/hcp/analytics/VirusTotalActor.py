@@ -24,6 +24,7 @@ class VirusTotalActor ( Actor ):
 
         # Maximum number of queries per minute
         self.qpm = parameters.get( 'qpm', 4 )
+        self.ttl = parameters.get( 'ttl', ( 60 * 60 * 24 ) )
 
         if self.key is not None:
             self.vt = virustotal.VirusTotal( self.key, limit_per_min = self.qpm )
@@ -67,7 +68,7 @@ class VirusTotalActor ( Actor ):
         resp = self.Model.request( 'set_kv', { 'cat' : 'vt', 
                                                'k' : fileHash, 
                                                'v' : json.dumps( report ), 
-                                               'ttl' : ( 60 * 60 * 24 ) } )
+                                               'ttl' : self.ttl } )
         if not resp.isSuccess:
             self.log( 'error storing new report in key value store' )
 
