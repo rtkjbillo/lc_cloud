@@ -31,6 +31,19 @@ def NewProcessNamed( regexp ):
             return False
     return _processNamed
 
+def NewDocumentNamed( regexp ):
+    try:
+        regexp.match( '' )
+    except:
+        regexp = re.compile( regexp )
+    def _docNamed( history, event ):
+        newDocName = _x_( event.event, 'notification.NEW_DOCUMENT/base.FILE_PATH' )
+        if newDocName is not None and regexp.match( newDocName ):
+            return True
+        else:
+            return False
+    return _docNamed
+
 def HistoryOlderThan( nMilliseconds ):
     def _historyOlderThan( history, event ):
         newTs = event.event.get( 'base.TIMESTAMP', 0 )
@@ -44,18 +57,12 @@ def HistoryOlderThan( nMilliseconds ):
 
 def ParentProcessInHistory():
     def _parentProcessInHistory( history, event ):
-        parentPid = _x_( event.event, 'notification.NEW_PROCESS/base.PARENT_PROCESS_ID' )
+        parentPid = _x_( event.event, '?/hbs.PARENT_ATOM' )
         if parentPid is not None:
-            if parentPid in ( _x_( x.event, 'notification.NEW_PROCESS/base.PROCESS_ID' ) for x in history ):
+            if parentPid in ( _x_( x.event, 'notification.NEW_PROCESS/hbs.THIS_ATOM' ) for x in history ):
                 return True
         return False
     return _parentProcessInHistory
-
-def NotParentProcessInHistory():
-    f = ParentProcessInHistory()
-    def _notParentProcessInHistory( history, event ):
-        return not f( history, event )
-    return _notParentProcessInHistory
 
 def RunningPidReset():
     def _runningPidReset( history, event ):
@@ -92,3 +99,18 @@ def EventOfType( eventType ):
         else:
             return False
     return _eventOfType
+
+def InverseTransition( transition ):
+    def _notTransition( history, event ):
+        return not transition( history, event )
+    return _notTransition
+
+def AndTransitions( *transitions ):
+    def _andTransition( history, event ):
+        return all( tr( history, event ) for tr in transitions )
+    return _andTransition
+
+def OrTransitions( *transitions ):
+    def _orTransition( history, event ):
+        return any( tr( history, event ) for tr in transitions )
+    return _orTransition
