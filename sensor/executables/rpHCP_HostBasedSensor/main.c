@@ -703,7 +703,11 @@ static RVOID
                 rSequence_getRU32( cloudEvent, RP_TAGS_HBS_NOTIFICATION_ID, &(cloudEventStub->eventId) ) &&
                 rSequence_getSEQUENCE( cloudEvent, RP_TAGS_HBS_NOTIFICATION, &(cloudEventStub->event) ) )
             {
-                rSequence_getTIMESTAMP( cloudEvent, RP_TAGS_EXPIRY, &expiry );
+                if( !rSequence_getTIMESTAMP( cloudEvent, RP_TAGS_EXPIRY, &expiry ) )
+                {
+                    expiry = 0;
+                }
+
                 hbs_timestampEvent( cloudEvent, 0 );
                 
                 tmpId = rpHcpI_seqToHcpId( targetId );
@@ -733,7 +737,8 @@ static RVOID
                 }
 
                 if( curId.raw == tmpId.raw &&
-                    rpal_time_getGlobal() <= expiry )
+                    ( 0 == expiry ||
+                      rpal_time_getGlobal() <= expiry ) )
                 {
                     if( NULL != ( cloudEventStub->event = rSequence_duplicate( cloudEventStub->event ) ) )
                     {
