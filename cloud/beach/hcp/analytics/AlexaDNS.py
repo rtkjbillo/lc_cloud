@@ -19,7 +19,7 @@ from StringIO import StringIO
 
 class AlexaDNS ( Actor ):
     def init( self, parameters, resources ):
-        self.domain = 'https://s3.amazonaws.com/alexa-static/top-1m.csv.zip'
+        self.domain = 'htts://statvoo.com/dl/top-1million-sites.csv.zip'
         self.topMap = {}
         self.topList = []
         self.refreshDomains()
