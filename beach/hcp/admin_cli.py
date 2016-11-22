@@ -136,7 +136,7 @@ class HcpCli ( cmd.Cmd ):
             parser.add_argument( '-x',
                                   type = int,
                                   required = False,
-                                  default = 0,
+                                  default = 30,
                                   help = 'set this command\'s specific expiry time in seconds.',
                                   dest = 'expiry' )
 
