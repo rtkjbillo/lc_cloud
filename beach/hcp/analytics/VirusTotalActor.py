@@ -38,8 +38,6 @@ class VirusTotalActor ( Actor ):
 
         self.handle( 'get_report', self.getReport )
 
-        # Todo: move from RingCache to using Cassandra as larger cache
-
     def deinit( self ):
         pass
 
@@ -85,7 +83,18 @@ class VirusTotalActor ( Actor ):
         report = self.getReportFromCache( fileHash )
         if report is False:
             report = None
-            vtReport = self.vt.get( fileHash )
+            vtReport = None
+            nRetry = 3
+            while True:
+                try:
+                    vtReport = self.vt.get( fileHash )
+                except:
+                    self.log( 'VT API failure, retrying.' )
+                    if 0 == nRetry:
+                        return ( False, 'API failure' )
+                    nRetry -= 1
+                else:
+                    break
             if vtReport is not None:
                 report = {}
                 for av, r in vtReport:
