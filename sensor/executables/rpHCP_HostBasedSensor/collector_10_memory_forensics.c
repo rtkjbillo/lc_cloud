@@ -334,11 +334,17 @@ RVOID
     RU64 modStart = 0;
     RU64 modSize = 0;
 
+    RPU8 atom = NULL;
+    RU32 atomSize = 0;
+
     UNREFERENCED_PARAMETER( eventType );
 
     if( rpal_memory_isValid( event ) )
     {
-        if( rSequence_getRU32( event, RP_TAGS_PROCESS_ID, &pid ) )
+        if( rSequence_getRU32( event, RP_TAGS_PROCESS_ID, &pid ) ||
+            ( rSequence_getBUFFER( event, RP_TAGS_HBS_THIS_ATOM, &atom, &atomSize ) &&
+              HBS_ATOM_ID_SIZE == atomSize &&
+              0 != ( pid = atoms_getPid( atom ) ) ) )
         {
             if( NULL != ( memMapList = processLib_getProcessMemoryMap( pid ) ) )
             {
@@ -426,11 +432,17 @@ RVOID
     RU32 memSize;
     RPVOID mem;
 
+    RPU8 atom = NULL;
+    RU32 atomSize = 0;
+
     UNREFERENCED_PARAMETER( eventType );
 
     if( rpal_memory_isValid( event ) )
     {
-        if( rSequence_getRU32( event, RP_TAGS_PROCESS_ID, &pid ) &&
+        if( ( rSequence_getRU32( event, RP_TAGS_PROCESS_ID, &pid ) ||
+              ( rSequence_getBUFFER( event, RP_TAGS_HBS_THIS_ATOM, &atom, &atomSize ) &&
+                HBS_ATOM_ID_SIZE == atomSize &&
+                0 != ( pid = atoms_getPid( atom ) ) ) ) &&
             rSequence_getRU64( event, RP_TAGS_BASE_ADDRESS, &baseAddr ) &&
             rSequence_getRU32( event, RP_TAGS_MEMORY_SIZE, &memSize ) )
         {
@@ -466,11 +478,17 @@ RVOID
     RU32 pid;
     rList handleList;
 
+    RPU8 atom = NULL;
+    RU32 atomSize = 0;
+
     UNREFERENCED_PARAMETER( eventType );
 
     if( rpal_memory_isValid( event ) )
     {
-        if( rSequence_getRU32( event, RP_TAGS_PROCESS_ID, &pid ) )
+        if( rSequence_getRU32( event, RP_TAGS_PROCESS_ID, &pid ) ||
+            ( rSequence_getBUFFER( event, RP_TAGS_HBS_THIS_ATOM, &atom, &atomSize ) &&
+              HBS_ATOM_ID_SIZE == atomSize &&
+              0 != ( pid = atoms_getPid( atom ) ) ) )
         {
             if( NULL != ( handleList = processLib_getHandles( pid, TRUE, NULL ) ) )
             {
@@ -547,11 +565,17 @@ RVOID
     RU32 minLength = 5;
     RU32 maxLength = 128;
 
+    RPU8 atom = NULL;
+    RU32 atomSize = 0;
+
     UNREFERENCED_PARAMETER( eventType );
 
     if( rpal_memory_isValid( event ) )
     {
-        if( rSequence_getRU32( event, RP_TAGS_PROCESS_ID, &pid ) )
+        if( rSequence_getRU32( event, RP_TAGS_PROCESS_ID, &pid ) ||
+            ( rSequence_getBUFFER( event, RP_TAGS_HBS_THIS_ATOM, &atom, &atomSize ) &&
+              HBS_ATOM_ID_SIZE == atomSize &&
+              0 != ( pid = atoms_getPid( atom ) ) ) )
         {
             if( NULL != ( memMapList = processLib_getProcessMemoryMap( pid ) ) &&
                 ( NULL != ( stringsAList = rList_new( RP_TAGS_STRINGSA, RPCM_STRINGA ) ) ) &&
@@ -620,11 +644,17 @@ RVOID
     RU32 minLength = 5;
     RU32 maxLength = 128;
 
+    RPU8 atom = NULL;
+    RU32 atomSize = 0;
+
     UNREFERENCED_PARAMETER( eventType );
 
     if( rpal_memory_isValid( event ) )
     {
-        if( rSequence_getRU32( event, RP_TAGS_PROCESS_ID, &pid ) && 
+        if( ( rSequence_getRU32( event, RP_TAGS_PROCESS_ID, &pid ) ||
+              ( rSequence_getBUFFER( event, RP_TAGS_HBS_THIS_ATOM, &atom, &atomSize ) &&
+                HBS_ATOM_ID_SIZE == atomSize &&
+                0 != ( pid = atoms_getPid( atom ) ) ) ) &&
             rSequence_getLIST( event, RP_TAGS_STRINGSW, &searchStrings ) )
         {
             currentPid = processLib_getCurrentPid();
