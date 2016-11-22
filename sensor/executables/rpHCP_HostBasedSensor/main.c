@@ -663,6 +663,7 @@ static RVOID
     rpHCPId tmpId = { 0 };
     rSequence receipt = NULL;
     _cloudNotifStub* cloudEventStub = NULL;
+    RU32 error = RPAL_ERROR_SUCCESS;
 
     while( rList_getSEQUENCE( notifications, RP_TAGS_HBS_CLOUD_NOTIFICATION, &notif ) )
     {
@@ -719,17 +720,9 @@ static RVOID
                 {
                     hbs_markAsRelated( cloudEventStub->event, cloudEvent );
 
-                    if( rSequence_addSEQUENCE( receipt, 
-                                               RP_TAGS_HBS_CLOUD_NOTIFICATION, 
-                                               rSequence_duplicate( cloudEvent ) ) )
-                    {
-                        if( !rQueue_add( g_hbs_state.outQueue, receipt, 0 ) )
-                        {
-                            rSequence_free( receipt );
-                            receipt = NULL;
-                        }
-                    }
-                    else
+                    if( !rSequence_addSEQUENCE( receipt, 
+                                                RP_TAGS_HBS_CLOUD_NOTIFICATION, 
+                                                rSequence_duplicate( cloudEvent ) ) )
                     {
                         rSequence_free( receipt );
                         receipt = NULL;
@@ -761,6 +754,15 @@ static RVOID
                 else
                 {
                     rpal_debug_warning( "event expired or for wrong id." );
+                    error = RPAL_ERROR_INVALID_PARAMETER;
+                }
+
+                if( NULL != receipt &&
+                    ( !rSequence_addRU32( receipt, RP_TAGS_ERROR, error ) ||
+                      !rQueue_add( g_hbs_state.outQueue, receipt, 0 ) ) )
+                {
+                    rSequence_free( receipt );
+                    receipt = NULL;
                 }
             }
 
