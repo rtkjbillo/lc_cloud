@@ -81,5 +81,5 @@ RBOOL
 RU32
     atoms_getPid
     (
-        Atom* pAtom
+        RU8 pAtomId[ HBS_ATOM_ID_SIZE ]
     );

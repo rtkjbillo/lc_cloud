@@ -57,6 +57,9 @@ def report_errors( func ):
 def hexArg( arg ):
     return int( arg, 16 )
 
+def atomArg( arg ):
+    return uuid.UUID( arg ).bytes
+
 def eventArg( arg ):
     try:
         return int( arg )
@@ -154,6 +157,13 @@ class HcpCli ( cmd.Cmd ):
             return parser.parse_args( shlex.split( line ) )
         except SystemExit:
             return None
+
+    def addRelevantProc( self, event, pid, atom ):
+        if pid is not None:
+            event.addInt32( self.tags.base.PROCESS_ID, pid )
+        elif atom is not None:
+            event.addBuffer( self.tags.hbs.THIS_ATOM, atom )
+        return event
 
     def do_exit( self, s ):
         return True
@@ -817,7 +827,7 @@ class HcpCli ( cmd.Cmd ):
                              required = False,
                              help = 'pid of the process to get the map from' )
         parser.add_argument( '-a', '--processatom',
-                             type = uuid.UUID,
+                             type = atomArg,
                              required = False,
                              dest = 'processAtom',
                              help = 'the atom of the target process' )
@@ -826,7 +836,7 @@ class HcpCli ( cmd.Cmd ):
             if arguments.pid is None and arguments.processAtom is None:
                 raise argparse.ArgumentTypeError( 'PID or Process Atom must be specified.' )
             self._executeHbsTasking( self.tags.notification.MEM_MAP_REQ,
-                                     rSequence().addInt32( self.tags.base.PROCESS_ID, arguments.pid ),
+                                     self.addRelevantProc( rSequence(), arguments.pid, arguments.processAtom ),
                                      arguments )
 
     @report_errors
@@ -839,7 +849,7 @@ class HcpCli ( cmd.Cmd ):
                              required = False,
                              help = 'pid of the process to get the map from' )
         parser.add_argument( '-a', '--processatom',
-                             type = uuid.UUID,
+                             type = atomArg,
                              required = False,
                              dest = 'processAtom',
                              help = 'the atom of the target process' )
@@ -854,7 +864,7 @@ class HcpCli ( cmd.Cmd ):
             if arguments.pid is None and arguments.processAtom is None:
                 raise argparse.ArgumentTypeError( 'PID or Process Atom must be specified.' )
             self._executeHbsTasking( self.tags.notification.MEM_READ_REQ,
-                                     rSequence().addInt32( self.tags.base.PROCESS_ID, arguments.pid )
+                                     self.addRelevantProc( rSequence(), arguments.pid, arguments.processAtom )
                                                 .addInt64( self.tags.base.BASE_ADDRESS, arguments.baseAddr )
                                                 .addInt32( self.tags.base.MEMORY_SIZE, arguments.memSize ),
                                      arguments )
@@ -869,7 +879,7 @@ class HcpCli ( cmd.Cmd ):
                              required = False,
                              help = 'pid of the process to get the handles from, 0 for all processes' )
         parser.add_argument( '-a', '--processatom',
-                             type = uuid.UUID,
+                             type = atomArg,
                              required = False,
                              dest = 'processAtom',
                              help = 'the atom of the target process' )
@@ -878,7 +888,7 @@ class HcpCli ( cmd.Cmd ):
             if arguments.pid is None and arguments.processAtom is None:
                 raise argparse.ArgumentTypeError( 'PID or Process Atom must be specified.' )
             self._executeHbsTasking( self.tags.notification.MEM_HANDLES_REQ,
-                                     rSequence().addInt32( self.tags.base.PROCESS_ID, arguments.pid ),
+                                     self.addRelevantProc( rSequence(), arguments.pid, arguments.processAtom ),
                                      arguments )
 
     @report_errors
@@ -891,7 +901,7 @@ class HcpCli ( cmd.Cmd ):
                              required = False,
                              help = 'pid of the process to get the strings from' )
         parser.add_argument( '-a', '--processatom',
-                             type = uuid.UUID,
+                             type = atomArg,
                              required = False,
                              dest = 'processAtom',
                              help = 'the atom of the target process' )
@@ -900,7 +910,7 @@ class HcpCli ( cmd.Cmd ):
             if arguments.pid is None and arguments.processAtom is None:
                 raise argparse.ArgumentTypeError( 'PID or Process Atom must be specified.' )
             self._executeHbsTasking( self.tags.notification.MEM_STRINGS_REQ,
-                                     rSequence().addInt32( self.tags.base.PROCESS_ID, arguments.pid ),
+                                     self.addRelevantProc( rSequence(), arguments.pid, arguments.processAtom ),
                                      arguments )
 
     @report_errors
@@ -935,7 +945,7 @@ class HcpCli ( cmd.Cmd ):
                              required = False,
                              help = 'pid of the process to kill' )
         parser.add_argument( '-a', '--processatom',
-                             type = uuid.UUID,
+                             type = atomArg,
                              required = False,
                              dest = 'processAtom',
                              help = 'the atom of the target process' )
@@ -944,7 +954,7 @@ class HcpCli ( cmd.Cmd ):
             if arguments.pid is None and arguments.processAtom is None:
                 raise argparse.ArgumentTypeError( 'PID or Process Atom must be specified.' )
             self._executeHbsTasking( self.tags.notification.OS_KILL_PROCESS_REQ,
-                                     rSequence().addInt32( self.tags.base.PROCESS_ID, arguments.pid ),
+                                     self.addRelevantProc( rSequence(), arguments.pid, arguments.processAtom ),
                                      arguments )
 
     @report_errors
@@ -957,7 +967,7 @@ class HcpCli ( cmd.Cmd ):
                              required = False,
                              help = 'process id' )
         parser.add_argument( '-a', '--processatom',
-                             type = uuid.UUID,
+                             type = atomArg,
                              required = False,
                              dest = 'processAtom',
                              help = 'the atom of the target process' )
@@ -969,7 +979,7 @@ class HcpCli ( cmd.Cmd ):
         if arguments is not None:
             if arguments.pid is None and arguments.processAtom is None:
                 raise argparse.ArgumentTypeError( 'PID or Process Atom must be specified.' )
-            payload = rSequence().addInt32( self.tags.base.PROCESS_ID, arguments.pid )
+            payload = self.addRelevantProc( rSequence(), arguments.pid, arguments.processAtom )
             if arguments.tid is not None:
                 payload.addInt32( self.tags.base.THREAD_ID, arguments.tid )
             self._executeHbsTasking( self.tags.notification.OS_SUSPEND_REQ,
@@ -986,7 +996,7 @@ class HcpCli ( cmd.Cmd ):
                              required = False,
                              help = 'process id' )
         parser.add_argument( '-a', '--processatom',
-                             type = uuid.UUID,
+                             type = atomArg,
                              required = False,
                              dest = 'processAtom',
                              help = 'the atom of the target process' )
@@ -998,7 +1008,7 @@ class HcpCli ( cmd.Cmd ):
         if arguments is not None:
             if arguments.pid is None and arguments.processAtom is None:
                 raise argparse.ArgumentTypeError( 'PID or Process Atom must be specified.' )
-            payload = rSequence().addInt32( self.tags.base.PROCESS_ID, arguments.pid )
+            payload = self.addRelevantProc( rSequence(), arguments.pid, arguments.processAtom )
             if arguments.tid is not None:
                 payload.addInt32( self.tags.base.THREAD_ID, arguments.tid )
             self._executeHbsTasking( self.tags.notification.OS_RESUME_REQ,
@@ -1193,12 +1203,12 @@ class HcpCli ( cmd.Cmd ):
 
         parser = self.getParser( 'history_dump', True )
         parser.add_argument( '-r', '--rootatom',
-                             type = uuid.UUID,
+                             type = atomArg,
                              required = False,
                              dest = 'root',
                              help = 'dump events present in the tree rooted at this atom' )
         parser.add_argument( '-a', '--atom',
-                             type = uuid.UUID,
+                             type = atomArg,
                              required = False,
                              dest = 'atom',
                              help = 'dump the event with this specific atom' )
@@ -1211,9 +1221,9 @@ class HcpCli ( cmd.Cmd ):
         if arguments is not None:
             e = rSequence()
             if arguments.root is not None:
-                e.addBuffer( self.tags.hbs.PARENT_ATOM, arguments.root.bytes )
+                e.addBuffer( self.tags.hbs.PARENT_ATOM, arguments.root )
             if arguments.atom is not None:
-                e.addBuffer( self.tags.hbs.THIS_ATOM, arguments.atom.bytes )
+                e.addBuffer( self.tags.hbs.THIS_ATOM, arguments.atom )
             if arguments.event is not None:
                 e.addInt32( self.tags.hbs.NOTIFICATION_ID, arguments.event )
             self._executeHbsTasking( self.tags.notification.HISTORY_DUMP_REQ,

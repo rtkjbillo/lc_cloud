@@ -208,20 +208,20 @@ RBOOL
 RU32
     atoms_getPid
     (
-        Atom* pAtom
+        RU8 pAtomId[ HBS_ATOM_ID_SIZE ]
     )
 {
     RU32 pid = 0;
     Atom tmpAtom = { 0 };
 
-    if( NULL != pAtom )
+    if( NULL != pAtomId )
     {
         if( rpal_btree_minimum( g_atoms, &tmpAtom, FALSE ) )
         {
             do
             {
                 if( 0 == rpal_memory_memcmp( tmpAtom.id,
-                                             pAtom->id, 
+                                             pAtomId, 
                                              sizeof( tmpAtom.id ) ) )
                 {
                     pid = tmpAtom.key.process.pid;
