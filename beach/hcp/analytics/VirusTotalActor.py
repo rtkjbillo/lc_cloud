@@ -24,7 +24,7 @@ class VirusTotalActor ( Actor ):
 
         # Maximum number of queries per minute
         self.qpm = parameters.get( 'qpm', 4 )
-        self.ttl = parameters.get( 'ttl', ( 60 * 60 * 24 ) )
+        self.ttl = parameters.get( 'ttl', ( 60 * 60 * 24 * 7 ) )
 
         if self.key is not None:
             self.vt = virustotal.VirusTotal( self.key, limit_per_min = self.qpm )
@@ -32,7 +32,7 @@ class VirusTotalActor ( Actor ):
         self.Model = self.getActorHandle( resources[ 'modeling' ], timeout = 3, nRetries = 0 )
 
         # Cache size
-        self.cache_size = parameters.get( 'cache_size', 1000 )
+        self.cache_size = parameters.get( 'cache_size', 5000 )
 
         self.cache = RingCache( maxEntries = self.cache_size, isAutoAdd = False )
 

@@ -338,15 +338,6 @@ Patrol( 'EndpointProcessor',
 # endpoint by the admin_lib/cli
 # to administer the LC.
 # Parameters:
-# db: the Cassandra seed nodes to
-#    connect to for storage.
-# rate_limit_per_sec: number of db ops
-#    per second, limiting to avoid
-#    db overload since C* is bad at that.
-# max_concurrent: number of concurrent
-#    db queries.
-# block_on_queue_size: stop queuing after
-#    n number of items awaiting ingestion.
 #######################################
 Patrol( 'AssistantEndpoint',
         initialInstances = 1,
@@ -423,7 +414,7 @@ Patrol( 'AnalyticsModeling',
         actorKwArgs = {
             'resources' : {},
             'parameters' : { 'db' : SCALE_DB,
-                             'rate_limit_per_sec' : 200,
+                             'rate_limit_per_sec' : 400,
                              'max_concurrent' : 5,
                              'block_on_queue_size' : 200000,
                              'retention_raw_events' : ( 60 * 60 * 24 * 14 ),
