@@ -201,6 +201,8 @@ static RBOOL
     {
         if( NULL != ( notif = rSequence_new() ) )
         {
+            module->ts += MSEC_FROM_SEC( rpal_time_getGlobalFromLocal( 0 ) );
+
             hbs_timestampEvent( notif, module->ts );
             parentAtom.key.category = RP_TAGS_NOTIFICATION_NEW_PROCESS;
             parentAtom.key.process.pid = module->pid;

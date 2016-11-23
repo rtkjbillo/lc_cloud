@@ -175,6 +175,8 @@ RPVOID
 
         for( i = 0; i < prev_nScratch; i++ )
         {
+            prev_from_kernel[ i ].ts += MSEC_FROM_SEC( rpal_time_getGlobalFromLocal( 0 ) );
+
             if( KERNEL_ACQ_FILE_ACTION_ADDED == prev_from_kernel[ i ].action &&
                 g_is_create_enabled )
             {
