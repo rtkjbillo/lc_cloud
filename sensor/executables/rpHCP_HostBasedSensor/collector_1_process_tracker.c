@@ -465,7 +465,7 @@ static RVOID
                              new_from_kernel[ i ].path,
                              new_from_kernel[ i ].cmdline,
                              new_from_kernel[ i ].uid,
-                             new_from_kernel[ i ].ts );
+                             rpal_time_getGlobalFromLocal( new_from_kernel[ i ].ts ) );
 
             if( nProcessEntries >= ARRAY_N_ELEM( tracking_user ) )
             {
