@@ -459,13 +459,14 @@ static RVOID
 
         for( i = 0; i < nScratch; i++ )
         {
+            new_from_kernel[ i ].ts += MSEC_FROM_SEC( rpal_time_getGlobalFromLocal( 0 ) );
             notifyOfProcess( new_from_kernel[ i ].pid,
                              new_from_kernel[ i ].ppid,
                              TRUE,
                              new_from_kernel[ i ].path,
                              new_from_kernel[ i ].cmdline,
                              new_from_kernel[ i ].uid,
-                             rpal_time_getGlobalFromLocal( new_from_kernel[ i ].ts ) );
+                             new_from_kernel[ i ].ts );
 
             if( nProcessEntries >= ARRAY_N_ELEM( tracking_user ) )
             {
