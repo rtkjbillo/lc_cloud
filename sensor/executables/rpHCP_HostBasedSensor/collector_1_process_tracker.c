@@ -239,15 +239,20 @@ static RBOOL
         {
             parentAtom.key.category = RP_TAGS_NOTIFICATION_NEW_PROCESS;
             parentAtom.key.process.pid = ppid;
-            atoms_query( &parentAtom, optTs );
+            if( atoms_query( &parentAtom, optTs ) )
+            {
+                rSequence_addBUFFER( info, RP_TAGS_HBS_PARENT_ATOM, parentAtom.id, sizeof( parentAtom.id ) );
+            }
         }
         else
         {
             parentAtom.key.category = RP_TAGS_NOTIFICATION_NEW_PROCESS;
             parentAtom.key.process.pid = pid;
-            atoms_query( &parentAtom, optTs );
+            if( atoms_query( &parentAtom, optTs ) )
+            {
+                rSequence_addBUFFER( info, RP_TAGS_HBS_PARENT_ATOM, parentAtom.id, sizeof( parentAtom.id ) );
+            }
             atoms_remove( &parentAtom, optTs );
-            atoms_getOneTime( &atom );
         }
 
         if( isStarting )
@@ -261,8 +266,6 @@ static RBOOL
 
         if( isStarting )
         {
-            rSequence_addBUFFER( info, RP_TAGS_HBS_PARENT_ATOM, parentAtom.id, sizeof( parentAtom.id ) );
-
             if( KERNEL_ACQ_NO_USER_ID != optUserId &&
                 !rSequence_getRU32( info, RP_TAGS_USER_ID, &tmpUid ) )
             {
@@ -277,8 +280,6 @@ static RBOOL
         }
         else
         {
-            rSequence_addBUFFER( info, RP_TAGS_HBS_PARENT_ATOM, parentAtom.id, sizeof( parentAtom.id ) );
-
             if( hbs_publish( RP_TAGS_NOTIFICATION_TERMINATE_PROCESS, info ) )
             {
                 isSuccess = TRUE;

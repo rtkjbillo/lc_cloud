@@ -17,8 +17,9 @@ limitations under the License.
 #include "atoms.h"
 #include <cryptoLib/cryptoLib.h>
 
-#define _CLEANUP_EVERY  50
-#define _ATOM_GRACE_MS  10000
+#define _CLEANUP_EVERY          50
+#define _ATOM_GRACE_MS          10000
+#define _PROCESS_UNCERTAINTY_MS 1000
 
 static rBTree g_atoms = NULL;
 static RU32 g_nextCleanup = _CLEANUP_EVERY;
@@ -130,9 +131,10 @@ RBOOL
         }
         else if( 0 != atTime &&
                  0 != pAtom->expiredOn &&
-                 atTime > pAtom->expiredOn )
+                 atTime > ( pAtom->expiredOn + _PROCESS_UNCERTAINTY_MS ) )
         {
             rpal_memory_zero( pAtom->id, sizeof( pAtom->id ) );
+            isSuccess = FALSE;
         }
     }
 
