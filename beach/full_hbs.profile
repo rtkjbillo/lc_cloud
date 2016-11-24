@@ -46,7 +46,8 @@ rList().addSequence( _.hbs.CONFIGURATION,
                                                                            .addInt32( _.hbs.NOTIFICATION_ID, _.notification.POSSIBLE_DOC_EXPLOIT )
                                                                            .addInt32( _.hbs.NOTIFICATION_ID, _.notification.HISTORY_DUMP_REP )
                                                                            .addInt32( _.hbs.NOTIFICATION_ID, _.notification.USER_OBSERVED )
-                                                                           .addInt32( _.hbs.NOTIFICATION_ID, _.notification.FILE_TYPE_ACCESSED ) ) )
+                                                                           .addInt32( _.hbs.NOTIFICATION_ID, _.notification.FILE_TYPE_ACCESSED )
+                                                                           .addInt32( _.hbs.NOTIFICATION_ID, _.notification.EXISTING_PROCESS ) ) )
        .addSequence( _.hbs.CONFIGURATION,
                      rSequence().addInt32( _.hbs.CONFIGURATION_ID, HbsCollectorId.OS_FORENSIC )
                                 .addTimedelta( _.base.TIMEDELTA, ( 60 * 60 * 24 * 1 ) ) )
