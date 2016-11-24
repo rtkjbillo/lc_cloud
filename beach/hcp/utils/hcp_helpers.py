@@ -210,6 +210,7 @@ class InvestigationNature:
     DATA_LEAK = 7
     TEST = 8
     DUPLICATE = 9
+    RANSOMWARE = 10
 
     lookup = {
         0 : 'OPEN',
@@ -221,7 +222,8 @@ class InvestigationNature:
         6 : 'INTRUDER',
         7 : 'DATA_LEAK',
         8 : 'TEST',
-        9 : 'DUPLICATE'
+        9 : 'DUPLICATE',
+        10 : 'RANSOMWARE'
     }
 
 class InvestigationConclusion:
