@@ -152,6 +152,7 @@ RVOID
             if( NULL != ctx ||
                 NULL != ( ctx = getProcContext( atomId ) ) )
             {
+                rpal_memory_free( ctx->processPath );
                 ctx->processPath = path;
                 path = NULL;
             }
@@ -347,6 +348,7 @@ RBOOL
                 notifications_subscribe( RP_TAGS_NOTIFICATION_FILE_MODIFIED, NULL, 0, NULL, processFileIo ) &&
                 notifications_subscribe( RP_TAGS_NOTIFICATION_FILE_READ, NULL, 0, NULL, processFileIo ) &&
                 notifications_subscribe( RP_TAGS_NOTIFICATION_NEW_PROCESS, NULL, 0, NULL, processNewProcesses ) &&
+                notifications_subscribe( RP_TAGS_NOTIFICATION_EXISTING_PROCESS, NULL, 0, NULL, processNewProcesses ) &&
                 notifications_subscribe( RP_TAGS_NOTIFICATION_TERMINATE_PROCESS, NULL, 0, NULL, processTerminateProcesses ) )
             {
                 isSuccess = TRUE;
@@ -361,6 +363,7 @@ RBOOL
         notifications_unsubscribe( RP_TAGS_NOTIFICATION_FILE_MODIFIED, NULL, processFileIo );
         notifications_unsubscribe( RP_TAGS_NOTIFICATION_FILE_READ, NULL, processFileIo );
         notifications_unsubscribe( RP_TAGS_NOTIFICATION_NEW_PROCESS, NULL, processNewProcesses );
+        notifications_unsubscribe( RP_TAGS_NOTIFICATION_EXISTING_PROCESS, NULL, processNewProcesses );
         notifications_unsubscribe( RP_TAGS_NOTIFICATION_TERMINATE_PROCESS, NULL, processTerminateProcesses );
         obsLib_free( g_extensions );
         g_extensions = NULL;
@@ -400,6 +403,7 @@ RBOOL
         notifications_unsubscribe( RP_TAGS_NOTIFICATION_FILE_MODIFIED, NULL, processFileIo );
         notifications_unsubscribe( RP_TAGS_NOTIFICATION_FILE_READ, NULL, processFileIo );
         notifications_unsubscribe( RP_TAGS_NOTIFICATION_NEW_PROCESS, NULL, processNewProcesses );
+        notifications_unsubscribe( RP_TAGS_NOTIFICATION_EXISTING_PROCESS, NULL, processNewProcesses );
         notifications_unsubscribe( RP_TAGS_NOTIFICATION_TERMINATE_PROCESS, NULL, processTerminateProcesses );
         obsLib_free( g_extensions );
         g_extensions = NULL;
