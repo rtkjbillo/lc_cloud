@@ -38,7 +38,7 @@ static RVOID
     RU32 i = iBegin;
     RU32 j = 0;
 
-    _MOVE_ELEM( scratch, pArray, iEnd, elemSize );
+    if( iBegin >= iEnd ) return;
 
     for( j = iBegin; j <= iEnd - 1; j++ )
     {

@@ -599,7 +599,7 @@ static RVOID
                 hbs_timestampEvent( shutdownEvent, 0 );
                 // There is no point queuing it up since we're exiting
                 // so we'll try to send it right away.
-                sendSingleMessageHome( shutdownEvent );
+                sendSingleMessageHome( wrapper );
                 rSequence_free( wrapper );
             }
             else
