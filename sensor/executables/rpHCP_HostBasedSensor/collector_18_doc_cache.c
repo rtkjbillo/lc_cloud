@@ -82,22 +82,21 @@ RVOID
                   CryptoLib_hash( fileContent, fileSize, &hash ) ) ||
                 CryptoLib_hashFile( fileN, &hash, TRUE ) )
             {
-                // We acquired the hash, either by reading the entire file in memory
-                // which we will use for caching, or if it was too big by hashing it
-                // sequentially on disk.
+                rpal_debug_info( "new document acquired" );
                 rSequence_unTaintRead( notif );
-                rSequence_removeElement( notif, RP_TAGS_HBS_THIS_ATOM, RPCM_BUFFER );
-
                 rSequence_addBUFFER( notif, RP_TAGS_HASH, (RPU8)&hash, sizeof( hash ) );
-                hbs_publish( RP_TAGS_NOTIFICATION_NEW_DOCUMENT, notif );
             }
             else
             {
-                // We acquired the hash, either by reading the entire file in memory
-                // which we will use for caching, or if it was too big by hashing it
-                // sequentially on disk.
-                rSequence_unTaintRead( notif );
+                rpal_debug_warning( "could not acquire document" );
+                rSequence_addRU32( notif, RP_TAGS_ERROR, rpal_error_getLast() );
             }
+
+            // We acquired the hash, either by reading the entire file in memory
+            // which we will use for caching, or if it was too big by hashing it
+            // sequentially on disk.
+            rSequence_removeElement( notif, RP_TAGS_HBS_THIS_ATOM, RPCM_BUFFER );
+            hbs_publish( RP_TAGS_NOTIFICATION_NEW_DOCUMENT, notif );
 
             if( rMutex_lock( g_cacheMutex ) )
             {
@@ -169,6 +168,11 @@ RBOOL
     if( rpal_memory_isValid( doc ) &&
         NULL != ctx )
     {
+        if( NULL == ctx->expr &&
+            NULL == ctx->pHash )
+        {
+            return TRUE;
+        }
 
         if( rSequence_getSTRINGA( doc, RP_TAGS_FILE_PATH, &tmpA ) )
         {

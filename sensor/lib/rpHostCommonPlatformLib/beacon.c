@@ -363,6 +363,8 @@ RU32
             continue;
         }
 
+        rpal_debug_info( "Currently online, sync." );
+
         if( NULL != ( wrapper = rList_new( RP_TAGS_MESSAGE, RPCM_SEQUENCE ) ) )
         {
             if( NULL != ( message = rSequence_new() ) )
