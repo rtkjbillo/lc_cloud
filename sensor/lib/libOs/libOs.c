@@ -1102,7 +1102,13 @@ RBOOL
         rSequence_addSTRINGN( *signature, RP_TAGS_FILE_PATH, tmpPath ? tmpPath : pwfilePath );
         isSucceed = libOs_getFileSignature( tmpPath ? tmpPath : pwfilePath, *signature, operation, pIsSigned, pIsVerified_local, pIsVerified_global );
 
-        if( !isSucceed && NULL != *signature )
+        if( isSucceed )
+        {
+            rSequence_addRU8( *signature, RP_TAGS_FILE_IS_SIGNED, *pIsSigned ? 1 : 0 );
+            rSequence_addRU8( *signature, RP_TAGS_FILE_CERT_IS_VERIFIED_LOCAL, *pIsVerified_local ? 1 : 0 );
+            rSequence_addRU8( *signature, RP_TAGS_FILE_CERT_IS_VERIFIED_GLOBAL, *pIsVerified_global ? 1 : 0 );
+        }
+        else if( NULL != *signature )
         {
             rSequence_free( *signature );
             *signature = NULL;
