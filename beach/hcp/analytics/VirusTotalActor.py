@@ -98,7 +98,7 @@ class VirusTotalActor ( Actor ):
             if vtReport is not None:
                 report = {}
                 for av, r in vtReport:
-                    report[ ','.join( av  ) ] = r
+                    report[ str( av ) ] = r
                 self.recordNewReport( fileHash, report )
 
         return ( True, { 'report' : report, 'hash' : fileHash } )
