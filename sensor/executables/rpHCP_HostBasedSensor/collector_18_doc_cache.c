@@ -281,7 +281,7 @@ RBOOL
 #endif
     if( rpal_string_expand( pattern, &tmpN ) )
     {
-        obsLib_addStringPatternN( matcher, tmpN, isSuffix, isCaseInsensitive, NULL );
+        isSuccess = obsLib_addStringPatternN( matcher, tmpN, isSuffix, isCaseInsensitive, NULL );
         rpal_memory_free( tmpN );
     }
     return isSuccess;
@@ -313,10 +313,11 @@ RBOOL
 
     if( NULL != hbsState )
     {
-        if( NULL == config ||
-            rSequence_getLIST( config, RP_TAGS_EXTENSIONS, &extensions ) ||
-            rSequence_getLIST( config, RP_TAGS_PATTERNS, &patterns ) )
+        if( NULL != config )
         {
+            rSequence_getLIST( config, RP_TAGS_EXTENSIONS, &extensions );
+            rSequence_getLIST( config, RP_TAGS_PATTERNS, &patterns );
+
             if( NULL != ( g_cacheMutex = rMutex_create() ) &&
                 NULL != ( g_matcher = obsLib_new( 0, 0 ) ) )
             {
@@ -346,7 +347,10 @@ RBOOL
                         {
                             if( NULL != ( tmpN = rpal_string_aton( strA ) ) )
                             {
-                                _addPattern( g_matcher, tmpN, TRUE );
+                                if( _addPattern( g_matcher, tmpN, TRUE ) )
+                                {
+                                    rpal_debug_info( "doc ext(a): " RF_STR_N ":", tmpN );
+                                }
                                 rpal_memory_free( tmpN );
                             }
                         }
@@ -355,7 +359,10 @@ RBOOL
                         {
                             if( NULL != ( tmpN = rpal_string_wton( strW ) ) )
                             {
-                                _addPattern( g_matcher, tmpN, TRUE );
+                                if( _addPattern( g_matcher, tmpN, TRUE ) )
+                                {
+                                    rpal_debug_info( "doc ext(w): " RF_STR_N ":", tmpN );
+                                }
                                 rpal_memory_free( tmpN );
                             }
                         }
@@ -364,7 +371,10 @@ RBOOL
                         {
                             if( NULL != ( tmpN = rpal_string_aton( strA ) ) )
                             {
-                                _addPattern( g_matcher, tmpN, FALSE );
+                                if( _addPattern( g_matcher, tmpN, FALSE ) )
+                                {
+                                    rpal_debug_info( "doc path(a): " RF_STR_N ":", tmpN );
+                                }
                                 rpal_memory_free( tmpN );
                             }
                         }
@@ -373,7 +383,10 @@ RBOOL
                         {
                             if( NULL != ( tmpN = rpal_string_wton( strW ) ) )
                             {
-                                _addPattern( g_matcher, tmpN, FALSE );
+                                if( _addPattern( g_matcher, tmpN, FALSE ) )
+                                {
+                                    rpal_debug_info( "doc path(w): " RF_STR_N ":", tmpN );
+                                }
                                 rpal_memory_free( tmpN );
                             }
                         }
