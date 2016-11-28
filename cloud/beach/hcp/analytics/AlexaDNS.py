@@ -30,7 +30,8 @@ class AlexaDNS ( Actor ):
         pass
 
     def refreshDomains( self ):
-        response = urllib2.urlopen( self.domain ).read()
+        response = urllib2.urlopen( urllib2.Request( self.domain, 
+                                                     headers = { 'User-Agent': 'LimaCharlie' } ) ).read()
         z = ZipFile( StringIO( response ) )
         content = z.read( z.namelist()[ 0 ] )
         newMap = {}
