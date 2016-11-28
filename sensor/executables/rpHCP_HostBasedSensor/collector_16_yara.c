@@ -228,10 +228,7 @@ int
             parentAtom.key.process.pid = context->pid;
             if( atoms_query( &parentAtom, curTime ) )
             {
-                rSequence_addBUFFER( event, 
-                                     RP_TAGS_HBS_PARENT_ATOM, 
-                                     parentAtom.id, 
-                                     sizeof( parentAtom.id ) );
+                HbsSetParentAtom( event, parentAtom.id );
             }
 
             hbs_timestampEvent( event, curTime );

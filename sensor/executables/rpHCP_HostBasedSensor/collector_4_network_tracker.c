@@ -164,7 +164,7 @@ RPVOID
                         parentAtom.key.process.pid = currentTcp4Table->rows[ i ].pid;
                         if( atoms_query( &parentAtom, curTime ) )
                         {
-                            rSequence_addBUFFER( notif, RP_TAGS_HBS_PARENT_ATOM, parentAtom.id, sizeof( parentAtom.id ) );
+                            HbsSetParentAtom( notif, parentAtom.id );
                         }
 
                         if( rSequence_addRU32( notif, 
@@ -262,7 +262,7 @@ RPVOID
                         parentAtom.key.process.pid = currentUdpTable->rows[ i ].pid;
                         if( atoms_query( &parentAtom, curTime ) )
                         {
-                            rSequence_addBUFFER( notif, RP_TAGS_HBS_PARENT_ATOM, parentAtom.id, sizeof( parentAtom.id ) );
+                            HbsSetParentAtom( notif, parentAtom.id );
                         }
 
                         if( !rSequence_addIPV4( notif, 

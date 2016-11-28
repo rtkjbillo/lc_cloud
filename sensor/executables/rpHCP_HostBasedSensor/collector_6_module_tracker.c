@@ -140,7 +140,7 @@ RPVOID
                                     parentAtom.key.process.pid = curProc->pid;
                                     if( atoms_query( &parentAtom, curTime ) )
                                     {
-                                        rSequence_addBUFFER( module, RP_TAGS_HBS_PARENT_ATOM, parentAtom.id, sizeof( parentAtom.id ) );
+                                        HbsSetParentAtom( module, parentAtom.id );
                                     }
                                     rpal_memory_zero( &parentAtom, sizeof( parentAtom ) );
                                     hbs_publish( RP_TAGS_NOTIFICATION_MODULE_LOAD,
@@ -208,7 +208,7 @@ static RBOOL
             parentAtom.key.process.pid = module->pid;
             if( atoms_query( &parentAtom, module->ts ) )
             {
-                rSequence_addBUFFER( notif, RP_TAGS_HBS_PARENT_ATOM, parentAtom.id, sizeof( parentAtom.id ) );
+                HbsSetParentAtom( notif, parentAtom.id );
             }
 
             rSequence_addRU32( notif, RP_TAGS_PROCESS_ID, module->pid );

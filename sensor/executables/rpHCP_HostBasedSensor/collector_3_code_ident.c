@@ -220,14 +220,14 @@ RBOOL
                         infoFound.mtd.lastCodeHitTime = rpal_time_getGlobalPreciseTime();
                     }
 
-                    if( rSequence_getBUFFER( originalEvent, RP_TAGS_HBS_THIS_ATOM, &tmpAtom, &atomSize ) )
+                    if( HbsGetThisAtom( originalEvent, &tmpAtom ) )
                     {
                         rpal_memory_memcpy( infoFound.mtd.thisCodeHitAtom,
                                             tmpAtom,
                                             MIN_OF( atomSize, sizeof( infoFound.mtd.thisCodeHitAtom ) ) );
                     }
 
-                    if( rSequence_getBUFFER( originalEvent, RP_TAGS_HBS_PARENT_ATOM, &tmpAtom, &atomSize ) )
+                    if( HbsGetParentAtom( originalEvent, &tmpAtom ) )
                     {
                         rpal_memory_memcpy( infoFound.mtd.parentCodeHitAtom,
                                             tmpAtom,
@@ -304,13 +304,12 @@ RVOID
                     NULL != pThisAtom &&
                     NULL != pParentAtom )
                 {
-                    rSequence_addBUFFER( notif, RP_TAGS_HBS_THIS_ATOM, pThisAtom, HBS_ATOM_ID_SIZE );
-                    rSequence_addBUFFER( notif, RP_TAGS_HBS_PARENT_ATOM, pParentAtom, HBS_ATOM_ID_SIZE );
+                    HbsSetThisAtom( notif, pThisAtom );
+                    HbsSetParentAtom( notif, pParentAtom );
                 }
                 else if( rSequence_getBUFFER( originalEvent, RP_TAGS_HBS_THIS_ATOM, &pAtomId, &atomSize ) )
                 {
-                    rSequence_removeElement( notif, RP_TAGS_HBS_PARENT_ATOM, RPCM_BUFFER );
-                    rSequence_addBUFFER( notif, RP_TAGS_HBS_PARENT_ATOM, pAtomId, atomSize );
+                    HbsSetParentAtom( notif, pAtomId );
                     rSequence_removeElement( notif, RP_TAGS_HBS_THIS_ATOM, RPCM_BUFFER );
                 }
 

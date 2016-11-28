@@ -293,7 +293,7 @@ RPVOID
             parentAtom.key.process.pid = processId;
             if( atoms_query( &parentAtom, curTime ) )
             {
-                rSequence_addBUFFER( notif, RP_TAGS_HBS_PARENT_ATOM, parentAtom.id, sizeof( parentAtom.id ) );
+                HbsSetParentAtom( notif, parentAtom.id );
             }
 
             hbs_markAsRelated( originalRequest, notif );

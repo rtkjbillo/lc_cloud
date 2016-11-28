@@ -137,12 +137,11 @@ RVOID
     ProcExtInfo* ctx = NULL;
     RPNCHAR path = NULL;
     RPU8 atomId = NULL;
-    RU32 size = 0;
 
     UNREFERENCED_PARAMETER( notifType );
 
     if( rSequence_getSTRINGN( event, RP_TAGS_FILE_PATH, &path ) &&
-        rSequence_getBUFFER( event, RP_TAGS_HBS_THIS_ATOM, &atomId, &size ) )
+        HbsGetThisAtom( event, &atomId ) )
     {
         path = rpal_string_strdup( path );
 
@@ -177,14 +176,13 @@ RVOID
     )
 {
     RPU8 atomId = NULL;
-    RU32 size = 0;
     RU32 index = 0;
 
     UNREFERENCED_PARAMETER( notifType );
 
     if( rMutex_lock( g_mutex ) )
     {
-        if( rSequence_getBUFFER( event, RP_TAGS_HBS_PARENT_ATOM, &atomId, &size ) )
+        if( HbsGetParentAtom( event, &atomId ) )
         {
             if( (RU32)-1 != ( index = rpal_binsearch_array( g_procContexts->elements,
                                                             g_procContexts->nElements,
@@ -215,14 +213,13 @@ RVOID
     RPVOID patternCtx = 0;
     RU8 patternId = 0;
     RPU8 atomId = NULL;
-    RU32 size = 0;
     RU32 pid = 0;
     rSequence newEvent = NULL;
 
     UNREFERENCED_PARAMETER( notifType );
 
     if( rSequence_getSTRINGN( event, RP_TAGS_FILE_PATH, &path ) &&
-        rSequence_getBUFFER( event, RP_TAGS_HBS_PARENT_ATOM, &atomId, &size ) &&
+        HbsGetParentAtom( event, &atomId ) &&
         rSequence_getRU32( event, RP_TAGS_PROCESS_ID, &pid ) )
     {
         if( rMutex_lock( g_mutex ) )
@@ -247,7 +244,7 @@ RVOID
                             
                             if( NULL != ( newEvent = rSequence_new() ) )
                             {
-                                rSequence_addBUFFER( newEvent, RP_TAGS_HBS_PARENT_ATOM, atomId, size );
+                                HbsSetParentAtom( newEvent, atomId );
                                 rSequence_addRU32( newEvent, RP_TAGS_PROCESS_ID, pid );
                                 rSequence_addRU8( newEvent, RP_TAGS_RULE_NAME, patternId + 1 );
                                 rSequence_addSTRINGN( newEvent, RP_TAGS_FILE_PATH, ctx->processPath );

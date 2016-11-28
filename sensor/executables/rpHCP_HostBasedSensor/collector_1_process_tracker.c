@@ -231,7 +231,7 @@ static RBOOL
         rSequence_addRU32( info, RP_TAGS_PARENT_PROCESS_ID, ppid );
         rSequence_getRU32( info, RP_TAGS_PARENT_PROCESS_ID, &ppid ); // Get whichever ppid came first
         hbs_timestampEvent( info, optTs );
-        rSequence_addBUFFER( info, RP_TAGS_HBS_THIS_ATOM, atom.id, sizeof( atom.id ) );
+        HbsSetThisAtom( info, atom.id );
 
         // We should have reliable information on ppid now (sometimes ppid is not available before
         // querying the process info.
@@ -241,7 +241,7 @@ static RBOOL
             parentAtom.key.process.pid = ppid;
             if( atoms_query( &parentAtom, optTs ) )
             {
-                rSequence_addBUFFER( info, RP_TAGS_HBS_PARENT_ATOM, parentAtom.id, sizeof( parentAtom.id ) );
+                HbsSetParentAtom( info, parentAtom.id );
             }
         }
         else
@@ -250,7 +250,7 @@ static RBOOL
             parentAtom.key.process.pid = pid;
             if( atoms_query( &parentAtom, optTs ) )
             {
-                rSequence_addBUFFER( info, RP_TAGS_HBS_PARENT_ATOM, parentAtom.id, sizeof( parentAtom.id ) );
+                HbsSetParentAtom( info, parentAtom.id );
             }
             atoms_remove( &parentAtom, optTs );
         }
@@ -526,8 +526,8 @@ static RPVOID
             atoms_register( &tmpAtom );
 
             if( NULL != ( processInfo = processLib_getProcessInfo( tmpProcesses[ i ].pid, NULL ) ) &&
-                rSequence_addTIMESTAMP( processInfo, RP_TAGS_TIMESTAMP, rpal_time_getGlobalPreciseTime() ) &&
-                rSequence_addBUFFER( processInfo, RP_TAGS_HBS_THIS_ATOM, tmpAtom.id, sizeof( tmpAtom.id ) ) )
+                hbs_timestampEvent( processInfo, 0 ) &&
+                HbsSetThisAtom( processInfo, tmpAtom.id ) )
             {
                 hbs_publish( RP_TAGS_NOTIFICATION_EXISTING_PROCESS, processInfo );
                 rSequence_free( processInfo );

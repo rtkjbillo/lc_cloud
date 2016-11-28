@@ -208,10 +208,7 @@ RPVOID
                 parentAtom.key.category = RP_TAGS_NOTIFICATION_NEW_PROCESS;
                 if( atoms_query( &parentAtom, prev_from_kernel[ i ].ts ) )
                 {
-                    rSequence_addBUFFER( notif, 
-                                         RP_TAGS_HBS_PARENT_ATOM, 
-                                         parentAtom.id, 
-                                         sizeof( parentAtom.id ) );
+                    HbsSetParentAtom( notif, parentAtom.id );
                 }
 
                 actualPath = prev_from_kernel[ i ].path;

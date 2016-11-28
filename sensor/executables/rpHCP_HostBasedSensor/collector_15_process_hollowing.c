@@ -508,10 +508,7 @@ RPVOID
                         parentAtom.key.process.pid = proc->pid;
                         if( atoms_query( &parentAtom, 0 ) )
                         {
-                            rSequence_addBUFFER( processInfo, 
-                                                 RP_TAGS_HBS_PARENT_ATOM, 
-                                                 parentAtom.id, 
-                                                 sizeof( parentAtom.id ) );
+                            HbsSetParentAtom( processInfo, parentAtom.id );
                         }
 
                         hbs_markAsRelated( originalRequest, processInfo );
@@ -588,10 +585,7 @@ RPVOID
                             parentAtom.key.process.pid = proc->pid;
                             if( atoms_query( &parentAtom, 0 ) )
                             {
-                                rSequence_addBUFFER( processInfo, 
-                                                     RP_TAGS_HBS_PARENT_ATOM, 
-                                                     parentAtom.id, 
-                                                     sizeof( parentAtom.id ) );
+                                HbsSetParentAtom( processInfo, parentAtom.id );
                             }
 
                             hbs_markAsRelated( originalRequest, processInfo );
@@ -727,10 +721,7 @@ RVOID
                         parentAtom.key.process.pid = pid;
                         if( atoms_query( &parentAtom, 0 ) )
                         {
-                            rSequence_addBUFFER( process, 
-                                                 RP_TAGS_HBS_PARENT_ATOM, 
-                                                 parentAtom.id, 
-                                                 sizeof( parentAtom.id ) );
+                            HbsSetParentAtom( process, parentAtom.id );
                         }
 
                         hbs_publish( RP_TAGS_NOTIFICATION_MODULE_MEM_DISK_MISMATCH,

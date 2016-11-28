@@ -393,16 +393,8 @@ RVOID
     UNREFERENCED_PARAMETER( notifId );
 
     rSequence_getRU32( notif, RP_TAGS_HBS_NOTIFICATION_ID, &ofType );
-    if( !rSequence_getBUFFER( notif, RP_TAGS_HBS_THIS_ATOM, &thisAtom, &tmpSize ) ||
-        HBS_ATOM_ID_SIZE != tmpSize )
-    {
-        thisAtom = NULL;
-    }
-    if( !rSequence_getBUFFER( notif, RP_TAGS_HBS_PARENT_ATOM, &parentAtom, &tmpSize ) ||
-        HBS_ATOM_ID_SIZE != tmpSize )
-    {
-        parentAtom = NULL;
-    }
+    HbsGetThisAtom( notif, &thisAtom );
+    HbsGetParentAtom( notif, &parentAtom );
 
     if( rMutex_lock( g_history_mutex ) )
     {
@@ -418,7 +410,7 @@ RVOID
                         if( ( NULL == thisAtom ||
                             ( rSequence_getSEQUENCE( g_history[ i ], RPCM_INVALID_TAG, &tmpEvent ) &&
                               rSequence_getBUFFER( tmpEvent, RP_TAGS_HBS_THIS_ATOM, &targetAtom, &tmpSize ) &&
-                                0 == rpal_memory_memcmp( thisAtom, targetAtom, HBS_ATOM_ID_SIZE ) ) ) &&
+                              0 == rpal_memory_memcmp( thisAtom, targetAtom, HBS_ATOM_ID_SIZE ) ) ) &&
                             ( 0 == ofType ||
                               ofType == _getEventName( g_history[ i ] ) ) )
                         {

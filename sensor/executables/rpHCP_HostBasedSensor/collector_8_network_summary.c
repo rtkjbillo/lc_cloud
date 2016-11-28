@@ -124,10 +124,7 @@ RBOOL
                             // Query the last value since summaries are on process death.
                             if( atoms_query( &parentAtom, 0 ) )
                             {
-                                rSequence_addBUFFER( wrapper,
-                                                     RP_TAGS_HBS_PARENT_ATOM,
-                                                     parentAtom.id,
-                                                     sizeof( parentAtom.id ) );
+                                HbsSetParentAtom( wrapper, parentAtom.id );
                             }
 
                             hbs_timestampEvent( wrapper, 0 );
