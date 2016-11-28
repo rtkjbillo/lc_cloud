@@ -24,6 +24,7 @@ class VirusTotalActor ( Actor ):
 
         # Maximum number of queries per minute
         self.qpm = parameters.get( 'qpm', 4 )
+        self.ttl = parameters.get( 'ttl', ( 60 * 60 * 24 * 7 ) )
 
         if self.key is not None:
             self.vt = virustotal.VirusTotal( self.key, limit_per_min = self.qpm )
@@ -31,13 +32,11 @@ class VirusTotalActor ( Actor ):
         self.Model = self.getActorHandle( resources[ 'modeling' ], timeout = 3, nRetries = 0 )
 
         # Cache size
-        self.cache_size = parameters.get( 'cache_size', 1000 )
+        self.cache_size = parameters.get( 'cache_size', 5000 )
 
         self.cache = RingCache( maxEntries = self.cache_size, isAutoAdd = False )
 
         self.handle( 'get_report', self.getReport )
-
-        # Todo: move from RingCache to using Cassandra as larger cache
 
     def deinit( self ):
         pass
@@ -67,7 +66,7 @@ class VirusTotalActor ( Actor ):
         resp = self.Model.request( 'set_kv', { 'cat' : 'vt', 
                                                'k' : fileHash, 
                                                'v' : json.dumps( report ), 
-                                               'ttl' : ( 60 * 60 * 24 ) } )
+                                               'ttl' : self.ttl } )
         if not resp.isSuccess:
             self.log( 'error storing new report in key value store' )
 
@@ -84,11 +83,22 @@ class VirusTotalActor ( Actor ):
         report = self.getReportFromCache( fileHash )
         if report is False:
             report = None
-            vtReport = self.vt.get( fileHash )
+            vtReport = None
+            nRetry = 3
+            while True:
+                try:
+                    vtReport = self.vt.get( fileHash )
+                except:
+                    self.log( 'VT API failure, retrying.' )
+                    if 0 == nRetry:
+                        return ( False, 'API failure' )
+                    nRetry -= 1
+                else:
+                    break
             if vtReport is not None:
                 report = {}
                 for av, r in vtReport:
-                    report[ ','.join( av  ) ] = r
+                    report[ str( av ) ] = r
                 self.recordNewReport( fileHash, report )
 
         return ( True, { 'report' : report, 'hash' : fileHash } )

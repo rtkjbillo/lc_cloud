@@ -65,6 +65,7 @@ typedef RU32 RERROR;
 #define RPAL_ERROR_FILE_TOO_LARGE           223
 #define RPAL_ERROR_DIRECTORY                267
 #define RPAL_ERROR_INVALID_ADDRESS          487
+#define RPAL_ERROR_TIMEOUT                  1460
 
 
 

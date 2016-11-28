@@ -61,7 +61,6 @@ RVOID
     rSequence newNotif = NULL;
     RPNCHAR tmpName = NULL;
     RPU8 tmpParent = NULL;
-    RU32 size = 0;
     UNREFERENCED_PARAMETER( notifType );
 
     if( rpal_memory_isValid( event ) )
@@ -81,8 +80,10 @@ RVOID
                     {
                         hbs_markAsRelated( event, newNotif );
                         rSequence_addSTRINGN( newNotif, RP_TAGS_USER_NAME, nameN );
-                        rSequence_getBUFFER( event, RP_TAGS_HBS_THIS_ATOM, &tmpParent, &size );
-                        rSequence_addBUFFER( newNotif, RP_TAGS_HBS_PARENT_ATOM, tmpParent, size );
+                        if( HbsGetThisAtom( event, &tmpParent ) )
+                        {
+                            HbsSetParentAtom( newNotif, tmpParent );
+                        }
                         hbs_publish( RP_TAGS_NOTIFICATION_USER_OBSERVED, newNotif );
 
                         rSequence_free( newNotif );

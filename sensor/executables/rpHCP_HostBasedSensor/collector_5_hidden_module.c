@@ -280,10 +280,7 @@ RPVOID
                                         parentAtom.key.category = RP_TAGS_NOTIFICATION_NEW_PROCESS;
                                         if( atoms_query( &parentAtom, curTime ) )
                                         {
-                                            rSequence_addBUFFER( region, 
-                                                                 RP_TAGS_HBS_PARENT_ATOM, 
-                                                                 parentAtom.id, 
-                                                                 sizeof( parentAtom.id ) );
+                                            HbsSetParentAtom( region, parentAtom.id );
                                         }
 
                                         if( NULL != ( procInfo = processLib_getProcessInfo( processId, NULL ) ) )

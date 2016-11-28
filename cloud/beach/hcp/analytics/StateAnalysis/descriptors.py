@@ -22,8 +22,11 @@ RunningPidReset = Actor.importLib( './transitions', 'RunningPidReset' )
 AlwaysReturn = Actor.importLib( './transitions', 'AlwaysReturn' )
 EventOfType = Actor.importLib( './transitions', 'EventOfType' )
 ParentProcessInHistory = Actor.importLib( './transitions', 'ParentProcessInHistory' )
-NotParentProcessInHistory = Actor.importLib( './transitions', 'NotParentProcessInHistory' )
+InverseTransition = Actor.importLib( './transitions', 'InverseTransition' )
 SensorRestart = Actor.importLib( './transitions', 'SensorRestart' )
+AndTransitions = Actor.importLib( './transitions', 'AndTransitions' )
+OrTransitions = Actor.importLib( './transitions', 'OrTransitions' )
+NewDocumentNamed = Actor.importLib( './transitions', 'NewDocumentNamed' )
 
 def ProcessBurst( name, priority, summary, procRegExp, nPerBurst, withinMilliSeconds ):
     states = []
@@ -36,7 +39,20 @@ def ProcessBurst( name, priority, summary, procRegExp, nPerBurst, withinMilliSec
                                                evalFunc = HistoryOlderThan( withinMilliSeconds ) ) ) )
     return StateMachineDescriptor( priority, summary, name, *states )
 
-def ProcessDescendant( name, priority, summary, parentRegExp, childRegExp, isDirectOnly ):
+def ProcessDescendant( name, priority, summary, parentRegExp, isDirectOnly, childRegExp = None, documentRegExp = None ):
+    if childRegExp is not None:
+        targetTransition = StateTransition( isRecordOnMatch = True,
+                                            isReportOnMatch = True,
+                                            toState = 0,
+                                            evalFunc = NewProcessNamed( childRegExp ) )
+    elif documentRegExp is not None:
+        targetTransition = StateTransition( isRecordOnMatch = True,
+                                            isReportOnMatch = True,
+                                            toState = 0,
+                                            evalFunc = NewDocumentNamed( documentRegExp ) )
+    else:
+        raise Exception( 'no target events for process descendants' )
+
     parentState = State( StateTransition( isRecordOnMatch = True,
                                           toState = 1,
                                           evalFunc = NewProcessNamed( parentRegExp ) ) )
@@ -46,16 +62,14 @@ def ProcessDescendant( name, priority, summary, parentRegExp, childRegExp, isDir
                                               isKillOnEmptyHistory = True,
                                               evalFunc = RunningPidReset() ),
                              StateTransition( toState = 1,
-                                              evalFunc = NotParentProcessInHistory() ),
+                                              evalFunc = InverseTransition( ParentProcessInHistory() ) ),
                              # Anything below is point is a descendant since the previous 
                              # transition matches on non-descendants.
-                             StateTransition( isRecordOnMatch = True,
-                                              isReportOnMatch = True,
-                                              toState = 0,
-                                              evalFunc = NewProcessNamed( childRegExp ) ),
+                             targetTransition,
                              StateTransition( isRecordOnMatch = True,
                                               toState = 1,
-                                              evalFunc = AlwaysReturn( not isDirectOnly ) ) )
+                                              evalFunc = AndTransitions( EventOfType( 'notification.NEW_PROCESS' ), 
+                                                                         AlwaysReturn( not isDirectOnly ) ) ) )
 
     return StateMachineDescriptor( priority, summary, name, parentState, descendantState )
 

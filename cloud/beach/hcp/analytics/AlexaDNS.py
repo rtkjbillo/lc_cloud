@@ -19,7 +19,7 @@ from StringIO import StringIO
 
 class AlexaDNS ( Actor ):
     def init( self, parameters, resources ):
-        self.domain = 'https://s3.amazonaws.com/alexa-static/top-1m.csv.zip'
+        self.domain = 'https://statvoo.com/dl/top-1million-sites.csv.zip'
         self.topMap = {}
         self.topList = []
         self.refreshDomains()
@@ -30,7 +30,8 @@ class AlexaDNS ( Actor ):
         pass
 
     def refreshDomains( self ):
-        response = urllib2.urlopen( self.domain ).read()
+        response = urllib2.urlopen( urllib2.Request( self.domain, 
+                                                     headers = { 'User-Agent': 'LimaCharlie' } ) ).read()
         z = ZipFile( StringIO( response ) )
         content = z.read( z.namelist()[ 0 ] )
         newMap = {}

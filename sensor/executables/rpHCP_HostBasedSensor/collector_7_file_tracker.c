@@ -153,7 +153,9 @@ RPVOID
     rpcm_tag event = RP_TAGS_INVALID;
     rSequence notif = 0;
     RU32 nScratch = 0;
+    RU32 prev_nScratch = 0;
     KernelAcqFileIo new_from_kernel[ 200 ] = { 0 };
+    KernelAcqFileIo prev_from_kernel[ 200 ] = { 0 };
     RU32 i = 0;
     Atom parentAtom = { 0 };
     RPNCHAR cleanPath = NULL;
@@ -171,24 +173,26 @@ RPVOID
             break;
         }
 
-        for( i = 0; i < nScratch; i++ )
+        for( i = 0; i < prev_nScratch; i++ )
         {
-            if( KERNEL_ACQ_FILE_ACTION_ADDED == new_from_kernel[ i ].action &&
+            prev_from_kernel[ i ].ts += MSEC_FROM_SEC( rpal_time_getGlobalFromLocal( 0 ) );
+
+            if( KERNEL_ACQ_FILE_ACTION_ADDED == prev_from_kernel[ i ].action &&
                 g_is_create_enabled )
             {
                 event = RP_TAGS_NOTIFICATION_FILE_CREATE;
             }
-            else if( KERNEL_ACQ_FILE_ACTION_REMOVED == new_from_kernel[ i ].action &&
+            else if( KERNEL_ACQ_FILE_ACTION_REMOVED == prev_from_kernel[ i ].action &&
                      g_is_delete_enabled )
             {
                 event = RP_TAGS_NOTIFICATION_FILE_DELETE;
             }
-            else if( KERNEL_ACQ_FILE_ACTION_MODIFIED == new_from_kernel[ i ].action &&
+            else if( KERNEL_ACQ_FILE_ACTION_MODIFIED == prev_from_kernel[ i ].action &&
                      g_is_modified_enabled )
             {
                 event = RP_TAGS_NOTIFICATION_FILE_MODIFIED;
             }
-            else if( KERNEL_ACQ_FILE_ACTION_READ == new_from_kernel[ i ].action &&
+            else if( KERNEL_ACQ_FILE_ACTION_READ == prev_from_kernel[ i ].action &&
                      g_is_read_enabled )
             {
                 event = RP_TAGS_NOTIFICATION_FILE_READ;
@@ -200,26 +204,23 @@ RPVOID
 
             if( NULL != ( notif = rSequence_new() ) )
             {
-                parentAtom.key.process.pid = new_from_kernel[ i ].pid;
+                parentAtom.key.process.pid = prev_from_kernel[ i ].pid;
                 parentAtom.key.category = RP_TAGS_NOTIFICATION_NEW_PROCESS;
-                if( atoms_query( &parentAtom, new_from_kernel[ i ].ts ) )
+                if( atoms_query( &parentAtom, prev_from_kernel[ i ].ts ) )
                 {
-                    rSequence_addBUFFER( notif, 
-                                         RP_TAGS_HBS_PARENT_ATOM, 
-                                         parentAtom.id, 
-                                         sizeof( parentAtom.id ) );
+                    HbsSetParentAtom( notif, parentAtom.id );
                 }
 
-                actualPath = new_from_kernel[ i ].path;
+                actualPath = prev_from_kernel[ i ].path;
 
-                if( NULL != ( cleanPath = rpal_file_clean( new_from_kernel[ i ].path ) ) )
+                if( NULL != ( cleanPath = rpal_file_clean( prev_from_kernel[ i ].path ) ) )
                 {
                     actualPath = cleanPath;
                 }
 
                 if( rSequence_addSTRINGN( notif, RP_TAGS_FILE_PATH, actualPath ) &&
-                    rSequence_addRU32( notif, RP_TAGS_PROCESS_ID, new_from_kernel[ i ].pid ) &&
-                    hbs_timestampEvent( notif, new_from_kernel[ i ].ts ) )
+                    rSequence_addRU32( notif, RP_TAGS_PROCESS_ID, prev_from_kernel[ i ].pid ) &&
+                    hbs_timestampEvent( notif, prev_from_kernel[ i ].ts ) )
                 {
                     hbs_publish( event, notif );
                 }
@@ -229,6 +230,9 @@ RPVOID
                 rSequence_free( notif );
             }
         }
+
+        rpal_memory_memcpy( prev_from_kernel, new_from_kernel, sizeof( prev_from_kernel ) );
+        prev_nScratch = nScratch;
     }
 
     return NULL;

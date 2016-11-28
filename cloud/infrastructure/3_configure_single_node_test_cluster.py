@@ -129,7 +129,7 @@ for binary in binaries:
                                                          os.path.join( binaryPath, binary ),
                                                          os.path.join( binaryPath, binary + '.sig' ) ) ) )
 
-        if 'release' in binary:
+        if 'release' in binary or 'debug' in binary:
             targetAgent = 'ff.ff.ffffffff.%s%s%s.ff'
             if 'x64' in binary:
                 arch = 2
@@ -153,14 +153,20 @@ for binary in binaries:
                 h = hashlib.sha256( f.read() ).hexdigest()
 
             if binary.startswith( 'hbs_' ):
-                printStep( 'Tasking HBS %s to all relevant sensors.' % binary,
-                    execInBackend( '''hcp_addModule -i 2 -d %s -b %s -s %s
-                                      hcp_addTasking -m %s -i 2 -s %s''' % ( binary,
-                                                                             os.path.join( binaryPath, binary ),
-                                                                             os.path.join( binaryPath, binary + '.sig' ),
-                                                                             targetAgent,
-                                                                             h ) ) )
-            elif binary.startswith( 'kernel_' ):
+                if 'release' in binary:
+                    printStep( 'Tasking HBS %s to all relevant sensors.' % binary,
+                        execInBackend( '''hcp_addModule -i 2 -d %s -b %s -s %s
+                                          hcp_addTasking -m %s -i 2 -s %s''' % ( binary,
+                                                                                 os.path.join( binaryPath, binary ),
+                                                                                 os.path.join( binaryPath, binary + '.sig' ),
+                                                                                 targetAgent,
+                                                                                 h ) ) )
+                else:
+                    printStep( 'Loading debug HBS %s but not tasking it.' % binary,
+                    execInBackend( '''hcp_addModule -i 2 -d %s -b %s -s %s''' % ( binary,
+                                                                                  os.path.join( binaryPath, binary ),
+                                                                                  os.path.join( binaryPath, binary + '.sig' ) ) ) )
+            elif binary.startswith( 'kernel_' ) and 'release' in binary:
                 printStep( 'Tasking KERNEL %s to all relevant sensors.' % binary,
                            execInBackend( '''hcp_addModule -i 5 -d %s -b %s -s %s
                                              hcp_addTasking -m %s -i 5 -s %s''' % ( binary,

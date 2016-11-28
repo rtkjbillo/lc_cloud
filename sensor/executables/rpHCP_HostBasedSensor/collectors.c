@@ -631,3 +631,92 @@ RBOOL
 
     return isSuccess;
 }
+
+
+RBOOL
+    HbsSetThisAtom
+    (
+        rSequence msg,
+        RU8 atomId[ HBS_ATOM_ID_SIZE ]
+    )
+{
+    RBOOL isSuccess = FALSE;
+
+    if( rSequence_addBUFFER( msg, RP_TAGS_HBS_THIS_ATOM, atomId, HBS_ATOM_ID_SIZE ) ||
+        ( rSequence_removeElement( msg, RP_TAGS_HBS_THIS_ATOM, RPCM_BUFFER ) &&
+          rSequence_addBUFFER( msg, RP_TAGS_HBS_THIS_ATOM, atomId, HBS_ATOM_ID_SIZE ) ) )
+    {
+        isSuccess = TRUE;
+    }
+
+    return isSuccess;
+}
+
+RBOOL
+    HbsSetParentAtom
+    (
+        rSequence msg,
+        RU8 atomId[ HBS_ATOM_ID_SIZE ]
+    )
+{
+    RBOOL isSuccess = FALSE;
+
+    if( rSequence_addBUFFER( msg, RP_TAGS_HBS_PARENT_ATOM, atomId, HBS_ATOM_ID_SIZE ) ||
+        ( rSequence_removeElement( msg, RP_TAGS_HBS_PARENT_ATOM, RPCM_BUFFER ) &&
+          rSequence_addBUFFER( msg, RP_TAGS_HBS_PARENT_ATOM, atomId, HBS_ATOM_ID_SIZE ) ) )
+    {
+        isSuccess = TRUE;
+    }
+
+    return isSuccess;
+}
+
+RBOOL
+    HbsGetThisAtom
+    (
+        rSequence msg,
+        RPU8* pAtomId
+    )
+{
+    RBOOL isSuccess = FALSE;
+    RU32 size = 0;
+
+    if( rSequence_getBUFFER( msg, RP_TAGS_HBS_THIS_ATOM, pAtomId, &size ) )
+    {
+        if( HBS_ATOM_ID_SIZE == size )
+        {
+            isSuccess = TRUE;
+        }
+        else if( NULL != pAtomId )
+        {
+            *pAtomId = NULL;
+        }
+    }
+
+    return isSuccess;
+}
+
+RBOOL
+    HbsGetParentAtom
+    (
+        rSequence msg,
+        RPU8* pAtomId
+    )
+{
+    RBOOL isSuccess = FALSE;
+    RU32 size = 0;
+
+    if( rSequence_getBUFFER( msg, RP_TAGS_HBS_PARENT_ATOM, pAtomId, &size ) )
+    {
+        if( HBS_ATOM_ID_SIZE == size )
+        {
+            isSuccess = TRUE;
+        }
+        else if( NULL != pAtomId )
+        {
+            *pAtomId = NULL;
+        }
+    }
+
+    return isSuccess;
+}

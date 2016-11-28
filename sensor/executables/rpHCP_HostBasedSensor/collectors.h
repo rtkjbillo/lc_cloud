@@ -211,3 +211,31 @@ RBOOL
         rpcm_tag* pEventType,
         RU32 milliSecTimeout
     );
+
+RBOOL
+    HbsSetThisAtom
+    (
+        rSequence msg,
+        RU8 atomId[ HBS_ATOM_ID_SIZE ]
+    );
+
+RBOOL
+    HbsSetParentAtom
+    (
+        rSequence msg,
+        RU8 atomId[ HBS_ATOM_ID_SIZE ]
+    );
+
+RBOOL
+    HbsGetThisAtom
+    (
+        rSequence msg,
+        RPU8* pAtomId
+    );
+
+RBOOL
+    HbsGetParentAtom
+    (
+        rSequence msg,
+        RPU8* pAtomId
+    );

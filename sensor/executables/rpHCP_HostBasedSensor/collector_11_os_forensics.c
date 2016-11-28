@@ -226,12 +226,17 @@ RVOID
     )
 {
     RU32 pid = 0;
+    RPU8 atom = NULL;
+    RU32 atomSize = 0;
 
     UNREFERENCED_PARAMETER( eventType );
 
     if( rpal_memory_isValid( event ) )
     {
-        if( rSequence_getRU32( event, RP_TAGS_PROCESS_ID, &pid ) )
+        if( rSequence_getRU32( event, RP_TAGS_PROCESS_ID, &pid ) ||
+            ( rSequence_getBUFFER( event, RP_TAGS_HBS_THIS_ATOM, &atom, &atomSize ) &&
+              HBS_ATOM_ID_SIZE == atomSize &&
+              0 != ( pid = atoms_getPid( atom ) ) ) )
         {
             if( processLib_killProcess( pid ) )
             {
@@ -263,6 +268,8 @@ RVOID
 {
     RU32 pid = 0;
     RU32 tid = 0;
+    RPU8 atom = NULL;
+    RU32 atomSize = 0;
 
     UNREFERENCED_PARAMETER( eventType );
 
@@ -284,7 +291,10 @@ RVOID
                 rSequence_addRU32( event, RP_TAGS_ERROR, rpal_error_getLast() );
             }
         }
-        else if( rSequence_getRU32( event, RP_TAGS_PROCESS_ID, &pid ) )
+        else if( rSequence_getRU32( event, RP_TAGS_PROCESS_ID, &pid ) ||
+                 ( rSequence_getBUFFER( event, RP_TAGS_HBS_THIS_ATOM, &atom, &atomSize ) &&
+                   HBS_ATOM_ID_SIZE == atomSize &&
+                   0 != ( pid = atoms_getPid( atom ) ) ) )
         {
             if( processLib_getCurrentPid() == pid )
             {
@@ -320,6 +330,8 @@ RVOID
 {
     RU32 pid = 0;
     RU32 tid = 0;
+    RPU8 atom = NULL;
+    RU32 atomSize = 0;
 
     UNREFERENCED_PARAMETER( eventType );
 
@@ -341,7 +353,10 @@ RVOID
                 rSequence_addRU32( event, RP_TAGS_ERROR, rpal_error_getLast() );
             }
         }
-        else if( rSequence_getRU32( event, RP_TAGS_PROCESS_ID, &pid ) )
+        else if( rSequence_getRU32( event, RP_TAGS_PROCESS_ID, &pid ) ||
+                 ( rSequence_getBUFFER( event, RP_TAGS_HBS_THIS_ATOM, &atom, &atomSize ) &&
+                   HBS_ATOM_ID_SIZE == atomSize &&
+                   0 != ( pid = atoms_getPid( atom ) ) ) )
         {
             if( processLib_getCurrentPid() == pid )
             {

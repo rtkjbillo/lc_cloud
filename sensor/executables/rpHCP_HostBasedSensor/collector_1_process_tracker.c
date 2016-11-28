@@ -231,7 +231,7 @@ static RBOOL
         rSequence_addRU32( info, RP_TAGS_PARENT_PROCESS_ID, ppid );
         rSequence_getRU32( info, RP_TAGS_PARENT_PROCESS_ID, &ppid ); // Get whichever ppid came first
         hbs_timestampEvent( info, optTs );
-        rSequence_addBUFFER( info, RP_TAGS_HBS_THIS_ATOM, atom.id, sizeof( atom.id ) );
+        HbsSetThisAtom( info, atom.id );
 
         // We should have reliable information on ppid now (sometimes ppid is not available before
         // querying the process info.
@@ -239,15 +239,20 @@ static RBOOL
         {
             parentAtom.key.category = RP_TAGS_NOTIFICATION_NEW_PROCESS;
             parentAtom.key.process.pid = ppid;
-            atoms_query( &parentAtom, optTs );
+            if( atoms_query( &parentAtom, optTs ) )
+            {
+                HbsSetParentAtom( info, parentAtom.id );
+            }
         }
         else
         {
             parentAtom.key.category = RP_TAGS_NOTIFICATION_NEW_PROCESS;
             parentAtom.key.process.pid = pid;
-            atoms_query( &parentAtom, optTs );
+            if( atoms_query( &parentAtom, optTs ) )
+            {
+                HbsSetParentAtom( info, parentAtom.id );
+            }
             atoms_remove( &parentAtom, optTs );
-            atoms_getOneTime( &atom );
         }
 
         if( isStarting )
@@ -261,8 +266,6 @@ static RBOOL
 
         if( isStarting )
         {
-            rSequence_addBUFFER( info, RP_TAGS_HBS_PARENT_ATOM, parentAtom.id, sizeof( parentAtom.id ) );
-
             if( KERNEL_ACQ_NO_USER_ID != optUserId &&
                 !rSequence_getRU32( info, RP_TAGS_USER_ID, &tmpUid ) )
             {
@@ -277,8 +280,6 @@ static RBOOL
         }
         else
         {
-            rSequence_addBUFFER( info, RP_TAGS_HBS_PARENT_ATOM, parentAtom.id, sizeof( parentAtom.id ) );
-
             if( hbs_publish( RP_TAGS_NOTIFICATION_TERMINATE_PROCESS, info ) )
             {
                 isSuccess = TRUE;
@@ -425,10 +426,8 @@ static RVOID
     KernelAcqProcess new_from_kernel[ 200 ] = { 0 };
     processEntry tracking_user[ MAX_SNAPSHOT_SIZE ] = { 0 };
     processLibProcEntry* tmpProcesses = NULL;
-    Atom tmpAtom = { 0 };
-
-    // Prime the list of tracked processes so we see them terminate
-    // and we have their Atoms.
+    
+    // Prime the list of tracked processes so we see them terminate.
     if( NULL != ( tmpProcesses = processLib_getProcessEntries( FALSE ) ) )
     {
         for( i = 0; i < MAX_SNAPSHOT_SIZE; i++ )
@@ -436,9 +435,6 @@ static RVOID
             if( 0 == tmpProcesses[ i ].pid ) break;
             tracking_user[ i ].pid = tmpProcesses[ i ].pid;
             tracking_user[ i ].ppid = 0;
-            tmpAtom.key.category = RP_TAGS_NOTIFICATION_NEW_PROCESS;
-            tmpAtom.key.process.pid = tmpProcesses[ i ].pid;
-            atoms_register( &tmpAtom );
         }
 
         rpal_memory_free( tmpProcesses );
@@ -458,6 +454,7 @@ static RVOID
 
         for( i = 0; i < nScratch; i++ )
         {
+            new_from_kernel[ i ].ts += MSEC_FROM_SEC( rpal_time_getGlobalFromLocal( 0 ) );
             notifyOfProcess( new_from_kernel[ i ].pid,
                              new_from_kernel[ i ].ppid,
                              TRUE,
@@ -507,7 +504,39 @@ static RPVOID
         RPVOID ctx
     )
 {
+    RU32 i = 0;
+    processLibProcEntry* tmpProcesses = NULL;
+    Atom tmpAtom = { 0 };
+    rSequence processInfo = NULL;
+
     UNREFERENCED_PARAMETER( ctx );
+
+    // Prime the list of tracked processes so we have their Atoms.
+    if( NULL != ( tmpProcesses = processLib_getProcessEntries( FALSE ) ) )
+    {
+        // Many collectors may rely on these existing processes for state
+        // initialization, so we'll give them a chance to get subscribed.
+        rpal_thread_sleep( MSEC_FROM_SEC( 2 ) );
+
+        for( i = 0; i < MAX_SNAPSHOT_SIZE; i++ )
+        {
+            if( 0 == tmpProcesses[ i ].pid ) break;
+            tmpAtom.key.category = RP_TAGS_NOTIFICATION_NEW_PROCESS;
+            tmpAtom.key.process.pid = tmpProcesses[ i ].pid;
+            atoms_register( &tmpAtom );
+
+            if( NULL != ( processInfo = processLib_getProcessInfo( tmpProcesses[ i ].pid, NULL ) ) &&
+                hbs_timestampEvent( processInfo, 0 ) &&
+                HbsSetThisAtom( processInfo, tmpAtom.id ) )
+            {
+                hbs_publish( RP_TAGS_NOTIFICATION_EXISTING_PROCESS, processInfo );
+                rSequence_free( processInfo );
+            }
+        }
+
+        rpal_memory_free( tmpProcesses );
+        tmpProcesses = NULL;
+    }
 
     while( !rEvent_wait( isTimeToStop, 0 ) )
     {
@@ -537,6 +566,7 @@ static RPVOID
 
 rpcm_tag collector_1_events[] = { RP_TAGS_NOTIFICATION_NEW_PROCESS,
                                   RP_TAGS_NOTIFICATION_TERMINATE_PROCESS,
+                                  RP_TAGS_NOTIFICATION_EXISTING_PROCESS,
                                   0 };
 
 RBOOL

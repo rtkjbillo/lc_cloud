@@ -338,15 +338,6 @@ Patrol( 'EndpointProcessor',
 # endpoint by the admin_lib/cli
 # to administer the LC.
 # Parameters:
-# db: the Cassandra seed nodes to
-#    connect to for storage.
-# rate_limit_per_sec: number of db ops
-#    per second, limiting to avoid
-#    db overload since C* is bad at that.
-# max_concurrent: number of concurrent
-#    db queries.
-# block_on_queue_size: stop queuing after
-#    n number of items awaiting ingestion.
 #######################################
 Patrol( 'AssistantEndpoint',
         initialInstances = 1,
@@ -423,7 +414,7 @@ Patrol( 'AnalyticsModeling',
         actorKwArgs = {
             'resources' : {},
             'parameters' : { 'db' : SCALE_DB,
-                             'rate_limit_per_sec' : 200,
+                             'rate_limit_per_sec' : 400,
                              'max_concurrent' : 5,
                              'block_on_queue_size' : 200000,
                              'retention_raw_events' : ( 60 * 60 * 24 * 14 ),
@@ -708,9 +699,7 @@ Patrol( 'AutoTasking',
                                            'hidden_module_scan',
                                            'exec_oob_scan',
                                            'history_dump',
-                                           'remain_live',
                                            'exfil_add',
-                                           'critical_add',
                                            'hollowed_module_scan',
                                            'os_services',
                                            'os_drivers',
@@ -807,6 +796,8 @@ Patrol( 'PagingActor',
 #    subscription level, default of 4
 #    which matches their free tier.
 # cache_size: how many results to cache.
+# ttl: number of seconds each report is
+# valid.
 #######################################
 Patrol( 'VirusTotalActor',
         initialInstances = 1,
@@ -818,7 +809,9 @@ Patrol( 'VirusTotalActor',
                       'analytics/virustotal/1.0' ),
         actorKwArgs = {
             'resources' : { 'modeling' : 'models' },
-            'parameters' : { 'qpm' : 4 },
+            'parameters' : { 'qpm' : 4, 
+                             'ttl' : ( 60 * 60 * 24 ),
+                             '_key' : None },
             'secretIdent' : 'virustotal/697bfbf7-aa78-41f3-adb8-26f59bdba0da',
             'trustedIdents' : [ 'analysis/038528f5-5135-4ca8-b79f-d6b8ffc53bf5',
                                 'hunter/8e0f55c0-6593-4747-9d02-a4937fa79517' ],

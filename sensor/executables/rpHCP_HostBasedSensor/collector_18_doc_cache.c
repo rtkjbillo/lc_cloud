@@ -65,9 +65,6 @@ RVOID
     RPU8 fileContent = NULL;
     RU32 fileSize = 0;
     CryptoLib_Hash hash = { 0 };
-    RPU8 pAtomId = NULL;
-    RU32 atomSize = 0;
-    Atom tmpAtom = { 0 };
 
     if( NULL != notif )
     {
@@ -85,26 +82,21 @@ RVOID
                   CryptoLib_hash( fileContent, fileSize, &hash ) ) ||
                 CryptoLib_hashFile( fileN, &hash, TRUE ) )
             {
-                // We acquired the hash, either by reading the entire file in memory
-                // which we will use for caching, or if it was too big by hashing it
-                // sequentially on disk.
-                rSequence_getBUFFER( notif, RP_TAGS_HBS_THIS_ATOM, &pAtomId, &atomSize );
-                rpal_memory_memcpy( tmpAtom.id, pAtomId, sizeof( tmpAtom.id ) );
+                rpal_debug_info( "new document acquired" );
                 rSequence_unTaintRead( notif );
-                rSequence_removeElement( notif, RP_TAGS_HBS_THIS_ATOM, RPCM_BUFFER );
-                rSequence_removeElement( notif, RP_TAGS_HBS_PARENT_ATOM, RPCM_BUFFER );
-                rSequence_addBUFFER( notif, RP_TAGS_HBS_PARENT_ATOM, tmpAtom.id, sizeof( tmpAtom.id ) );
-
                 rSequence_addBUFFER( notif, RP_TAGS_HASH, (RPU8)&hash, sizeof( hash ) );
-                hbs_publish( RP_TAGS_NOTIFICATION_NEW_DOCUMENT, notif );
             }
             else
             {
-                // We acquired the hash, either by reading the entire file in memory
-                // which we will use for caching, or if it was too big by hashing it
-                // sequentially on disk.
-                rSequence_unTaintRead( notif );
+                rpal_debug_warning( "could not acquire document" );
+                rSequence_addRU32( notif, RP_TAGS_ERROR, rpal_error_getLast() );
             }
+
+            // We acquired the hash, either by reading the entire file in memory
+            // which we will use for caching, or if it was too big by hashing it
+            // sequentially on disk.
+            rSequence_removeElement( notif, RP_TAGS_HBS_THIS_ATOM, RPCM_BUFFER );
+            hbs_publish( RP_TAGS_NOTIFICATION_NEW_DOCUMENT, notif );
 
             if( rMutex_lock( g_cacheMutex ) )
             {
@@ -176,6 +168,11 @@ RBOOL
     if( rpal_memory_isValid( doc ) &&
         NULL != ctx )
     {
+        if( NULL == ctx->expr &&
+            NULL == ctx->pHash )
+        {
+            return TRUE;
+        }
 
         if( rSequence_getSTRINGA( doc, RP_TAGS_FILE_PATH, &tmpA ) )
         {
@@ -284,7 +281,7 @@ RBOOL
 #endif
     if( rpal_string_expand( pattern, &tmpN ) )
     {
-        obsLib_addStringPatternN( matcher, tmpN, isSuffix, isCaseInsensitive, NULL );
+        isSuccess = obsLib_addStringPatternN( matcher, tmpN, isSuffix, isCaseInsensitive, NULL );
         rpal_memory_free( tmpN );
     }
     return isSuccess;
@@ -316,10 +313,11 @@ RBOOL
 
     if( NULL != hbsState )
     {
-        if( NULL == config ||
-            rSequence_getLIST( config, RP_TAGS_EXTENSIONS, &extensions ) ||
-            rSequence_getLIST( config, RP_TAGS_PATTERNS, &patterns ) )
+        if( NULL != config )
         {
+            rSequence_getLIST( config, RP_TAGS_EXTENSIONS, &extensions );
+            rSequence_getLIST( config, RP_TAGS_PATTERNS, &patterns );
+
             if( NULL != ( g_cacheMutex = rMutex_create() ) &&
                 NULL != ( g_matcher = obsLib_new( 0, 0 ) ) )
             {
@@ -349,7 +347,10 @@ RBOOL
                         {
                             if( NULL != ( tmpN = rpal_string_aton( strA ) ) )
                             {
-                                _addPattern( g_matcher, tmpN, TRUE );
+                                if( _addPattern( g_matcher, tmpN, TRUE ) )
+                                {
+                                    rpal_debug_info( "doc ext(a): " RF_STR_N ":", tmpN );
+                                }
                                 rpal_memory_free( tmpN );
                             }
                         }
@@ -358,7 +359,10 @@ RBOOL
                         {
                             if( NULL != ( tmpN = rpal_string_wton( strW ) ) )
                             {
-                                _addPattern( g_matcher, tmpN, TRUE );
+                                if( _addPattern( g_matcher, tmpN, TRUE ) )
+                                {
+                                    rpal_debug_info( "doc ext(w): " RF_STR_N ":", tmpN );
+                                }
                                 rpal_memory_free( tmpN );
                             }
                         }
@@ -367,7 +371,10 @@ RBOOL
                         {
                             if( NULL != ( tmpN = rpal_string_aton( strA ) ) )
                             {
-                                _addPattern( g_matcher, tmpN, FALSE );
+                                if( _addPattern( g_matcher, tmpN, FALSE ) )
+                                {
+                                    rpal_debug_info( "doc path(a): " RF_STR_N ":", tmpN );
+                                }
                                 rpal_memory_free( tmpN );
                             }
                         }
@@ -376,7 +383,10 @@ RBOOL
                         {
                             if( NULL != ( tmpN = rpal_string_wton( strW ) ) )
                             {
-                                _addPattern( g_matcher, tmpN, FALSE );
+                                if( _addPattern( g_matcher, tmpN, FALSE ) )
+                                {
+                                    rpal_debug_info( "doc path(w): " RF_STR_N ":", tmpN );
+                                }
                                 rpal_memory_free( tmpN );
                             }
                         }
