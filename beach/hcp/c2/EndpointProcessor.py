@@ -167,7 +167,7 @@ class EndpointProcessor( Actor ):
     def init( self, parameters, resources ):
         self.handlerPortStart = parameters.get( 'handler_port_start', 10000 )
         self.handlerPortEnd = parameters.get( 'handler_port_end', 20000 )
-        self.bindAddress = parameters.get( 'handler_address', ' 0.0.0.0' )
+        self.bindAddress = parameters.get( 'handler_address', '0.0.0.0' )
         self.bindInterface = parameters.get( 'handler_interface', None )
         self.privateKey = M2Crypto.RSA.load_key_string( parameters[ '_priv_key' ] )
         self.deploymentToken = parameters.get( 'deployment_token', None )
@@ -177,6 +177,8 @@ class EndpointProcessor( Actor ):
             ip4 = self.getIpv4ForIface( self.bindInterface )
             if ip4 is not None:
                 self.bindAddress = ip4
+        elif '0.0.0.0' == self.bindAddress:
+            self.bindAddress = self.getIpv4ForIface( self.getPublicInterfaces()[ 0 ] )
 
         self.r = rpcm( isHumanReadable = True )
         self.r.loadSymbols( Symbols.lookups )
@@ -215,7 +217,7 @@ class EndpointProcessor( Actor ):
             except:
                 self.serverPort = random.randint( self.handlerPortStart, self.handlerPortEnd )
 
-    def getIpv4ForIface( iface ):
+    def getIpv4ForIface( self, iface ):
         ip = None
         try:
             ip = netifaces.ifaddresses( iface )[ netifaces.AF_INET ][ 0 ][ 'addr' ]
@@ -223,7 +225,7 @@ class EndpointProcessor( Actor ):
             ip = None
         return ip
 
-    def getPublicInterfaces():
+    def getPublicInterfaces( self ):
         interfaces = []
 
         for iface in netifaces.interfaces():
