@@ -26,6 +26,7 @@ import hashlib
 import random
 import traceback
 import time
+import netifaces
 rpcm = Actor.importLib( 'utils/rpcm', 'rpcm' )
 rList = Actor.importLib( 'utils/rpcm', 'rList' )
 rSequence = Actor.importLib( 'utils/rpcm', 'rSequence' )
@@ -167,9 +168,15 @@ class EndpointProcessor( Actor ):
         self.handlerPortStart = parameters.get( 'handler_port_start', 10000 )
         self.handlerPortEnd = parameters.get( 'handler_port_end', 20000 )
         self.bindAddress = parameters.get( 'handler_address', ' 0.0.0.0' )
+        self.bindInterface = parameters.get( 'handler_interface', None )
         self.privateKey = M2Crypto.RSA.load_key_string( parameters[ '_priv_key' ] )
         self.deploymentToken = parameters.get( 'deployment_token', None )
         self.enrollmentKey = parameters.get( 'enrollment_key', 'DEFAULT_HCP_ENROLLMENT_TOKEN' )
+
+        if self.bindInterface is not None:
+            ip4 = self.getIpv4ForIface( self.bindInterface )
+            if ip4 is not None:
+                self.bindAddress = ip4
 
         self.r = rpcm( isHumanReadable = True )
         self.r.loadSymbols( Symbols.lookups )
@@ -180,6 +187,7 @@ class EndpointProcessor( Actor ):
         self.moduleManager = self.getActorHandle( resources[ 'module_tasking' ] )
         self.hbsProfileManager = self.getActorHandle( resources[ 'hbs_profiles' ] )
         self.handle( 'task', self.taskClient )
+        self.handle( 'report', self.report )
 
         self.server = None
         self.serverPort = random.randint( self.handlerPortStart, self.handlerPortEnd )
@@ -206,6 +214,29 @@ class EndpointProcessor( Actor ):
                 break
             except:
                 self.serverPort = random.randint( self.handlerPortStart, self.handlerPortEnd )
+
+    def getIpv4ForIface( iface ):
+        ip = None
+        try:
+            ip = netifaces.ifaddresses( iface )[ netifaces.AF_INET ][ 0 ][ 'addr' ]
+        except:
+            ip = None
+        return ip
+
+    def getPublicInterfaces():
+        interfaces = []
+
+        for iface in netifaces.interfaces():
+            ipv4s = netifaces.ifaddresses( iface ).get( netifaces.AF_INET, [] )
+            for entry in ipv4s:
+                addr = entry.get( 'addr' )
+                if not addr:
+                    continue
+                if not ( iface.startswith( 'lo' ) or addr.startswith( '127.' ) ):
+                    interfaces.append( iface )
+                    break
+
+        return interfaces
 
     #==========================================================================
     # Client Handling
@@ -417,3 +448,6 @@ class EndpointProcessor( Actor ):
             return ( True, )
         else:
             return ( False, )
+
+    def report( self, msg ):
+        return ( True, { 'address' : self.bindAddress, 'port' : self.serverPort } )

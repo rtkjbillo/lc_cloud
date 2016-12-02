@@ -303,6 +303,10 @@ Patrol( 'HbsProfileManager',
 # handler_port_*: start and end port
 #    where incoming connections will
 #    be processed.
+# handler_address: the ip address to do
+#    a listen on.
+# handler_interface: the network interface
+#    to listen on, overrides handler_address.
 # enrollment_token: secret token used
 #    to verify enrolled sensor identities.
 #######################################
@@ -328,7 +332,8 @@ Patrol( 'EndpointProcessor',
                                                                'keys',
                                                                'c2.priv.pem' ), 'r' ).read() },
             'secretIdent' : 'beacon/09ba97ab-5557-4030-9db0-1dbe7f2b9cfd',
-            'trustedIdents' : [ 'taskingproxy/794729aa-1ef5-4930-b377-48dda7b759a5' ],
+            'trustedIdents' : [ 'taskingproxy/794729aa-1ef5-4930-b377-48dda7b759a5',
+                                'endpointproxy/8e7a890b-8016-4396-b012-aec73d055dd6' ],
             'n_concurrent' : 5,
             'isIsolated' : False } )
 
