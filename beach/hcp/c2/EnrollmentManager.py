@@ -66,6 +66,9 @@ class EnrollmentManager( Actor ):
         self.db.execute( 'INSERT INTO sensor_states ( sid, oid, iid, plat, arch, enroll ) VALUES ( %s, %s, %s, %s, %s, dateOf( now() ) )', 
                          ( aid.sensor_id, aid.org_id, aid.ins_id, aid.platform, aid.architecture ) )
 
+        self.db.execute( 'INSERT INTO org_sensors ( oid, iid, sid ) VALUES ( %s, %s, %s )', 
+                         ( aid.org_id, aid.ins_id, aid.sensor_id ) )
+
         return ( True, { 'aid' : aid } )
 
     def authorize( self, msg ):

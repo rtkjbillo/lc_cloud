@@ -17,6 +17,47 @@ CREATE TABLE sensor_states(
   PRIMARY KEY( sid )
 ) WITH compaction = { 'class' : 'DateTieredCompactionStrategy' } AND gc_grace_seconds = 86400;
 
+CREATE TABLE org_sensors(
+  oid uuid,
+  iid uuid,
+  sid uuid,
+  PRIMARY KEY( oid, iid, sid )
+) WITH compaction = { 'class' : 'SizeTieredCompactionStrategy' } AND gc_grace_seconds = 86400;
+
+CREATE TABLE org_info(
+  oid uuid,
+  name varchar,
+  PRIMARY KEY( oid )
+) WITH compaction = { 'class' : 'SizeTieredCompactionStrategy' } AND gc_grace_seconds = 86400;
+
+CREATE TABLE user_info(
+  email varchar,
+  uid uuid,
+  salt varchar,
+  salted_password varchar,
+  PRIMARY KEY( email )
+) WITH compaction = { 'class' : 'SizeTieredCompactionStrategy' } AND gc_grace_seconds = 86400;
+
+CREATE TABLE org_membership(
+  uid uuid,
+  oid uuid,
+  PRIMARY KEY( oid, uid )
+) WITH compaction = { 'class' : 'SizeTieredCompactionStrategy' } AND gc_grace_seconds = 86400;
+
+CREATE TABLE sensor_tags(
+  sid uuid,
+  tag varchar,
+  uid uuid,
+  added timestamp,
+  PRIMARY KEY( sid, tag )
+) WITH compaction = { 'class' : 'SizeTieredCompactionStrategy' } AND gc_grace_seconds = 86400;
+
+CREATE TABLE tags(
+  tag varchar,
+  sid uuid,
+  PRIMARY KEY( tag, sid )
+) WITH compaction = { 'class' : 'SizeTieredCompactionStrategy' } AND gc_grace_seconds = 86400;
+
 CREATE TABLE sensor_hostnames(
   hostname varchar,
   sid uuid,
