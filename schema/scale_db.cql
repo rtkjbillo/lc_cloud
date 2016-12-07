@@ -43,6 +43,7 @@ CREATE TABLE org_membership(
   oid uuid,
   PRIMARY KEY( oid, uid )
 ) WITH compaction = { 'class' : 'SizeTieredCompactionStrategy' } AND gc_grace_seconds = 86400;
+CREATE INDEX ON org_membership ( uid );
 
 CREATE TABLE sensor_tags(
   sid uuid,

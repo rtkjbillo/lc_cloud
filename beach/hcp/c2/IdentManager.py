@@ -22,7 +22,7 @@ CassPool = Actor.importLib( 'utils/hcp_databases', 'CassPool' )
 
 class IdentManager( Actor ):
     def init( self, parameters, resources ):
-        self._db = CassDb( parameters[ 'db' ], 'hcp_analytics' )
+        self._db = CassDb( parameters[ 'db' ], 'hcp_analytics', consistencyOne = True )
         self.db = CassPool( self._db,
                             rate_limit_per_sec = parameters[ 'rate_limit_per_sec' ],
                             maxConcurrent = parameters[ 'max_concurrent' ],
@@ -42,7 +42,7 @@ class IdentManager( Actor ):
     def authenticate( self, msg ):
         req = msg.data
 
-        emal = req[ 'email' ]
+        email = req[ 'email' ]
         password = req[ 'password' ]
 
         isAuthenticated = False
@@ -54,7 +54,7 @@ class IdentManager( Actor ):
 
         uid, email, salt, salted_password = info
 
-        if hashlib.sha256( '%s%s' % ( password, salt ) ).digest() != salted_password:
+        if hashlib.sha256( '%s%s' % ( password, salt ) ).hexdigest() != salted_password:
             return ( True, { 'is_authenticated' : False } )
 
         orgs = []
@@ -71,8 +71,8 @@ class IdentManager( Actor ):
         emal = req[ 'email' ]
         password = req[ 'password' ]
         uid = uuid.uuid4()
-        salt = hashlib.sha256( str( uuid.uuid4() ) ).digest()
-        salted_password = '%s%s' % ( password, salt )
+        salt = hashlib.sha256( str( uuid.uuid4() ) ).hexdigest()
+        salted_password = hashlib.sha256( '%s%s' % ( password, salt ) ).hexdigest()
 
         info = self.getOne( 'SELECT uid FROM user_info WHERE email = %s', ( email, ) )
         if info is not None:
