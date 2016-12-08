@@ -307,3 +307,13 @@ CREATE TABLE inv_task
 
   PRIMARY KEY( invid, hunter, gen )
 ) WITH compaction = { 'class' : 'DateTieredCompactionStrategy' } AND gc_grace_seconds = 86400;
+
+CREATE TABLE audit
+(
+  oid uuid,
+  ts timeuuid,
+  etype varchar,
+  msg varchar,
+
+  PRIMARY KEY( oid, ts, etype )
+) WITH compaction = { 'class' : 'DateTieredCompactionStrategy' } AND gc_grace_seconds = 86400;

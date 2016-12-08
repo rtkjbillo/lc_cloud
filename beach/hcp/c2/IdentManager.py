@@ -22,6 +22,9 @@ CassPool = Actor.importLib( 'utils/hcp_databases', 'CassPool' )
 
 class IdentManager( Actor ):
     def init( self, parameters, resources ):
+        self.admin_oid = parameters.get( 'admin_oid', None )
+        if self.admin_oid is None: raise Exception( 'Admin OID must be specified.' )
+
         self._db = CassDb( parameters[ 'db' ], 'hcp_analytics', consistencyOne = True )
         self.db = CassPool( self._db,
                             rate_limit_per_sec = parameters[ 'rate_limit_per_sec' ],
@@ -30,11 +33,15 @@ class IdentManager( Actor ):
 
         self.db.start()
 
+        self.audit = self.getActorHandle( resources[ 'auditing' ] )
+        self.page = self.getActorHandle( resources[ 'paging' ] )
+
         self.handle( 'authenticate', self.authenticate )
         self.handle( 'create_user', self.createUser )
         self.handle( 'create_org', self.createOrg )
         self.handle( 'add_user_to_org', self.addUserToOrg )
         self.handle( 'remove_user_from_org', self.removeUserFromOrg )
+        self.handle( 'get_org_info', self.getOrgInfo )
         
     def deinit( self ):
         pass
@@ -63,6 +70,9 @@ class IdentManager( Actor ):
             for row in info:
                 orgs.append( row[ 0 ] )
 
+        for oid in orgs:
+            self.audit.shoot( 'record', { 'oid' : oid, 'etype' : 'login', 'msg' : 'User %s logged in.' % email } )
+
         return ( True, { 'is_authenticated' : True, 'uid' : uid, 'email' : email, 'orgs' : orgs } )
 
     def createUser( self, msg ):
@@ -81,6 +91,8 @@ class IdentManager( Actor ):
         self.db.execute( 'INSERT INTO user_info ( email, uid, salt, salted_password ) VALUES ( %s, %s, %s, %s )', 
                          ( email, uid, salt, salted_password ) )
 
+        self.audit.shoot( 'record', { 'oid' : self.admin_oid, 'etype' : 'user_create', 'msg' : 'User %s created.' % email } )
+
         return ( True, { 'is_created' : True, 'uid' : uid } )
 
     def createOrg( self, msg ):
@@ -91,13 +103,16 @@ class IdentManager( Actor ):
 
         self.db.execute( 'INSERT INTO org_info ( oid, name ) VALUES ( %s, %s )', ( oid, name ) )
 
+        self.audit.shoot( 'record', { 'oid' : self.admin_oid, 'etype' : 'org_create', 'msg' : 'Org %s ( %s ) created.' % ( name, oid ) } )
+
         return ( True, { 'is_created' : True, 'oid' : oid } )
 
     def addUserToOrg( self, msg ):
         req = msg.data
 
         email = req[ 'email' ]
-        oid = req[ 'oid' ]
+        oid = uuid.UUID( req[ 'oid' ] )
+        byUser = req[ 'by' ]
 
         info = self.db.getOne( 'SELECT uid FROM user_info WHERE email = %s', ( email, ) )
         if info is None:
@@ -107,13 +122,25 @@ class IdentManager( Actor ):
         self.db.execute( 'INSERT INTO org_membership ( uid, oid ) VALUES ( %s, %s )', 
                          ( uid, oid ) )
 
+        self.audit.shoot( 'record', { 'oid' : oid, 'etype' : 'org_user', 'msg' : 'User %s added to org by %s.' % ( email, byUser ) } )
+
+        allUsers = self.db.execute( 'SELECT uid FROM org_membership WHERE oid = %s', ( oid, ) )
+        if allUsers is not None:
+            for row in allUsers:
+                userInfo = self.db.getOne( 'SELECT email FROM user_info WHERE uid = %s', ( row[ 0 ] ) )
+                self.page.shoot( 'page', 
+                                 { 'to' : userInfo[ 0 ], 
+                                   'msg' : 'The user %s has been added to the organization %s by %s.' % ( email, oid, byUser ), 
+                                   'subject' : 'User added to org' } )
+
         return ( True, { 'is_added' : True } )
 
     def removeUserFromOrg( self, msg ):
         req = msg.data
 
         email = req[ 'email' ]
-        oid = req[ 'oid' ]
+        oid = uuid.UUID( req[ 'oid' ] )
+        byUser = req[ 'by' ]
 
         info = self.db.getOne( 'SELECT uid FROM user_info WHERE email = %s', ( email, ) )
         if info is None:
@@ -123,4 +150,39 @@ class IdentManager( Actor ):
         self.db.execute( 'DELETE org_membership WHERE uid = %s AND oid = %s )', 
                          ( uid, oid ) )
 
+        self.audit.shoot( 'record', { 'oid' : oid, 'etype' : 'org_user', 'msg' : 'User %s removed from org by %s.' % ( email, byUser ) } )
+
+        allUsers = self.db.execute( 'SELECT uid FROM org_membership WHERE oid = %s', ( oid, ) )
+        if allUsers is not None:
+            for row in allUsers:
+                userInfo = self.db.getOne( 'SELECT email FROM user_info WHERE uid = %s', ( row[ 0 ] ) )
+                self.page.shoot( 'page', 
+                                 { 'to' : userInfo[ 0 ], 
+                                   'msg' : 'The user %s has been removed from organization %s by %s.' % ( email, oid, byUser ), 
+                                   'subject' : 'User added to org' } )
+
         return ( True, { 'is_removed' : True } )
+
+    def getOrgInfo( self, msg ):
+        req = msg.data
+
+        isAll = req.get( 'include_all', False )
+
+        if not isAll:
+            oid = req[ 'oid' ]
+            if type( oid ) in ( str, unicode ):
+                oid = [ oid ]
+            oid = map( uuid.UUID, oid )
+        else:
+            oid = []
+
+        info = self.db.execute( 'SELECT name, oid FROM org_info' )
+        if info is None:
+            return ( False, 'error getting org info' )
+
+        orgs = []
+        for row in info:
+            if row[ 1 ] in oid or isAll:
+                orgs.append( ( row[ 0 ], row[ 1 ] ) )
+
+        return ( True, { 'orgs' : orgs } )

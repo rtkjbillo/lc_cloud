@@ -768,6 +768,7 @@ Patrol( 'CapabilityManager',
 # pages by email.
 # Parameters:
 # from: email/user to send page from.
+# user: the email account to use.
 # password: password of the account
 #    used to send.
 # smtp_server: URI of the smtp server.
