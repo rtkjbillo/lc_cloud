@@ -37,6 +37,7 @@ CREATE TABLE user_info(
   salted_password varchar,
   PRIMARY KEY( email )
 ) WITH compaction = { 'class' : 'SizeTieredCompactionStrategy' } AND gc_grace_seconds = 86400;
+CREATE INDEX ON user_info ( uid );
 
 CREATE TABLE org_membership(
   uid uuid,

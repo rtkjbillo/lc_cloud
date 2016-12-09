@@ -42,6 +42,8 @@ class IdentManager( Actor ):
         self.handle( 'add_user_to_org', self.addUserToOrg )
         self.handle( 'remove_user_from_org', self.removeUserFromOrg )
         self.handle( 'get_org_info', self.getOrgInfo )
+        self.handle( 'get_org_members', self.getOrgMembers )
+        self.handle( 'get_user_membership', self.getUserMembership )
         
     def deinit( self ):
         pass
@@ -127,7 +129,7 @@ class IdentManager( Actor ):
         allUsers = self.db.execute( 'SELECT uid FROM org_membership WHERE oid = %s', ( oid, ) )
         if allUsers is not None:
             for row in allUsers:
-                userInfo = self.db.getOne( 'SELECT email FROM user_info WHERE uid = %s', ( row[ 0 ] ) )
+                userInfo = self.db.getOne( 'SELECT email FROM user_info WHERE uid = %s', ( row[ 0 ], ) )
                 self.page.shoot( 'page', 
                                  { 'to' : userInfo[ 0 ], 
                                    'msg' : 'The user %s has been added to the organization %s by %s.' % ( email, oid, byUser ), 
@@ -147,7 +149,7 @@ class IdentManager( Actor ):
             return ( True, { 'is_removed' : False } )
         uid = info[ 0 ]
 
-        self.db.execute( 'DELETE org_membership WHERE uid = %s AND oid = %s )', 
+        self.db.execute( 'DELETE FROM org_membership WHERE uid = %s AND oid = %s', 
                          ( uid, oid ) )
 
         self.audit.shoot( 'record', { 'oid' : oid, 'etype' : 'org_user', 'msg' : 'User %s removed from org by %s.' % ( email, byUser ) } )
@@ -155,7 +157,7 @@ class IdentManager( Actor ):
         allUsers = self.db.execute( 'SELECT uid FROM org_membership WHERE oid = %s', ( oid, ) )
         if allUsers is not None:
             for row in allUsers:
-                userInfo = self.db.getOne( 'SELECT email FROM user_info WHERE uid = %s', ( row[ 0 ] ) )
+                userInfo = self.db.getOne( 'SELECT email FROM user_info WHERE uid = %s', ( row[ 0 ], ) )
                 self.page.shoot( 'page', 
                                  { 'to' : userInfo[ 0 ], 
                                    'msg' : 'The user %s has been removed from organization %s by %s.' % ( email, oid, byUser ), 
@@ -186,3 +188,42 @@ class IdentManager( Actor ):
                 orgs.append( ( row[ 0 ], row[ 1 ] ) )
 
         return ( True, { 'orgs' : orgs } )
+
+    def getOrgMembers( self, msg ):
+        req = msg.data
+
+        oids = req[ 'oid' ]
+        if type( oids ) in ( str, unicode ):
+            oids = [ oids ]
+        oids = map( uuid.UUID, oids )
+
+        membership = {}
+        for oid in oids:
+            info = self.db.execute( 'SELECT oid, uid FROM org_membership WHERE oid = %s', ( oid, ) )
+            if info is None:
+                return ( False, 'error getting org membership' )
+
+            for row in info:
+                membership.setdefault( row[ 0 ], {} ).setdefault( row[ 1 ], None )
+
+        for oid, org in membership.iteritems():
+            for uid in org:
+                info = self.db.getOne( 'SELECT email FROM user_info WHERE uid = %s', ( uid, ) )
+                if info is None:
+                    return ( False, 'error getting user info' )
+                org[ uid ] = info[ 0 ]
+
+        return ( True, { 'orgs' : membership } )
+
+    def getUserMembership( self, msg ):
+        req = msg.data
+
+        uid = uuid.UUID( req[ 'uid' ] )
+
+        orgs = []
+        info = self.db.execute( 'SELECT oid FROM org_membership WHERE uid = %s', ( uid, ) )
+        if info is not None:
+            for row in info:
+                orgs.append( row[ 0 ] )
+
+        return ( True, { 'uid' : uid, 'orgs' : orgs } )
