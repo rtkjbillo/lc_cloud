@@ -353,10 +353,20 @@ class ModelView( Actor ):
     def get_backend_config( self, msg ):
         info = {}
 
-        info[ 'hcp_installers' ] = self.admin.hcp_getInstallers().data
-        info[ 'hcp_taskings' ] = self.admin.hcp_getTaskings().data
-        info[ 'hcp_modules' ] = self.admin.hcp_getModules().data
-        info[ 'hbs_profiles' ] = self.admin.hbs_getProfiles().data
+        oids = msg.data.get( 'oid', None )
+
+        if oids is not None:
+            info[ 'hcp_installers' ] = {}
+            info[ 'hbs_profiles' ] = {}
+            for oid in oids:
+                info[ 'hcp_installers' ][ oid ] = self.admin.hcp_getInstallers( oid = oid ).data
+                info[ 'hbs_profiles' ][ oid ] = self.admin.hbs_getProfiles( oid = oid ).data
+        else:
+            info[ 'hcp_installers' ] = self.admin.hcp_getInstallers().data
+            info[ 'hcp_taskings' ] = self.admin.hcp_getTaskings().data
+            info[ 'hcp_modules' ] = self.admin.hcp_getModules().data
+            info[ 'hbs_profiles' ] = self.admin.hbs_getProfiles().data
+
 
         return ( True, info )
 

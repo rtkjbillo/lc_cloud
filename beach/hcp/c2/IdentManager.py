@@ -38,15 +38,23 @@ class IdentManager( Actor ):
 
         self.handle( 'authenticate', self.authenticate )
         self.handle( 'create_user', self.createUser )
+        self.handle( 'delete_user', self.deleteUser )
+        self.handle( 'change_password', self.changePassword )
         self.handle( 'create_org', self.createOrg )
         self.handle( 'add_user_to_org', self.addUserToOrg )
         self.handle( 'remove_user_from_org', self.removeUserFromOrg )
         self.handle( 'get_org_info', self.getOrgInfo )
         self.handle( 'get_org_members', self.getOrgMembers )
         self.handle( 'get_user_membership', self.getUserMembership )
+        self.handle( 'get_user_info', self.getUserInfo )
         
     def deinit( self ):
         pass
+
+    def asUuidList( self, elem ):
+        if type( elem ) not in ( list, tuple ):
+            elem = [ elem ]
+        return map( uuid.UUID, elem )
 
     def authenticate( self, msg ):
         req = msg.data
@@ -55,13 +63,13 @@ class IdentManager( Actor ):
         password = req[ 'password' ]
 
         isAuthenticated = False
-        info = self.db.getOne( 'SELECT uid, email, salt, salted_password FROM user_info WHERE email = %s', 
+        info = self.db.getOne( 'SELECT uid, email, salt, salted_password, is_deleted, must_change_password FROM user_info WHERE email = %s', 
                                ( email, ) )
 
-        if info is None:
+        if info is None or info[ 4 ] is True:
             return ( True, { 'is_authenticated' : False } )
 
-        uid, email, salt, salted_password = info
+        uid, email, salt, salted_password, is_deleted, must_change_password = info
 
         if hashlib.sha256( '%s%s' % ( password, salt ) ).hexdigest() != salted_password:
             return ( True, { 'is_authenticated' : False } )
@@ -75,37 +83,80 @@ class IdentManager( Actor ):
         for oid in orgs:
             self.audit.shoot( 'record', { 'oid' : oid, 'etype' : 'login', 'msg' : 'User %s logged in.' % email } )
 
-        return ( True, { 'is_authenticated' : True, 'uid' : uid, 'email' : email, 'orgs' : orgs } )
+        return ( True, { 'is_authenticated' : True, 'uid' : uid, 'email' : email, 'orgs' : orgs, 'must_change_password' : must_change_password } )
 
     def createUser( self, msg ):
         req = msg.data
 
-        emal = req[ 'email' ]
+        email = req[ 'email' ]
         password = req[ 'password' ]
+        byUser = req[ 'by' ]
         uid = uuid.uuid4()
         salt = hashlib.sha256( str( uuid.uuid4() ) ).hexdigest()
         salted_password = hashlib.sha256( '%s%s' % ( password, salt ) ).hexdigest()
 
-        info = self.getOne( 'SELECT uid FROM user_info WHERE email = %s', ( email, ) )
-        if info is not None:
+        info = self.db.getOne( 'SELECT uid, is_deleted FROM user_info WHERE email = %s', ( email, ) )
+        if info is not None and info[ 1 ] is not True:
             return ( True, { 'is_created' : False } )
 
-        self.db.execute( 'INSERT INTO user_info ( email, uid, salt, salted_password ) VALUES ( %s, %s, %s, %s )', 
+        self.db.execute( 'INSERT INTO user_info ( email, uid, salt, salted_password, is_deleted, must_change_password ) VALUES ( %s, %s, %s, %s, false, true )', 
                          ( email, uid, salt, salted_password ) )
 
-        self.audit.shoot( 'record', { 'oid' : self.admin_oid, 'etype' : 'user_create', 'msg' : 'User %s created.' % email } )
+        self.audit.shoot( 'record', { 'oid' : self.admin_oid, 'etype' : 'user_create', 'msg' : 'User %s created by %s.' % ( email, byUser ) } )
 
         return ( True, { 'is_created' : True, 'uid' : uid } )
+
+    def deleteUser( self, msg ):
+        req = msg.data
+
+        email = req[ 'email' ]
+        byUser = req[ 'by' ]
+
+        info = self.db.getOne( 'SELECT uid FROM user_info WHERE email = %s', ( email, ) )
+        if info is None:
+            return ( True, { 'is_deleted' : False } )
+
+        uid = info[ 0 ]
+
+        self.db.execute( 'UPDATE user_info SET is_deleted = true WHERE email = %s', 
+                         ( email, ) )
+
+        self.audit.shoot( 'record', { 'oid' : self.admin_oid, 'etype' : 'user_deleted', 'msg' : 'User %s deleted by %s.' % ( email, byUser ) } )
+
+        return ( True, { 'is_deleted' : True, 'uid' : uid } )
+
+    def changePassword( self, msg ):
+        req = msg.data
+
+        email = req[ 'email' ]
+        password = req[ 'password' ]
+        byUser = req[ 'by' ]
+        salt = hashlib.sha256( str( uuid.uuid4() ) ).hexdigest()
+        salted_password = hashlib.sha256( '%s%s' % ( password, salt ) ).hexdigest()
+
+        info = self.db.getOne( 'SELECT uid FROM user_info WHERE email = %s', ( email, ) )
+        if info is None:
+            return ( True, { 'is_changed' : False } )
+
+        uid = info[ 0 ]
+
+        self.db.execute( 'UPDATE user_info SET salt = %s, salted_password = %s, must_change_password = false WHERE email = %s', 
+                         ( salt, salted_password, email ) )
+
+        self.audit.shoot( 'record', { 'oid' : self.admin_oid, 'etype' : 'password_change', 'msg' : 'User %s password changed by %s.' % ( email, byUser ) } )
+
+        return ( True, { 'is_changed' : True, 'uid' : uid } )
 
     def createOrg( self, msg ):
         req = msg.data
 
         name = req[ 'name' ]
+        byUser = req[ 'by' ]
         oid = uuid.uuid4()
 
         self.db.execute( 'INSERT INTO org_info ( oid, name ) VALUES ( %s, %s )', ( oid, name ) )
 
-        self.audit.shoot( 'record', { 'oid' : self.admin_oid, 'etype' : 'org_create', 'msg' : 'Org %s ( %s ) created.' % ( name, oid ) } )
+        self.audit.shoot( 'record', { 'oid' : self.admin_oid, 'etype' : 'org_create', 'msg' : 'Org %s ( %s ) created by %s.' % ( name, oid, byUser ) } )
 
         return ( True, { 'is_created' : True, 'oid' : oid } )
 
@@ -149,6 +200,11 @@ class IdentManager( Actor ):
             return ( True, { 'is_removed' : False } )
         uid = info[ 0 ]
 
+        res = self.db.getOne( 'SELECT uid FROM org_membership WHERE uid = %s AND oid = %s', 
+                              ( uid, oid ) )
+        if res is not None:
+            return ( True, { 'is_removed' : False } )
+
         self.db.execute( 'DELETE FROM org_membership WHERE uid = %s AND oid = %s', 
                          ( uid, oid ) )
 
@@ -171,10 +227,7 @@ class IdentManager( Actor ):
         isAll = req.get( 'include_all', False )
 
         if not isAll:
-            oid = req[ 'oid' ]
-            if type( oid ) in ( str, unicode ):
-                oid = [ oid ]
-            oid = map( uuid.UUID, oid )
+            oid = self.asUuidList( req[ 'oid' ] )
         else:
             oid = []
 
@@ -192,11 +245,8 @@ class IdentManager( Actor ):
     def getOrgMembers( self, msg ):
         req = msg.data
 
-        oids = req[ 'oid' ]
-        if type( oids ) in ( str, unicode ):
-            oids = [ oids ]
-        oids = map( uuid.UUID, oids )
-
+        oids = self.asUuidList( req[ 'oid' ] )
+        
         membership = {}
         for oid in oids:
             info = self.db.execute( 'SELECT oid, uid FROM org_membership WHERE oid = %s', ( oid, ) )
@@ -227,3 +277,18 @@ class IdentManager( Actor ):
                 orgs.append( row[ 0 ] )
 
         return ( True, { 'uid' : uid, 'orgs' : orgs } )
+
+    def getUserInfo( self, msg ):
+        req = msg.data
+
+        uids = self.asUuidList( req[ 'uid' ] )
+
+        res = {}
+
+        for uid in uids:
+            info = seld.db.getOne( 'SELECT uid, email FROM user_info WHERE uid = %s', ( uid, ) )
+            if not info:
+                return ( False, 'error getting user info' )
+            res[ info[ 0 ] ] = info[ 1 ]
+        return ( True, res )
+

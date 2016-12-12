@@ -64,8 +64,8 @@ class BEAdmin( object ):
             filters[ 'hostname' ] = hostname
         return self._query( 'hcp.get_agent_states', filters )
     
-    def hcp_getTaskings( self ):
-        return self._query( 'hcp.get_taskings' )
+    def hcp_getTaskings( self, oid = None ):
+        return self._query( 'hcp.get_taskings', { 'oid' : oid } )
     
     def hcp_addTasking( self, mask, moduleId, hashStr ):
         return self._query( 'hcp.add_tasking', { 'mask' : mask, 'module_id' : int( moduleId ), 'hash' : hashStr } )
@@ -91,8 +91,8 @@ class BEAdmin( object ):
     def hcp_delInstaller( self, oid, iid, hash ):
         return self._query( 'hcp.remove_installer', { 'oid' : oid, 'iid' : iid, 'hash' : hash } )
     
-    def hbs_getProfiles( self ):
-        return self._query( 'hbs.get_profiles' )
+    def hbs_getProfiles( self, oid = None ):
+        return self._query( 'hbs.get_profiles', { 'oid' : oid } )
     
     def hbs_addProfile( self, mask, config ):
         return self._query( 'hbs.set_profile', { 'mask' : mask, 'module_configs' : config } )

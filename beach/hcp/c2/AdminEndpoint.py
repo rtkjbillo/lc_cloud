@@ -262,9 +262,22 @@ class AdminEndpoint( Actor ):
     @audited
     def cmd_hbs_getProfiles( self, msg ):
         data = { 'profiles' : [] }
+        oids = msg.data.get( 'oid', [] )
         for row in self.db.execute( 'SELECT aid, oprofile FROM hbs_profiles' ):
-            data[ 'profiles' ].append( { 'mask' : AgentId( row[ 0 ] ),
-                                         'original_configs' : row[ 1 ] } )
+            aid = AgentId( row[ 0 ] )
+            if oids is not None and 0 != len( oids ):
+                isFound = False
+                for oid in oids:
+                    if oid == aid.org_id:
+                        isFound = True
+                        break
+                if isFound:
+                    data[ 'profiles' ].append( { 'mask' : aid,
+                                                 'original_configs' : row[ 1 ] } )
+                    isFound = False
+            else:
+                data[ 'profiles' ].append( { 'mask' : aid,
+                                             'original_configs' : row[ 1 ] } )
 
         return ( True, data )
 
