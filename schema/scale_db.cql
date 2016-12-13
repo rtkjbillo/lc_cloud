@@ -37,6 +37,8 @@ CREATE TABLE user_info(
   salted_password varchar,
   is_deleted boolean,
   must_change_password boolean,
+  confirmation_token varchar,
+  totp_secret varchar,
   PRIMARY KEY( email )
 ) WITH compaction = { 'class' : 'SizeTieredCompactionStrategy' } AND gc_grace_seconds = 86400;
 CREATE INDEX ON user_info ( uid );

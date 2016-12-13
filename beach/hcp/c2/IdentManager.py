@@ -17,6 +17,11 @@ import traceback
 import hashlib
 import time
 import uuid
+import base64
+import random
+import string
+import struct
+import hmac
 CassDb = Actor.importLib( 'utils/hcp_databases', 'CassDb' )
 CassPool = Actor.importLib( 'utils/hcp_databases', 'CassPool' )
 
@@ -47,6 +52,7 @@ class IdentManager( Actor ):
         self.handle( 'get_org_members', self.getOrgMembers )
         self.handle( 'get_user_membership', self.getUserMembership )
         self.handle( 'get_user_info', self.getUserInfo )
+        self.handle( 'confirm_email', self.confirmEmail )
         
     def deinit( self ):
         pass
@@ -61,18 +67,27 @@ class IdentManager( Actor ):
 
         email = req[ 'email' ]
         password = req[ 'password' ]
+        totp = req[ 'totp' ]
 
         isAuthenticated = False
-        info = self.db.getOne( 'SELECT uid, email, salt, salted_password, is_deleted, must_change_password FROM user_info WHERE email = %s', 
+        info = self.db.getOne( 'SELECT uid, email, salt, salted_password, is_deleted, must_change_password, confirmation_token, totp_secret FROM user_info WHERE email = %s', 
                                ( email, ) )
 
         if info is None or info[ 4 ] is True:
             return ( True, { 'is_authenticated' : False } )
 
-        uid, email, salt, salted_password, is_deleted, must_change_password = info
+        uid, email, salt, salted_password, is_deleted, must_change_password, confirmationToken, totp_secret = info
+
+        if confirmationToken is not None and confirmationToken != '':
+            return ( True, { 'is_authenticated' : False, 'needs_confirmation' : True } )
 
         if hashlib.sha256( '%s%s' % ( password, salt ) ).hexdigest() != salted_password:
             return ( True, { 'is_authenticated' : False } )
+
+        if not must_change_password:
+            otp = TwoFactorAuth( username = email, secret = totp_secret )
+            if not otp.isAuthentic( totp ):
+                return ( True, { 'is_authenticated' : False } )
 
         orgs = []
         info = self.db.execute( 'SELECT oid FROM org_membership WHERE uid = %s', ( uid, ) )
@@ -83,7 +98,11 @@ class IdentManager( Actor ):
         for oid in orgs:
             self.audit.shoot( 'record', { 'oid' : oid, 'etype' : 'login', 'msg' : 'User %s logged in.' % email } )
 
-        return ( True, { 'is_authenticated' : True, 'uid' : uid, 'email' : email, 'orgs' : orgs, 'must_change_password' : must_change_password } )
+        loginData = { 'is_authenticated' : True, 'uid' : uid, 'email' : email, 'orgs' : orgs, 'must_change_password' : must_change_password }
+        if must_change_password:
+            totp = TwoFactorAuth( username = email, secret = totp )
+            loginData[ 'otp' ] = totp.getSecret( asOtp = True )
+        return ( True, loginData )
 
     def createUser( self, msg ):
         req = msg.data
@@ -95,16 +114,21 @@ class IdentManager( Actor ):
         salt = hashlib.sha256( str( uuid.uuid4() ) ).hexdigest()
         salted_password = hashlib.sha256( '%s%s' % ( password, salt ) ).hexdigest()
 
+        otp = TwoFactorAuth( username = email )
+        confirmationToken = str( uuid.uuid4() )
+
         info = self.db.getOne( 'SELECT uid, is_deleted FROM user_info WHERE email = %s', ( email, ) )
         if info is not None and info[ 1 ] is not True:
             return ( True, { 'is_created' : False } )
 
-        self.db.execute( 'INSERT INTO user_info ( email, uid, salt, salted_password, is_deleted, must_change_password ) VALUES ( %s, %s, %s, %s, false, true )', 
-                         ( email, uid, salt, salted_password ) )
+        self.db.execute( 'INSERT INTO user_info ( email, uid, salt, salted_password, totp_secret, confirmation_token, is_deleted, must_change_password ) VALUES ( %s, %s, %s, %s, %s, %s, false, true )', 
+                         ( email, uid, salt, salted_password, otp.getSecret( asOtp = False ), confirmationToken ) )
 
         self.audit.shoot( 'record', { 'oid' : self.admin_oid, 'etype' : 'user_create', 'msg' : 'User %s created by %s.' % ( email, byUser ) } )
 
-        return ( True, { 'is_created' : True, 'uid' : uid } )
+        return ( True, { 'is_created' : True, 
+                         'uid' : uid, 
+                         'confirmation_token' : confirmationToken } )
 
     def deleteUser( self, msg ):
         req = msg.data
@@ -131,14 +155,21 @@ class IdentManager( Actor ):
         email = req[ 'email' ]
         password = req[ 'password' ]
         byUser = req[ 'by' ]
+        totp = req.get( 'totp', None )
         salt = hashlib.sha256( str( uuid.uuid4() ) ).hexdigest()
         salted_password = hashlib.sha256( '%s%s' % ( password, salt ) ).hexdigest()
 
-        info = self.db.getOne( 'SELECT uid FROM user_info WHERE email = %s', ( email, ) )
+        info = self.db.getOne( 'SELECT uid, totp_secret FROM user_info WHERE email = %s', ( email, ) )
         if info is None:
             return ( True, { 'is_changed' : False } )
 
         uid = info[ 0 ]
+        totp_secret = info[ 1 ]
+
+        if totp is not None:
+            otp = TwoFactorAuth( username = email, secret = totp_secret )
+            if not otp.isAuthentic( totp ):
+                return ( True, { 'is_changed' : False } )
 
         self.db.execute( 'UPDATE user_info SET salt = %s, salted_password = %s, must_change_password = false WHERE email = %s', 
                          ( salt, salted_password, email ) )
@@ -286,9 +317,59 @@ class IdentManager( Actor ):
         res = {}
 
         for uid in uids:
-            info = seld.db.getOne( 'SELECT uid, email FROM user_info WHERE uid = %s', ( uid, ) )
+            info = self.db.getOne( 'SELECT uid, email FROM user_info WHERE uid = %s', ( uid, ) )
             if not info:
                 return ( False, 'error getting user info' )
             res[ info[ 0 ] ] = info[ 1 ]
         return ( True, res )
 
+    def confirmEmail( self, msg ):
+        req = msg.data
+
+        token = msg.data[ 'token' ]
+        email = msg.data[ 'email' ]
+
+        info = self.db.getOne( 'SELECT uid, confirmation_token FROM user_info WHERE email = %s', ( email, ) )
+
+        if info is None or info[ 1 ] != token:
+            return ( True, { 'confirmed' : False } )
+        else:
+            self.db.execute( 'UPDATE user_info SET confirmation_token = \'\' WHERE email = %s', ( email, ) )
+            return ( True, { 'confirmed' : True, 'uid' : info[ 0 ] } )
+
+class TwoFactorAuth( object ):
+    def __init__( self, username = None, secret = None ):
+        self._isNew = False
+        if secret is None:
+            secret = base64.b32encode( ''.join( random.choice( string.ascii_letters + string.digits ) for _ in range( 16 ) ) )[ 0 : 16 ]
+            self._isNew = True
+        self._secret = secret
+        self._username = username
+        
+    def _get_hotp_token( self, intervals_no ):
+        key = base64.b32decode( self._secret, True )
+        msg = struct.pack( ">Q", intervals_no )
+        h = hmac.new( key, msg, hashlib.sha1 ).digest()
+        o = ord( h[ 19 ] ) & 15
+        h = ( struct.unpack( ">I", h[ o : o + 4 ])[ 0 ] & 0x7fffffff ) % 1000000
+        return h
+    
+    def _get_totp_token( self ):
+        i = int( time.time() ) / 30
+        return ( self._get_hotp_token( intervals_no = i - 1 ),
+                 self._get_hotp_token( intervals_no = i ),
+                 self._get_hotp_token( intervals_no = i + 1 ) )
+
+    def isAuthentic( self, providedValue ):
+        if self._isNew:
+            return False
+        tokens = self._get_totp_token()
+        return ( providedValue == tokens[ 0 ] or
+                 providedValue == tokens[ 1 ] or
+                 providedValue == tokens[ 2 ] )
+    
+    def getSecret( self, asOtp = False ):
+        if asOtp is False:
+            return self._secret
+        else:
+            return 'otpauth://totp/%s@LimaCharlie?secret=%s' % ( self._username, self._secret )

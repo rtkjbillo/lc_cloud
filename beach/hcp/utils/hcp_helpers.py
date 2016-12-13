@@ -285,44 +285,6 @@ class MemoryType:
         5 : 'SHARED'
     }
 
-class TwoFactorAuth(object):
-    def __init__( self, username = None, secret = None ):
-        self._isNew = False
-        if secret is None:
-            secret = base64.b32encode( ''.join( random.choice( string.ascii_letters + string.digits ) for _ in range( 16 ) ) )[ 0 : 16 ]
-            self._isNew = True
-        self._secret = secret
-        self._username = username
-        
-    def _get_hotp_token( self, intervals_no ):
-        key = base64.b32decode( self._secret, True )
-        msg = struct.pack( ">Q", intervals_no )
-        h = hmac.new( key, msg, hashlib.sha1 ).digest()
-        o = ord( h[ 19 ] ) & 15
-        h = ( struct.unpack( ">I", h[ o : o + 4 ])[ 0 ] & 0x7fffffff ) % 1000000
-        return h
-    
-    def _get_totp_token( self ):
-        i = int( time.time() ) / 30
-        return ( self._get_hotp_token( intervals_no = i - 1 ),
-                 self._get_hotp_token( intervals_no = i ),
-                 self._get_hotp_token( intervals_no = i + 1 ) )
-
-    def isAuthentic( self, providedValue ):
-        if self._isNew:
-            return False
-        tokens = self._get_totp_token()
-        return ( providedValue == tokens[ 0 ] or
-                 providedValue == tokens[ 1 ] or
-                 providedValue == tokens[ 2 ] )
-    
-    def getSecret( self, asOtp = False ):
-        if asOtp is False:
-            return self._secret
-        else:
-            return 'otpauth://totp/%s@refractionPOINT-HCP?secret=%s' % ( self._username, self._secret )
-
-
 def isModuleAvailable( module ):
     import imp
     try:
