@@ -46,6 +46,7 @@ class CassDb( object ):
         self.consistency = self.CL_Default
         self.cluster = Cluster( url, cql_version = version, control_connection_timeout = 30.0 )
         self.cur = self.cluster.connect( dbname )
+        #self.cur.row_factory = tuple_factory
         self.cur.default_timeout = 30.0
         self.backoffConsistency = backoffConsistency
 

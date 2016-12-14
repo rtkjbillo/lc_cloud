@@ -27,6 +27,11 @@ CREATE TABLE org_sensors(
 CREATE TABLE org_info(
   oid uuid,
   name varchar,
+  ttl_events int,
+  ttl_long_obj int,
+  ttl_short_obj int,
+  ttl_atoms int,
+  ttl_detections int,
   PRIMARY KEY( oid )
 ) WITH compaction = { 'class' : 'SizeTieredCompactionStrategy' } AND gc_grace_seconds = 86400;
 

@@ -37,9 +37,15 @@ class AuditManager( Actor ):
         self.db.start()
 
         self.handle( 'record', self.record )
+        self.handle( 'get_log', self.getLog )
 
     def deinit( self ):
         pass
+
+    def asUuidList( self, elem ):
+        if type( elem ) not in ( list, tuple ):
+            elem = [ elem ]
+        return map( uuid.UUID, elem )
 
     def record( self, msg ):
         req = msg.data
@@ -52,3 +58,19 @@ class AuditManager( Actor ):
                          ( oid, etype, message ) )
 
         return ( True, )
+
+    def getLog( self, msg ):
+        req = msg.data
+
+        oids = self.asUuidList( req[ 'oid' ] )
+        limit = req.get( 'limit', 100 )
+
+        logs = {}
+        for oid in oids:
+            logs[ oid ] = []
+            res = self.db.execute( 'SELECT unixTimestampOf( ts ), etype, msg FROM audit WHERE oid = %s ORDER BY ts DESC LIMIT %s', 
+                                   ( oid, limit ) )
+            for row in res:
+                logs[ oid ].append( ( row[ 0 ], row[ 1 ], row[ 2 ] ) )
+
+        return ( True, { 'logs' : logs } )

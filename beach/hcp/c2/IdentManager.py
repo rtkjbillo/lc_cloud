@@ -183,9 +183,15 @@ class IdentManager( Actor ):
 
         name = req[ 'name' ]
         byUser = req[ 'by' ]
+        ttl_events = req.get( 'ttl_events', 86400 * 7 )
+        ttl_long_obj = req.get( 'ttl_long_obj', 86400 * 7 )
+        ttl_short_obj = req.get( 'ttl_short_obj', 86400 * 7 )
+        ttl_atoms = req.get( 'ttl_atoms', 86400 * 7 )
+        ttl_detections = req.get( 'ttl_detections', 86400 * 7 )
         oid = uuid.uuid4()
 
-        self.db.execute( 'INSERT INTO org_info ( oid, name ) VALUES ( %s, %s )', ( oid, name ) )
+        self.db.execute( 'INSERT INTO org_info ( oid, name, ttl_events, ttl_long_obj, ttl_short_obj, ttl_atoms, ttl_detections ) VALUES ( %s, %s, %s, %s, %s, %s, %s )', 
+                         ( oid, name, ttl_events, ttl_long_obj, ttl_short_obj, ttl_atoms, ttl_detections ) )
 
         self.audit.shoot( 'record', { 'oid' : self.admin_oid, 'etype' : 'org_create', 'msg' : 'Org %s ( %s ) created by %s.' % ( name, oid, byUser ) } )
 
@@ -262,14 +268,18 @@ class IdentManager( Actor ):
         else:
             oid = []
 
-        info = self.db.execute( 'SELECT name, oid FROM org_info' )
+        info = self.db.execute( 'SELECT name, oid, ttl_events, ttl_long_obj, ttl_short_obj, ttl_atoms, ttl_detections FROM org_info' )
         if info is None:
             return ( False, 'error getting org info' )
 
         orgs = []
         for row in info:
             if row[ 1 ] in oid or isAll:
-                orgs.append( ( row[ 0 ], row[ 1 ] ) )
+                orgs.append( ( row[ 0 ], row[ 1 ], { 'events' : row[ 2 ], 
+                                                     'long_obj' : row[ 3 ],
+                                                     'short_obj' : row[ 4 ],
+                                                     'atoms' : row[ 5 ],
+                                                     'detections' : row[ 6 ] } ) )
 
         return ( True, { 'orgs' : orgs } )
 
