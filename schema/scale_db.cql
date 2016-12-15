@@ -16,6 +16,7 @@ CREATE TABLE sensor_states(
   hostname varchar,
   PRIMARY KEY( sid )
 ) WITH compaction = { 'class' : 'DateTieredCompactionStrategy' } AND gc_grace_seconds = 86400;
+CREATE INDEX ON sensor_states ( oid )
 
 CREATE TABLE org_sensors(
   oid uuid,
