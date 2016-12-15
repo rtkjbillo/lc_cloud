@@ -39,6 +39,7 @@ def forward( source, dest, server ):
 
 def updateEndpoints( endpointActors, nextUpdate ):
     global currentEndpoints
+    endpointActors.forceRefresh()
     responses = endpointActors.requestFromAll( 'report' )
     
     newEndpoints = Set()

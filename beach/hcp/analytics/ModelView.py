@@ -205,7 +205,10 @@ class ModelView( Actor ):
             return ( False, 'event not found' )
 
     def list_sensors( self, msg ):
-        sensors = self.admin.hcp_getAgentStates()
+        aid = msg.data.get( 'aid', None )
+        if aid is not None:
+            aid = AgentId( aid )
+        sensors = self.admin.hcp_getAgentStates( aid = aid )
 
         if sensors.isSuccess and 'agents' in sensors.data:
             return ( True, sensors.data[ 'agents' ] )
