@@ -544,6 +544,7 @@ class HcpCli ( cmd.Cmd ):
         arguments = self.parse( parser, s )
 
         if arguments is not None:
+            arguments.installer = arguments.installer.read()
             self.execAndPrintResponse( self.be.hcp_addInstaller, arguments )
 
     @report_errors
