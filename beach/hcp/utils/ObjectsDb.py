@@ -462,6 +462,13 @@ class Host( object ):
         
         return isOnline
 
+    def getFullAid( self ):
+        aid = None
+        res = self._db.getOne( 'SELECT oid, iid, sid, plat, arch FROM sensor_states WHERE sid = %s', ( self.sid, ) )
+        if res:
+            aid = AgentId( ( res[ 0 ], res[ 1 ], res[ 2 ], res[ 3 ], res[ 4 ] ) )
+        return aid
+
     def getHostName( self ):
         hostname = None
 
