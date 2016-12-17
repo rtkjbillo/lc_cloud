@@ -624,6 +624,28 @@ class AgentId( object ):
                    self.architecture is None or
                    self.platform is None ) )
 
+    def architectureString( self ):
+        if self.isX86():
+            return 'x86'
+        elif self.isX64():
+            return 'x64'
+        else:
+            return '-'
+
+    def platformString( self ):
+        if self.isWindows():
+            return 'Windows'
+        elif self.isLinux():
+            return 'Linux'
+        elif self.isMacOSX():
+            return 'macOS'
+        elif self.isIos():
+            return 'iOS'
+        elif self.isAndroid():
+            return 'Android'
+        else:
+            return '-'
+
 
 class RingCache( object ):
     

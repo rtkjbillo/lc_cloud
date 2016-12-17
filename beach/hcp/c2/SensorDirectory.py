@@ -45,7 +45,7 @@ class SensorDirectory( Actor ):
 
     def setDead( self, msg ):
         aid = AgentId( msg.data[ 'aid' ] )
-        del( self.directory[ aid.sensor_id ] )
+        self.directory.pop( aid.sensor_id, None )
         return ( True, )
 
     def addTransfered( self, msg ):

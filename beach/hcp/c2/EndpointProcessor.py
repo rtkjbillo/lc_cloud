@@ -246,6 +246,7 @@ class EndpointProcessor( Actor ):
     def handleNewClient( self, socket, address ):
         aid = None
         tmpBytesReceived = 0
+        isReallyDisconnected = False
         try:
             self.log( 'New connection from %s:%s' % address )
             c = _ClientContext( self, socket )
@@ -341,6 +342,8 @@ class EndpointProcessor( Actor ):
                 else:
                     handler( c, messages )
 
+            isReallyDisconnected = True
+
         except Exception as e:
             if type( e ) is not DisconnectException:
                 self.log( 'Exception while processing: %s' % str( e ) )
@@ -348,17 +351,19 @@ class EndpointProcessor( Actor ):
                 raise
             else:
                 self.log( 'Disconnecting: %s' % str( e ) )
+            isReallyDisconnected = True
         finally:
-            if aid is not None:
-                if aid.sensor_id in self.currentClients:
-                    del( self.currentClients[ aid.sensor_id ] )
-                    self.stateChanges.shoot( 'transfered', { 'aid' : aid.asString(), 
-                                             'bytes_transfered' : tmpBytesReceived } )
-                    self.stateChanges.shoot( 'dead', { 'aid' : aid.asString(), 
-                                                       'endpoint' : self.name } )
-                self.log( 'Connection terminated: %s' % aid.asString() )
-            else:
-                self.log( 'Connection terminated: %s:%s' % address )
+            if isReallyDisconnected:
+                if aid is not None:
+                    if aid.sensor_id in self.currentClients:
+                        del( self.currentClients[ aid.sensor_id ] )
+                        self.stateChanges.shoot( 'transfered', { 'aid' : aid.asString(), 
+                                                 'bytes_transfered' : tmpBytesReceived } )
+                        self.stateChanges.shoot( 'dead', { 'aid' : aid.asString(), 
+                                                           'endpoint' : self.name } )
+                    self.log( 'Connection terminated: %s' % aid.asString() )
+                else:
+                    self.log( 'Connection terminated: %s:%s' % address )
 
     def handlerHcp( self, c, messages ):
         for message in messages:
