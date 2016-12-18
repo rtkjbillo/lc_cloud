@@ -197,9 +197,10 @@ class ModelView( Actor ):
 
     def get_event( self, msg ):
         event = Host.getSpecificEvent( msg.data[ 'id' ] )
+        withRouting = msg.data.get( 'with_routing', False )
 
         if event is not None:
-            event = ( event[ 0 ], FluxEvent.decode( event[ 2 ] ) )
+            event = ( event[ 0 ], FluxEvent.decode( event[ 2 ], withRouting = withRouting ) )
             return ( True, { 'event' : event } )
         else:
             return ( False, 'event not found' )
@@ -338,10 +339,11 @@ class ModelView( Actor ):
     def get_atoms_from_root( self, msg ):
         tmp_atoms = msg.data[ 'id' ]
         depth = msg.data.get( 'depth', 5 )
+        withRouting = msg.data.get( 'with_routing', False )
         atoms = []
         
         # Get the root by itself
-        atoms.extend( Atoms( tmp_atoms ).fillEventIds().events() )
+        atoms.extend( Atoms( tmp_atoms ).fillEventIds().events( withRouting = withRouting) )
         
         # Then start getting children
         while 0 != depth:
@@ -349,7 +351,7 @@ class ModelView( Actor ):
             tmp_atoms = [ _ for _ in Atoms( tmp_atoms ).children() ]
             if 0 == len( tmp_atoms ):
                 break
-            atoms.extend( Atoms( tmp_atoms ).events() )
+            atoms.extend( Atoms( tmp_atoms ).events( withRouting = withRouting) )
 
         return ( True, atoms )
 

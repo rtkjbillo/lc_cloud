@@ -114,7 +114,7 @@ class AnalyticsModeling( Actor ):
                      'detections' : self.default_ttl_detections }
         return ttls
 
-    def _ingestObjects( self, ttls, aid, ts, objects, relations ):
+    def _ingestObjects( self, ttls, sid, ts, objects, relations ):
         ts = datetime.datetime.fromtimestamp( ts )
 
         for relType, relVals in relations.iteritems():
@@ -150,9 +150,9 @@ class AnalyticsModeling( Actor ):
 
                 self.db.execute_async( self.stmt_obj_batch_man.bind( ( k, objVal, objType, ttl ) ) )
                 self.db.execute_async( self.stmt_obj_batch_name.bind( ( objVal, k, ttl ) ) )
-                self.db.execute_async( self.stmt_obj_batch_loc.bind( ( ttl, ts, aid, objType, k ) ) )
-                self.db.execute_async( self.stmt_obj_batch_id.bind( ( k, aid, ts, ttl ) ) )
-                self.db.execute_async( self.stmt_obj_batch_type.bind( ( random.randint( 0, 256 ), objType, k, aid, ttl ) ) )
+                self.db.execute_async( self.stmt_obj_batch_loc.bind( ( ttl, ts, sid, objType, k ) ) )
+                self.db.execute_async( self.stmt_obj_batch_id.bind( ( k, sid, ts, ttl ) ) )
+                self.db.execute_async( self.stmt_obj_batch_type.bind( ( random.randint( 0, 256 ), objType, k, sid, ttl ) ) )
 
 
     def analyze( self, msg ):
@@ -166,7 +166,7 @@ class AnalyticsModeling( Actor ):
                 self.org_ttls = {}
 
         agent = AgentId( routing[ 'aid' ] )
-        aid = agent.sensor_id
+        sid = agent.sensor_id
         ts = _x_( event, '?/base.TIMESTAMP' )
 
         ttls = self.getOrgTtls( agent.org_id )
@@ -185,26 +185,26 @@ class AnalyticsModeling( Actor ):
 
         self.db.execute_async( self.stmt_events.bind( ( eid,
                                                         base64.b64encode( msgpack.packb( { 'routing' : routing, 'event' : event } ) ),
-                                                        aid,
+                                                        sid,
                                                         ttls[ 'events' ] ) ) )
 
-        self.db.execute_async( self.stmt_timeline.bind( ( aid,
+        self.db.execute_async( self.stmt_timeline.bind( ( sid,
                                                           time_uuid.TimeUUID.with_timestamp( ts ),
                                                           eid,
                                                           routing[ 'event_type' ],
                                                           ttls[ 'events' ] ) ) )
 
-        self.db.execute_async( self.stmt_timeline_by_type.bind( ( aid,
+        self.db.execute_async( self.stmt_timeline_by_type.bind( ( sid,
                                                                   time_uuid.TimeUUID.with_timestamp( ts ),
                                                                   eid,
                                                                   routing[ 'event_type' ],
                                                                   ttls[ 'events' ] ) ) )
 
-        self.db.execute_async( self.stmt_recent.bind( ( ttls[ 'events' ], aid, ) ) )
+        self.db.execute_async( self.stmt_recent.bind( ( ttls[ 'events' ], sid, ) ) )
 
         self.db.execute_async( self.stmt_last.bind( ( ttls[ 'events' ],
                                                       eid,
-                                                      aid,
+                                                      sid,
                                                       routing[ 'event_type' ] ) ) )
 
         this_atom = _x_( event, '?/hbs.THIS_ATOM' )
@@ -260,6 +260,6 @@ class AnalyticsModeling( Actor ):
                     del( new_relations[ k ] )
 
         if 0 != len( new_objects ) or 0 != len( new_relations ):
-            self._ingestObjects( ttls, aid, ts, new_objects, new_relations )
+            self._ingestObjects( ttls, sid, ts, new_objects, new_relations )
         #self.log( 'finished storing objects %s: %s / %s' % ( routing[ 'event_type' ], len( new_objects ), len( new_relations )) )
         return ( True, )

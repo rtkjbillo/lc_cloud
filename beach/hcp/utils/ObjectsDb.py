@@ -575,15 +575,25 @@ class Host( object ):
 
 class FluxEvent( object ):
     @classmethod
-    def decode( cls, event ):
+    def decode( cls, event, withRouting = False ):
+        event = None
+        routing = None
         try:
-            event = msgpack.unpackb( base64.b64decode( event ), use_list = True )
-            if 'event' in event:
-                event = event[ 'event' ]
-            cls._dataToUtf8( event )
+            data = msgpack.unpackb( base64.b64decode( event ), use_list = True )
+            if 'event' in data:
+                event = data[ 'event' ]
+                cls._dataToUtf8( event )
+            if 'routing' in data and withRouting:
+                routing = data[ 'routing' ]
+                cls._dataToUtf8( routing )
         except:
             event = None
-        return event
+            routing = None
+
+        if withRouting
+            return routing, event
+        else:
+            return event
 
     @classmethod
     def _dataToUtf8( cls, node ):
@@ -757,10 +767,10 @@ class Atoms ( object ):
                     yield ( normalAtom( row[ 0 ] ), row[ 1 ] )
         return type(self)( thisGen() )
 
-    def events( self ):
+    def events( self, withRouting = False ):
         for ids in chunks( self._ids, self._queryChunks ):
             for event in Host.getSpecificEvents( x[ 1 ] for x in ids ):
-                yield FluxEvent.decode( event[ 2 ] )
+                yield FluxEvent.decode( event[ 2 ], withRouting = withRouting )
 
     def fillEventIds( self ):
         def thisGen():
