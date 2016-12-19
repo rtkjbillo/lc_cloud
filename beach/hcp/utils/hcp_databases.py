@@ -28,6 +28,7 @@ try:
     import traceback
     from cassandra.query import SimpleStatement
     from cassandra import ConsistencyLevel
+    from cassandra.query import ValueSequence
 except:
     pass
 
@@ -58,10 +59,16 @@ class CassDb( object ):
     def __del__( self ):
         self.shutdown()
 
-    def execute( self, query, params = {} ):
+    def execute( self, query, params = tuple() ):
         res = None
 
         thisCur = self.cur
+
+        realParams = []
+        for p in params:
+            if type( p ) in ( list, tuple ):
+                p = ValueSequence( p )
+            realParams.append( p )
 
         def queryWith( stmt ):
             nRetry = 0
@@ -69,7 +76,7 @@ class CassDb( object ):
             while ( not isSuccess ) and ( nRetry < 2 ):
                 res = None
                 try:
-                    res = thisCur.execute( stmt, params )
+                    res = thisCur.execute( stmt, realParams )
                     isSuccess = True
                 except Exception as e:
                     desc = traceback.format_exc()
@@ -100,7 +107,7 @@ class CassDb( object ):
 
         return res
 
-    def getOne( self, query, params = {} ):
+    def getOne( self, query, params = tuple() ):
         res = self.execute( query, params )
         if res is not None:
             try:
@@ -112,10 +119,15 @@ class CassDb( object ):
     def prepare( self, query ):
         return self.cur.prepare( query )
 
-    def execute_async( self, query, params = {} ):
+    def execute_async( self, query, params = [] ):
         if type( query ) is str or type( query ) is unicode:
             query = SimpleStatement( query, consistency_level = self.consistency )
-        return self.cur.execute_async( query, params )
+        realParams = []
+        for p in params:
+            if type( p ) in ( list, tuple ):
+                p = ValueSequence( p )
+            realParams.append( p )
+        return self.cur.execute_async( query, realParams )
 
     def shutdown( self ):
         if not self.isShutdown:
@@ -157,13 +169,13 @@ class CassPool( object ):
                 gevent.sleep( 1 )
                 self.rate = 0
 
-    def execute_async( self, query, params = None ):
+    def execute_async( self, query, params = [] ):
         self.queries.append( ( query, params ) )
         while self.blockOnQueueSize is not None and len( self.queries ) > self.blockOnQueueSize:
             syslog.syslog( syslog.LOG_USER, 'BLOCKING' )
             gevent.sleep( 1 )
 
-    def execute( self, query, params = {} ):
+    def execute( self, query, params = tuple() ):
         self.rateLimit( isAdvisory = True )
         return self.db.execute( query, params )
 
