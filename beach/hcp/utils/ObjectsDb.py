@@ -575,11 +575,11 @@ class Host( object ):
 
 class FluxEvent( object ):
     @classmethod
-    def decode( cls, event, withRouting = False ):
+    def decode( cls, data, withRouting = False ):
         event = None
         routing = None
         try:
-            data = msgpack.unpackb( base64.b64decode( event ), use_list = True )
+            data = msgpack.unpackb( base64.b64decode( data ), use_list = True )
             if 'event' in data:
                 event = data[ 'event' ]
                 cls._dataToUtf8( event )
@@ -590,7 +590,7 @@ class FluxEvent( object ):
             event = None
             routing = None
 
-        if withRouting
+        if withRouting:
             return routing, event
         else:
             return event
