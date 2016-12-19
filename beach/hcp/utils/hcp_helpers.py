@@ -463,7 +463,8 @@ class AgentId( object ):
             if self.platform is not None:
                 self.platform = int( self.platform )
                 
-        elif type( seq ) is str or type( seq ) is unicode:
+        elif type( seq ) is str or type( seq ) is unicode or type( seq ) is uuid.UUID:
+            seq = str( seq )
             matches = self.re_agent_id.match( seq )
             if matches is not None:
                 matches = matches.groups()
@@ -487,6 +488,8 @@ class AgentId( object ):
                         self.sensor_id = uuid.UUID( self.sensor_id )
                     self.platform = int( matches[ 3 ], 16 ) if int( matches[ 3 ], 16 ) != 0 else None
                     self.architecture = int( matches[ 4 ], 16 ) if int( matches[ 4 ], 16 ) != 0 else None
+            else:
+                raise Exception( 'invalid agentid: %s' % str( seq ) )
         elif type( seq ) is list or type( seq ) is tuple:
             if 1 == len( seq ):
                 self.sensor_id = seq[ 0 ]
@@ -526,6 +529,8 @@ class AgentId( object ):
             self.ins_id = seq.ins_id
             self.architecture = seq.architecture
             self.platform = seq.platform
+        else:
+            raise Exception( 'invalid agentid: %s' % str( seq ) )
 
     def asWhere( self ):
         filt = []
