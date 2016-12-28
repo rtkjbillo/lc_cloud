@@ -345,13 +345,13 @@ class EndpointProcessor( Actor ):
             isReallyDisconnected = True
 
         except Exception as e:
+            isReallyDisconnected = True
             if type( e ) is not DisconnectException:
                 self.log( 'Exception while processing: %s' % str( e ) )
                 #self.log( traceback.format_exc() )
                 raise
             else:
                 self.log( 'Disconnecting: %s' % str( e ) )
-            isReallyDisconnected = True
         finally:
             if isReallyDisconnected:
                 if aid is not None:
