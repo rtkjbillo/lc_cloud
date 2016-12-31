@@ -21,10 +21,13 @@ class LcEndpointProxy ( StreamServer ):
     def handle( self, source, address ):
         global currentEndpoints
         if 0 == len( currentEndpoints ): return
-        dest = create_connection( random.sample( currentEndpoints, 1 )[ 0 ] )
-
-        gevent.joinall( ( gevent.spawn( forward, source, dest, self ),
-                          gevent.spawn( forward, dest, source, self ) ) )
+        try:
+        	dest = create_connection( random.sample( currentEndpoints, 1 )[ 0 ] )
+        except:
+        	print( "Failed to connect to EndpointProcessor" )
+        else:
+	        gevent.joinall( ( gevent.spawn( forward, source, dest, self ),
+	                          gevent.spawn( forward, dest, source, self ) ) )
 
 def forward( source, dest, server ):
     try:
@@ -33,6 +36,8 @@ def forward( source, dest, server ):
             if not data:
                 break
             dest.sendall( data )
+    except:
+    	pass
     finally:
         source.close()
         dest.close()
