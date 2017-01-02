@@ -30,12 +30,14 @@ class LcEndpointProxy ( StreamServer ):
 	                          gevent.spawn( forward, dest, source, self ) ) )
 
 def forward( source, dest, server ):
+    buff = bytearray( 4096 )
+    mv_buffer = memoryview( buff )
     try:
         while True:
-            data = source.recv( 4096 )
-            if not data:
+            nReceived = source.recv_into( buff )
+            if 0 == nReceived:
                 break
-            dest.sendall( data )
+            dest.sendall( mv_buffer[ : nReceived ] )
     except:
     	pass
     finally:

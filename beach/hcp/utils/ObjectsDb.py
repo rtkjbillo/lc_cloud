@@ -318,31 +318,54 @@ class HostObjects( object ):
     def next( self ):
         return self._ids.next()
 
-    def info( self ):
+    def acl( self, oid = None ):
+        if oid is None:
+            return type(self)( self._ids )
+        if type( oid ) not in ( list, tuple, Set ):
+            oid = [ oid ]
+        def thisGen():
+            for ids in chunks( self._ids, self._queryChunks ):
+                for row in self._db.execute( 'SELECT id FROM obj_org WHERE id IN %s AND oid IN %s', ( ids, oid ) ):
+                    yield row[ 0 ]
 
+        return type(self)( thisGen() )
+
+    def info( self ):
         for ids in chunks( self._ids, self._queryChunks ):
             try:
-                for row in self._db.execute( 'SELECT id, obj, otype FROM obj_man WHERE id IN ( \'%s\' )' % '\',\''.join( ids ) ):
+                for row in self._db.execute( 'SELECT id, obj, otype FROM obj_man WHERE id IN %s', ( ids, ) ):
                     yield ( row[ 0 ], row[ 1 ], row[ 2 ] )
             except:
                 pass
 
-
-    def locs( self, within = None, isLocalCloudOnly = False ):
+    def locs( self, within = None, isLocalCloudOnly = False, oid = None ):
         if within is not None:
             within = int( time.time() ) - int( within )
 
+        if oid is not None and type( oid ) not in ( list, tuple, Set ):
+            oid = [ oid ]
+
         for ids in chunks( self._ids, self._queryChunks ):
-            for row in self._db.execute( 'SELECT id, sid , last FROM loc_by_id WHERE id IN ( \'%s\' )' % '\',\''.join( ids ) ):
-                ts = self._db.timeToMsTs( row[ 2 ] )
-                if within is None:
-                    yield ( row[ 0 ], row[ 1 ], ts )
+            for rows in chunks( self._db.execute( 'SELECT id, sid, last FROM loc_by_id WHERE id IN %s', ( ids, ) ), self._queryChunks ):
+                if oid is not None:
+                    validSids = Set()
+                    for tmpSid, tmpOid in self._db.execute( 'SELECT sid, oid FROM sensor_states WHERE sid IN %s', ( [ x[ 1 ] for x in rows ], ) ):
+                        if tmpOid in oid:
+                            validSids.add( tmpSid )
                 else:
-                    if ts >= within:
+                    validSids = Set( x[ 1 ] for x in rows )
+                for row in rows:
+                    if row[ 1 ] not in validSids:
+                        continue
+                    ts = self._db.timeToMsTs( row[ 2 ] )
+                    if within is None:
                         yield ( row[ 0 ], row[ 1 ], ts )
+                    else:
+                        if ts >= within:
+                            yield ( row[ 0 ], row[ 1 ], ts )
             if within is None and isLocalCloudOnly is not True:
                 ts = 0
-                for row in self._db.execute( 'SELECT id, plat, nloc FROM ref_loc WHERE id IN ( \'%s\' )' % '\',\''.join( ids ) ):
+                for row in self._db.execute( 'SELECT id, plat, nloc FROM ref_loc WHERE id IN %s', ( ids, ) ):
                     for i in range( 1, row[ 2 ] if row[ 2 ] < 100000 else 100000 ):
                         yield ( row[ 0 ], 'ff.ff.%x.%x' % ( i, row[ 1 ] ), ts )
 
@@ -353,7 +376,7 @@ class HostObjects( object ):
 
         def thisGen():
             for ids in chunks( self._ids, self._queryChunks ):
-                for row in self._db.execute( 'SELECT cid FROM rel_man_parent WHERE parentkey IN ( \'%s\' )%s' % ( '\',\''.join( ids ), withType ) ):
+                for row in self._db.execute( 'SELECT cid FROM rel_man_parent WHERE parentkey IN %%s%s' % ( withType, ), ( ids, ) ):
                     yield row[ 0 ]
 
         return type(self)( thisGen() )
@@ -374,7 +397,7 @@ class HostObjects( object ):
 
         def thisGen():
             for ids in chunks( self._ids, self._queryChunks ):
-                for row in self._db.execute( 'SELECT pid FROM rel_man_child WHERE childkey IN ( \'%s\' )%s' % ( '\',\''.join( ids ), withType ) ):
+                for row in self._db.execute( 'SELECT pid FROM rel_man_child WHERE childkey IN %%s%s' % ( withType, ), ( ids, ) ):
                     yield row[ 0 ]
 
         return type(self)( thisGen() )
@@ -393,7 +416,7 @@ class HostObjects( object ):
             forAgents = ( forAgents, )
         forAgents = [ x.sensor_id for x in forAgents ]
         for ids in chunks( self._ids, self._queryChunks ):
-            for row in self._db.execute( 'SELECT id, sid, last FROM loc_by_id WHERE id IN ( \'%s\' )' % '\',\''.join( ids ) ):
+            for row in self._db.execute( 'SELECT id, sid, last FROM loc_by_id WHERE id IN %s', ( ids, ) ):
                 if forAgents is not None:
                     if row[ 1 ] not in forAgents:
                         continue
@@ -763,7 +786,7 @@ class Atoms ( object ):
     def children( self ):
         def thisGen():
             for ids in chunks( self._ids, self._queryChunks ):
-                for row in self._db.execute( 'SELECT child, eid FROM atoms_children WHERE atomid IN ( %s )' % ( ','.join( x[ 0 ] for x in ids ), ) ):
+                for row in self._db.execute( 'SELECT child, eid FROM atoms_children WHERE atomid IN %s', ( [ x[ 0 ] for x in ids ], ) ):
                     yield ( normalAtom( row[ 0 ] ), row[ 1 ] )
         return type(self)( thisGen() )
 
@@ -775,7 +798,7 @@ class Atoms ( object ):
     def fillEventIds( self ):
         def thisGen():
             for ids in chunks( self._ids, self._queryChunks ):
-                for row in self._db.execute( 'SELECT atomid, eid FROM atoms_lookup WHERE atomid IN ( %s )' % ( ','.join( x[ 0 ] for x in ids ), ) ):
+                for row in self._db.execute( 'SELECT atomid, eid FROM atoms_lookup WHERE atomid IN %s', ( [ x[ 0 ] for x in ids ], ) ):
                     yield ( normalAtom( row[ 0 ] ), row[ 1 ] )
         return type(self)( thisGen() )
 

@@ -156,6 +156,13 @@ CREATE TABLE obj_name
   PRIMARY KEY( obj, id )
 ) WITH compaction = { 'class' : 'SizeTieredCompactionStrategy' } AND gc_grace_seconds = 86400;
 
+CREATE TABLE obj_org
+(
+  id varchar,
+  oid uuid,
+  PRIMARY KEY( id, oid )
+) WITH compaction = { 'class' : 'SizeTieredCompactionStrategy' } AND gc_grace_seconds = 86400;
+
 CREATE TABLE loc
 (
   id varchar,

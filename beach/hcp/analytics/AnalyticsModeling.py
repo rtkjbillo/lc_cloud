@@ -77,6 +77,7 @@ class AnalyticsModeling( Actor ):
         self.stmt_obj_batch_loc = self.ingestStatement( 'UPDATE loc USING TTL ? SET last = ? WHERE sid = ? AND otype = ? AND id = ?' )
         self.stmt_obj_batch_id = self.ingestStatement( 'INSERT INTO loc_by_id ( id, sid, last ) VALUES ( ?, ?, ? ) USING TTL ?' )
         self.stmt_obj_batch_type = self.ingestStatement( 'INSERT INTO loc_by_type ( d256, otype, id, sid ) VALUES ( ?, ?, ?, ? ) USING TTL ?' )
+        self.stmt_obj_org = self.ingestStatement( 'INSERT INTO obj_org ( id, oid ) VALUES ( ?, ? ) USING TTL ?' )
 
         self.stmt_atoms_children = self.ingestStatement( 'INSERT INTO atoms_children ( atomid, child, eid ) VALUES ( ?, ?, ? ) USING TTL ?' )
         self.stmt_atoms_lookup = self.ingestStatement( 'INSERT INTO atoms_lookup ( atomid, eid ) VALUES ( ?, ? ) USING TTL ?' )
@@ -114,7 +115,7 @@ class AnalyticsModeling( Actor ):
                      'detections' : self.default_ttl_detections }
         return ttls
 
-    def _ingestObjects( self, ttls, sid, ts, objects, relations ):
+    def _ingestObjects( self, ttls, sid, ts, objects, relations, oid ):
         ts = datetime.datetime.fromtimestamp( ts )
 
         for relType, relVals in relations.iteritems():
@@ -149,6 +150,7 @@ class AnalyticsModeling( Actor ):
                     ttl = ttls[ 'long_obj' ]
 
                 self.db.execute_async( self.stmt_obj_batch_man.bind( ( k, objVal, objType, ttl ) ) )
+                self.db.execute_async( self.stmt_obj_org.bind( ( k, oid, ttl ) ) )
                 self.db.execute_async( self.stmt_obj_batch_name.bind( ( objVal, k, ttl ) ) )
                 self.db.execute_async( self.stmt_obj_batch_loc.bind( ( ttl, ts, sid, objType, k ) ) )
                 self.db.execute_async( self.stmt_obj_batch_id.bind( ( k, sid, ts, ttl ) ) )
@@ -260,6 +262,6 @@ class AnalyticsModeling( Actor ):
                     del( new_relations[ k ] )
 
         if 0 != len( new_objects ) or 0 != len( new_relations ):
-            self._ingestObjects( ttls, sid, ts, new_objects, new_relations )
+            self._ingestObjects( ttls, sid, ts, new_objects, new_relations, agent.org_id )
         #self.log( 'finished storing objects %s: %s / %s' % ( routing[ 'event_type' ], len( new_objects ), len( new_relations )) )
         return ( True, )

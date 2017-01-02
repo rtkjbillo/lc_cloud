@@ -15,6 +15,7 @@
 from beach.actor import Actor
 import time
 from sets import Set
+import uuid
 BEAdmin = Actor.importLib( '../admin_lib', 'BEAdmin' )
 Host = Actor.importLib( '../utils/ObjectsDb', 'Host' )
 HostObjects = Actor.importLib( '../utils/ObjectsDb', 'HostObjects' )
@@ -59,6 +60,11 @@ class ModelView( Actor ):
         Host.closeDatabase()
         HostObjects.closeDatabase()
         Reporting.closeDatabase()
+
+    def asUuidList( self, elem ):
+        if type( elem ) not in ( list, tuple ):
+            elem = [ elem ]
+        return map( uuid.UUID, elem )
 
     def get_sensor_info( self, msg ):
         info = {}
@@ -107,13 +113,16 @@ class ModelView( Actor ):
         oname = msg.data.get( 'name', None )
         otype = msg.data.get( 'type', None )
         host = msg.data.get( 'host', None )
+        orgs = msg.data.get( 'orgs', None )
+        if orgs is not None:
+            orgs = self.asUuidList( orgs )
 
         if oname is not None:
-            objects = HostObjects.named( oname ).info()
+            objects = HostObjects.named( oname ).acl( oid = orgs ).info()
         elif host is not None:
-            objects = HostObjects.onHosts( host, otype ).info()
+            objects = HostObjects.onHosts( host, otype ).acl( oid = orgs ).info()
         elif otype is not None:
-            objects = HostObjects.ofTypes( otype ).info()
+            objects = HostObjects.ofTypes( otype ).acl( oid = orgs ).info()
 
         objects = [ ( x[ 0 ], x[ 1 ], ObjectTypes.rev[ x[ 2 ] ] ) for x in objects ]
 
@@ -122,19 +131,23 @@ class ModelView( Actor ):
     def get_obj_view( self, msg ):
         info = {}
         info[ 'host' ] = msg.data.get( 'host', None )
+        orgs = msg.data.get( 'orgs', None )
+        if orgs is not None:
+            orgs = self.asUuidList( orgs )
+
         try:
             if 'id' not in msg.data:
                 msg.data[ 'id' ] = ObjectKey( msg.data[ 'obj_name' ], ObjectTypes.forward[ msg.data[ 'obj_type' ] ] )
-            _ = next( HostObjects( msg.data[ 'id' ] ).info() )
+            _ = next( HostObjects( msg.data[ 'id' ] ).acl( oid = orgs ).info() )
         except:
             return ( True, {} )
         info[ 'id' ] = _[ 0 ]
         info[ 'oname' ] = _[ 1 ]
         info[ 'otype' ] = ObjectTypes.rev[ _[ 2 ] ]
-        info[ 'olocs' ] = [ ( x[ 1 ], x[ 2 ] ) for x in HostObjects( _[ 0 ] ).locs() ]
+        info[ 'olocs' ] = [ ( x[ 1 ], x[ 2 ] ) for x in HostObjects( _[ 0 ] ).locs( oid = orgs ) ]
 
-        info[ 'parents' ] = [ ( x[ 0 ], x[ 1 ], ObjectTypes.rev[ x[ 2 ] ], ObjectKey( RelationNameFromId( x[ 0 ], _[ 0 ] ), ObjectTypes.RELATION ) ) for x in HostObjects( info[ 'id' ] ).parents().info() ]
-        info[ 'children' ] = [ ( x[ 0 ], x[ 1 ], ObjectTypes.rev[ x[ 2 ] ], ObjectKey( RelationNameFromId( _[ 0 ], x[ 0 ] ), ObjectTypes.RELATION ) ) for x in HostObjects( info[ 'id' ] ).children().info() ]
+        info[ 'parents' ] = [ ( x[ 0 ], x[ 1 ], ObjectTypes.rev[ x[ 2 ] ], ObjectKey( RelationNameFromId( x[ 0 ], _[ 0 ] ), ObjectTypes.RELATION ) ) for x in HostObjects( info[ 'id' ] ).parents().acl( oid = orgs ).info() ]
+        info[ 'children' ] = [ ( x[ 0 ], x[ 1 ], ObjectTypes.rev[ x[ 2 ] ], ObjectKey( RelationNameFromId( _[ 0 ], x[ 0 ] ), ObjectTypes.RELATION ) ) for x in HostObjects( info[ 'id' ] ).children().acl( oid = orgs ).info() ]
 
         locs = {}
         for o in HostObjects( [ x[ 0 ] for x in ( info[ 'parents' ] + info[ 'children' ] ) ] ).locs():
