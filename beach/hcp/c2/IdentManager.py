@@ -184,7 +184,7 @@ class IdentManager( Actor ):
         name = req[ 'name' ]
         byUser = req[ 'by' ]
         ttl_events = req.get( 'ttl_events', 86400 * 7 )
-        ttl_long_obj = req.get( 'ttl_long_obj', 86400 * 7 )
+        ttl_long_obj = req.get( 'ttl_long_obj', 86400 * 31 )
         ttl_short_obj = req.get( 'ttl_short_obj', 86400 * 7 )
         ttl_atoms = req.get( 'ttl_atoms', 86400 * 7 )
         ttl_detections = req.get( 'ttl_detections', 86400 * 7 )
