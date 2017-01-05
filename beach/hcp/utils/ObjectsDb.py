@@ -492,6 +492,13 @@ class Host( object ):
             aid = AgentId( ( res[ 0 ], res[ 1 ], res[ 2 ], res[ 3 ], res[ 4 ] ) )
         return aid
 
+    def getLastIps( self ):
+        ips = None
+        res = self._db.getOne( 'SELECT ext_ip, int_ip FROM sensor_states WHERE sid = %s', ( self.sid, ) )
+        if res:
+            ips = ( res[ 0 ], res[ 1 ] )
+        return ips
+
     def getHostName( self ):
         hostname = None
 
@@ -786,7 +793,7 @@ class Atoms ( object ):
     def children( self ):
         def thisGen():
             for ids in chunks( self._ids, self._queryChunks ):
-                for row in self._db.execute( 'SELECT child, eid FROM atoms_children WHERE atomid IN %s', ( [ x[ 0 ] for x in ids ], ) ):
+                for row in self._db.execute( 'SELECT child, eid FROM atoms_children WHERE atomid IN %s', ( [ _makeUuid( x[ 0 ] ) for x in ids ], ) ):
                     yield ( normalAtom( row[ 0 ] ), row[ 1 ] )
         return type(self)( thisGen() )
 
@@ -798,7 +805,7 @@ class Atoms ( object ):
     def fillEventIds( self ):
         def thisGen():
             for ids in chunks( self._ids, self._queryChunks ):
-                for row in self._db.execute( 'SELECT atomid, eid FROM atoms_lookup WHERE atomid IN %s', ( [ x[ 0 ] for x in ids ], ) ):
+                for row in self._db.execute( 'SELECT atomid, eid FROM atoms_lookup WHERE atomid IN %s', ( [ _makeUuid( x[ 0 ] ) for x in ids ], ) ):
                     yield ( normalAtom( row[ 0 ] ), row[ 1 ] )
         return type(self)( thisGen() )
 

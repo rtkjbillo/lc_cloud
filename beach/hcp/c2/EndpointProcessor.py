@@ -186,6 +186,7 @@ class EndpointProcessor( Actor ):
         self.analyticsIntake = self.getActorHandle( resources[ 'analytics' ] )
         self.enrollmentManager = self.getActorHandle( resources[ 'enrollments' ] )
         self.stateChanges = self.getActorHandleGroup( resources[ 'states' ] )
+        self.sensorDir = self.getActorHandle( resources[ 'sensordir' ] )
         self.moduleManager = self.getActorHandle( resources[ 'module_tasking' ] )
         self.hbsProfileManager = self.getActorHandle( resources[ 'hbs_profiles' ] )
         self.handle( 'task', self.taskClient )
@@ -317,11 +318,14 @@ class EndpointProcessor( Actor ):
 
             c.setAid( aid )
             self.currentClients[ aid.sensor_id ] = c
-            self.stateChanges.shoot( 'live', { 'aid' : aid.asString(), 
-                                               'endpoint' : self.name,
-                                               'ext_ip' : externalIp,
-                                               'int_ip' : internalIp,
-                                               'hostname' : hostName } )
+            newStateMsg = { 'aid' : aid.asString(), 
+                            'endpoint' : self.name,
+                            'ext_ip' : externalIp,
+                            'int_ip' : internalIp,
+                            'hostname' : hostName }
+            self.stateChanges.shoot( 'live', newStateMsg )
+            self.sensorDir.broadcast( 'live', newStateMsg )
+            del( newStateMsg )
 
             self.log( 'Client %s registered, beginning to receive data' % aid.asString() )
             frameIndex = 0
@@ -329,8 +333,8 @@ class EndpointProcessor( Actor ):
                 moduleId, messages, nRawBytes = c.recvFrame( timeout = 60 * 60 )
                 tmpBytesReceived += nRawBytes
                 if 100 == frameIndex:
-                    self.stateChanges.shoot( 'transfered', { 'aid' : aid.asString(), 
-                                             'bytes_transfered' : tmpBytesReceived } )
+                    self.sensorDir.broadcast( 'transfered', { 'aid' : aid.asString(), 
+                                                              'bytes_transfered' : tmpBytesReceived } )
                     tmpBytesReceived = 0
                     frameIndex = 0
                 else:
@@ -357,10 +361,13 @@ class EndpointProcessor( Actor ):
                 if aid is not None:
                     if aid.sensor_id in self.currentClients:
                         del( self.currentClients[ aid.sensor_id ] )
-                        self.stateChanges.shoot( 'transfered', { 'aid' : aid.asString(), 
-                                                 'bytes_transfered' : tmpBytesReceived } )
-                        self.stateChanges.shoot( 'dead', { 'aid' : aid.asString(), 
-                                                           'endpoint' : self.name } )
+                        self.sensorDir.broadcast( 'transfered', { 'aid' : aid.asString(), 
+                                                                  'bytes_transfered' : tmpBytesReceived } )
+                        newStateMsg = { 'aid' : aid.asString(), 
+                                        'endpoint' : self.name }
+                        self.stateChanges.shoot( 'dead', newStateMsg )
+                        self.sensorDir.broadcast( 'dead', newStateMsg )
+                        del( newStateMsg )
                     self.log( 'Connection terminated: %s' % aid.asString() )
                 else:
                     self.log( 'Connection terminated: %s:%s' % address )

@@ -43,6 +43,7 @@ class ModelView( Actor ):
         self.handle( 'get_obj_list', self.get_obj_list )
         self.handle( 'get_obj_view', self.get_obj_view )
         self.handle( 'get_lastevents', self.get_lastevents )
+        self.handle( 'get_lastips', self.get_lastips )
         self.handle( 'get_event', self.get_event )
         self.handle( 'list_sensors', self.list_sensors )
         self.handle( 'get_detects', self.get_detects )
@@ -207,6 +208,13 @@ class ModelView( Actor ):
         events = [ ( x[ 'name' ], x[ 'id' ] ) for x in host.lastEvents() ]
 
         return ( True, { 'events' : events } )
+
+    def get_lastips( self, msg ):
+        host = Host( msg.data[ 'id' ] )
+
+        ips = host.getLastIps()
+
+        return ( True, { 'external' : ips[ 0 ], 'internal' : ips[ 1 ] } )
 
     def get_event( self, msg ):
         event = Host.getSpecificEvent( msg.data[ 'id' ] )
