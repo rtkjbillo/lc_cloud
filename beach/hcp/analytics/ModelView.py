@@ -95,6 +95,7 @@ class ModelView( Actor ):
     def get_timeline( self, msg ):
         host = Host( msg.data[ 'id' ] )
         maxSize = msg.data.get( 'max_size', 0 )
+        withRouting = msg.data.get( 'with_routing', False )
 
         events = host.getEvents( before = msg.data.get( 'before', None ),
                                  after = msg.data.get( 'after', None ),
@@ -102,10 +103,10 @@ class ModelView( Actor ):
                                  ofTypes = msg.data.get( 'types', None ),
                                  isIncludeContent = msg.data.get( 'is_include_content', False ) )
 
-        events = [ ( x[ 0 ], x[ 1 ], x[ 2 ], FluxEvent.decode( x[ 3 ] ) if ( 4 <= len( x ) and
-                                                                             ( 0 == maxSize or
-                                                                               len( x[ 3 ] ) <= maxSize ) )
-                                                                        else None ) for x in events ]
+        events = [ ( x[ 0 ], x[ 1 ], x[ 2 ], FluxEvent.decode( x[ 3 ], withRouting = withRouting ) if ( 4 <= len( x ) and
+                                                                                                        ( 0 == maxSize or
+                                                                                                          len( x[ 3 ] ) <= maxSize ) )
+                                                                                                   else None ) for x in events ]
 
         return ( True, { 'events' : events } )
 
