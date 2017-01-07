@@ -170,8 +170,7 @@ class EndpointProcessor( Actor ):
         self.bindAddress = parameters.get( 'handler_address', '0.0.0.0' )
         self.bindInterface = parameters.get( 'handler_interface', None )
         self.privateKey = M2Crypto.RSA.load_key_string( parameters[ '_priv_key' ] )
-        self.deploymentToken = parameters.get( 'deployment_token', None )
-        self.enrollmentKey = parameters.get( 'enrollment_key', 'DEFAULT_HCP_ENROLLMENT_TOKEN' )
+        
 
         if self.bindInterface is not None:
             ip4 = self.getIpv4ForIface( self.bindInterface )
@@ -285,7 +284,6 @@ class EndpointProcessor( Actor ):
             if not resp.isSuccess or not resp.data.get( 'is_authorized', False ):
                 raise DisconnectException( 'Could not authorize %s' % aid )
 
-            enrollmentToken = headers.get( 'hcp.ENROLLMENT_TOKEN', None )
             if aid.sensor_id is None:
                 self.log( 'Sensor requires enrollment' )
                 resp = self.enrollmentManager.request( 'enroll', { 'aid' : aid.asString(),
@@ -296,8 +294,7 @@ class EndpointProcessor( Actor ):
                 if not resp.isSuccess or 'aid' not in resp.data or resp.data[ 'aid' ] is None:
                     raise DisconnectException( 'Sensor could not be enrolled, come back later' )
                 aid = AgentId( resp.data[ 'aid' ] )
-                enrollmentToken = hashlib.md5( '%s/%s' % ( aid.asString(), 
-                                                           self.enrollmentKey ) ).digest()
+                enrollmentToken = resp.data[ 'token' ]
                 self.log( 'Sending sensor enrollment to %s' % aid.asString() )
                 c.sendFrame( HcpModuleId.HCP,
                              ( rSequence().addInt8( Symbols.base.OPERATION, 
@@ -307,10 +304,12 @@ class EndpointProcessor( Actor ):
                                           .addBuffer( Symbols.hcp.ENROLLMENT_TOKEN, 
                                                       enrollmentToken ), ) )
             else:
-                expectedEnrollmentToken = hashlib.md5( '%s/%s' % ( aid.asString(), 
-                                                                   self.enrollmentKey ) ).digest()
-                if enrollmentToken != expectedEnrollmentToken:
-                    raise DisconnectException( 'Enrollment token invalid' )
+                enrollmentToken = headers.get( 'hcp.ENROLLMENT_TOKEN', None )
+                resp = self.enrollmentManager.request( 'authorize', { 'aid' : aid.asString(), 
+                                                                      'token' : enrollmentToken }, timeout = 10 )
+                if not resp.isSuccess or not resp.data.get( 'is_authorized', False ):
+                    raise DisconnectException( 'Could not authorize %s' % aid )
+
             self.log( 'Valid client connection' )
 
             # Eventually sync the clocks at recurring intervals

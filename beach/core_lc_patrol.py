@@ -33,6 +33,8 @@ SCALE_DB = [ 'hcp-scale-db' ]
 #    db queries.
 # block_on_queue_size: stop queuing after
 #    n number of items awaiting ingestion.
+# enrollment_token: secret token used
+#    to verify enrolled sensor identities.
 #######################################
 Patrol( 'EnrollmentManager',
         initialInstances = 1,
@@ -47,7 +49,8 @@ Patrol( 'EnrollmentManager',
             'parameters' : { 'db' : SCALE_DB,
                              'rate_limit_per_sec' : 200,
                              'max_concurrent' : 5,
-                             'block_on_queue_size' : 100 },
+                             'block_on_queue_size' : 100,
+                             'enrollment_token' : 'DEFAULT_HCP_ENROLLMENT_TOKEN' },
             'secretIdent' : 'enrollment/a3bebbb0-00e2-4345-990b-4c36a40b475e',
             'trustedIdents' : [ 'beacon/09ba97ab-5557-4030-9db0-1dbe7f2b9cfd',
                                 'admin/dde768a4-8f27-4839-9e26-354066c8540e' ],
@@ -293,11 +296,6 @@ Patrol( 'HbsProfileManager',
 # This actor will process incoming
 # connections from the sensors.
 # Parameters:
-# deployment_key: The deployment key
-#    to enforce if needed, it helps
-#    to filter out sensors beaconing
-#    to you that are not related to
-#    your deployment.
 # _priv_key: the C2 private key.
 # handler_port_*: start and end port
 #    where incoming connections will
@@ -306,8 +304,6 @@ Patrol( 'HbsProfileManager',
 #    a listen on.
 # handler_interface: the network interface
 #    to listen on, overrides handler_address.
-# enrollment_token: secret token used
-#    to verify enrolled sensor identities.
 #######################################
 Patrol( 'EndpointProcessor',
         initialInstances = 1,
@@ -324,9 +320,7 @@ Patrol( 'EndpointProcessor',
                             'sensordir' : 'c2/sensordir/',
                             'module_tasking' : 'c2/modulemanager',
                             'hbs_profiles' : 'c2/hbsprofilemanager' },
-            'parameters' : { 'deployment_key' : None,
-                             'enrollment_token' : 'DEFAULT_HCP_ENROLLMENT_TOKEN',
-                             '_priv_key' : open( os.path.join( REPO_ROOT,
+            'parameters' : { '_priv_key' : open( os.path.join( REPO_ROOT,
                                                                'keys',
                                                                'c2.priv.pem' ), 'r' ).read() },
             'secretIdent' : 'beacon/09ba97ab-5557-4030-9db0-1dbe7f2b9cfd',

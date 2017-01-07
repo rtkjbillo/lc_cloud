@@ -28,6 +28,7 @@ AgentId = Actor.importLib( 'utils/hcp_helpers', 'AgentId' )
 
 class EnrollmentManager( Actor ):
     def init( self, parameters, resources ):
+        self.enrollmentKey = parameters.get( 'enrollment_token', 'DEFAULT_HCP_ENROLLMENT_TOKEN' )
         self._db = CassDb( parameters[ 'db' ], 'hcp_analytics', consistencyOne = True )
         self.db = CassPool( self._db,
                             rate_limit_per_sec = parameters[ 'rate_limit_per_sec' ],
@@ -57,6 +58,10 @@ class EnrollmentManager( Actor ):
         req = msg.data
 
         aid = AgentId( req[ 'aid' ] )
+
+        if ( aid.org_id, aid.ins_id ) not in self.installers:
+            return ( True, { 'aid' : None } )
+
         extIp = req[ 'public_ip' ]
         intIp = req[ 'internal_ip' ]
         hostName = req[ 'host_name' ]
@@ -69,15 +74,21 @@ class EnrollmentManager( Actor ):
         self.db.execute( 'INSERT INTO org_sensors ( oid, iid, sid ) VALUES ( %s, %s, %s )', 
                          ( aid.org_id, aid.ins_id, aid.sensor_id ) )
 
-        return ( True, { 'aid' : aid } )
+        enrollmentToken = hashlib.md5( '%s/%s' % ( aid.asString(), 
+                                                   self.enrollmentKey ) ).digest()
+
+        return ( True, { 'aid' : aid, 'token' : enrollmentToken } )
 
     def authorize( self, msg ):
         req = msg.data
 
         aid = AgentId( req[ 'aid' ] )
+        token = req[ 'token' ]
 
         isAuthorized = False
-        if ( aid.org_id, aid.ins_id ) in self.installers:
+        expectedEnrollmentToken = hashlib.md5( '%s/%s' % ( aid.asString(), 
+                                                           self.enrollmentKey ) ).digest()
+        if token == expectedEnrollmentToken:
             isAuthorized = True
 
         return ( True, { 'is_authorized' : isAuthorized } )
