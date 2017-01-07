@@ -246,7 +246,6 @@ class EndpointProcessor( Actor ):
     def handleNewClient( self, socket, address ):
         aid = None
         tmpBytesReceived = 0
-        isReallyDisconnected = False
         try:
             self.log( 'New connection from %s:%s' % address )
             c = _ClientContext( self, socket )
@@ -341,10 +340,7 @@ class EndpointProcessor( Actor ):
                 else:
                     handler( c, messages )
 
-            isReallyDisconnected = True
-
         except Exception as e:
-            isReallyDisconnected = True
             if type( e ) is not DisconnectException:
                 self.log( 'Exception while processing: %s' % str( e ) )
                 #self.log( traceback.format_exc() )
@@ -352,20 +348,19 @@ class EndpointProcessor( Actor ):
             else:
                 self.log( 'Disconnecting: %s' % str( e ) )
         finally:
-            if isReallyDisconnected:
-                if aid is not None:
-                    if aid.sensor_id in self.currentClients:
-                        del( self.currentClients[ aid.sensor_id ] )
-                        self.sensorDir.broadcast( 'transfered', { 'aid' : aid.asString(), 
-                                                                  'bytes_transfered' : tmpBytesReceived } )
-                        newStateMsg = { 'aid' : aid.asString(), 
-                                        'endpoint' : self.name }
-                        self.stateChanges.shoot( 'dead', newStateMsg )
-                        self.sensorDir.broadcast( 'dead', newStateMsg )
-                        del( newStateMsg )
-                    self.log( 'Connection terminated: %s' % aid.asString() )
-                else:
-                    self.log( 'Connection terminated: %s:%s' % address )
+            if aid is not None:
+                if aid.sensor_id in self.currentClients:
+                    del( self.currentClients[ aid.sensor_id ] )
+                    self.sensorDir.broadcast( 'transfered', { 'aid' : aid.asString(), 
+                                                              'bytes_transfered' : tmpBytesReceived } )
+                    newStateMsg = { 'aid' : aid.asString(), 
+                                    'endpoint' : self.name }
+                    self.stateChanges.shoot( 'dead', newStateMsg )
+                    self.sensorDir.broadcast( 'dead', newStateMsg )
+                    del( newStateMsg )
+                self.log( 'Connection terminated: %s' % aid.asString() )
+            else:
+                self.log( 'Connection terminated: %s:%s' % address )
 
     def handlerHcp( self, c, messages ):
         for message in messages:

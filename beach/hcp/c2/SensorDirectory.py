@@ -45,7 +45,13 @@ class SensorDirectory( Actor ):
 
     def setDead( self, msg ):
         aid = AgentId( msg.data[ 'aid' ] )
-        self.directory.pop( aid.sensor_id, None )
+        endpoint = msg.data[ 'endpoint' ]
+        # This is to avoid sensor set dead after long timeout
+        # having a collision with the same sensor coming back online.
+        tmp = self.directory.pop( aid.sensor_id, ( None, None ) )
+        if tmp[ 0 ] != endpoint:
+            # Looks like the sensor re-registered, re-add it.
+            self.directory.setdefault( aid.sensor_id, tmp )
         return ( True, )
 
     def addTransfered( self, msg ):
