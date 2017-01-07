@@ -100,7 +100,7 @@ class IdentManager( Actor ):
 
         loginData = { 'is_authenticated' : True, 'uid' : uid, 'email' : email, 'orgs' : orgs, 'must_change_password' : must_change_password }
         if must_change_password:
-            totp = TwoFactorAuth( username = email, secret = totp )
+            totp = TwoFactorAuth( username = email, secret = totp_secret )
             loginData[ 'otp' ] = totp.getSecret( asOtp = True )
         return ( True, loginData )
 
@@ -239,7 +239,7 @@ class IdentManager( Actor ):
 
         res = self.db.getOne( 'SELECT uid FROM org_membership WHERE uid = %s AND oid = %s', 
                               ( uid, oid ) )
-        if res is not None:
+        if res is None:
             return ( True, { 'is_removed' : False } )
 
         self.db.execute( 'DELETE FROM org_membership WHERE uid = %s AND oid = %s', 
