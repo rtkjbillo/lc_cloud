@@ -107,17 +107,20 @@ class DataExporter( Actor ):
                            'event' : event }
                 if isFlat:
                     record = self.flattenRecord( record )
+                if isJson:
+                    record = json.dumps( record )
                 output.append( record )
 
-            if isJson:
-                output = json.dumps( output )
-            else:
+            if not isJson:
                 output = msgpack.packb( output )
 
             zOutput = StringIO.StringIO()
             exportName = '%s_%s_%s.%s' % ( sid, after, before, ( "json" if isJson else "dat" ) )
             with zipfile.ZipFile( zOutput, 'w', compression = zipfile.ZIP_DEFLATED ) as zf:
-                zf.writestr( exportName, output )
+                if not isJson:
+                    zf.writestr( exportName, output )
+                else:
+                    zf.writestr( exportName, "\n".join( output ) )
 
             del( output )
 
