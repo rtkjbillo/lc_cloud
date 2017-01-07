@@ -82,9 +82,9 @@ class EventObjectExtractor:
     @classmethod
     def _extractProcessList( cls, eventType, eventRoot, fromAgent, objects ):
         for p in eventRoot[ 'base.PROCESSES' ]:
-            exe = self._extractProcessInfo( fromAgent, objects, p )
+            exe = cls._extractProcessInfo( fromAgent, objects, p )
             for m in p[ 'base.MODULES' ]:
-                mod = self._extractModuleInfo( fromAgent, objects, m )
+                mod = cls._extractModuleInfo( fromAgent, objects, m )
                 cls._addRel( objects, exe, ObjectTypes.PROCESS_NAME,
                              mod, ObjectTypes.MODULE_NAME )
 
@@ -101,7 +101,7 @@ class EventObjectExtractor:
     @classmethod
     def _extractServices( cls, eventType, eventRoot, fromAgent, objects ):
         for s in eventRoot[ 'base.SVCS' ]:
-            self._extractServiceInfo( fromAgent, objects, s )
+            cls._extractServiceInfo( fromAgent, objects, s )
 
     @classmethod
     def _extractAutoruns( cls, eventType, eventRoot, fromAgent, objects ):
