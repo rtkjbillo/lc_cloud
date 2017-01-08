@@ -115,7 +115,7 @@ printStep( 'Installing pip packages for various analytics components.',
     os.system( 'pip install time_uuid cassandra-driver==3.7.1 virustotal' ),
     os.system( 'pip install ipaddress' ) )
 
-printStep( 'Installing Yara.',c
+printStep( 'Installing Yara.',
     os.system( 'git clone https://github.com/refractionPOINT/yara.git' ),
     os.chdir( 'yara' ),
     os.system( './bootstrap.sh' ),
