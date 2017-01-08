@@ -128,7 +128,7 @@ printStep( 'Installing Yara.',
     os.system( 'python setup.py build' ),
     os.system( 'python setup.py install' ),
     os.chdir( '..' ),
-    os.system( 'c' ),
+    os.system( 'echo "/usr/local/lib" >> /etc/ld.so.conf' ),
     os.system( 'ldconfig' ) )
 
 printStep( 'Setting up host file entries for databases locally.',
