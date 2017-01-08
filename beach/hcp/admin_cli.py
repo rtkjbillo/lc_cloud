@@ -132,7 +132,7 @@ class HcpCli ( cmd.Cmd ):
             parser.add_argument( '-!',
                                   type = AgentId,
                                   required = False,
-                                  default = AgentId( self.aid ),
+                                  default = AgentId( self.aid )if self.aid is not None else None,
                                   help = 'agent id to change context to ONLY for the duration of this command.',
                                   dest = 'toAgent' )
 
