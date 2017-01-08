@@ -33,6 +33,8 @@ SCALE_DB = [ 'hcp-scale-db' ]
 #    db queries.
 # block_on_queue_size: stop queuing after
 #    n number of items awaiting ingestion.
+# enrollment_token: secret token used
+#    to verify enrolled sensor identities.
 #######################################
 Patrol( 'EnrollmentManager',
         initialInstances = 1,
@@ -47,7 +49,8 @@ Patrol( 'EnrollmentManager',
             'parameters' : { 'db' : SCALE_DB,
                              'rate_limit_per_sec' : 200,
                              'max_concurrent' : 5,
-                             'block_on_queue_size' : 100 },
+                             'block_on_queue_size' : 100,
+                             'enrollment_token' : 'DEFAULT_HCP_ENROLLMENT_TOKEN' },
             'secretIdent' : 'enrollment/a3bebbb0-00e2-4345-990b-4c36a40b475e',
             'trustedIdents' : [ 'beacon/09ba97ab-5557-4030-9db0-1dbe7f2b9cfd',
                                 'admin/dde768a4-8f27-4839-9e26-354066c8540e' ],
@@ -141,8 +144,7 @@ Patrol( 'SensorDirectory',
         onFailureCall = None,
         scalingFactor = 10000,
         actorArgs = ( 'c2/SensorDirectory',
-                      [ 'c2/sensordir/1.0',
-                        'c2/states/sensordir/1.0' ] ),
+                      [ 'c2/sensordir/1.0' ] ),
         actorKwArgs = {
             'resources' : {},
             'parameters' : {},
@@ -294,17 +296,14 @@ Patrol( 'HbsProfileManager',
 # This actor will process incoming
 # connections from the sensors.
 # Parameters:
-# deployment_key: The deployment key
-#    to enforce if needed, it helps
-#    to filter out sensors beaconing
-#    to you that are not related to
-#    your deployment.
 # _priv_key: the C2 private key.
 # handler_port_*: start and end port
 #    where incoming connections will
 #    be processed.
-# enrollment_token: secret token used
-#    to verify enrolled sensor identities.
+# handler_address: the ip address to do
+#    a listen on.
+# handler_interface: the network interface
+#    to listen on, overrides handler_address.
 #######################################
 Patrol( 'EndpointProcessor',
         initialInstances = 1,
@@ -318,17 +317,15 @@ Patrol( 'EndpointProcessor',
             'resources' : { 'analytics' : 'analytics/intake',
                             'enrollments' : 'c2/enrollments',
                             'states' : 'c2/states/',
+                            'sensordir' : 'c2/sensordir/',
                             'module_tasking' : 'c2/modulemanager',
                             'hbs_profiles' : 'c2/hbsprofilemanager' },
-            'parameters' : { 'deployment_key' : None,
-                             'handler_port_start' : 9090,
-                             'handler_port_end' : 9090,
-                             'enrollment_token' : 'DEFAULT_HCP_ENROLLMENT_TOKEN',
-                             '_priv_key' : open( os.path.join( REPO_ROOT,
+            'parameters' : { '_priv_key' : open( os.path.join( REPO_ROOT,
                                                                'keys',
                                                                'c2.priv.pem' ), 'r' ).read() },
             'secretIdent' : 'beacon/09ba97ab-5557-4030-9db0-1dbe7f2b9cfd',
-            'trustedIdents' : [ 'taskingproxy/794729aa-1ef5-4930-b377-48dda7b759a5' ],
+            'trustedIdents' : [ 'taskingproxy/794729aa-1ef5-4930-b377-48dda7b759a5',
+                                'endpointproxy/8e7a890b-8016-4396-b012-aec73d055dd6' ],
             'n_concurrent' : 5,
             'isIsolated' : False } )
 
@@ -765,6 +762,7 @@ Patrol( 'CapabilityManager',
 # pages by email.
 # Parameters:
 # from: email/user to send page from.
+# user: the email account to use.
 # password: password of the account
 #    used to send.
 # smtp_server: URI of the smtp server.

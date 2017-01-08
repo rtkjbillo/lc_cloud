@@ -193,7 +193,7 @@ class HcpCli ( cmd.Cmd ):
             tmp = arguments
             arguments = argparse.Namespace()
 
-            if not tmp.toAgent.isValid or self.hbsKey is None:
+            if self.hbsKey is None:
                 self.outputString( 'Agent id and hbs key must be set in context.' )
                 return
 
@@ -213,11 +213,7 @@ class HcpCli ( cmd.Cmd ):
 
         for k, a in vars( arguments ).iteritems():
             if type( a ) is AgentId:
-                if not a.isValid:
-                    self.outputString( 'Invalid agent id: %s.' % str(a) )
-                    return
-                else:
-                    setattr( arguments, k, str( a ) )
+                setattr( arguments, k, str( a ) )
 
         results = command( **vars( arguments ) )
 
@@ -350,11 +346,8 @@ class HcpCli ( cmd.Cmd ):
 
         if arguments is not None:
             aid = arguments.aid
-            if aid.isValid:
-                self.aid = aid
-                self.updatePrompt()
-            else:
-                self.outputString( 'Agent Id is not valid.' )
+            self.aid = aid
+            self.updatePrompt()
 
     @report_errors
     def do_setInvestigationId( self, s ):
@@ -394,92 +387,6 @@ class HcpCli ( cmd.Cmd ):
 
         if arguments is not None:
             self.execAndPrintResponse( self.be.hcp_getAgentStates, arguments )
-
-    @report_errors
-    def do_hcp_addEnrollmentRule( self, s ):
-        '''Add a new enrollment rule for new agents.'''
-
-        parser = self.getParser( 'addEnrollmentRule' )
-        parser.add_argument( '-m', '--mask',
-                             type = AgentId,
-                             required = True,
-                             help = 'agent id mask this rule applies to',
-                             dest = 'mask' )
-        parser.add_argument( '-i', '--internalip',
-                             type = str,
-                             required = False,
-                             default = '0.0.0.0/0',
-                             help = 'internal ip mask the rule applies to (255 wildcard)',
-                             dest = 'internalIp' )
-        parser.add_argument( '-e', '--externalip',
-                             type = str,
-                             required = False,
-                             default = '0.0.0.0/0',
-                             help = 'external ip mask the rule applies to (255 wildcard)',
-                             dest = 'externalIp' )
-        parser.add_argument( '-s', '--newsubnet',
-                             type = hexArg,
-                             required = True,
-                             help = 'new subnet to give to agents matching this rule (hex)',
-                             dest = 'newSubnet' )
-        parser.add_argument( '-o', '--neworg',
-                             type = hexArg,
-                             required = True,
-                             help = 'new org to give to agents matching this rule (hex)',
-                             dest = 'newOrg' )
-        parser.add_argument( '-n', '--hostname',
-                             type = str,
-                             required = False,
-                             default = '',
-                             help = 'hostname of the host',
-                             dest = 'hostname' )
-        arguments = self.parse( parser, s )
-
-        if arguments is not None:
-            self.execAndPrintResponse( self.be.hcp_addEnrollmentRule, arguments )
-
-    @report_errors
-    def do_hcp_delEnrollmentRule( self, s ):
-        '''Remove an enrollment rule for new agents.'''
-
-        parser = self.getParser( 'addEnrollmentRule' )
-        parser.add_argument( '-m', '--mask',
-                             type = AgentId,
-                             required = True,
-                             help = 'agent id mask this rule applies to',
-                             dest = 'mask' )
-        parser.add_argument( '-i', '--internalip',
-                             type = str,
-                             required = False,
-                             default = '255.255.255.255',
-                             help = 'internal ip mask the rule applies to (255 wildcard)',
-                             dest = 'internalIp' )
-        parser.add_argument( '-e', '--externalip',
-                             type = str,
-                             required = False,
-                             default = '255.255.255.255',
-                             help = 'external ip mask the rule applies to (255 wildcard)',
-                             dest = 'externalIp' )
-        parser.add_argument( '-n', '--hostname',
-                             type = str,
-                             required = False,
-                             default = '',
-                             help = 'hostname of the host',
-                             dest = 'hostname' )
-        arguments = self.parse( parser, s )
-
-        if arguments is not None:
-            self.execAndPrintResponse( self.be.hcp_delEnrollmentRule, arguments )
-
-    @report_errors
-    def do_hcp_getEnrollmentRules( self, s ):
-        '''Get the list of enrollment rules for new agents.'''
-
-        parser = self.getParser( 'getEnrollmentRules' )
-        arguments = self.parse( parser, s )
-
-        if arguments is not None:
-            self.execAndPrintResponse( self.be.hcp_getEnrollmentRules, arguments )
 
     @report_errors
     def do_hcp_addTasking( self, s ):
@@ -610,43 +517,80 @@ class HcpCli ( cmd.Cmd ):
             self.execAndPrintResponse( self.be.hcp_getModules, arguments )
 
     @report_errors
-    def do_hcp_relocAgent( self, s ):
-        '''Relocate an agent to a new org and network.'''
+    def do_hcp_addInstaller( self, s ):
+        '''Add a whitelisted installer.'''
 
-        parser = self.getParser( 'relocAgent' )
-        parser.add_argument( '-a', '--agentid',
-                             type = AgentId,
+        parser = self.getParser( 'addInstaller' )
+        parser.add_argument( '-o', '--orgid',
+                             type = uuid.UUID,
                              required = True,
-                             help = 'agent id to relocate',
-                             dest = 'agentid' )
-        parser.add_argument( '-s', '--newsubnet',
-                             type = hexArg,
+                             help = 'the org uuid this installer relates to',
+                             dest = 'oid' )
+        parser.add_argument( '-i', '--installerid',
+                             type = uuid.UUID,
                              required = True,
-                             help = 'new subnet to give to agents matching this rule (hex)',
-                             dest = 'newSubnet' )
-        parser.add_argument( '-o', '--neworg',
-                             type = hexArg,
+                             help = 'the installer uuid this installer uses',
+                             dest = 'iid' )
+        parser.add_argument( '-d', '--description',
+                             type = str,
                              required = True,
-                             help = 'new org to give to agents matching this rule (hex)',
-                             dest = 'newOrg' )
+                             help = 'human readable description of this installer',
+                             dest = 'description' )
+        parser.add_argument( '-f', '--installerfile',
+                             type = argparse.FileType( 'r' ),
+                             required = True,
+                             help = 'path to the installer file',
+                             dest = 'installer' )
         arguments = self.parse( parser, s )
 
         if arguments is not None:
-            self.execAndPrintResponse( self.be.hcp_relocAgent, arguments )
+            arguments.installer = arguments.installer.read()
+            self.execAndPrintResponse( self.be.hcp_addInstaller, arguments )
 
     @report_errors
-    def do_hcp_getRelocations( self, s ):
-        '''Get the list of agent reolcations.'''
+    def do_hcp_delInstaller( self, s ):
+        '''Add a whitelisted installer.'''
 
-        parser = self.getParser( 'getRelocations' )
+        parser = self.getParser( 'delInstaller' )
+        parser.add_argument( '-o', '--orgid',
+                             type = uuid.UUID,
+                             required = True,
+                             help = 'the org uuid this installer relates to',
+                             dest = 'oid' )
+        parser.add_argument( '-i', '--installerid',
+                             type = uuid.UUID,
+                             required = True,
+                             help = 'the installer uuid this installer uses',
+                             dest = 'iid' )
+        parser.add_argument( '-c', '--hash',
+                             type = str,
+                             required = True,
+                             help = 'the hash of the installer',
+                             dest = 'hash' )
         arguments = self.parse( parser, s )
 
         if arguments is not None:
-            self.execAndPrintResponse( self.be.hcp_getRelocations, arguments )
+            self.execAndPrintResponse( self.be.hcp_delInstaller, arguments )
 
+    @report_errors
+    def do_hcp_getInstallers( self, s ):
+        '''Add a whitelisted installer.'''
 
+        parser = self.getParser( 'getInstallers' )
+        parser.add_argument( '-o', '--orgid',
+                             type = uuid.UUID,
+                             required = False,
+                             help = 'the org uuid this installer relates to',
+                             dest = 'oid' )
+        parser.add_argument( '-i', '--installerid',
+                             type = uuid.UUID,
+                             required = False,
+                             help = 'the installer uuid this installer uses',
+                             dest = 'iid' )
+        arguments = self.parse( parser, s )
 
-
+        if arguments is not None:
+            self.execAndPrintResponse( self.be.hcp_getInstallers, arguments )
 
     #===========================================================================
     #   HBS COMMANDS

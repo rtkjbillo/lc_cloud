@@ -58,31 +58,14 @@ class BEAdmin( object ):
     
     def hcp_getAgentStates( self, aid = None, hostname = None ):
         filters = {}
-        if aid != None:
-            filters[ 'agent_id' ] = aid
-        if hostname != None:
+        if aid is not None:
+            filters[ 'aid' ] = aid
+        if hostname is not None:
             filters[ 'hostname' ] = hostname
         return self._query( 'hcp.get_agent_states', filters )
     
-    def hcp_getEnrollmentRules( self ):
-        return self._query( 'hcp.get_enrollment_rules' )
-    
-    def hcp_addEnrollmentRule( self, mask, externalIp, internalIp, newOrg, newSubnet, hostname ):
-        return self._query( 'hcp.add_enrollment_rule', { 'mask' : mask,
-                                                         'external_ip' : externalIp,
-                                                         'internal_ip' : internalIp,
-                                                         'new_org' : newOrg,
-                                                         'new_subnet' : newSubnet,
-                                                         'hostname' : hostname } )
-    
-    def hcp_delEnrollmentRule( self, mask, externalIp, internalIp, hostname ):
-        return self._query( 'hcp.del_enrollment_rule', { 'mask' : mask,
-                                                         'external_ip' : externalIp,
-                                                         'internal_ip' : internalIp,
-                                                         'hostname' : hostname } )
-    
-    def hcp_getTaskings( self ):
-        return self._query( 'hcp.get_taskings' )
+    def hcp_getTaskings( self, oid = None ):
+        return self._query( 'hcp.get_taskings', { 'oid' : oid } )
     
     def hcp_addTasking( self, mask, moduleId, hashStr ):
         return self._query( 'hcp.add_tasking', { 'mask' : mask, 'module_id' : int( moduleId ), 'hash' : hashStr } )
@@ -98,17 +81,18 @@ class BEAdmin( object ):
     
     def hcp_delModule( self, moduleId, hashStr ):
         return self._query( 'hcp.remove_module', { 'module_id' : moduleId, 'hash' : hashStr } )
+
+    def hcp_getInstallers( self, oid = None, iid = None, withContent = False ):
+        return self._query( 'hcp.get_installers', { 'with_content' : withContent, 'oid' : oid, 'iid' : iid } )
     
-    def hcp_relocAgent( self, agentid, newOrg, newSubnet ):
-        return self._query( 'hcp.reloc_agent', { 'agentid' : agentid,
-                                                 'new_org' : newOrg,
-                                                 'new_subnet' : newSubnet } )
+    def hcp_addInstaller( self, oid, iid, description, installer ):
+        return self._query( 'hcp.add_installer', { 'oid' : oid, 'iid' : iid, 'description' : description, 'installer' : installer } )
     
-    def hcp_getRelocations( self ):
-        return self._query( 'hcp.get_relocations' )
+    def hcp_delInstaller( self, oid, iid, hash ):
+        return self._query( 'hcp.remove_installer', { 'oid' : oid, 'iid' : iid, 'hash' : hash } )
     
-    def hbs_getProfiles( self ):
-        return self._query( 'hbs.get_profiles' )
+    def hbs_getProfiles( self, oid = None ):
+        return self._query( 'hbs.get_profiles', { 'oid' : oid } )
     
     def hbs_addProfile( self, mask, config ):
         return self._query( 'hbs.set_profile', { 'mask' : mask, 'module_configs' : config } )
@@ -119,8 +103,6 @@ class BEAdmin( object ):
     def hbs_taskAgent( self, toAgent, task, key, id, expiry = None, investigationId = None ):
         # Make sure it's a valid agentid
         a = AgentId( toAgent )
-        if not a.isValid:
-            return None
         if not type( task ) is rSequence:
             return None
         s = Signing( key )
@@ -131,11 +113,11 @@ class BEAdmin( object ):
         if investigationId is not None and '' != investigationId:
             task.addStringA( tags.hbs.INVESTIGATION_ID, investigationId )
         
-        toSign = ( rSequence().addSequence( tags.base.HCP_ID, rSequence().addInt8( tags.base.HCP_ID_ORG, a.org )
-                                                                         .addInt8( tags.base.HCP_ID_SUBNET, a.subnet )
-                                                                         .addInt32( tags.base.HCP_ID_UNIQUE, a.unique )
-                                                                         .addInt8( tags.base.HCP_ID_PLATFORM, a.platform )
-                                                                         .addInt8( tags.base.HCP_ID_CONFIG, a.config ) )
+        toSign = ( rSequence().addSequence( tags.base.HCP_IDENT, rSequence().addInt8( tags.base.HCP_SENSOR_ID, a.sensor_id )
+                                                                            .addInt8( tags.base.HCP_ORG_ID, a.org_id )
+                                                                            .addInt32( tags.base.HCP_INSTALLER_ID, a.ins_id )
+                                                                            .addInt8( tags.base.HCP_ARCHITECTURE, a.architecture )
+                                                                            .addInt8( tags.base.HCP_PLATFORM, a.platform ) )
                               .addSequence( tags.hbs.NOTIFICATION, task )
                               .addInt32( tags.hbs.NOTIFICATION_ID, id ) )
         if None != expiry:
@@ -146,4 +128,4 @@ class BEAdmin( object ):
         final = r.serialise( rSequence().addBuffer( tags.base.BINARY, toSign )
                                         .addBuffer( tags.base.SIGNATURE, sig ) )
         
-        return self._query( 'hbs.task_agent', { 'task' : final, 'agentid' : str( a ), 'expiry' : expiry } )
+        return self._query( 'hbs.task_agent', { 'task' : final, 'aid' : str( a ), 'expiry' : expiry } )

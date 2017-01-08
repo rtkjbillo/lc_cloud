@@ -21,11 +21,12 @@ import smtplib
 class PagingActor( Actor ):
     def init( self, parameters, resources ):
         self.fromAddr = parameters.get( 'from', None )
+        self.user = parameters.get( 'user', None )
         self.password = parameters.get( 'password', None )
         self.smtpServer = parameters.get( 'smtp_server', 'smtp.gmail.com' )
         self.smtpPort = parameters.get( 'smtp_port', '587' )
         self.handle( 'page', self.page )
-        if self.fromAddr is None or self.password is None:
+        if self.user is None or self.password is None:
             self.logCritical( 'missing user or password' )
 
     def deinit( self ):
@@ -52,7 +53,7 @@ class PagingActor( Actor ):
         content_html = message.replace( '\n', '<br/>' )
 
         msg[ 'To' ] = dest
-        msg[ 'From' ] = self.fromAddr
+        msg[ 'From' ] = self.fromAddr if self.fromAddr is not None else self.user
         msg[ 'Subject' ] = subject
         msg.attach( MIMEText( content_text, 'plain' ) )
         msg.attach( MIMEText( content_html, 'html' ) )
@@ -60,5 +61,5 @@ class PagingActor( Actor ):
         smtp = smtplib.SMTP( self.smtpServer, self.smtpPort )
         smtp.ehlo()
         smtp.starttls()
-        smtp.login( self.fromAddr, self.password )
-        smtp.sendmail( self.fromAddr, dest, msg.as_string() )
+        smtp.login( self.user, self.password )
+        smtp.sendmail( self.user, dest, msg.as_string() )

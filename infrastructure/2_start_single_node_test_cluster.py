@@ -85,3 +85,10 @@ printStep( 'Starting the LIMA CHARLIE web interface on port 8888 (in a screen).'
 
 printStep( 'Starting the BEACH REST interface on port 8889 (in a screen).',
     os.system( 'screen -d -m python -m beach.restbridge 8889 %s hcp'% ( beachCluster, ) ) )
+
+printStep( 'Starting the LC Endpoint Proxy interface on port 9090 (in a screen).',
+    os.system( 'screen -d -m python %s -c %s -l 0.0.0.0:9090'% ( os.path.join( root,
+                                                                               'cloud',
+                                                                               'standalone',
+                                                                               'endpoint_proxy.py' ),
+                                                                 beachCluster, ) ) )

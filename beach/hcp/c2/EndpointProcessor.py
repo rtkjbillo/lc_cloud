@@ -26,6 +26,7 @@ import hashlib
 import random
 import traceback
 import time
+import netifaces
 rpcm = Actor.importLib( 'utils/rpcm', 'rpcm' )
 rList = Actor.importLib( 'utils/rpcm', 'rList' )
 rSequence = Actor.importLib( 'utils/rpcm', 'rSequence' )
@@ -166,10 +167,17 @@ class EndpointProcessor( Actor ):
     def init( self, parameters, resources ):
         self.handlerPortStart = parameters.get( 'handler_port_start', 10000 )
         self.handlerPortEnd = parameters.get( 'handler_port_end', 20000 )
-        self.bindAddress = parameters.get( 'handler_address', ' 0.0.0.0' )
+        self.bindAddress = parameters.get( 'handler_address', '0.0.0.0' )
+        self.bindInterface = parameters.get( 'handler_interface', None )
         self.privateKey = M2Crypto.RSA.load_key_string( parameters[ '_priv_key' ] )
-        self.deploymentToken = parameters.get( 'deployment_token', None )
-        self.enrollmentKey = parameters.get( 'enrollment_key', 'DEFAULT_HCP_ENROLLMENT_TOKEN' )
+        
+
+        if self.bindInterface is not None:
+            ip4 = self.getIpv4ForIface( self.bindInterface )
+            if ip4 is not None:
+                self.bindAddress = ip4
+        elif '0.0.0.0' == self.bindAddress:
+            self.bindAddress = self.getIpv4ForIface( self.getPublicInterfaces()[ 0 ] )
 
         self.r = rpcm( isHumanReadable = True )
         self.r.loadSymbols( Symbols.lookups )
@@ -177,9 +185,11 @@ class EndpointProcessor( Actor ):
         self.analyticsIntake = self.getActorHandle( resources[ 'analytics' ] )
         self.enrollmentManager = self.getActorHandle( resources[ 'enrollments' ] )
         self.stateChanges = self.getActorHandleGroup( resources[ 'states' ] )
+        self.sensorDir = self.getActorHandle( resources[ 'sensordir' ] )
         self.moduleManager = self.getActorHandle( resources[ 'module_tasking' ] )
         self.hbsProfileManager = self.getActorHandle( resources[ 'hbs_profiles' ] )
         self.handle( 'task', self.taskClient )
+        self.handle( 'report', self.report )
 
         self.server = None
         self.serverPort = random.randint( self.handlerPortStart, self.handlerPortEnd )
@@ -206,6 +216,29 @@ class EndpointProcessor( Actor ):
                 break
             except:
                 self.serverPort = random.randint( self.handlerPortStart, self.handlerPortEnd )
+
+    def getIpv4ForIface( self, iface ):
+        ip = None
+        try:
+            ip = netifaces.ifaddresses( iface )[ netifaces.AF_INET ][ 0 ][ 'addr' ]
+        except:
+            ip = None
+        return ip
+
+    def getPublicInterfaces( self ):
+        interfaces = []
+
+        for iface in netifaces.interfaces():
+            ipv4s = netifaces.ifaddresses( iface ).get( netifaces.AF_INET, [] )
+            for entry in ipv4s:
+                addr = entry.get( 'addr' )
+                if not addr:
+                    continue
+                if not ( iface.startswith( 'lo' ) or addr.startswith( '127.' ) ):
+                    interfaces.append( iface )
+                    break
+
+        return interfaces
 
     #==========================================================================
     # Client Handling
@@ -239,19 +272,16 @@ class EndpointProcessor( Actor ):
             hostName = headers.get( 'base.HOST_NAME', None )
             internalIp = headers.get( 'base.IP_ADDRESS', None )
             externalIp = address[ 0 ]
-            headerDeployment = headers.get( 'hcp.DEPLOYMENT_KEY', None )
-            if self.deploymentToken is not None and headerDeployment != self.deploymentToken:
-                raise DisconnectException( 'Sensor does not belong to this deployment' )
-            aid = AgentId( headers[ 'base.HCP_ID' ] )
-            if not aid.isValid or aid.isWildcarded():
+            aid = AgentId( headers[ 'base.HCP_IDENT' ] )
+            if aid.org_id is None or aid.ins_id is None or aid.platform is None or aid.architecture is None:
                 aidInfo = str( aid )
                 if 0 == len( aidInfo ):
                     aidInfo = str( headers )
                 raise DisconnectException( 'Invalid sensor id: %s' % aidInfo )
-            enrollmentToken = headers.get( 'hcp.ENROLLMENT_TOKEN', None )
-            if 0 == aid.unique:
+
+            if aid.sensor_id is None:
                 self.log( 'Sensor requires enrollment' )
-                resp = self.enrollmentManager.request( 'enroll', { 'aid' : aid.invariableToString(),
+                resp = self.enrollmentManager.request( 'enroll', { 'aid' : aid.asString(),
                                                                    'public_ip' : externalIp,
                                                                    'internal_ip' : internalIp,
                                                                    'host_name' : hostName },
@@ -259,42 +289,46 @@ class EndpointProcessor( Actor ):
                 if not resp.isSuccess or 'aid' not in resp.data or resp.data[ 'aid' ] is None:
                     raise DisconnectException( 'Sensor could not be enrolled, come back later' )
                 aid = AgentId( resp.data[ 'aid' ] )
-                enrollmentToken = hashlib.md5( '%s/%s' % ( aid.invariableToString(), 
-                                                           self.enrollmentKey ) ).digest()
-                self.log( 'Sending sensor enrollment to %s' % aid.invariableToString() )
+                enrollmentToken = resp.data[ 'token' ]
+                self.log( 'Sending sensor enrollment to %s' % aid.asString() )
                 c.sendFrame( HcpModuleId.HCP,
                              ( rSequence().addInt8( Symbols.base.OPERATION, 
                                                     HcpOperations.SET_HCP_ID )
-                                          .addSequence( Symbols.base.HCP_ID, 
+                                          .addSequence( Symbols.base.HCP_IDENT, 
                                                         aid.toJson() )
                                           .addBuffer( Symbols.hcp.ENROLLMENT_TOKEN, 
                                                       enrollmentToken ), ) )
             else:
-                expectedEnrollmentToken = hashlib.md5( '%s/%s' % ( aid.invariableToString(), 
-                                                                   self.enrollmentKey ) ).digest()
-                if enrollmentToken != expectedEnrollmentToken:
-                    raise DisconnectException( 'Enrollment token invalid' )
+                enrollmentToken = headers.get( 'hcp.ENROLLMENT_TOKEN', None )
+                resp = self.enrollmentManager.request( 'authorize', { 'aid' : aid.asString(), 
+                                                                      'token' : enrollmentToken }, timeout = 10 )
+                if not resp.isSuccess or not resp.data.get( 'is_authorized', False ):
+                    raise DisconnectException( 'Could not authorize %s' % aid )
+
             self.log( 'Valid client connection' )
 
             # Eventually sync the clocks at recurring intervals
             c.sendFrame( HcpModuleId.HCP, ( self.timeSyncMessage(), ) )
 
             c.setAid( aid )
-            self.currentClients[ aid.invariableToString() ] = c
-            self.stateChanges.shoot( 'live', { 'aid' : aid.invariableToString(), 
-                                               'endpoint' : self.name,
-                                               'ext_ip' : externalIp,
-                                               'int_ip' : internalIp,
-                                               'hostname' : hostName } )
+            self.currentClients[ aid.sensor_id ] = c
+            newStateMsg = { 'aid' : aid.asString(), 
+                            'endpoint' : self.name,
+                            'ext_ip' : externalIp,
+                            'int_ip' : internalIp,
+                            'hostname' : hostName }
+            self.stateChanges.shoot( 'live', newStateMsg )
+            self.sensorDir.broadcast( 'live', newStateMsg )
+            del( newStateMsg )
 
-            self.log( 'Client %s registered, beginning to receive data' % str( aid ) )
+            self.log( 'Client %s registered, beginning to receive data' % aid.asString() )
             frameIndex = 0
             while True:
                 moduleId, messages, nRawBytes = c.recvFrame( timeout = 60 * 60 )
                 tmpBytesReceived += nRawBytes
                 if 100 == frameIndex:
-                    self.stateChanges.shoot( 'transfered', { 'aid' : aid.invariableToString(), 
-                                             'bytes_transfered' : tmpBytesReceived } )
+                    self.sensorDir.broadcast( 'transfered', { 'aid' : aid.asString(), 
+                                                              'bytes_transfered' : tmpBytesReceived } )
                     tmpBytesReceived = 0
                     frameIndex = 0
                 else:
@@ -315,13 +349,16 @@ class EndpointProcessor( Actor ):
                 self.log( 'Disconnecting: %s' % str( e ) )
         finally:
             if aid is not None:
-                if aid.invariableToString() in self.currentClients:
-                    del( self.currentClients[ aid.invariableToString() ] )
-                    self.stateChanges.shoot( 'transfered', { 'aid' : aid.invariableToString(), 
-                                             'bytes_transfered' : tmpBytesReceived } )
-                    self.stateChanges.shoot( 'dead', { 'aid' : aid.invariableToString(), 
-                                                       'endpoint' : self.name } )
-                self.log( 'Connection terminated: %s' % aid.invariableToString() )
+                if aid.sensor_id in self.currentClients:
+                    del( self.currentClients[ aid.sensor_id ] )
+                    self.sensorDir.broadcast( 'transfered', { 'aid' : aid.asString(), 
+                                                              'bytes_transfered' : tmpBytesReceived } )
+                    newStateMsg = { 'aid' : aid.asString(), 
+                                    'endpoint' : self.name }
+                    self.stateChanges.shoot( 'dead', newStateMsg )
+                    self.sensorDir.broadcast( 'dead', newStateMsg )
+                    del( newStateMsg )
+                self.log( 'Connection terminated: %s' % aid.asString() )
             else:
                 self.log( 'Connection terminated: %s:%s' % address )
 
@@ -385,10 +422,10 @@ class EndpointProcessor( Actor ):
                             self.log( "sync profile sent to %s" % c.getAid() )
                             
             # Transmit the message to the analytics cloud.
-            routing = { 'agentid' : c.getAid(),
+            routing = { 'aid' : c.getAid(),
                         'moduleid' : HcpModuleId.HBS,
                         'event_type' : message.keys()[ 0 ],
-                        'event_id' : hashlib.sha256( str( uuid.uuid4() ) ).hexdigest() }
+                        'event_id' : uuid.uuid4() }
             invId = message.values()[ 0 ].get( 'hbs.INVESTIGATION_ID', None )
             if invId is not None:
                 routing[ 'investigation_id' ] = invId
@@ -401,10 +438,10 @@ class EndpointProcessor( Actor ):
                                            int( time.time() ) ) )
 
     def taskClient( self, msg ):
-        aid = AgentId( msg.data[ 'aid' ] ).invariableToString()
+        aid = AgentId( msg.data[ 'aid' ] )
         messages = msg.data[ 'messages' ]
         moduleId = msg.data[ 'module_id' ]
-        c = self.currentClients.get( aid, None )
+        c = self.currentClients.get( aid.sensor_id, None )
         if c is not None:
             outMessages = []
             r = rpcm( isHumanReadable = False, isDebug = self.log, isDetailedDeserialize = True )
@@ -415,3 +452,6 @@ class EndpointProcessor( Actor ):
             return ( True, )
         else:
             return ( False, )
+
+    def report( self, msg ):
+        return ( True, { 'address' : self.bindAddress, 'port' : self.serverPort } )

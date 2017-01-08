@@ -81,6 +81,7 @@ print( 'Download prefixtree (expected to fail).' )
 os.system( 'pip download prefixtree' )
 
 printStep( 'Installing prefixtree.',
+    os.system( 'pip install --upgrade pip' ),
     os.system( 'pip install distribute' ),
     os.system( 'tar xzf *prefixtree*.tar.gz' ),
     os.system( 'rm *prefixtree*.tar.gz' ),
@@ -114,7 +115,7 @@ printStep( 'Installing pip packages for various analytics components.',
     os.system( 'pip install time_uuid cassandra-driver==3.7.1 virustotal' ),
     os.system( 'pip install ipaddress' ) )
 
-printStep( 'Installing Yara.',
+printStep( 'Installing Yara.',c
     os.system( 'git clone https://github.com/refractionPOINT/yara.git' ),
     os.chdir( 'yara' ),
     os.system( './bootstrap.sh' ),
@@ -127,7 +128,7 @@ printStep( 'Installing Yara.',
     os.system( 'python setup.py build' ),
     os.system( 'python setup.py install' ),
     os.chdir( '..' ),
-    os.system( 'echo "/usr/local/lib" >> /etc/ld.so.conf' ),
+    os.system( 'c' ),
     os.system( 'ldconfig' ) )
 
 printStep( 'Setting up host file entries for databases locally.',

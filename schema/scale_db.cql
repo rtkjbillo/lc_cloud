@@ -3,40 +3,77 @@ CREATE KEYSPACE "hcp_analytics" WITH REPLICATION = { 'class' : 'SimpleStrategy',
 use hcp_analytics;
 
 CREATE TABLE sensor_states(
-  org int,
-  subnet int,
-  unique int,
-  platform int,
+  sid uuid,
+  oid uuid,
+  iid uuid,
+  plat int,
+  arch int,
   enroll timestamp,
   alive timestamp,
   dead timestamp,
   ext_ip varchar,
   int_ip varchar,
   hostname varchar,
-  PRIMARY KEY( org, subnet, unique, platform )
+  PRIMARY KEY( sid )
 ) WITH compaction = { 'class' : 'DateTieredCompactionStrategy' } AND gc_grace_seconds = 86400;
+CREATE INDEX ON sensor_states ( oid );
+
+CREATE TABLE org_sensors(
+  oid uuid,
+  iid uuid,
+  sid uuid,
+  PRIMARY KEY( oid, iid, sid )
+) WITH compaction = { 'class' : 'SizeTieredCompactionStrategy' } AND gc_grace_seconds = 86400;
+
+CREATE TABLE org_info(
+  oid uuid,
+  name varchar,
+  ttl_events int,
+  ttl_long_obj int,
+  ttl_short_obj int,
+  ttl_atoms int,
+  ttl_detections int,
+  PRIMARY KEY( oid )
+) WITH compaction = { 'class' : 'SizeTieredCompactionStrategy' } AND gc_grace_seconds = 86400;
+
+CREATE TABLE user_info(
+  email varchar,
+  uid uuid,
+  salt varchar,
+  salted_password varchar,
+  is_deleted boolean,
+  must_change_password boolean,
+  confirmation_token varchar,
+  totp_secret varchar,
+  PRIMARY KEY( email )
+) WITH compaction = { 'class' : 'SizeTieredCompactionStrategy' } AND gc_grace_seconds = 86400;
+CREATE INDEX ON user_info ( uid );
+
+CREATE TABLE org_membership(
+  uid uuid,
+  oid uuid,
+  PRIMARY KEY( oid, uid )
+) WITH compaction = { 'class' : 'SizeTieredCompactionStrategy' } AND gc_grace_seconds = 86400;
+CREATE INDEX ON org_membership ( uid );
+
+CREATE TABLE sensor_tags(
+  sid uuid,
+  tag varchar,
+  uid uuid,
+  added timestamp,
+  PRIMARY KEY( sid, tag )
+) WITH compaction = { 'class' : 'SizeTieredCompactionStrategy' } AND gc_grace_seconds = 86400;
+
+CREATE TABLE tags(
+  tag varchar,
+  sid uuid,
+  PRIMARY KEY( tag, sid )
+) WITH compaction = { 'class' : 'SizeTieredCompactionStrategy' } AND gc_grace_seconds = 86400;
 
 CREATE TABLE sensor_hostnames(
   hostname varchar,
-  aid varchar,
-  PRIMARY KEY( hostname, aid )
-) WITH compaction = { 'class' : 'DateTieredCompactionStrategy' } AND gc_grace_seconds = 86400;
-
-CREATE TABLE enrollment(
-  aid varchar,
-  ext_ip varchar,
-  int_ip varchar,
-  hostname varchar,
-  new_org int,
-  new_subnet int,
-  PRIMARY KEY( aid, ext_ip, int_ip, hostname )
-) WITH compaction = { 'class' : 'DateTieredCompactionStrategy' } AND gc_grace_seconds = 86400;
-
-CREATE TABLE sensor_reloc(
-  aid varchar,
-  new_org int,
-  new_subnet int,
-  PRIMARY KEY( aid )
+  sid uuid,
+  PRIMARY KEY( hostname, sid )
 ) WITH compaction = { 'class' : 'DateTieredCompactionStrategy' } AND gc_grace_seconds = 86400;
 
 CREATE TABLE hcp_modules(
@@ -55,6 +92,16 @@ CREATE TABLE hcp_module_tasking(
   PRIMARY KEY( aid, mid, mhash )
 ) WITH compaction = { 'class' : 'DateTieredCompactionStrategy' } AND gc_grace_seconds = 86400;
 
+CREATE TABLE hcp_installers(
+  oid uuid,
+  iid uuid,
+  ihash varchar,
+  description varchar,
+  created timestamp,
+  data blob,
+  PRIMARY KEY( oid, iid, ihash )
+) WITH compaction = { 'class' : 'SizeTieredCompactionStrategy' } AND gc_grace_seconds = 86400;
+
 CREATE TABLE hbs_profiles(
   aid varchar,
   cprofile blob,
@@ -64,32 +111,32 @@ CREATE TABLE hbs_profiles(
 ) WITH compaction = { 'class' : 'DateTieredCompactionStrategy' } AND gc_grace_seconds = 86400;
 
 CREATE TABLE hbs_queue(
-  aid varchar,
+  sid uuid,
   task blob,
-  PRIMARY KEY( aid, task )
+  PRIMARY KEY( sid, task )
 ) WITH compaction = { 'class' : 'DateTieredCompactionStrategy' } AND gc_grace_seconds = 86400;
 
 CREATE TABLE events(
-  eventid varchar,
+  eventid uuid,
   event varchar,
-  agentid varchar,
+  sid uuid,
   PRIMARY KEY( eventid )
 ) WITH compaction = { 'class' : 'DateTieredCompactionStrategy' } AND gc_grace_seconds = 86400;
 
 CREATE TABLE timeline(
-  agentid varchar,
+  sid uuid,
   ts timeuuid,
   eventtype varchar,
-  eventid varchar,
-  PRIMARY KEY( agentid, ts )
+  eventid uuid,
+  PRIMARY KEY( sid, ts )
 ) WITH compaction = { 'class' : 'DateTieredCompactionStrategy' } AND gc_grace_seconds = 86400;
 
 CREATE TABLE timeline_by_type(
-  agentid varchar,
+  sid uuid,
   ts timeuuid,
   eventtype varchar,
-  eventid varchar,
-  PRIMARY KEY( agentid, eventtype, ts )
+  eventid uuid,
+  PRIMARY KEY( sid, eventtype, ts )
 ) WITH compaction = { 'class' : 'DateTieredCompactionStrategy' } AND gc_grace_seconds = 86400;
 
 CREATE TABLE obj_man
@@ -109,23 +156,30 @@ CREATE TABLE obj_name
   PRIMARY KEY( obj, id )
 ) WITH compaction = { 'class' : 'SizeTieredCompactionStrategy' } AND gc_grace_seconds = 86400;
 
+CREATE TABLE obj_org
+(
+  id varchar,
+  oid uuid,
+  PRIMARY KEY( id, oid )
+) WITH compaction = { 'class' : 'SizeTieredCompactionStrategy' } AND gc_grace_seconds = 86400;
+
 CREATE TABLE loc
 (
   id varchar,
-  aid varchar,
+  sid uuid,
 
   otype int,
   last timestamp,
 
-  PRIMARY KEY( aid, otype, id )
+  PRIMARY KEY( sid, otype, id )
 ) WITH compaction = { 'class' : 'LeveledCompactionStrategy' } AND gc_grace_seconds = 86400;
 
 CREATE TABLE loc_by_id
 (
   id varchar,
-  aid varchar,
+  sid uuid,
   last timestamp,
-  PRIMARY KEY( id, aid )
+  PRIMARY KEY( id, sid )
 ) WITH compaction = { 'class' : 'LeveledCompactionStrategy' } AND gc_grace_seconds = 86400;
 
 CREATE TABLE loc_by_type
@@ -133,8 +187,8 @@ CREATE TABLE loc_by_type
   d256 int,
   otype int,
   id varchar,
-  aid varchar,
-  PRIMARY KEY( d256, otype, id, aid )
+  sid uuid,
+  PRIMARY KEY( d256, otype, id, sid )
 ) WITH compaction = { 'class' : 'LeveledCompactionStrategy' } AND gc_grace_seconds = 86400;
 
 CREATE TABLE rel_man_parent
@@ -157,17 +211,17 @@ CREATE TABLE rel_man_child
 
 CREATE TABLE recentlyActive
 (
-  agentid varchar,
+  sid uuid,
   last timestamp,
-  PRIMARY KEY( agentid )
+  PRIMARY KEY( sid )
 ) WITH compaction = { 'class' : 'LeveledCompactionStrategy' } AND gc_grace_seconds = 86400;
 
 CREATE TABLE last_events
 (
-  agentid varchar,
+  sid uuid,
   type varchar,
-  id varchar,
-  PRIMARY KEY( agentid, type )
+  id uuid,
+  PRIMARY KEY( sid, type )
 ) WITH compaction = { 'class' : 'LeveledCompactionStrategy' } AND gc_grace_seconds = 86400;
 
 CREATE TABLE ref_loc
@@ -215,14 +269,14 @@ CREATE TABLE atoms_children
 (
   atomid uuid,
   child uuid,
-  eid varchar,
+  eid uuid,
   PRIMARY KEY( atomid, child )
 ) WITH compaction = { 'class' : 'DateTieredCompactionStrategy' } AND gc_grace_seconds = 86400;
 
 CREATE TABLE atoms_lookup
 (
   atomid uuid,
-  eid varchar,
+  eid uuid,
   PRIMARY KEY( atomid, eid )
 ) WITH compaction = { 'class' : 'DateTieredCompactionStrategy' } AND gc_grace_seconds = 86400;
 
@@ -230,7 +284,7 @@ CREATE TABLE investigation_data
 (
   invid varchar,
   ts timeuuid,
-  eid varchar,
+  eid uuid,
   etype varchar,
   PRIMARY KEY( invid, ts )
 ) WITH compaction = { 'class' : 'SizeTieredCompactionStrategy' } AND gc_grace_seconds = 86400;
@@ -270,4 +324,14 @@ CREATE TABLE inv_task
   sent int,
 
   PRIMARY KEY( invid, hunter, gen )
+) WITH compaction = { 'class' : 'DateTieredCompactionStrategy' } AND gc_grace_seconds = 86400;
+
+CREATE TABLE audit
+(
+  oid uuid,
+  ts timeuuid,
+  etype varchar,
+  msg varchar,
+
+  PRIMARY KEY( oid, ts, etype )
 ) WITH compaction = { 'class' : 'DateTieredCompactionStrategy' } AND gc_grace_seconds = 86400;

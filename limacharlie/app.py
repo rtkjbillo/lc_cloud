@@ -19,6 +19,7 @@ import os
 import sys
 
 from beach.beach_api import Beach
+from hcp_helpers import AgentId
 from hcp_helpers import timeToTs
 from hcp_helpers import _x_
 from hcp_helpers import _xm_
@@ -148,7 +149,7 @@ class Sensor:
         if '' != params.after:
             after = params.after
 
-        return render.sensor( info.data[ 'id' ], before, after, params.max_size, params.per_page )
+        return render.sensor( AgentId( info.data[ 'id' ] ), info.data[ 'hostname' ], before, after, params.max_size, params.per_page )
 
 class SensorState:
     @jsonApi
@@ -358,7 +359,13 @@ class JsonDetects:
         if not detects.isSuccess:
             return render.error( str( detects ) )
         else:
-            return detects.data
+            # Massage the reports a bit
+            reports = []
+            for report in detects.data[ 'reports' ]:
+                report = list( report )
+                report[ 2 ] = ' / '.join( [ str( AgentId( x ).sensor_id ) for x in report[ 2 ].split( ' / ' ) ] )
+                reports.append( report )
+            return { 'reports' : reports }
 
 class ViewDetects:
     def GET( self ):
@@ -506,6 +513,37 @@ class Capabilities:
 
         return render.capabilities( capabilities = cap )
 
+class Installer:
+    @fileDownload
+    def GET( self ):
+        params = web.input( oid = None, iid = None, hash = None )
+
+        if params.oid is None or params.iid is None or params.hash is None:
+            raise web.HTTPError( '400 Bad Request: event id required' )
+
+        info = model.request( 'get_installer', { 'oid' : params.oid, 'iid' : params.iid, 'hash' : params.hash } )
+
+        if not info.isSuccess:
+            raise web.HTTPError( '503 Service Unavailable : %s' % str( info ) )
+
+        toDownload = None
+        for installer in info.data[ 'installers' ]:
+            if ( installer[ 'oid' ].lower() == params.oid.lower() and 
+                 installer[ 'iid' ].lower() == params.iid.lower() and 
+                 installer[ 'hash' ].lower() == params.hash.lower() ):
+                toDownload = installer
+                break
+
+        if toDownload is None:
+            return render.error( 'could not find the right installer' )
+
+        downloadFileName( '%s__%s' % ( ( toDownload[ 'description' ].replace( '/', '_' )
+                                                                    .replace( '\\', '_' )
+                                                                    .replace( '.', '_' ) ),
+                                       toDownload[ 'hash' ] ) )
+
+        return toDownload[ 'data' ]
+
 ###############################################################################
 # BOILER PLATE
 ###############################################################################
@@ -530,7 +568,8 @@ urls = ( r'/', 'Index',
          r'/hostchanges', 'HostChanges',
          r'/downloadfileinevent', 'DownloadFileInEvent',
          r'/backend', 'Backend',
-         r'/capabilities', 'Capabilities' )
+         r'/capabilities', 'Capabilities',
+         r'/installer', 'Installer' )
 
 web.config.debug = False
 app = web.application( urls, globals() )
@@ -539,6 +578,7 @@ render = web.template.render( 'templates', base = 'base', globals = { 'json' : j
                                                                       'msTsToTime' : msTsToTime,
                                                                       '_x_' : _x_,
                                                                       '_xm_' : _xm_,
+                                                                      'AgentId' : AgentId,
                                                                       'hex' : hex,
                                                                       'sanitize' : sanitizeJson,
                                                                       'EventInterpreter' : EventInterpreter,
@@ -551,6 +591,7 @@ renderFullPage = web.template.render( 'templates', base = 'base_full', globals =
                                                                                    'msTsToTime' : msTsToTime,
                                                                                    '_x_' : _x_,
                                                                                    '_xm_' : _xm_,
+                                                                                   'AgentId' : AgentId,
                                                                                    'hex' : hex,
                                                                                    'sanitize' : sanitizeJson,
                                                                                    'EventInterpreter' : EventInterpreter,
@@ -562,6 +603,7 @@ eventRender = web.template.render( 'templates/custom_events', globals = { 'json'
                                                                           'msTsToTime' : msTsToTime,
                                                                           '_x_' : _x_,
                                                                           '_xm_' : _xm_,
+                                                                          'AgentId' : AgentId,
                                                                           'hex' : hex,
                                                                           'sanitize' : sanitizeJson,
                                                                           'EventInterpreter' : EventInterpreter,

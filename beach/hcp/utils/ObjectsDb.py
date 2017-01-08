@@ -166,6 +166,14 @@ def dbgprint( s ):
     sys.stderr.write( s + "\n" )
     sys.stderr.flush()
 
+def _makeUuid( val ):
+    if type( val ) is not uuid.UUID:
+        try:
+            val = uuid.UUID( val )
+        except:
+            val = uuid.UUID( bytes = val )
+    return val
+
 class HostObjects( object ):
     _db = None
     _idRe = re.compile( '^[a-zA-Z0-9]{64}$' )
@@ -193,13 +201,13 @@ class HostObjects( object ):
         def thisGen():
             for host in hosts:
                 if 0 == len( types ):
-                    for row in cls._db.execute( 'SELECT id, last FROM loc WHERE aid = %s', ( AgentId( host ).invariableToString(), ) ):
+                    for row in cls._db.execute( 'SELECT id, last FROM loc WHERE sid = %s', ( AgentId( host ).sensor_id, ) ):
                         if within is None or int( time.mktime( row[ 1 ].timetuple() ) ) >= within:
                             yield row[ 0 ]
                 else:
                     rows = []
                     for t in types:
-                        for row in cls._db.execute( 'SELECT id, last FROM loc WHERE aid = %s AND otype = %s', ( AgentId( host ).invariableToString(), cls._castType( t ) ) ):
+                        for row in cls._db.execute( 'SELECT id, last FROM loc WHERE sid = %s AND otype = %s', ( AgentId( host ).sensor_id, cls._castType( t ) ) ):
                             if within is None or int( time.mktime( row[ 1 ].timetuple() ) ) >= within:
                                 yield row[ 0 ]
 
@@ -310,31 +318,54 @@ class HostObjects( object ):
     def next( self ):
         return self._ids.next()
 
-    def info( self ):
+    def acl( self, oid = None ):
+        if oid is None:
+            return type(self)( self._ids )
+        if type( oid ) not in ( list, tuple, Set ):
+            oid = [ oid ]
+        def thisGen():
+            for ids in chunks( self._ids, self._queryChunks ):
+                for row in self._db.execute( 'SELECT id FROM obj_org WHERE id IN %s AND oid IN %s', ( ids, oid ) ):
+                    yield row[ 0 ]
 
+        return type(self)( thisGen() )
+
+    def info( self ):
         for ids in chunks( self._ids, self._queryChunks ):
             try:
-                for row in self._db.execute( 'SELECT id, obj, otype FROM obj_man WHERE id IN ( \'%s\' )' % '\',\''.join( ids ) ):
+                for row in self._db.execute( 'SELECT id, obj, otype FROM obj_man WHERE id IN %s', ( ids, ) ):
                     yield ( row[ 0 ], row[ 1 ], row[ 2 ] )
             except:
                 pass
 
-
-    def locs( self, within = None, isLocalCloudOnly = False ):
+    def locs( self, within = None, isLocalCloudOnly = False, oid = None ):
         if within is not None:
             within = int( time.time() ) - int( within )
 
+        if oid is not None and type( oid ) not in ( list, tuple, Set ):
+            oid = [ oid ]
+
         for ids in chunks( self._ids, self._queryChunks ):
-            for row in self._db.execute( 'SELECT id, aid , last FROM loc_by_id WHERE id IN ( \'%s\' )' % '\',\''.join( ids ) ):
-                ts = self._db.timeToMsTs( row[ 2 ] )
-                if within is None:
-                    yield ( row[ 0 ], row[ 1 ], ts )
+            for rows in chunks( self._db.execute( 'SELECT id, sid, last FROM loc_by_id WHERE id IN %s', ( ids, ) ), self._queryChunks ):
+                if oid is not None:
+                    validSids = Set()
+                    for tmpSid, tmpOid in self._db.execute( 'SELECT sid, oid FROM sensor_states WHERE sid IN %s', ( [ x[ 1 ] for x in rows ], ) ):
+                        if tmpOid in oid:
+                            validSids.add( tmpSid )
                 else:
-                    if ts >= within:
+                    validSids = Set( x[ 1 ] for x in rows )
+                for row in rows:
+                    if row[ 1 ] not in validSids:
+                        continue
+                    ts = self._db.timeToMsTs( row[ 2 ] )
+                    if within is None:
                         yield ( row[ 0 ], row[ 1 ], ts )
+                    else:
+                        if ts >= within:
+                            yield ( row[ 0 ], row[ 1 ], ts )
             if within is None and isLocalCloudOnly is not True:
                 ts = 0
-                for row in self._db.execute( 'SELECT id, plat, nloc FROM ref_loc WHERE id IN ( \'%s\' )' % '\',\''.join( ids ) ):
+                for row in self._db.execute( 'SELECT id, plat, nloc FROM ref_loc WHERE id IN %s', ( ids, ) ):
                     for i in range( 1, row[ 2 ] if row[ 2 ] < 100000 else 100000 ):
                         yield ( row[ 0 ], 'ff.ff.%x.%x' % ( i, row[ 1 ] ), ts )
 
@@ -345,7 +376,7 @@ class HostObjects( object ):
 
         def thisGen():
             for ids in chunks( self._ids, self._queryChunks ):
-                for row in self._db.execute( 'SELECT cid FROM rel_man_parent WHERE parentkey IN ( \'%s\' )%s' % ( '\',\''.join( ids ), withType ) ):
+                for row in self._db.execute( 'SELECT cid FROM rel_man_parent WHERE parentkey IN %%s%s' % ( withType, ), ( ids, ) ):
                     yield row[ 0 ]
 
         return type(self)( thisGen() )
@@ -366,7 +397,7 @@ class HostObjects( object ):
 
         def thisGen():
             for ids in chunks( self._ids, self._queryChunks ):
-                for row in self._db.execute( 'SELECT pid FROM rel_man_child WHERE childkey IN ( \'%s\' )%s' % ( '\',\''.join( ids ), withType ) ):
+                for row in self._db.execute( 'SELECT pid FROM rel_man_child WHERE childkey IN %%s%s' % ( withType, ), ( ids, ) ):
                     yield row[ 0 ]
 
         return type(self)( thisGen() )
@@ -383,9 +414,9 @@ class HostObjects( object ):
     def lastSeen( self, forAgents = None ):
         if forAgents is not None and type( forAgents ) is not tuple and type( forAgents ) is not list:
             forAgents = ( forAgents, )
-        forAgents = [ x.invariableToString() for x in forAgents ]
+        forAgents = [ x.sensor_id for x in forAgents ]
         for ids in chunks( self._ids, self._queryChunks ):
-            for row in self._db.execute( 'SELECT id, aid, last FROM loc_by_id WHERE id IN ( \'%s\' )' % '\',\''.join( ids ) ):
+            for row in self._db.execute( 'SELECT id, sid, last FROM loc_by_id WHERE id IN %s', ( ids, ) ):
                 if forAgents is not None:
                     if row[ 1 ] not in forAgents:
                         continue
@@ -417,7 +448,9 @@ class Host( object ):
     def getSpecificEvent( self, id ):
         record = None
 
-        event = self._db.getOne( 'SELECT agentid, event FROM events WHERE eventid = %s', ( id, ) )
+        id = _makeUuid( id )
+
+        event = self._db.getOne( 'SELECT sid, event FROM events WHERE eventid = %s', ( id, ) )
         if event is not None:
             record = ( id, event[ 0 ], event[ 1 ] )
 
@@ -427,7 +460,7 @@ class Host( object ):
     def getSpecificEvents( self, ids ):
         records = []
 
-        events = self._db.execute( 'SELECT eventid, agentid, event FROM events WHERE eventid IN ( \'%s\' )' % ( '\',\''.join( ids ), ) )
+        events = self._db.execute( 'SELECT eventid, sid, event FROM events WHERE eventid IN %s', ( [ _makeUuid( x ) for x in ids ], ) )
         if events is not None:
             for event in events:
                 records.append( ( event[ 0 ], event[ 1 ], event[ 2 ] ) )
@@ -438,9 +471,10 @@ class Host( object ):
         if type( agentid  ) is not AgentId:
             agentid = AgentId( agentid )
         self.aid = agentid
+        self.sid = agentid.sensor_id
 
     def __str__( self ):
-        return str( self.aid )
+        return str( self.sid )
 
     def isOnline( self ):
         isOnline = False
@@ -451,11 +485,24 @@ class Host( object ):
         
         return isOnline
 
+    def getFullAid( self ):
+        aid = None
+        res = self._db.getOne( 'SELECT oid, iid, sid, plat, arch FROM sensor_states WHERE sid = %s', ( self.sid, ) )
+        if res:
+            aid = AgentId( ( res[ 0 ], res[ 1 ], res[ 2 ], res[ 3 ], res[ 4 ] ) )
+        return aid
+
+    def getLastIps( self ):
+        ips = None
+        res = self._db.getOne( 'SELECT ext_ip, int_ip FROM sensor_states WHERE sid = %s', ( self.sid, ) )
+        if res:
+            ips = ( res[ 0 ], res[ 1 ] )
+        return ips
+
     def getHostName( self ):
         hostname = None
 
-        aid = str( self.aid )
-        info = self._be.hcp_getAgentStates( aid = aid )
+        info = self._be.hcp_getAgentStates( aid = self.sid )
         if info.isSuccess and 'agents' in info.data and 0 != len( info.data[ 'agents' ] ):
             info = info.data[ 'agents' ].values()[ 0 ]
             hostname = info[ 'last_hostname' ]
@@ -467,18 +514,18 @@ class Host( object ):
 
         whereTs = ''
         filters = []
-        filters.append( self.aid.invariableToString() )
+        filters.append( self.sid )
         if within is not None:
             ts = tsToTime( int( within ) )
             whereTs = ' AND ts >= minTimeuuid(%s)'
             filters.append( ts )
 
-        results = self._db.execute( 'SELECT unixTimestampOf( ts ) FROM timeline WHERE agentid = %%s AND eventtype = \'hbs.NOTIFICATION_STARTING_UP\'%s' % whereTs, filters )
+        results = self._db.execute( 'SELECT unixTimestampOf( ts ) FROM timeline WHERE sid = %%s AND eventtype = \'hbs.NOTIFICATION_STARTING_UP\'%s' % whereTs, filters )
         if results is not None:
             for result in results:
                 statuses.append( ( result[ 0 ], True ) )
 
-        results = self._db.execute( 'SELECT unixTimestampOf( ts ) FROM timeline WHERE agentid = %%s AND eventtype = \'hbs.NOTIFICATION_SHUTTING_DOWN\'%s' % whereTs, filters )
+        results = self._db.execute( 'SELECT unixTimestampOf( ts ) FROM timeline WHERE sid = %%s AND eventtype = \'hbs.NOTIFICATION_SHUTTING_DOWN\'%s' % whereTs, filters )
         if results is not None:
             for result in results:
                 statuses.append( ( result[ 0 ], False ) )
@@ -491,8 +538,8 @@ class Host( object ):
         filters = []
         filterValues = []
 
-        filters.append( 'agentid = %s' )
-        filterValues.append( self.aid.invariableToString() )
+        filters.append( 'sid = %s' )
+        filterValues.append( self.sid )
 
         if before is not None and before != '':
             filters.append( 'ts <= %s' )
@@ -542,7 +589,7 @@ class Host( object ):
 
     def lastSeen( self ):
         last = None
-        record = self._db.getOne( 'SELECT last from recentlyActive WHERE agentid = %s', ( self.aid.invariableToString(), ) )
+        record = self._db.getOne( 'SELECT last from recentlyActive WHERE sid = %s', ( self.sid, ) )
         if record is not None:
             last = int( time.mktime( record[ 0 ].timetuple() ) )
 
@@ -551,22 +598,32 @@ class Host( object ):
     def lastEvents( self ):
         events = []
 
-        for row in self._db.execute( 'SELECT type, id FROM last_events WHERE agentid = %s', ( self.aid.invariableToString(), ) ):
+        for row in self._db.execute( 'SELECT type, id FROM last_events WHERE sid = %s', ( self.sid, ) ):
             events.append( { 'name' : row[ 0 ], 'id' : row[ 1 ] } )
 
         return events
 
 class FluxEvent( object ):
     @classmethod
-    def decode( cls, event ):
+    def decode( cls, data, withRouting = False ):
+        event = None
+        routing = None
         try:
-            event = msgpack.unpackb( base64.b64decode( event ), use_list = True )
-            if 'event' in event:
-                event = event[ 'event' ]
-            cls._dataToUtf8( event )
+            data = msgpack.unpackb( base64.b64decode( data ), use_list = True )
+            if 'event' in data:
+                event = data[ 'event' ]
+                cls._dataToUtf8( event )
+            if 'routing' in data and withRouting:
+                routing = data[ 'routing' ]
+                cls._dataToUtf8( routing )
         except:
             event = None
-        return event
+            routing = None
+
+        if withRouting:
+            return routing, event
+        else:
+            return event
 
     @classmethod
     def _dataToUtf8( cls, node ):
@@ -736,19 +793,19 @@ class Atoms ( object ):
     def children( self ):
         def thisGen():
             for ids in chunks( self._ids, self._queryChunks ):
-                for row in self._db.execute( 'SELECT child, eid FROM atoms_children WHERE atomid IN ( %s )' % ( ','.join( x[ 0 ] for x in ids ), ) ):
+                for row in self._db.execute( 'SELECT child, eid FROM atoms_children WHERE atomid IN %s', ( [ _makeUuid( x[ 0 ] ) for x in ids ], ) ):
                     yield ( normalAtom( row[ 0 ] ), row[ 1 ] )
         return type(self)( thisGen() )
 
-    def events( self ):
+    def events( self, withRouting = False ):
         for ids in chunks( self._ids, self._queryChunks ):
             for event in Host.getSpecificEvents( x[ 1 ] for x in ids ):
-                yield FluxEvent.decode( event[ 2 ] )
+                yield FluxEvent.decode( event[ 2 ], withRouting = withRouting )
 
     def fillEventIds( self ):
         def thisGen():
             for ids in chunks( self._ids, self._queryChunks ):
-                for row in self._db.execute( 'SELECT atomid, eid FROM atoms_lookup WHERE atomid IN ( %s )' % ( ','.join( x[ 0 ] for x in ids ), ) ):
+                for row in self._db.execute( 'SELECT atomid, eid FROM atoms_lookup WHERE atomid IN %s', ( [ _makeUuid( x[ 0 ] ) for x in ids ], ) ):
                     yield ( normalAtom( row[ 0 ] ), row[ 1 ] )
         return type(self)( thisGen() )
 
