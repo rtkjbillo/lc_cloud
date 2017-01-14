@@ -441,7 +441,7 @@ class rpcm( object ):
     def _parse_ipv6( self, typ ):
         ip = None
         
-        ip = self._consume( '16s' )
+        ip = "%02X%02X:%02X%02X:%02X%02X:%02X%02X:%02X%02X:%02X%02X:%02X%02X:%02X%02X" % tuple( [ ord( _ ) for _ in self._consume( '16s' ) ] )
         
         return ip
     
