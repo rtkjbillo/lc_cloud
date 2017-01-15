@@ -70,8 +70,8 @@ class BEAdmin( object ):
     def hcp_addTasking( self, mask, moduleId, hashStr ):
         return self._query( 'hcp.add_tasking', { 'mask' : mask, 'module_id' : int( moduleId ), 'hash' : hashStr } )
     
-    def hcp_delTasking( self, mask, moduleId, hashStr ):
-        return self._query( 'hcp.remove_tasking', { 'mask' : mask, 'module_id' : int( moduleId ), 'hash' : hashStr } )
+    def hcp_delTasking( self, mask, moduleId ):
+        return self._query( 'hcp.remove_tasking', { 'mask' : mask, 'module_id' : int( moduleId ) } )
     
     def hcp_getModules( self ):
         return self._query( 'hcp.get_modules' )

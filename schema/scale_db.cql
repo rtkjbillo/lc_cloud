@@ -89,7 +89,7 @@ CREATE TABLE hcp_module_tasking(
   aid varchar,
   mid int,
   mhash varchar,
-  PRIMARY KEY( aid, mid, mhash )
+  PRIMARY KEY( aid, mid )
 ) WITH compaction = { 'class' : 'DateTieredCompactionStrategy' } AND gc_grace_seconds = 86400;
 
 CREATE TABLE hcp_installers(

@@ -428,11 +428,6 @@ class HcpCli ( cmd.Cmd ):
                              required = True,
                              help = 'module id tasked',
                              dest = 'moduleId' )
-        parser.add_argument( '-s', '--hash',
-                             type = str,
-                             required = True,
-                             help = 'hash of the module to untask',
-                             dest = 'hashStr' )
         arguments = self.parse( parser, s )
 
         if arguments is not None:
