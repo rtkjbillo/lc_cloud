@@ -148,9 +148,8 @@ class AdminEndpoint( Actor ):
         request = msg.data
         mask = AgentId( request[ 'mask' ] )
         moduleid = int( request[ 'module_id' ] )
-        h = str( request[ 'hash' ] )
-        self.db.execute( 'DELETE FROM hcp_module_tasking WHERE aid = %s AND mid = %s AND mhash = %s',
-                         ( mask.asString(), moduleid, h ) )
+        self.db.execute( 'DELETE FROM hcp_module_tasking WHERE aid = %s AND mid = %s',
+                         ( mask.asString(), moduleid ) )
 
         self.delay( 5, self.moduleTasking.broadcast, 'reload', {} )
         
