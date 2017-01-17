@@ -57,6 +57,7 @@ class _ClientContext( object ):
         self.recvAes = None
         self.r = rpcm( isHumanReadable = True, isDebug = self.parent.log )
         self.r.loadSymbols( Symbols.lookups )
+        self.connId = uuid.uuid4()
 
     def setKey( self, sKey, sIv ):
         self.sKey = sKey
@@ -316,7 +317,8 @@ class EndpointProcessor( Actor ):
                             'endpoint' : self.name,
                             'ext_ip' : externalIp,
                             'int_ip' : internalIp,
-                            'hostname' : hostName }
+                            'hostname' : hostName,
+                            'connection_id' : c.connId }
             self.stateChanges.shoot( 'live', newStateMsg )
             self.sensorDir.broadcast( 'live', newStateMsg )
             del( newStateMsg )
@@ -354,7 +356,8 @@ class EndpointProcessor( Actor ):
                     self.sensorDir.broadcast( 'transfered', { 'aid' : aid.asString(), 
                                                               'bytes_transfered' : tmpBytesReceived } )
                     newStateMsg = { 'aid' : aid.asString(), 
-                                    'endpoint' : self.name }
+                                    'endpoint' : self.name,
+                                    'connection_id' : c.connId }
                     self.stateChanges.shoot( 'dead', newStateMsg )
                     self.sensorDir.broadcast( 'dead', newStateMsg )
                     del( newStateMsg )
