@@ -298,11 +298,14 @@ class IdentManager( Actor ):
                 membership.setdefault( row[ 0 ], {} ).setdefault( row[ 1 ], None )
 
         for oid, org in membership.iteritems():
-            for uid in org:
-                info = self.db.getOne( 'SELECT email FROM user_info WHERE uid = %s', ( uid, ) )
+            for uid in org.keys():
+                info = self.db.getOne( 'SELECT email, is_deleted FROM user_info WHERE uid = %s', ( uid, ) )
                 if info is None:
                     return ( False, 'error getting user info' )
-                org[ uid ] = info[ 0 ]
+                if info[ 1 ] is False:
+                    org[ uid ] = info[ 0 ]
+                else:
+                    del( org[ uid ] )
 
         return ( True, { 'orgs' : membership } )
 
