@@ -33,6 +33,7 @@ class SensorDirectory( Actor ):
         self.handle( 'dead', self.setDead )
         self.handle( 'transfered', self.addTransfered )
         self.handle( 'get_endpoint', self.getEndpoint )
+        self.handle( 'get_dir', self.getDirectory )
 
     def deinit( self ):
         pass
@@ -68,3 +69,6 @@ class SensorDirectory( Actor ):
         aid = AgentId( msg.data[ 'aid' ] )
         connId, endpoint, transfered = self.directory.get( aid.sensor_id, ( None, None, 0 ) )
         return ( True, { 'aid' : aid.sensor_id, 'endpoint' : endpoint, 'transfered' : transfered, 'connection_id' : connId } )
+
+    def getDirectory( self, msg ):
+        return ( True, { 'dir' : self.directory } )
