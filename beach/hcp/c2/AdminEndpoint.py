@@ -205,6 +205,7 @@ class AdminEndpoint( Actor ):
         withContent = msg.data.get( 'with_content', False )
         oid = msg.data.get( 'oid', None )
         iid = msg.data.get( 'iid', None )
+        ihash = msg.data.get( 'hash', None )
 
         filters = []
         filterValues = []
@@ -214,6 +215,9 @@ class AdminEndpoint( Actor ):
             if iid is not None:
                 filters.append( 'iid = %s' )
                 filterValues.append( uuid.UUID( iid ) )
+                if ihash is not None:
+                    filters.append( 'ihash = %s' )
+                    filterValues.append( ihash )
 
         filters = ' AND '.join( filters )
         if 0 != len( filters ):
@@ -372,3 +376,4 @@ class AdminEndpoint( Actor ):
                 self.delay( 1, self.persistentTasks.broadcast, 'add', { 'aid' : agent } )
                 return ( True, { 'delayed' : True } )
             return ( False, resp.error )
+

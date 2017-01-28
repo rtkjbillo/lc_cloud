@@ -400,7 +400,8 @@ class ModelView( Actor ):
     def get_installer( self, msg ):
         oid = msg.data[ 'oid' ]
         iid = msg.data[ 'iid' ]
-        hash = msg.data[ 'hash' ]
-        data = self.admin.hcp_getInstallers( oid = oid, iid = iid, withContent = True ).data
+        ihash = msg.data[ 'hash' ]
+        data = self.admin.hcp_getInstallers( oid = oid, iid = iid, hash = ihash, withContent = True ).data
 
         return ( True, data )
+
