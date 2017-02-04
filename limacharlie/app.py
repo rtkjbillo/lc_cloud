@@ -346,7 +346,7 @@ class JsonDetects:
         if start_time is None or 0 == start_time:
             start_time = int( time.time() ) - 5
 
-        search = {}
+        search = { 'oid' : '00000000-0000-0000-0000-000000000001' }
 
         if start_time is not None:
             search [ 'after' ] = start_time

@@ -239,11 +239,12 @@ class ModelView( Actor ):
             return ( False, sensors.error )
 
     def get_detects( self, msg ):
-        reports = Reporting.getDetects( before = msg.data.get( 'before', None ),
+        reports = Reporting.getDetects( msg.data[ 'oid' ],
+                                        before = msg.data.get( 'before', None ),
                                         after = msg.data.get( 'after', None ),
                                         limit = msg.data.get( 'limit', None ) )
 
-        reports = [ ( x[ 0 ], x[ 1 ], x[ 2 ], x[ 3 ], x[ 4 ], FluxEvent.decode( x[ 5 ] ) ) for x in reports ]
+        reports = [ ( x[ 0 ], x[ 1 ], x[ 2 ], x[ 3 ], x[ 4 ], FluxEvent.decode( x[ 5 ] ), x[ 6 ] ) for x in reports ]
 
         return ( True, { 'reports' : reports } )
 

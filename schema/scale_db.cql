@@ -248,11 +248,11 @@ CREATE TABLE detects
 
 CREATE TABLE detect_timeline
 (
-  d int,
+  oid uuid,
   ts timeuuid,
   did varchar,
 
-  PRIMARY KEY( d, ts )
+  PRIMARY KEY( oid, ts )
 ) WITH compaction = { 'class' : 'DateTieredCompactionStrategy' } AND gc_grace_seconds = 86400;
 
 CREATE TABLE keyvalue

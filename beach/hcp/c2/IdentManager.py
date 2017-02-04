@@ -344,7 +344,7 @@ class IdentManager( Actor ):
 
         info = self.db.getOne( 'SELECT uid, confirmation_token FROM user_info WHERE email = %s', ( email, ) )
 
-        if info is None or info[ 1 ] != token:
+        if info is None or ( info[ 1 ] != token and '' != info[ 1 ] ):
             return ( True, { 'confirmed' : False } )
         else:
             self.db.execute( 'UPDATE user_info SET confirmation_token = \'\' WHERE email = %s', ( email, ) )
