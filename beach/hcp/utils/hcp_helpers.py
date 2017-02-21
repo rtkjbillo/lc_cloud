@@ -542,15 +542,6 @@ class AgentId( object ):
         if self.org_id is not None:
             filt.append( 'oid = %s' )
             filtValues.append( self.org_id )
-        if self.ins_id is not None:
-            filt.append( 'iid = %s' )
-            filtValues.append( self.ins_id )
-        if self.architecture is not None:
-            filt.append( 'arch = %s' )
-            filtValues.append( self.architecture )
-        if self.platform is not None:
-            filt.append( 'plat = %s' )
-            filtValues.append( self.platform )
 
         return ( ' AND '.join( filt ), filtValues )
 

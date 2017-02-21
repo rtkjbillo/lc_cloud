@@ -146,12 +146,16 @@ class _Investigation ( object ):
         if not resp.isSuccess:
             raise Exception( 'error recording inv conclusion' )
 
-    def isDuplicate( self, invKey, ttl ):
+    def isDuplicate( self, invKey, ttl = None ):
         resp = self.actor.Models.request( 'get_kv', { 'cat' : 'inv_dupe', 'k' : invKey } )
         if resp.isSuccess:
             return resp.data[ 'v' ]
-        self.actor.Models.shoot( 'set_kv', { 'cat' : 'inv_dupe', 'k' : invKey, 'v' : self.invId, 'ttl' : ttl } )
+        if ttl is not None:
+            self.actor.Models.shoot( 'set_kv', { 'cat' : 'inv_dupe', 'k' : invKey, 'v' : self.invId, 'ttl' : ttl } )
         return False
+
+    def registerForDedupe( self, invKey, ttl ):
+        self.actor.Models.shoot( 'set_kv', { 'cat' : 'inv_dupe', 'k' : invKey, 'v' : self.invId, 'ttl' : ttl } )
 
 class Hunter ( Actor ):
     def init( self, parameters ):
@@ -261,7 +265,7 @@ class Hunter ( Actor ):
     def getVTReport( self, fileHash ):
         report = None
         mdReport = []
-        resp = self.VirusTotal.request( 'get_report', { 'hash' : fileHash } )
+        resp = self.VirusTotal.request( 'get_report', { 'hash' : fileHash, 'no_cache' : True } )
         if resp.isSuccess:
             report = resp.data[ 'report' ]
             for av, res in report.items():
@@ -280,7 +284,7 @@ class Hunter ( Actor ):
         table = [ '| %s |' % ( ' | '.join( headers ) ) ]
         table.append( '|%s' % ( ' - |' * len( headers ) ) )
         for row in l:
-            table.append( '| %s |' % ( ' | '.join( row ) ) )
+            table.append( '| %s |' % ( ' | '.join( [ str( _ ) for _ in row ] ) ) )
         return '\n'.join( table )
 
     def isAlexaDomain( self, domain ):

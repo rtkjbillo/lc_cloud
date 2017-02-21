@@ -58,6 +58,7 @@ class AdminEndpoint( Actor ):
         self.handle( 'hbs.get_profiles', self.cmd_hbs_getProfiles )
         self.handle( 'hbs.del_profile', self.cmd_hbs_delProfile )
         self.handle( 'hbs.task_agent', self.cmd_hbs_taskAgent )
+        self.handle( 'hbs.add_key', self.cmd_hbs_addKey )
 
         self.auditor = self.getActorHandle( resources[ 'auditing' ], timeout = 5, nRetries = 3 )
         self.enrollments = self.getActorHandle( resources[ 'enrollments' ], timeout = 5, nRetries = 3 )
@@ -109,6 +110,12 @@ class AdminEndpoint( Actor ):
                     q = 'SELECT oid, iid, sid, plat, arch, enroll, alive, dead, hostname, ext_ip, int_ip FROM sensor_states WHERE %s'
                 for row in self.db.execute( q % filt[ 0 ], filt[ 1 ] ):
                     tmpAid = AgentId( ( row[ 0 ], row[ 1 ], row[ 2 ], row[ 3 ], row[ 4 ] ) )
+                    if aid.ins_id is not None:
+                        if aid.ins_id != tmpAid.ins_id: continue
+                    if aid.platform is not None:
+                        if aid.platform != tmpAid.platform: continue
+                    if aid.architecture is not None:
+                        if aid.architecture != tmpAid.architecture: continue
                     tmpData = {}
                     tmpData[ 'aid' ] = str( tmpAid )
                     tmpData[ 'last_external_ip' ] = row[ 9 ]
@@ -362,7 +369,7 @@ class AdminEndpoint( Actor ):
                                                             task ) ).serialise( isDebug = self.log,
                                                                                 isHumanReadable = False  )
 
-        resp = self.taskingProxy.request( 'task', { 'sid' : agent, 
+        resp = self.taskingProxy.request( 'task', { 'aid' : agent, 
                                                     'messages' : ( wrapper, ), 
                                                     'module_id' : HcpModuleId.HBS } )
 
@@ -377,3 +384,12 @@ class AdminEndpoint( Actor ):
                 return ( True, { 'delayed' : True } )
             return ( False, resp.error )
 
+    @audited
+    def cmd_hbs_addKey( self, msg ):
+        request = msg.data
+        oid = uuid.UUID( request[ 'oid' ] )
+        key = request[ 'key' ]
+        self.db.execute( 'INSERT INTO hbs_keys ( oid, data ) VALUES ( %s, %s )',
+                         ( oid, bytearray( key ) ) )
+
+        return ( True, )

@@ -24,6 +24,7 @@ ObjectTypes = Actor.importLib( '../utils/ObjectsDb', 'ObjectTypes' )
 Atoms = Actor.importLib( '../utils/ObjectsDb', 'Atoms' )
 ObjectKey = Actor.importLib( '../utils/ObjectsDb', 'ObjectKey' )
 RelationNameFromId = Actor.importLib( '../utils/ObjectsDb', 'RelationNameFromId' )
+ObjectNormalForm = Actor.importLib( '../utils/ObjectsDb', 'ObjectNormalForm' )
 Reporting = Actor.importLib( '../utils/ObjectsDb', 'Reporting' )
 KeyValueStore = Actor.importLib( '../utils/ObjectsDb', 'KeyValueStore' )
 AgentId = Actor.importLib( '../utils/hcp_helpers', 'AgentId' )
@@ -139,8 +140,17 @@ class ModelView( Actor ):
 
         try:
             if 'id' not in msg.data:
-                msg.data[ 'id' ] = ObjectKey( msg.data[ 'obj_name' ], ObjectTypes.forward[ msg.data[ 'obj_type' ] ] )
-            _ = next( HostObjects( msg.data[ 'id' ] ).acl( oid = orgs ).info() )
+                tmpType = ObjectTypes.forward[ msg.data[ 'obj_type' ] ]
+                tmpName = ObjectNormalForm( msg.data[ 'obj_name' ], tmpType, isCaseSensitive = True )
+                msg.data[ 'id' ] = ObjectKey( tmpName, tmpType )
+                try:
+                    _ = next( HostObjects( msg.data[ 'id' ] ).acl( oid = orgs ).info() )
+                except:
+                    tmpName = ObjectNormalForm( msg.data[ 'obj_name' ], tmpType, isCaseSensitive = False )
+                    msg.data[ 'id' ] = ObjectKey( tmpName, tmpType )
+                    _ = next( HostObjects( msg.data[ 'id' ] ).acl( oid = orgs ).info() )
+            else:
+                _ = next( HostObjects( msg.data[ 'id' ] ).acl( oid = orgs ).info() )
         except:
             return ( True, {} )
         info[ 'id' ] = _[ 0 ]
@@ -244,7 +254,7 @@ class ModelView( Actor ):
                                         after = msg.data.get( 'after', None ),
                                         limit = msg.data.get( 'limit', None ) )
 
-        reports = [ ( x[ 0 ], x[ 1 ], x[ 2 ], x[ 3 ], x[ 4 ], FluxEvent.decode( x[ 5 ] ), x[ 6 ] ) for x in reports ]
+        reports = [ ( x[ 0 ], x[ 1 ], x[ 2 ], x[ 3 ], x[ 4 ], FluxEvent.decode( x[ 5 ], isFullDump = True ), x[ 6 ] ) for x in reports ]
 
         return ( True, { 'reports' : reports } )
 
@@ -270,7 +280,7 @@ class ModelView( Actor ):
                        detect[ 4 ],
                        detect[ 5 ],
                        detect[ 6 ],
-                       [ ( x[ 0 ], x[ 1 ], FluxEvent.decode( x[ 2 ] ), x[ 3 ], x[ 4 ] ) for x in events ] )
+                       [ ( x[ 0 ], x[ 1 ], FluxEvent.decode( x[ 2 ], isFullDump = True ), x[ 3 ], x[ 4 ] ) for x in events ] )
 
         ret = { 'detect' : detect }
 
@@ -278,9 +288,9 @@ class ModelView( Actor ):
             inv = Reporting.getInvestigations( id = detect[ 1 ] )
             for i in inv.itervalues():
                 for d in i[ 'data' ]:
-                    d[ 'data' ] = FluxEvent.decode( d[ 'data' ] )
+                    d[ 'data' ] = FluxEvent.decode( d[ 'data' ], isFullDump = True )
                 for t in i[ 'tasks' ]:
-                    t[ 'data' ] = FluxEvent.decode( t[ 'data' ] )
+                    t[ 'data' ] = FluxEvent.decode( t[ 'data' ], isFullDump = True )
             ret[ 'inv' ] = inv
 
         return ( True, ret )

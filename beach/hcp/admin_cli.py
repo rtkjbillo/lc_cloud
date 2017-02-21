@@ -207,7 +207,7 @@ class HcpCli ( cmd.Cmd ):
             setattr( arguments, 'task', tmp.task )
             setattr( arguments, 'key', tmp.key )
             setattr( arguments, 'id', tmp.id )
-            setattr( arguments, 'expiry', int( tmp.expiry + time.time() ) )
+            setattr( arguments, 'expiry', int( tmp.expiry + time.time() ) if 0 != int( tmp.expiry ) else 0 )
 
             del( tmp )
 
@@ -635,6 +635,27 @@ class HcpCli ( cmd.Cmd ):
 
         if arguments is not None:
             self.execAndPrintResponse( self.be.hbs_getProfiles, arguments )
+
+    @report_errors
+    def do_hbs_addKey( self, s ):
+        '''Add an HBS key for an org.'''
+
+        parser = self.getParser( 'addKey' )
+        parser.add_argument( '-o', '--orgid',
+                             type = uuid.UUID,
+                             required = True,
+                             help = 'the org uuid for the key',
+                             dest = 'oid' )
+        parser.add_argument( '-k', '--key',
+                             type = argparse.FileType( 'r' ),
+                             required = True,
+                             help = 'path to hbs key',
+                             dest = 'key' )
+        arguments = self.parse( parser, s )
+
+        if arguments is not None:
+            arguments.key = arguments.key.read()
+            self.execAndPrintResponse( self.be.hbs_addKey, arguments )
 
     #===========================================================================
     #   HBS TASKINGS

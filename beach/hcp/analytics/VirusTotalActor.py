@@ -76,12 +76,14 @@ class VirusTotalActor ( Actor ):
         fileHash = msg.data.get( 'hash', None )
         if fileHash is None: return ( False, 'missing hash' )
 
+        isNoCache = msg.data.get( 'no_cache', False )
+
         if not all( x in "1234567890abcdef" for x in fileHash.lower() ) and len( fileHash ) in [ 32, 40, 64 ]:
             fileHash = fileHash.encode( 'hex' )
         fileHash = fileHash.lower()
 
         report = self.getReportFromCache( fileHash )
-        if report is False:
+        if report is False or isNoCache:
             report = None
             vtReport = None
             nRetry = 3
@@ -102,3 +104,4 @@ class VirusTotalActor ( Actor ):
                 self.recordNewReport( fileHash, report )
 
         return ( True, { 'report' : report, 'hash' : fileHash } )
+

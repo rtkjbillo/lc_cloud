@@ -335,3 +335,11 @@ CREATE TABLE audit
 
   PRIMARY KEY( oid, ts, etype )
 ) WITH compaction = { 'class' : 'DateTieredCompactionStrategy' } AND gc_grace_seconds = 86400;
+
+CREATE TABLE hbs_keys
+(
+  oid uuid,
+  data blob,
+  
+  PRIMARY KEY( oid )
+) WITH compaction = { 'class' : 'DateTieredCompactionStrategy' } AND gc_grace_seconds = 86400;

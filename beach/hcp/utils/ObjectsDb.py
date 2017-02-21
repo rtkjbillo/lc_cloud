@@ -605,25 +605,26 @@ class Host( object ):
 
 class FluxEvent( object ):
     @classmethod
-    def decode( cls, data, withRouting = False ):
+    def decode( cls, data, withRouting = False, isFullDump = False ):
         event = None
         routing = None
         try:
             data = msgpack.unpackb( base64.b64decode( data ), use_list = True )
-            if 'event' in data:
-                event = data[ 'event' ]
-                cls._dataToUtf8( event )
-            if 'routing' in data and withRouting:
-                routing = data[ 'routing' ]
-                cls._dataToUtf8( routing )
-            if event is None:
+            if isFullDump:
                 event = data
                 cls._dataToUtf8( event )
+            else:
+                if 'event' in data:
+                    event = data[ 'event' ]
+                    cls._dataToUtf8( event )
+                if 'routing' in data and withRouting:
+                    routing = data[ 'routing' ]
+                    cls._dataToUtf8( routing )
         except:
             event = None
             routing = None
 
-        if withRouting:
+        if withRouting and not isFullDump:
             return routing, event
         else:
             return event
@@ -668,7 +669,7 @@ class Reporting( object ):
         cls._db.shutdown()
 
     @classmethod
-    def getDetects( cls, oid, before = None, after = None, limit = None, id = None ):
+    def getDetects( cls, oid = None, before = None, after = None, limit = None, id = None ):
         if id is None:
             filters = []
             filterValues = []
