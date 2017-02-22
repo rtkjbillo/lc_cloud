@@ -151,7 +151,7 @@ class _Investigation ( object ):
         if resp.isSuccess:
             return resp.data[ 'v' ]
         if ttl is not None:
-            self.actor.Models.shoot( 'set_kv', { 'cat' : 'inv_dupe', 'k' : invKey, 'v' : self.invId, 'ttl' : ttl } )
+            self.registerForDedupe( invKey, ttl )
         return False
 
     def registerForDedupe( self, invKey, ttl ):
@@ -168,8 +168,6 @@ class Hunter ( Actor ):
                 self._registerToDetect( detect )
 
         self.handle( 'detect', self._handleDetects )
-
-        self._contexts = {}
 
         self._reporting = CreateOnAccess( self.getActorHandle, 'analytics/reporting' )
         self._tasking = CreateOnAccess( self.getActorHandle, 'analytics/autotasking', mode = 'affinity' )
@@ -193,8 +191,6 @@ class Hunter ( Actor ):
 
     def _unregisterToInvData( self, inv_id ):
         resp = self._registration.request( 'unreg_inv', { 'uid' : self.name, 'name' : inv_id } )
-        self._contexts[ inv_id ][ 1 ].acquire()
-        del( self._contexts[ inv_id ] )
         return resp.isSuccess
 
     def _handleDetects( self, msg ):
@@ -266,7 +262,7 @@ class Hunter ( Actor ):
         report = None
         mdReport = []
         resp = self.VirusTotal.request( 'get_report', { 'hash' : fileHash, 'no_cache' : True } )
-        if resp.isSuccess:
+        if resp.isSuccess and resp.data[ 'report' ] is not None:
             report = resp.data[ 'report' ]
             for av, res in report.items():
                 if res is None:
