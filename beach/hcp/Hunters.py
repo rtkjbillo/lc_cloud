@@ -18,6 +18,7 @@ Event = Actor.importLib( 'utils/hcp_helpers', 'Event' )
 InvestigationNature = Actor.importLib( 'utils/hcp_helpers', 'InvestigationNature' )
 InvestigationConclusion = Actor.importLib( 'utils/hcp_helpers', 'InvestigationConclusion' )
 _x_ = Actor.importLib( 'utils/hcp_helpers', '_x_' )
+AgentId = Actor.importLib( 'utils/hcp_helpers', 'AgentId' )
 
 import time
 import uuid
@@ -51,6 +52,7 @@ class _Investigation ( object ):
         self.invId = invId
         self.taskId = 0
         self.liveTrx = []
+        self.originalDetect = detect
         if invId is None:
             invId = '%s/%s' % ( self.actor.__class__.__name__, str( uuid.uuid4() ) )
         if not self.actor._registerToInvData( self.invId ):
@@ -146,16 +148,53 @@ class _Investigation ( object ):
         if not resp.isSuccess:
             raise Exception( 'error recording inv conclusion' )
 
-    def isDuplicate( self, invKey, ttl = None ):
+    def isDuplicate( self, invKey, ttl = None, isPerSensor = False ):
+        aid = AgentId( self.originalDetect[ 'source' ].split( ' / ' )[ 0 ] )
+        invKey = '%s|%s|%s' % (  aid.org_id, aid.sensor_id if isPerSensor else '', invKey )
         resp = self.actor.Models.request( 'get_kv', { 'cat' : 'inv_dupe', 'k' : invKey } )
         if resp.isSuccess:
             return resp.data[ 'v' ]
         if ttl is not None:
-            self.registerForDedupe( invKey, ttl )
+            self.registerForDedupe( invKey, ttl, isPerSensor = isPerSensor )
         return False
 
-    def registerForDedupe( self, invKey, ttl ):
+    def registerForDedupe( self, invKey, ttl, isPerSensor = False ):
+        aid = AgentId( self.originalDetect[ 'source' ].split( ' / ' )[ 0 ] )
+        invKey = '%s|%s|%s' % (  aid.org_id, aid.sensor_id if isPerSensor else '', invKey )
         self.actor.Models.shoot( 'set_kv', { 'cat' : 'inv_dupe', 'k' : invKey, 'v' : self.invId, 'ttl' : ttl } )
+
+    def dupeCheck_preInv( self, invKey, ttl, isPerSensor = False ):
+        isAbort = False
+        
+        dupeInvId = self.isDuplicate( invKey, isPerSensor = isPerSensor )
+
+        if not dupeInvId:
+            self.registerForDedupe( invKey, ttl = ttl, isPerSensor = isPerSensor )
+        else:
+            dupeInv = self.actor.openExistingInvestigation( dupeInvId )
+            dupeInv.reportData( '[duplicate](/detect?id=%s) generated' % self.invId )
+            self.conclude( 'this is a [duplicate](/detect?id=%s)' % dupeInvId,
+                           InvestigationNature.DUPLICATE,
+                           InvestigationConclusion.NO_ACTION_TAKEN )
+            isAbort = True
+
+        return isAbort
+
+    def dupeCheck_postInv( self, invKey, isPerSensor = False, actionTaken = InvestigationConclusion.NO_ACTION_TAKEN ):
+        isAbort = False
+        
+        dupeInvId = self.isDuplicate( invKey, isPerSensor = isPerSensor )
+
+        if dupeInvId is not False and dupeInvId != self.invId:
+            dupeInv = self.actor.openExistingInvestigation( dupeInvId )
+            dupeInv.reportData( '[duplicate](/detect?id=%s) generated' % self.invId )
+            self.conclude( 'this is a [duplicate](/detect?id=%s)' % dupeInvId,
+                           InvestigationNature.DUPLICATE,
+                           actionTaken )
+            isAbort = True
+
+        return isAbort
+
 
 class Hunter ( Actor ):
     def init( self, parameters ):
@@ -290,3 +329,6 @@ class Hunter ( Actor ):
             if resp.data[ 'n' ] is not None:
                 isAlexa = True
         return isAlexa
+
+    def openExistingInvestigation( self, invId ):
+        return _Investigation( self, None, invId = invId )
