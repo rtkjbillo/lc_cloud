@@ -398,7 +398,7 @@ class EndpointProcessor( Actor ):
         for i in range( len( messages ) ):
             self.processedCounter += 1
 
-            if 0 == ( self.processedCounter % 50 ):
+            if 0 == ( self.processedCounter % 1000 ):
                 self.log( 'EP_IN %s' % self.processedCounter )
 
         for message in messages:

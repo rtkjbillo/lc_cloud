@@ -162,7 +162,7 @@ class AnalyticsModeling( Actor ):
 
         self.processedCounter += 1
 
-        if 0 == ( self.processedCounter % 50 ):
+        if 0 == ( self.processedCounter % 1000 ):
             self.log( 'MOD_IN %s' % self.processedCounter )
             if 0 == ( self.processedCounter % 5000 ):
                 self.org_ttls = {}

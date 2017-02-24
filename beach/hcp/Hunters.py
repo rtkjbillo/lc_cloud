@@ -93,7 +93,7 @@ class _Investigation ( object ):
         self.taskId += 1
 
         resp = self.actor._tasking.request( 'task', data, key = dest, timeout = 60, nRetries = 0 )
-        if resp.isSuccess:
+        if resp is not False and resp is not None and resp.isSuccess:
             self.actor.log( "sent for tasking: %s" % ( str(cmdsAndArgs), ) )
 
             if isNeedResp:
