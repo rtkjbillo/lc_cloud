@@ -217,6 +217,6 @@ printStep( 'Loading the HBS key for auto tasking.',
            execInBackend( '''hbs_addKey -o %s -k %s''' % ( oid,
                                                            os.path.join( root,
                                                                          'keys',
-                                                                         'hbs.priv.der' ) ) ) )
+                                                                         'hbs_root.priv.der' ) ) ) )
 
 os.chdir( originalDir )
