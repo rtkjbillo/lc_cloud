@@ -1,3 +1,4 @@
+set -e
 apt-get update -y
 sleep 1
 apt-get upgrade -y
