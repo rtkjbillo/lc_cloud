@@ -18,6 +18,7 @@ import base64
 import random
 import json
 import time_uuid
+AgentId = Actor.importLib( 'utils/hcp_helpers', 'AgentId' )
 CassDb = Actor.importLib( '../utils/hcp_databases', 'CassDb' )
 CassPool = Actor.importLib( '../utils/hcp_databases', 'CassPool' )
 CreateOnAccess = Actor.importLib( '../utils/hcp_helpers', 'CreateOnAccess' )
@@ -34,7 +35,7 @@ class AnalyticsReporting( Actor ):
         self.report_stmt_rep = self.db.prepare( 'INSERT INTO detects ( did, gen, source, dtype, events, detect, why ) VALUES ( ?, dateOf( now() ), ?, ?, ?, ?, ? ) USING TTL %d' % self.ttl )
         self.report_stmt_rep.consistency_level = CassDb.CL_Ingest
 
-        self.report_stmt_tl = self.db.prepare( 'INSERT INTO detect_timeline ( d, ts, did ) VALUES ( ?, now(), ? ) USING TTL %d' % self.ttl )
+        self.report_stmt_tl = self.db.prepare( 'INSERT INTO detect_timeline ( oid, ts, did ) VALUES ( ?, now(), ? ) USING TTL %d' % self.ttl )
         self.report_stmt_tl.consistency_level = CassDb.CL_Ingest
 
         self.new_inv_stmt = self.db.prepare( 'INSERT INTO investigation ( invid, gen, closed, nature, conclusion, why, hunter ) VALUES ( ?, ?, 0, 0, 0, \'\', ? ) USING TTL %d' % self.ttl )
@@ -76,7 +77,8 @@ class AnalyticsReporting( Actor ):
 
         try:
             self.db.execute_async( self.report_stmt_rep.bind( ( detect_id, source, category, ' / '.join( event_ids ), detect, why ) ) )
-            self.db.execute_async( self.report_stmt_tl.bind( ( random.randint( 0, 255 ), detect_id ) ) )
+            for s in source.split( ' / ' ):
+                self.db.execute_async( self.report_stmt_tl.bind( ( AgentId( s ).org_id, detect_id ) ) )
         except:
             import traceback
             self.logCritical( 'Exc storing detect %s / %s' % ( str( msg.data ), traceback.format_exc() ) )

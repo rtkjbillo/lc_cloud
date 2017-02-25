@@ -298,11 +298,14 @@ class IdentManager( Actor ):
                 membership.setdefault( row[ 0 ], {} ).setdefault( row[ 1 ], None )
 
         for oid, org in membership.iteritems():
-            for uid in org:
-                info = self.db.getOne( 'SELECT email FROM user_info WHERE uid = %s', ( uid, ) )
+            for uid in org.keys():
+                info = self.db.getOne( 'SELECT email, is_deleted FROM user_info WHERE uid = %s', ( uid, ) )
                 if info is None:
                     return ( False, 'error getting user info' )
-                org[ uid ] = info[ 0 ]
+                if info[ 1 ] is False:
+                    org[ uid ] = info[ 0 ]
+                else:
+                    del( org[ uid ] )
 
         return ( True, { 'orgs' : membership } )
 
@@ -341,7 +344,7 @@ class IdentManager( Actor ):
 
         info = self.db.getOne( 'SELECT uid, confirmation_token FROM user_info WHERE email = %s', ( email, ) )
 
-        if info is None or info[ 1 ] != token:
+        if info is None or ( info[ 1 ] != token and '' != info[ 1 ] ):
             return ( True, { 'confirmed' : False } )
         else:
             self.db.execute( 'UPDATE user_info SET confirmation_token = \'\' WHERE email = %s', ( email, ) )

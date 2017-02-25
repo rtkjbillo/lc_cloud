@@ -44,7 +44,7 @@ class AnalyticsIntake( Actor ):
 
         for i in range( len( msg.data ) ):
             self.processedCounter += 1
-            if 0 == ( self.processedCounter % 50 ):
+            if 0 == ( self.processedCounter % 1000 ):
                 self.log( 'ANA_IN %s' % self.processedCounter )
 
         for event in msg.data:

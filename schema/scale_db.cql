@@ -248,11 +248,11 @@ CREATE TABLE detects
 
 CREATE TABLE detect_timeline
 (
-  d int,
+  oid uuid,
   ts timeuuid,
   did varchar,
 
-  PRIMARY KEY( d, ts )
+  PRIMARY KEY( oid, ts )
 ) WITH compaction = { 'class' : 'DateTieredCompactionStrategy' } AND gc_grace_seconds = 86400;
 
 CREATE TABLE keyvalue
@@ -334,4 +334,12 @@ CREATE TABLE audit
   msg varchar,
 
   PRIMARY KEY( oid, ts, etype )
+) WITH compaction = { 'class' : 'DateTieredCompactionStrategy' } AND gc_grace_seconds = 86400;
+
+CREATE TABLE hbs_keys
+(
+  oid uuid,
+  data blob,
+  
+  PRIMARY KEY( oid )
 ) WITH compaction = { 'class' : 'DateTieredCompactionStrategy' } AND gc_grace_seconds = 86400;

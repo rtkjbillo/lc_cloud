@@ -16,6 +16,7 @@ from beach.actor import Actor
 import virustotal
 import json
 RingCache = Actor.importLib( '../utils/hcp_helpers', 'RingCache' )
+Mutex = Actor.importLib( '../utils/hcp_helpers', 'Mutex' )
 
 class VirusTotalActor ( Actor ):
     def init( self, parameters, resources ):
@@ -28,6 +29,7 @@ class VirusTotalActor ( Actor ):
 
         if self.key is not None:
             self.vt = virustotal.VirusTotal( self.key, limit_per_min = self.qpm )
+        self.vtMutex = Mutex()
 
         self.Model = self.getActorHandle( resources[ 'modeling' ], timeout = 3, nRetries = 0 )
 
@@ -36,10 +38,20 @@ class VirusTotalActor ( Actor ):
 
         self.cache = RingCache( maxEntries = self.cache_size, isAutoAdd = False )
 
+        self.stats = [ 0, 0, 0, 0 ]
+        self.schedule( 60 * 60, self.wipeStats )
+        self.schedule( 60 * 5, self.reportStats )
+
         self.handle( 'get_report', self.getReport )
 
     def deinit( self ):
         pass
+
+    def wipeStats( self ):
+        self.stats = [ 0, 0, 0, 0 ]
+
+    def reportStats( self ):
+        self.log( "VT Stats - Total: %s, Lvl1Cache: %s, Lvl2Cache: %s, VTAPI: %s" % tuple( self.stats ) )
 
     def getReportFromCache( self, fileHash ):
         report = False
@@ -47,6 +59,7 @@ class VirusTotalActor ( Actor ):
         # First level of cache is in memory.
         if fileHash in self.cache:
             report = self.cache.get( fileHash )
+            self.stats[ 1 ] += 1
 
         # Second level of cache is in the key value store.
         if report is False:
@@ -54,6 +67,7 @@ class VirusTotalActor ( Actor ):
             if resp.isSuccess:
                 try:
                     report = json.loads( resp.data[ 'v' ] )
+                    self.stats[ 2 ] += 1
                 except:
                     report = False
 
@@ -76,16 +90,21 @@ class VirusTotalActor ( Actor ):
         fileHash = msg.data.get( 'hash', None )
         if fileHash is None: return ( False, 'missing hash' )
 
+        isNoCache = msg.data.get( 'no_cache', False )
+
         if not all( x in "1234567890abcdef" for x in fileHash.lower() ) and len( fileHash ) in [ 32, 40, 64 ]:
             fileHash = fileHash.encode( 'hex' )
         fileHash = fileHash.lower()
 
+        self.stats[ 0 ] += 1
+
         report = self.getReportFromCache( fileHash )
-        if report is False:
+        if report is False or isNoCache:
             report = None
             vtReport = None
             nRetry = 3
             while True:
+                self.vtMutex.lock()
                 try:
                     vtReport = self.vt.get( fileHash )
                 except:
@@ -95,10 +114,14 @@ class VirusTotalActor ( Actor ):
                     nRetry -= 1
                 else:
                     break
+                finally:
+                    self.vtMutex.unlock()
             if vtReport is not None:
                 report = {}
                 for av, r in vtReport:
                     report[ str( av ) ] = r
                 self.recordNewReport( fileHash, report )
+                self.stats[ 3 ] += 1
 
         return ( True, { 'report' : report, 'hash' : fileHash } )
+

@@ -17,15 +17,27 @@ from beach.actor import Actor
 from sets import Set
 
 HcpCli = Actor.importLib( '../admin_cli', 'HcpCli' )
+CassDb = Actor.importLib( 'utils/hcp_databases', 'CassDb' )
+CassPool = Actor.importLib( 'utils/hcp_databases', 'CassPool' )
+AgentId = Actor.importLib( '../utils/hcp_helpers', 'AgentId' )
 
 class AutoTasking( Actor ):
     def init( self, parameters, resources ):
-        self.hbs_key = parameters.get( '_hbs_key', None )
-        if self.hbs_key is None: raise Exception( 'missing HBS key' )
-        self.cli = HcpCli( self._beach_config_path,
-                           parameters.get( 'auth_token', '' ),
-                           self.hbs_key,
-                           parameters.get( 'log_file', None ) )
+        self.hbs_ifaces = {}
+
+        self.authToken = parameters.get( 'auth_token', '' )
+        self.cmdLogFile = parameters.get( 'log_file', None )
+
+        self._db = CassDb( parameters[ 'db' ], 'hcp_analytics', consistencyOne = True )
+        self.db = CassPool( self._db,
+                            rate_limit_per_sec = parameters[ 'rate_limit_per_sec' ],
+                            maxConcurrent = parameters[ 'max_concurrent' ],
+                            blockOnQueueSize = parameters[ 'block_on_queue_size' ] )
+
+        self.db.start()
+
+        self.refreshKeys()
+
         self.sensor_qph = parameters.get( 'sensor_qph', 50 )
         self.global_qph = parameters.get( 'global_qph', 200 )
         self.allowed_commands = Set( parameters.get( 'allowed', [] ) )
@@ -33,9 +45,22 @@ class AutoTasking( Actor ):
         self.sensor_stats = {}
         self.global_stats = 0
         self.schedule( 3600, self.decay )
+        self.schedule( 3600, self.refreshKeys )
 
     def deinit( self ):
         pass
+
+    def refreshKeys( self ):
+        orgs = self.db.execute( 'SELECT oid, data FROM hbs_keys' )
+        if orgs is None or orgs is False:
+            raise Exception( 'Could not fetch hbs keys' )
+
+        for row in orgs:
+            self.hbs_ifaces[ str( row[ 0 ] ) ] = HcpCli( self._beach_config_path,
+                                                  self.authToken,
+                                                  row[ 1 ],
+                                                  self.cmdLogFile )
+        self.log( "We now have the following keys loaded: %s" % ( self.hbs_ifaces.keys(), ) )
 
     def decay( self ):
         for k in self.sensor_stats.iterkeys():
@@ -73,8 +98,12 @@ class AutoTasking( Actor ):
         if invId is not None:
             command += ' -@ "%s"' % str( invId )
 
-        self.cli.onecmd( command )
-        self.log( command )
+        cli = self.hbs_ifaces.get( str( AgentId( agentid ).org_id ), None )
+        if cli is None:
+            self.log( 'Could not task, we have no keys for org %s' % ( str( AgentId( agentid ).org_id ), ) )
+        else:
+            cli.onecmd( command )
+            self.log( command )
 
     def handleTasking( self, msg ):
         dest = msg.data[ 'dest' ]

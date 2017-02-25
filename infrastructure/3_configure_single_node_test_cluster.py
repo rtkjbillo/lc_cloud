@@ -213,4 +213,10 @@ printStep( 'Setting HBS profile.',
                                                                                     'beach',
                                                                                     'production_hbs.profile' ) ) ) )
 
+printStep( 'Loading the HBS key for auto tasking.',
+           execInBackend( '''hbs_addKey -o %s -k %s''' % ( oid,
+                                                           os.path.join( root,
+                                                                         'keys',
+                                                                         'hbs_root.priv.der' ) ) ) )
+
 os.chdir( originalDir )

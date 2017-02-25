@@ -47,15 +47,15 @@ class rSequence( dict ):
         return self
     
     def addStringA( self, tag, value ):
-        self[ tag ] = { 'tag' : tag, 'value' : value, 'type' : rpcm.RPCM_STRINGA }
+        self[ tag ] = { 'tag' : tag, 'value' : str( value ), 'type' : rpcm.RPCM_STRINGA }
         return self
     
     def addStringW( self, tag, value ):
-        self[ tag ] = { 'tag' : tag, 'value' : value, 'type' : rpcm.RPCM_STRINGW }
+        self[ tag ] = { 'tag' : tag, 'value' : unicode( value ), 'type' : rpcm.RPCM_STRINGW }
         return self
     
     def addBuffer( self, tag, value ):
-        self[ tag ] = { 'tag' : tag, 'value' : value, 'type' : rpcm.RPCM_BUFFER }
+        self[ tag ] = { 'tag' : tag, 'value' : str( value ), 'type' : rpcm.RPCM_BUFFER }
         return self
     
     def addIpv4( self, tag, value ):
@@ -113,15 +113,15 @@ class rList( list ):
         return self
     
     def addStringA( self, tag, value ):
-        self.append( { 'tag' : tag, 'value' : value, 'type' : rpcm.RPCM_STRINGA } )
+        self.append( { 'tag' : tag, 'value' : str( value ), 'type' : rpcm.RPCM_STRINGA } )
         return self
     
     def addStringW( self, tag, value ):
-        self.append( { 'tag' : tag, 'value' : value, 'type' : rpcm.RPCM_STRINGW } )
+        self.append( { 'tag' : tag, 'value' : unicode( value ), 'type' : rpcm.RPCM_STRINGW } )
         return self
     
     def addBuffer( self, tag, value ):
-        self.append( { 'tag' : tag, 'value' : value, 'type' : rpcm.RPCM_BUFFER } )
+        self.append( { 'tag' : tag, 'value' : str( value ), 'type' : rpcm.RPCM_BUFFER } )
         return self
     
     def addIpv4( self, tag, value ):

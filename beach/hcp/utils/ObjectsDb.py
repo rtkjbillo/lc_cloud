@@ -605,22 +605,26 @@ class Host( object ):
 
 class FluxEvent( object ):
     @classmethod
-    def decode( cls, data, withRouting = False ):
+    def decode( cls, data, withRouting = False, isFullDump = False ):
         event = None
         routing = None
         try:
             data = msgpack.unpackb( base64.b64decode( data ), use_list = True )
-            if 'event' in data:
-                event = data[ 'event' ]
+            if isFullDump:
+                event = data
                 cls._dataToUtf8( event )
-            if 'routing' in data and withRouting:
-                routing = data[ 'routing' ]
-                cls._dataToUtf8( routing )
+            else:
+                if 'event' in data:
+                    event = data[ 'event' ]
+                    cls._dataToUtf8( event )
+                if 'routing' in data and withRouting:
+                    routing = data[ 'routing' ]
+                    cls._dataToUtf8( routing )
         except:
             event = None
             routing = None
 
-        if withRouting:
+        if withRouting and not isFullDump:
             return routing, event
         else:
             return event
@@ -665,7 +669,7 @@ class Reporting( object ):
         cls._db.shutdown()
 
     @classmethod
-    def getDetects( cls, before = None, after = None, limit = None, id = None ):
+    def getDetects( cls, oid = None, before = None, after = None, limit = None, id = None ):
         if id is None:
             filters = []
             filterValues = []
@@ -684,11 +688,9 @@ class Reporting( object ):
                 limit = ''
 
             def thisGen():
-                for d in xrange( 0, 255 ):
-                    for row in cls._db.execute( 'SELECT d, ts, did FROM detect_timeline WHERE d = %s AND %s%s' % ( d, ' AND '.join( filters ), limit ), filterValues ):
-                        for reprow in cls._db.execute( 'SELECT gen, did, source, dtype, events, detect, why FROM detects WHERE did = \'%s\'' % ( row[ 2 ],  ) ):
-                            yield ( timeToTs( reprow[ 0 ] ) * 1000, reprow[ 1 ].upper(), reprow[ 2 ], reprow[ 3 ], reprow[ 4 ], reprow[ 5 ], reprow[ 6 ] )
-
+                for row in cls._db.execute( 'SELECT did FROM detect_timeline WHERE oid = %s AND %s%s' % ( uuid.UUID( oid ), ' AND '.join( filters ), limit ), filterValues ):
+                    for reprow in cls._db.execute( 'SELECT gen, did, source, dtype, events, detect, why FROM detects WHERE did = \'%s\'' % ( row[ 0 ],  ) ):
+                        yield ( timeToTs( reprow[ 0 ] ) * 1000, reprow[ 1 ].upper(), reprow[ 2 ], reprow[ 3 ], reprow[ 4 ], reprow[ 5 ], reprow[ 6 ] )
 
             return thisGen()
         else:

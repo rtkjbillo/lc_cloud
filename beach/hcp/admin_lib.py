@@ -15,6 +15,7 @@
 from beach.beach_api import Beach
 import json
 import hashlib
+import uuid
 try:
     # When used by the random python script
     # import normally
@@ -42,6 +43,7 @@ class BEAdmin( object ):
     
     def __init__( self, beach_config, token, timeout = 1000 * 10 ):
         self.token = token
+        self.empty_uuid = uuid.UUID( bytes = "\x00" * 16 )
         self.beach = Beach( beach_config, realm = 'hcp' )
         self.vHandle = self.beach.getActorHandle( 'c2/admin/1.0',
                                                   ident = 'cli/955f6e63-9119-4ba6-a969-84b38bfbcc05',
@@ -82,8 +84,8 @@ class BEAdmin( object ):
     def hcp_delModule( self, moduleId, hashStr ):
         return self._query( 'hcp.remove_module', { 'module_id' : moduleId, 'hash' : hashStr } )
 
-    def hcp_getInstallers( self, oid = None, iid = None, withContent = False ):
-        return self._query( 'hcp.get_installers', { 'with_content' : withContent, 'oid' : oid, 'iid' : iid } )
+    def hcp_getInstallers( self, oid = None, iid = None, hash = None, withContent = False ):
+        return self._query( 'hcp.get_installers', { 'with_content' : withContent, 'oid' : oid, 'iid' : iid, 'hash' : hash } )
     
     def hcp_addInstaller( self, oid, iid, description, installer ):
         return self._query( 'hcp.add_installer', { 'oid' : oid, 'iid' : iid, 'description' : description, 'installer' : installer } )
@@ -113,11 +115,16 @@ class BEAdmin( object ):
         if investigationId is not None and '' != investigationId:
             task.addStringA( tags.hbs.INVESTIGATION_ID, investigationId )
         
-        toSign = ( rSequence().addSequence( tags.base.HCP_IDENT, rSequence().addInt8( tags.base.HCP_SENSOR_ID, a.sensor_id )
-                                                                            .addInt8( tags.base.HCP_ORG_ID, a.org_id )
-                                                                            .addInt32( tags.base.HCP_INSTALLER_ID, a.ins_id )
-                                                                            .addInt8( tags.base.HCP_ARCHITECTURE, a.architecture )
-                                                                            .addInt8( tags.base.HCP_PLATFORM, a.platform ) )
+        toSign = ( rSequence().addSequence( tags.base.HCP_IDENT, rSequence().addBuffer( tags.base.HCP_SENSOR_ID, 
+                                                                                        ( a.sensor_id if a.sensor_id is not None else self.empty_uuid ).bytes )
+                                                                            .addBuffer( tags.base.HCP_ORG_ID, 
+                                                                                        ( a.org_id if a.org_id is not None else self.empty_uuid ).bytes )
+                                                                            .addBuffer( tags.base.HCP_INSTALLER_ID, 
+                                                                                         ( a.ins_id if a.ins_id is not None else self.empty_uuid ).bytes )
+                                                                            .addInt32( tags.base.HCP_ARCHITECTURE, 
+                                                                                       a.architecture if a.architecture is not None else 0 )
+                                                                            .addInt32( tags.base.HCP_PLATFORM, 
+                                                                                       a.platform if a.platform is not None else 0 ) )
                               .addSequence( tags.hbs.NOTIFICATION, task )
                               .addInt32( tags.hbs.NOTIFICATION_ID, id ) )
         if None != expiry:
@@ -129,3 +136,6 @@ class BEAdmin( object ):
                                         .addBuffer( tags.base.SIGNATURE, sig ) )
         
         return self._query( 'hbs.task_agent', { 'task' : final, 'aid' : str( a ), 'expiry' : expiry } )
+
+    def hbs_addKey( self, oid, key ):
+        return self._query( 'hbs.add_key', { 'oid' : oid, 'key' : key } )

@@ -21,6 +21,15 @@ class LcEndpointProxy ( StreamServer ):
     def handle( self, source, address ):
         global currentEndpoints
         if 0 == len( currentEndpoints ): return
+
+        try:
+        	source.setsockopt( socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1 )
+        	source.setsockopt( socket.IPPROTO_TCP, socket.TCP_KEEPIDLE, 5 )
+        	source.setsockopt( socket.IPPROTO_TCP, socket.TCP_KEEPINTVL, 10 )
+        	source.setsockopt( socket.IPPROTO_TCP, socket.TCP_KEEPCNT, 2 )
+        except:
+        	print( "Failed to set keepalive on connection" )
+
         try:
         	dest = create_connection( random.sample( currentEndpoints, 1 )[ 0 ] )
         except:
