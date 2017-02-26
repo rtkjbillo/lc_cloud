@@ -118,9 +118,6 @@ class AutoTasking( Actor ):
             if task in sent: continue
             sent.add( task )
 
-            if task[ 0 ] not in self.allowed_commands:
-                self.log( "ignoring command not allowed: %s" % str( task ) )
-                continue
             if self.isQuotaAllowed( dest, task ):
                 self.execTask( task, dest, expiry = expiry, invId = invId )
 

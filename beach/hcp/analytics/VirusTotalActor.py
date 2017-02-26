@@ -40,7 +40,7 @@ class VirusTotalActor ( Actor ):
 
         self.stats = [ 0, 0, 0, 0 ]
         self.schedule( 60 * 60, self.wipeStats )
-        self.schedule( 60 * 5, self.reportStats )
+        self.schedule( 60 * 60, self.reportStats )
 
         self.handle( 'get_report', self.getReport )
 

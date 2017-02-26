@@ -47,37 +47,43 @@ class _TaskResp ( object ):
         self._inv.liveTrx.remove( self._trxId )
 
 class _Investigation ( object ):
-    def __init__( self, actorRef, detect, invId = None ):
+    def __init__( self, actorRef, detect, invId = None, isExisting = False ):
         self.actor = actorRef
         self.invId = invId
+        self.isExisting = isExisting
         self.taskId = 0
         self.liveTrx = []
         self.originalDetect = detect
         if invId is None:
             invId = '%s/%s' % ( self.actor.__class__.__name__, str( uuid.uuid4() ) )
+            self.invId = invId
         if not self.actor._registerToInvData( self.invId ):
             raise Exception( 'could not register investigation' )
-        resp = self.actor._reporting.request( 'new_inv', 
-                                              { 'inv_id' : self.invId, 
-                                                'detect' : detect,
-                                                'ts' : time.time(),
-                                                'hunter' : self.actor._hunterName } )
-        if not resp.isSuccess:
-            raise Exception( 'could not create investigation' )
-        self.conclude( 'Hunter %s starting investigation.' % self.actor.__class__.__name__,
-                       InvestigationNature.OPEN, 
-                       InvestigationConclusion.RUNNING )
+        if not self.isExisting:
+            resp = self.actor._reporting.request( 'new_inv', 
+                                                  { 'inv_id' : self.invId, 
+                                                    'detect' : detect,
+                                                    'ts' : time.time(),
+                                                    'hunter' : self.actor._hunterName } )
+            if not resp.isSuccess:
+                raise Exception( 'could not create investigation' )
+
+            self.conclude( 'Hunter %s starting investigation.' % self.actor.__class__.__name__,
+                           InvestigationNature.OPEN, 
+                           InvestigationConclusion.RUNNING )
 
     def close( self ):
         self.actor._unregisterToInvData( self.invId )
         for trx in self.liveTrx:
             self.actor.unhandle( trx )
-        resp = self.actor._reporting.request( 'close_inv', 
-                                              { 'inv_id' : self.invId,
-                                                'ts' : time.time(),
-                                                'hunter' : self.actor._hunterName } )
-        if not resp.isSuccess:
-            raise Exception( 'error closing investigation' )
+
+        if not self.isExisting:
+            resp = self.actor._reporting.request( 'close_inv', 
+                                                  { 'inv_id' : self.invId,
+                                                    'ts' : time.time(),
+                                                    'hunter' : self.actor._hunterName } )
+            if not resp.isSuccess:
+                raise Exception( 'error closing investigation' )
 
     def task( self, why, dest, cmdsAndArgs, isNeedResp = True ):
         ret = None
@@ -114,7 +120,7 @@ class _Investigation ( object ):
                      'task' : cmdsAndArgs,
                      'why' : why,
                      'dest' : dest,
-                     'is_sent' : resp.isSuccess,
+                     'is_sent' : resp.isSuccess if ( resp is not None and resp is not False ) else False,
                      'hunter' : self.actor._hunterName }
         if not resp.isSuccess:
             taskInfo[ 'error' ] = resp.error
@@ -331,4 +337,4 @@ class Hunter ( Actor ):
         return isAlexa
 
     def openExistingInvestigation( self, invId ):
-        return _Investigation( self, None, invId = invId )
+        return _Investigation( self, None, invId = invId, isExisting = True )

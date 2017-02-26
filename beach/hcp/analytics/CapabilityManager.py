@@ -19,6 +19,7 @@ synchronized = Actor.importLib( '../utils/hcp_helpers', 'synchronized' )
 
 import urllib2
 import json
+import tempfile
 
 class CapabilityManager( Actor ):
     def init( self, parameters, resources ):
@@ -96,14 +97,25 @@ class CapabilityManager( Actor ):
         return ( elem, ) if type( elem ) not in ( list, tuple ) else elem
 
     def loadCapability( self, msg ):
-        url = msg.data[ 'url' ]
-        url = self.massageUrl( url )
+        url = msg.data.get( 'url', None )
+        if url is not None:
+            url = self.massageUrl( url )
+        patrolContent = msg.data.get( 'content', None )
         userDefinedName = msg.data[ 'user_defined_name' ]
         arguments = msg.data[ 'args' ]
         arguments = json.loads( arguments ) if ( arguments is not None and 0 != len( arguments ) ) else {}
         
         if userDefinedName in self.loadedDetections or userDefinedName in self.loadedPatrols:
             return ( False, 'user defined name already in use' )
+
+        if url is None:
+            if patrolContent is None:
+                return ( False, 'no content provided' )
+            else:
+                tmpPatrol = tempfile.NamedTemporaryFile( delete = False )
+                tmpPatrol.write( patrolContent )
+                url = 'file://%s' % tmpPatrol.name
+                tmpPatrol.close()
 
         capability = urllib2.urlopen( url ).read()
 
@@ -203,3 +215,4 @@ class CapabilityManager( Actor ):
     def listDetections( self, msg ):
         return ( True, { 'loadedDetections' : self.loadedDetections,
                          'loadedPatrols' : self.loadedPatrols } )
+
