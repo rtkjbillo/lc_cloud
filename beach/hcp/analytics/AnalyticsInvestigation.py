@@ -55,6 +55,12 @@ class AnalyticsInvestigation( Actor ):
             handle = self.handleCache[ routing_inv_id ]
             self.handleTtl[ routing_inv_id ] = int( time.time() )
 
+        # Sometimes we're just too fast, so if we don't see a subscriber
+        # wait a bit to give it a chance.
+        if not handle.isAvailable():
+            self.sleep( 2 )
+            handle.forceRefresh()
+
         self.log( 'investigation data going to: %d' % handle.getNumAvailable() )
         # The investigation id is used as a requestType since most actors
         # who need to be registered to investigations also need to
@@ -62,6 +68,5 @@ class AnalyticsInvestigation( Actor ):
         # at that level we don't need to maintain a local registration
         # list on every actor.
         handle.broadcast( inv_id, msg.data )
-
 
         return ( True, )

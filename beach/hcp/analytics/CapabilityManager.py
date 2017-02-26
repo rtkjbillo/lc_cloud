@@ -27,7 +27,8 @@ class CapabilityManager( Actor ):
         self.patrol = Patrol( self._beach_config_path, 
                               realm = 'hcp', 
                               identifier = self.__class__.__name__,
-                              scale = self.scale )
+                              scale = self.scale,
+                              sync_frequency = 60.0 )
         self.patrol.start()
         self.detectSecretIdent = parameters[ 'detect_secret_ident' ]
         self.detectTrustedIdent = parameters[ 'detect_trusted_ident' ]
@@ -137,7 +138,8 @@ class CapabilityManager( Actor ):
                             realm = 'hcp', 
                             identifier = userDefinedName,
                             scale = self.scale,
-                            actorsRoot = url[ : url.rfind( '/' ) + 1 ] )
+                            actorsRoot = url[ : url.rfind( '/' ) + 1 ],
+                            sync_frequency = 60.0 )
 
         newPatrol.loadFromUrl( url )
 

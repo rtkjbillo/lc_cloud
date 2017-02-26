@@ -25,30 +25,41 @@ CreateOnAccess = Actor.importLib( '../utils/hcp_helpers', 'CreateOnAccess' )
 
 class AnalyticsReporting( Actor ):
     def init( self, parameters, resources ):
-        self.ttl = parameters.get( 'ttl', ( 60 * 60 * 24 * 365 ) )
         self._db = CassDb( parameters[ 'db' ], 'hcp_analytics', consistencyOne = True )
         self.db = CassPool( self._db,
                             rate_limit_per_sec = parameters[ 'rate_limit_per_sec' ],
                             maxConcurrent = parameters[ 'max_concurrent' ],
                             blockOnQueueSize = parameters[ 'block_on_queue_size' ] )
 
-        self.report_stmt_rep = self.db.prepare( 'INSERT INTO detects ( did, gen, source, dtype, events, detect, why ) VALUES ( ?, dateOf( now() ), ?, ?, ?, ?, ? ) USING TTL %d' % self.ttl )
+        self.report_stmt_rep = self.db.prepare( 'INSERT INTO detects ( did, gen, source, dtype, events, detect, why ) VALUES ( ?, dateOf( now() ), ?, ?, ?, ?, ? ) USING TTL ?' )
         self.report_stmt_rep.consistency_level = CassDb.CL_Ingest
 
-        self.report_stmt_tl = self.db.prepare( 'INSERT INTO detect_timeline ( oid, ts, did ) VALUES ( ?, now(), ? ) USING TTL %d' % self.ttl )
+        self.report_stmt_tl = self.db.prepare( 'INSERT INTO detect_timeline ( oid, ts, did ) VALUES ( ?, now(), ? ) USING TTL ?' )
         self.report_stmt_tl.consistency_level = CassDb.CL_Ingest
 
-        self.new_inv_stmt = self.db.prepare( 'INSERT INTO investigation ( invid, gen, closed, nature, conclusion, why, hunter ) VALUES ( ?, ?, 0, 0, 0, \'\', ? ) USING TTL %d' % self.ttl )
+        self.new_inv_stmt = self.db.prepare( 'INSERT INTO investigation ( invid, gen, closed, nature, conclusion, why, hunter ) VALUES ( ?, ?, 0, 0, 0, \'\', ? ) USING TTL ?' )
 
-        self.close_inv_stmt = self.db.prepare( 'UPDATE investigation USING TTL %d SET closed = ? WHERE invid = ? AND hunter = ?' % self.ttl )
+        self.close_inv_stmt = self.db.prepare( 'UPDATE investigation USING TTL ? SET closed = ? WHERE invid = ? AND hunter = ?' )
 
-        self.task_inv_stmt = self.db.prepare( 'INSERT INTO inv_task ( invid, gen, why, dest, data, sent, hunter ) VALUES ( ?, ?, ?, ?, ?, ?, ? ) USING TTL %d' % self.ttl )
+        self.task_inv_stmt = self.db.prepare( 'INSERT INTO inv_task ( invid, gen, why, dest, data, sent, hunter ) VALUES ( ?, ?, ?, ?, ?, ?, ? ) USING TTL ?' )
 
-        self.report_inv_stmt = self.db.prepare( 'INSERT INTO inv_data ( invid, gen, why, data, hunter ) VALUES ( ?, ?, ?, ?, ? ) USING TTL %d' % self.ttl )
+        self.report_inv_stmt = self.db.prepare( 'INSERT INTO inv_data ( invid, gen, why, data, hunter ) VALUES ( ?, ?, ?, ?, ? ) USING TTL ?' )
 
-        self.conclude_inv_stmt = self.db.prepare( 'UPDATE investigation USING TTL %s SET closed = ?, nature = ?, conclusion = ?, why = ? WHERE invid = ? AND hunter = ?' % self.ttl )
+        self.conclude_inv_stmt = self.db.prepare( 'UPDATE investigation USING TTL ? SET closed = ?, nature = ?, conclusion = ?, why = ? WHERE invid = ? AND hunter = ?' )
+
+        self.set_inv_nature_stmt = self.db.prepare( 'UPDATE investigation USING TTL ? SET nature = ? WHERE invId = ? AND hunter = ?' )
+
+        self.get_detect_source_stmt = self.db.prepare( 'SELECT source FROM detects WHERE did = ?' )
 
         self.outputs = self.getActorHandleGroup( resources[ 'output' ] )
+
+        self.default_ttl_detections = parameters.get( 'retention_investigations', 60 * 60 * 24 * 365 )
+        self.org_ttls = {}
+        if 'identmanager' in resources:
+            self.identmanager = self.getActorHandle( resources[ 'identmanager' ] )
+        else:
+            self.identmanager = None
+            self.log( 'using default ttls' )
 
         self.db.start()
         self.handle( 'detect', self.detect )
@@ -57,6 +68,7 @@ class AnalyticsReporting( Actor ):
         self.handle( 'inv_task', self.inv_task )
         self.handle( 'report_inv', self.report_inv )
         self.handle( 'conclude_inv', self.conclude_inv )
+        self.handle( 'set_inv_nature', self.set_inv_nature )
 
         self.paging = CreateOnAccess( self.getActorHandle, resources[ 'paging' ] )
         self.pageDest = parameters.get( 'paging_dest', [] )
@@ -67,6 +79,29 @@ class AnalyticsReporting( Actor ):
         self.db.stop()
         self._db.shutdown()
 
+    def getOrgTtl( self, oid ):
+        ttl = None
+        
+        if self.identmanager is not None:
+            ttl = self.org_ttls.get( oid, None )
+            if ttl is None:
+                res = self.identmanager.request( 'get_org_info', { 'oid' : oid } )
+                if res.isSuccess and 0 != len( res.data[ 'orgs' ] ):
+                    self.org_ttls[ oid ] = res.data[ 'orgs' ][ 0 ][ 2 ][ 'detections' ]
+                    ttl = self.org_ttls[ oid ]
+                    self.log( 'using custom ttl for %s' % oid )
+        
+        if ttl is None:
+            ttl = self.default_ttl_detections
+        return ttl
+
+    def getDetectSource( self, did ):
+        source = None
+        for detect in self.db.execute( self.get_detect_source_stmt.bind( ( did, ) ) ):
+            source = detect[ 0 ]
+            break
+        return source
+
     def detect( self, msg ):
         event_ids = msg.data[ 'msg_ids' ]
         category = msg.data[ 'cat' ]
@@ -74,11 +109,12 @@ class AnalyticsReporting( Actor ):
         why = msg.data[ 'summary' ]
         detect = base64.b64encode( msgpack.packb( msg.data[ 'detect' ] ) )
         detect_id = msg.data[ 'detect_id' ].upper()
+        oid = AgentId( source.split( ' / ' )[ 0 ] ).org_id
 
         try:
-            self.db.execute_async( self.report_stmt_rep.bind( ( detect_id, source, category, ' / '.join( event_ids ), detect, why ) ) )
+            self.db.execute_async( self.report_stmt_rep.bind( ( detect_id, source, category, ' / '.join( event_ids ), detect, why, self.getOrgTtl( oid ) ) ) )
             for s in source.split( ' / ' ):
-                self.db.execute_async( self.report_stmt_tl.bind( ( AgentId( s ).org_id, detect_id ) ) )
+                self.db.execute_async( self.report_stmt_tl.bind( ( AgentId( s ).org_id, detect_id, self.getOrgTtl( oid ) ) ) )
         except:
             import traceback
             self.logCritical( 'Exc storing detect %s / %s' % ( str( msg.data ), traceback.format_exc() ) )
@@ -96,16 +132,20 @@ class AnalyticsReporting( Actor ):
         ts = msg.data[ 'ts' ] * 1000
         detect = msg.data[ 'detect' ]
         hunter = msg.data[ 'hunter' ]
+        source = self.getDetectSource( invId )
+        oid = AgentId( source.split( ' / ' )[ 0 ] ).org_id
 
-        self.db.execute( self.new_inv_stmt.bind( ( invId, ts, hunter ) ) )
+        self.db.execute( self.new_inv_stmt.bind( ( invId, ts, hunter, self.getOrgTtl( oid ) ) ) )
         return ( True, )
 
     def close_inv( self, msg ):
         invId = msg.data[ 'inv_id' ].upper()
         ts = msg.data[ 'ts' ] * 1000
         hunter = msg.data[ 'hunter' ]
+        source = self.getDetectSource( invId )
+        oid = AgentId( source.split( ' / ' )[ 0 ] ).org_id
 
-        self.db.execute( self.close_inv_stmt.bind( ( ts, invId, hunter ) ) )
+        self.db.execute( self.close_inv_stmt.bind( ( self.getOrgTtl( oid ), ts, invId, hunter ) ) )
         return ( True, )
 
     def inv_task( self, msg ):
@@ -116,8 +156,10 @@ class AnalyticsReporting( Actor ):
         dest = msg.data[ 'dest' ]
         isSent = msg.data[ 'is_sent' ]
         hunter = msg.data[ 'hunter' ]
+        source = self.getDetectSource( invId )
+        oid = AgentId( source.split( ' / ' )[ 0 ] ).org_id
 
-        self.db.execute( self.task_inv_stmt.bind( ( invId, time_uuid.TimeUUID.with_timestamp( ts ), why, dest, task, isSent, hunter ) ) )
+        self.db.execute( self.task_inv_stmt.bind( ( invId, time_uuid.TimeUUID.with_timestamp( ts ), why, dest, task, isSent, hunter, self.getOrgTtl( oid ) ) ) )
         return ( True, )
 
     def report_inv( self, msg ):
@@ -126,8 +168,10 @@ class AnalyticsReporting( Actor ):
         data = base64.b64encode( msgpack.packb( msg.data[ 'data' ] ) )
         why = msg.data[ 'why' ]
         hunter = msg.data[ 'hunter' ]
+        source = self.getDetectSource( invId )
+        oid = AgentId( source.split( ' / ' )[ 0 ] ).org_id
 
-        self.db.execute( self.report_inv_stmt.bind( ( invId, time_uuid.TimeUUID.with_timestamp( ts ), why, data, hunter ) ) )
+        self.db.execute( self.report_inv_stmt.bind( ( invId, time_uuid.TimeUUID.with_timestamp( ts ), why, data, hunter, self.getOrgTtl( oid ) ) ) )
         return ( True, )
 
     def conclude_inv( self, msg ):
@@ -137,6 +181,18 @@ class AnalyticsReporting( Actor ):
         nature = msg.data[ 'nature' ]
         conclusion = msg.data[ 'conclusion' ]
         hunter = msg.data[ 'hunter' ]
+        source = self.getDetectSource( invId )
+        oid = AgentId( source.split( ' / ' )[ 0 ] ).org_id
 
-        self.db.execute( self.conclude_inv_stmt.bind( ( ts, nature, conclusion, why, invId, hunter ) ) )
+        self.db.execute( self.conclude_inv_stmt.bind( ( self.getOrgTtl( oid ), ts, nature, conclusion, why, invId, hunter ) ) )
+        return ( True, )
+
+    def set_inv_nature( self, msg ):
+        invId = msg.data[ 'inv_id' ].upper()
+        hunter = msg.data[ 'hunter' ]
+        nature = msg.data[ 'nature' ]
+        source = self.getDetectSource( invId )
+        oid = AgentId( source.split( ' / ' )[ 0 ] ).org_id
+
+        self.db.execute( self.set_inv_nature_stmt.bind( ( self.getOrgTtl( oid ), nature, invId, hunter ) ) )
         return ( True, )
