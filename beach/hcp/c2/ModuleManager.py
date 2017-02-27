@@ -23,6 +23,7 @@ rpcm = Actor.importLib( 'utils/rpcm', 'rpcm' )
 rList = Actor.importLib( 'utils/rpcm', 'rList' )
 rSequence = Actor.importLib( 'utils/rpcm', 'rSequence' )
 AgentId = Actor.importLib( 'utils/hcp_helpers', 'AgentId' )
+RingCache = Actor.importLib( 'utils/hcp_helpers', 'RingCache' )
 
 class TaskingRule( object ):
     def __init__( self, parent, aid, mid, h ):
@@ -38,19 +39,20 @@ class TaskingRule( object ):
 
 class ModuleManager( Actor ):
     def init( self, parameters, resources ):
+        self.cacheSize = parameters.get( 'cache_size', 10 )
     	self._db = CassDb( parameters[ 'db' ], 'hcp_analytics', consistencyOne = True )
         self.db = CassPool( self._db,
                             rate_limit_per_sec = parameters[ 'rate_limit_per_sec' ],
                             maxConcurrent = parameters[ 'max_concurrent' ],
                             blockOnQueueSize = parameters[ 'block_on_queue_size' ] )
 
-        self.loadModules = self.db.prepare( 'SELECT mid, mhash, mdat, msig FROM hcp_modules' )
         self.loadTaskings = self.db.prepare( 'SELECT aid, mid, mhash FROM hcp_module_tasking' )
+        self.loadModuleContent = self.db.prepare( 'SELECT mdat, msig FROM hcp_modules WHERE mid = ? AND mhash = ?' )
 
         self.db.start()
 
-        self.modules = {}
         self.taskings = []
+        self.moduleCache = RingCache( self.cacheSize )
 
     	self.reloadTaskings()
 
@@ -59,6 +61,23 @@ class ModuleManager( Actor ):
 
     def deinit( self ):
         pass
+
+    def getModule( self, mid, mhash ):
+        try:
+            mdat, msig = self.moduleCache.get( ( mid, mhash ) )
+            self.log( "Got module %s-%s in cache." % ( mid, mhash ) )
+        except:
+            mdat = None
+            msig = None
+
+        if mdat is None or msig is None:
+            for row in self.db.execute( self.loadModuleContent.bind( ( mid, mhash ) ) ):
+                mdat = row[ 0 ]
+                msig = row[ 1 ]
+                self.log( "Got module %s-%s from store." % ( mid, mhash ) )
+                break
+            self.moduleCache.add( ( mid, mhash ), ( mdat, msig ) )
+        return ( mdat, msig )
 
     def sync( self, msg ):
     	changes = { 'unload' : [], 'load' : [] }
@@ -80,28 +99,21 @@ class ModuleManager( Actor ):
     		if hLoaded not in shouldBeLoaded or iLoaded != shouldBeLoaded[ hLoaded ]:
     			changes[ 'unload' ].append( iLoaded )
 
-    	for hToLoad, iToLoad in shouldBeLoaded.iteritems():
-    		if hToLoad not in loaded or iToLoad != loaded[ hToLoad ]:
-    			modInfo = self.modules.get( hToLoad, None )
-    			if modInfo is not None:
-    				changes[ 'load' ].append( modInfo )
-    			else:
-    				self.log( 'could not send module %s for load' % hToLoad )
+        for hToLoad, iToLoad in shouldBeLoaded.iteritems():
+            if hToLoad not in loaded or iToLoad != loaded[ hToLoad ]:
+                dToLoad, sToLoad = self.getModule( iToLoad, hToLoad )
+                modInfo = ( iToLoad, hToLoad, dToLoad, sToLoad )
+                changes[ 'load' ].append( modInfo )
 
         return ( True, { 'changes' : changes } )
 
     def reloadTaskings( self, msg = None ):
-    	newModules = {}
-    	for row in self.db.execute( self.loadModules.bind( tuple() ) ):
-    		newModules[ row[ 1 ] ] = ( row[ 0 ], row[ 1 ], row[ 2 ], row[ 3 ] )
-
     	newTaskings = []
     	for row in self.db.execute( self.loadTaskings.bind( tuple() ) ):
     		newTaskings.append( TaskingRule( self, row[ 0 ], row[ 1 ], row[ 2 ] ) )
 
-    	self.modules = newModules
     	self.taskings = newTaskings
 
-    	self.log( 'reloaded %d modules and %d taskings' % ( len( newModules ), len( newTaskings ) ) )
+    	self.log( 'reloaded %d taskings' % ( len( newTaskings ), ) )
 
     	return ( True, )
