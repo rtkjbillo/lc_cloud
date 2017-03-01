@@ -20,11 +20,10 @@ HcpCli = Actor.importLib( '../admin_cli', 'HcpCli' )
 CassDb = Actor.importLib( 'utils/hcp_databases', 'CassDb' )
 CassPool = Actor.importLib( 'utils/hcp_databases', 'CassPool' )
 AgentId = Actor.importLib( '../utils/hcp_helpers', 'AgentId' )
+RingCache = Actor.importLib( 'utils/hcp_helpers', 'RingCache' )
 
 class AutoTasking( Actor ):
     def init( self, parameters, resources ):
-        self.hbs_ifaces = {}
-
         self.authToken = parameters.get( 'auth_token', '' )
         self.cmdLogFile = parameters.get( 'log_file', None )
 
@@ -34,9 +33,9 @@ class AutoTasking( Actor ):
                             maxConcurrent = parameters[ 'max_concurrent' ],
                             blockOnQueueSize = parameters[ 'block_on_queue_size' ] )
 
-        self.db.start()
+        self.get_key_stmt = self.db.prepare( 'SELECT data FROM hbs_keys WHERE oid = ?' )
 
-        self.refreshKeys()
+        self.db.start()
 
         self.sensor_qph = parameters.get( 'sensor_qph', 50 )
         self.global_qph = parameters.get( 'global_qph', 200 )
@@ -44,23 +43,34 @@ class AutoTasking( Actor ):
         self.handle( 'task', self.handleTasking )
         self.sensor_stats = {}
         self.global_stats = 0
+        self.iface_cache = RingCache( 3 )
         self.schedule( 3600, self.decay )
-        self.schedule( 3600, self.refreshKeys )
 
     def deinit( self ):
         pass
 
-    def refreshKeys( self ):
-        orgs = self.db.execute( 'SELECT oid, data FROM hbs_keys' )
-        if orgs is None or orgs is False:
-            raise Exception( 'Could not fetch hbs keys' )
+    def getCli( self, oid ):
+        key = None
+        cli = None
 
-        for row in orgs:
-            self.hbs_ifaces[ str( row[ 0 ] ) ] = HcpCli( self._beach_config_path,
-                                                  self.authToken,
-                                                  row[ 1 ],
-                                                  self.cmdLogFile )
-        self.log( "We now have the following keys loaded: %s" % ( self.hbs_ifaces.keys(), ) )
+        try:
+            cli = self.iface_cache.get( oid )
+            self.log( "Got org key for %s from cache." % oid )
+        except:
+            cli = None
+
+        if cli is None:
+            for row in self.db.execute( self.get_key_stmt.bind( ( oid, ) ) ):
+                key = row[ 0 ]
+                break
+            if key is not None:
+                cli = HcpCli( self._beach_config_path,
+                              self.authToken,
+                              key,
+                              self.cmdLogFile )
+                self.iface_cache.add( oid, cli )
+                self.log( "Got org key for %s from storage." % oid )
+        return cli
 
     def decay( self ):
         for k in self.sensor_stats.iterkeys():
@@ -98,9 +108,12 @@ class AutoTasking( Actor ):
         if invId is not None:
             command += ' -@ "%s"' % str( invId )
 
-        cli = self.hbs_ifaces.get( str( AgentId( agentid ).org_id ), None )
+        oid = AgentId( agentid ).org_id
+
+        cli = self.getCli( oid )
+
         if cli is None:
-            self.log( 'Could not task, we have no keys for org %s' % ( str( AgentId( agentid ).org_id ), ) )
+            self.log( 'Could not task, we have no keys for org %s' % ( str( oid ), ) )
         else:
             cli.onecmd( command )
             self.log( command )

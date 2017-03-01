@@ -85,7 +85,7 @@ class DataExporter( Actor ):
         byUser = msg.data[ 'by' ]
         isJson = msg.data.get( 'is_json', True )
         isFlat = msg.data.get( 'is_flat', False )
-        after = int( msg.data[ 'after' ] )
+        after = int( msg.data.get( 'after', 0 ) )
         sid = AgentId( msg.data[ 'sid' ] ).sensor_id
         before = int( msg.data.get( 'before', time.time() + 5 ) )
 
