@@ -1,0 +1,112 @@
+# Copyright 2015 refractionPOINT
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+node('builder && ubuntu-16-04 && 64bit') {
+    stage('Checkout') {
+        git url: 'https://github.com/refractionPOINT/limacharlie.git', branch: 'develop'
+        sh 'git submodule update --init --recursive'
+    }
+    
+    stage('Build') {
+        dir('sensor') {
+            sh 'scons -c'
+            sh 'scons'
+        }
+    }
+            
+    stage('Unit Tests') {
+        dir('sensor/bin/ubuntu/16.04/x86_64/debug/') {
+            catchError {
+                sh './rpal_test'
+            }
+            catchError {
+                sh './processLib_test'
+            }
+            catchError {
+                sh './cryptoLib_test'
+            }
+            catchError {
+                sh './hcp_test'
+            }
+            catchError {
+                sh './libOs_test'
+            }
+            catchError {
+                sh './obsLib_test'
+            }
+        }
+    }
+    
+    stage('Release Binaries') {
+        sh 'rm ./prebuilt_binaries/hcp* || true'
+        sh 'rm ./prebuilt_binaries/hbs* || true'
+        sh 'rm ./prebuilt_binaries/kernel* || true'
+        sh './sensor/scripts/release_binaries.sh `git rev-parse HEAD` || true'
+        archive includes: 'prebuilt_binaries/*', excludes: 'prebuilt_binaries/download_binaries.sh'
+    }
+}
+
+node('cloud') {
+    stage('Prep Cloud') {
+        git url: 'https://github.com/refractionPOINT/limacharlie.git', branch: 'develop'
+        sh 'git submodule update --init --recursive'
+        sh 'ln -s `pwd`/cloud/beach/hcp/utils/* `pwd`/cloud/limacharlie/ || true'
+        sh 'python `pwd`/tools/update_headers.py || true'
+        sh 'killall python || true'
+        sh 'echo "drop keyspace hcp_analytics;" | cqlsh || true'
+        sh 'cqlsh -f `pwd`/cloud/schema/scale_db.cql'
+    }
+    
+    stage('Load Binaries') {
+        sh 'rm ./prebuilt_binaries/hbs* || true'
+        sh 'rm ./prebuilt_binaries/hcp* || true'
+        sh 'rm ./prebuilt_binaries/kernel* || true'
+        unarchive mapping: [ 'prebuilt_binaries/*' : './' ]
+        dir('cloud/infrastructure/') {
+            sh 'python ./2_start_single_node_test_cluster.py'
+            sh 'sleep 5'
+            sh 'python ./3_configure_single_node_test_cluster.py --nodownload -hcp sensor/sample_configs/cloud_in_a_can_hcp.conf -hbs sensor/sample_configs/cloud_in_a_can_hbs.conf'
+        }
+        stash name: 'sensors', includes: 'prebuilt_binaries/*', excludes: 'prebuilt_binaries/download_binaries.sh'
+        sh 'curl icanhazip.com > cloud_ip_external.txt'
+        stash name: 'cloud_ip_external', includes: 'cloud_ip_external.txt'
+        sh 'ifconfig ens4 | grep \'inet addr\' | cut -d: -f2 | awk \'{print $1}\' > cloud_ip_internal.txt'
+        stash name: 'cloud_ip_internal', includes: 'cloud_ip_internal.txt'
+    }
+}
+node('sensor && ubuntu-16-04 && 64bit') {
+    stage('Launch Sensor') {
+        sh 'rm hcpcc || true'
+        sh 'rm /usr/local/hcp || true'
+        sh 'rm ./prebuilt_binaries/hcp_* || true'
+        unstash name: 'cloud_ip_external'
+        unstash name: 'cloud_ip_internal'
+        unstash name: 'sensors'
+        sh 'chmod 500 ./prebuilt_binaries/hcp_*'
+        sh './prebuilt_binaries/hcp_ubuntu_x64_debug_* -p `cat cloud_ip_internal.txt` -s `cat cloud_ip_external.txt` &'
+        sh 'sleep 300'
+        sh 'ls hcpcc'
+    }
+    stage('Verify Enrollment') {
+        sh 'ls /usr/local/hcp'
+    }
+    
+    sh 'pkill -f hcp_'
+}
+
+node('cloud') {
+    stage('Shutdown Cloud') {
+        sh 'pkill -f beach || true'
+    }
+}
