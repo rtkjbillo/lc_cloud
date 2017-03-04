@@ -48,6 +48,7 @@ class AnalyticsReporting( Actor ):
         self.conclude_inv_stmt = self.db.prepare( 'UPDATE investigation USING TTL ? SET closed = ?, nature = ?, conclusion = ?, why = ? WHERE invid = ? AND hunter = ?' )
 
         self.set_inv_nature_stmt = self.db.prepare( 'UPDATE investigation USING TTL ? SET nature = ? WHERE invId = ? AND hunter = ?' )
+        self.set_inv_conclusion_stmt = self.db.prepare( 'UPDATE investigation USING TTL ? SET conclusion = ? WHERE invId = ? AND hunter = ?' )
 
         self.get_detect_source_stmt = self.db.prepare( 'SELECT source FROM detects WHERE did = ?' )
 
@@ -69,6 +70,7 @@ class AnalyticsReporting( Actor ):
         self.handle( 'report_inv', self.report_inv )
         self.handle( 'conclude_inv', self.conclude_inv )
         self.handle( 'set_inv_nature', self.set_inv_nature )
+        self.handle( 'set_inv_conclusion', self.set_inv_conclusion )
 
         self.paging = CreateOnAccess( self.getActorHandle, resources[ 'paging' ] )
         self.pageDest = parameters.get( 'paging_dest', [] )
@@ -195,4 +197,14 @@ class AnalyticsReporting( Actor ):
         oid = AgentId( source.split( ' / ' )[ 0 ] ).org_id
 
         self.db.execute( self.set_inv_nature_stmt.bind( ( self.getOrgTtl( oid ), nature, invId, hunter ) ) )
+        return ( True, )
+
+    def set_inv_conclusion( self, msg ):
+        invId = msg.data[ 'inv_id' ].upper()
+        hunter = msg.data[ 'hunter' ]
+        conclusion = msg.data[ 'conclusion' ]
+        source = self.getDetectSource( invId )
+        oid = AgentId( source.split( ' / ' )[ 0 ] ).org_id
+
+        self.db.execute( self.set_inv_conclusion_stmt.bind( ( self.getOrgTtl( oid ), conclusion, invId, hunter ) ) )
         return ( True, )
