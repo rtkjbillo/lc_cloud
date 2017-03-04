@@ -29,6 +29,7 @@ const (
 
 type rpcmElement interface {
     GetType() byte
+    GetValue() interface{}
     Serialize(toBuf *bytes.Buffer) error
 }
 
@@ -115,6 +116,66 @@ type rList struct {
 
 func (this *rElem) GetType() uint8 {
     return this.typ
+}
+
+func (this *ru8) GetValue() interface{} {
+    return this.value
+}
+
+func (this *ru16) GetValue() interface{} {
+    return this.value
+}
+
+func (this *ru32) GetValue() interface{} {
+    return this.value
+}
+
+func (this *ru64) GetValue() interface{} {
+    return this.value
+}
+
+func (this *rStringA) GetValue() interface{} {
+    return this.value
+}
+
+func (this *rStringW) GetValue() interface{} {
+    return this.value
+}
+
+func (this *rBuffer) GetValue() interface{} {
+    return this.value
+}
+
+func (this *rTimestamp) GetValue() interface{} {
+    return this.value
+}
+
+func (this *rIpv4) GetValue() interface{} {
+    return this.value
+}
+
+func (this *rIpv6) GetValue() interface{} {
+    return this.value
+}
+
+func (this *rPointer32) GetValue() interface{} {
+    return this.value
+}
+
+func (this *rPointer64) GetValue() interface{} {
+    return this.value
+}
+
+func (this *rTimedelta) GetValue() interface{} {
+    return this.value
+}
+
+func (this *rSequence) GetValue() interface{} {
+    return this.elements
+}
+
+func (this *rList) GetValue() interface{} {
+    return this.elements
 }
 
 //=============================================================================
@@ -313,7 +374,7 @@ func (this *rList)Deserialize(fromBuf *bytes.Buffer) error {
     var tag uint32
     var typ uint8
 
-    this.typ = RPCM_SEQUENCE
+    this.typ = RPCM_LIST
 
     err := binary.Read(fromBuf, binary.BigEndian, &this.elemTag)
     if err != nil {
@@ -485,7 +546,7 @@ func (this *rSequence) ToJson() map[string]interface{} {
         } else if val.GetType() == RPCM_LIST {
             j[tagLabel] = val.(*rList).ToJson()
         } else {
-            j[tagLabel] = val
+            j[tagLabel] = val.GetValue()
         }
     }
 
@@ -501,7 +562,7 @@ func (this *rList) ToJson() []interface{} {
         } else if val.GetType() == RPCM_LIST {
             j = append(j, val.(*rList).ToJson())
         } else {
-            j = append(j, val)
+            j = append(j, val.GetValue())
         }
     }
 
@@ -591,111 +652,111 @@ func (this *rSequence) AddList(tag uint32, list *rList) *rSequence {
 //=============================================================================
 // List
 //=============================================================================
-func (this *rList) AddInt8(tag uint32, number uint8) *rList {
+func (this *rList) AddInt8(number uint8) *rList {
     if this.elemType == RPCM_RU8 {
-        this.elements[tag] = &ru8{rElem: rElem{typ: RPCM_RU8}, value: number}
+        this.elements = append(this.elements, &ru8{rElem: rElem{typ: RPCM_RU8}, value: number})
         return this
     }
     return nil
 }
 
-func (this *rList) AddInt16(tag uint32, number uint16) *rList {
+func (this *rList) AddInt16(number uint16) *rList {
     if this.elemType == RPCM_RU16 {
-        this.elements[tag] = &ru16{rElem: rElem{typ: RPCM_RU16}, value: number}
+        this.elements = append(this.elements, &ru16{rElem: rElem{typ: RPCM_RU16}, value: number})
         return this
     }
     return nil
 }
 
-func (this *rList) AddInt32(tag uint32, number uint32) *rList {
+func (this *rList) AddInt32(number uint32) *rList {
     if this.elemType == RPCM_RU32 {
-        this.elements[tag] = &ru32{rElem: rElem{typ: RPCM_RU32}, value: number}
+        this.elements = append(this.elements, &ru32{rElem: rElem{typ: RPCM_RU32}, value: number})
         return this
     }
     return nil
 }
 
-func (this *rList) AddInt64(tag uint32, number uint64) *rList {
+func (this *rList) AddInt64(number uint64) *rList {
     if this.elemType == RPCM_RU64 {
-        this.elements[tag] = &ru64{rElem: rElem{typ: RPCM_RU64}, value: number}
+        this.elements = append(this.elements, &ru64{rElem: rElem{typ: RPCM_RU64}, value: number})
         return this
     }
     return nil
 }
 
-func (this *rList) AddStringA(tag uint32, str string) *rList {
+func (this *rList) AddStringA(str string) *rList {
     if this.elemType == RPCM_STRINGA {
-        this.elements[tag] = &rStringA{rElem: rElem{typ: RPCM_STRINGA}, value: str}
+        this.elements = append(this.elements, &rStringA{rElem: rElem{typ: RPCM_STRINGA}, value: str})
         return this
     }
     return nil
 }
 
-func (this *rList) AddStringW(tag uint32, str string) *rList {
+func (this *rList) AddStringW(str string) *rList {
     if this.elemType == RPCM_STRINGW {
-        this.elements[tag] = &rStringW{rElem: rElem{typ: RPCM_STRINGW}, value: str}
+        this.elements = append(this.elements, &rStringW{rElem: rElem{typ: RPCM_STRINGW}, value: str})
         return this
     }
     return nil
 }
 
-func (this *rList) AddBuffer(tag uint32, buf []byte) *rList {
+func (this *rList) AddBuffer(buf []byte) *rList {
     if this.elemType == RPCM_BUFFER {
-        this.elements[tag] = &rBuffer{rElem: rElem{typ: RPCM_BUFFER}, value: buf}
+        this.elements = append(this.elements, &rBuffer{rElem: rElem{typ: RPCM_BUFFER}, value: buf})
         return this
     }
     return nil
 }
 
-func (this *rList) AddTimestamp(tag uint32, ts uint64) *rList {
+func (this *rList) AddTimestamp(ts uint64) *rList {
     if this.elemType == RPCM_TIMESTAMP {
-        this.elements[tag] = &rTimestamp{rElem: rElem{typ: RPCM_TIMESTAMP}, value: ts}
+        this.elements = append(this.elements, &rTimestamp{rElem: rElem{typ: RPCM_TIMESTAMP}, value: ts})
         return this
     }
     return nil
 }
 
-func (this *rList) AddIpv4(tag uint32, ip4 uint32) *rList {
+func (this *rList) AddIpv4(ip4 uint32) *rList {
     if this.elemType == RPCM_IPV4 {
-        this.elements[tag] = &rIpv4{rElem: rElem{typ: RPCM_IPV4}, value: ip4}
+        this.elements = append(this.elements, &rIpv4{rElem: rElem{typ: RPCM_IPV4}, value: ip4})
         return this
     }
     return nil
 }
 
-func (this *rList) AddIpv6(tag uint32, ip6 [16]byte) *rList {
+func (this *rList) AddIpv6(ip6 [16]byte) *rList {
     if this.elemType == RPCM_IPV6 {
-        this.elements[tag] = &rIpv6{rElem: rElem{typ: RPCM_IPV6}, value: ip6}
+        this.elements = append(this.elements, &rIpv6{rElem: rElem{typ: RPCM_IPV6}, value: ip6})
         return this
     }
     return nil
 }
 
-func (this *rList) AddPointer32(tag uint32, ptr uint32) *rList {
+func (this *rList) AddPointer32(ptr uint32) *rList {
     if this.elemType == RPCM_POINTER_32 {
-        this.elements[tag] = &rPointer32{rElem: rElem{typ: RPCM_POINTER_32}, value: ptr}
+        this.elements = append(this.elements, &rPointer32{rElem: rElem{typ: RPCM_POINTER_32}, value: ptr})
         return this
     }
     return nil
 }
 
-func (this *rList) AddPointer64(tag uint32, ptr uint64) *rList {
+func (this *rList) AddPointer64(ptr uint64) *rList {
     if this.elemType == RPCM_POINTER_64 {
-        this.elements[tag] = &rPointer64{rElem: rElem{typ: RPCM_POINTER_64}, value: ptr}
+        this.elements = append(this.elements, &rPointer64{rElem: rElem{typ: RPCM_POINTER_64}, value: ptr})
         return this
     }
     return nil
 }
 
-func (this *rList) AddTimesdelta(tag uint32, td uint64) *rList {
+func (this *rList) AddTimesdelta(td uint64) *rList {
     if this.elemType == RPCM_TIMEDELTA {
-        this.elements[tag] = &rTimedelta{rElem: rElem{typ: RPCM_TIMEDELTA}, value: td}
+        this.elements = append(this.elements, &rTimedelta{rElem: rElem{typ: RPCM_TIMEDELTA}, value: td})
         return this
     }
     return nil
 }
 
-func (this *rList) AddSequence(tag uint32, seq *rSequence) *rList {
+func (this *rList) AddSequence(seq *rSequence) *rList {
     if this.elemType == RPCM_SEQUENCE {
         seq.typ = RPCM_SEQUENCE
         this.elements = append(this.elements, seq)
@@ -704,7 +765,7 @@ func (this *rList) AddSequence(tag uint32, seq *rSequence) *rList {
     return nil
 }
 
-func (this *rList) AddList(tag uint32, list *rList) *rList {
+func (this *rList) AddList(list *rList) *rList {
     if this.elemType == RPCM_LIST {
         list.typ = RPCM_LIST
         this.elements = append(this.elements, list)
