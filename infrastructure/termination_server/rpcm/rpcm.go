@@ -341,15 +341,18 @@ func (this *rSequence)Deserialize(fromBuf *bytes.Buffer) error {
     var nElements uint32
     var tag uint32
     var typ uint8
+    var err error
 
     this.typ = RPCM_SEQUENCE
 
-    err := binary.Read(fromBuf, binary.BigEndian, &nElements)
+    err = binary.Read(fromBuf, binary.BigEndian, &nElements)
     if err != nil {
         return err
     }
 
     for i := uint32(0); i < nElements; i++ {
+        var tmpElem rpcmElement
+
         err = binary.Read(fromBuf, binary.BigEndian, &tag)
         if err != nil {
             return err
@@ -358,8 +361,8 @@ func (this *rSequence)Deserialize(fromBuf *bytes.Buffer) error {
         if err != nil {
             return err
         }
-        tmpElem := rpcmDeserializeElem(fromBuf, typ)
-        if tmpElem == nil {
+        tmpElem, err = rpcmDeserializeElem(fromBuf, typ)
+        if tmpElem == nil || err != nil {
             return errors.New("Failed to deserialize an element.")
         }
 
@@ -373,10 +376,11 @@ func (this *rList)Deserialize(fromBuf *bytes.Buffer) error {
     var nElements uint32
     var tag uint32
     var typ uint8
+    var err error
 
     this.typ = RPCM_LIST
 
-    err := binary.Read(fromBuf, binary.BigEndian, &this.elemTag)
+    err = binary.Read(fromBuf, binary.BigEndian, &this.elemTag)
     if err != nil {
         return err
     }
@@ -392,6 +396,8 @@ func (this *rList)Deserialize(fromBuf *bytes.Buffer) error {
     }
 
     for i := uint32(0); i < nElements; i++ {
+        var tmpElem rpcmElement
+
         err = binary.Read(fromBuf, binary.BigEndian, &tag)
         if err != nil {
             return err
@@ -406,8 +412,8 @@ func (this *rList)Deserialize(fromBuf *bytes.Buffer) error {
         if typ != this.elemType {
             return errors.New("Sanity failure: element type in list does not match.")
         }
-        tmpElem := rpcmDeserializeElem(fromBuf, typ)
-        if tmpElem == nil {
+        tmpElem, err = rpcmDeserializeElem(fromBuf, typ)
+        if tmpElem == nil || err != nil {
             return errors.New("Failed to deserialize an element.")
         }
 
@@ -417,11 +423,12 @@ func (this *rList)Deserialize(fromBuf *bytes.Buffer) error {
     return err
 }
 
-func rpcmDeserializeElem(fromBuf *bytes.Buffer, typ uint8) rpcmElement {
+func rpcmDeserializeElem(fromBuf *bytes.Buffer, typ uint8) (rpcmElement, error) {
     var elem rpcmElement = nil
     var elemLen uint32
     var tmpBuf []byte
     var err error
+    var sizeRead int
     
     switch typ {
         case RPCM_RU8:
@@ -439,24 +446,51 @@ func rpcmDeserializeElem(fromBuf *bytes.Buffer, typ uint8) rpcmElement {
         case RPCM_STRINGA:
             elem = &rStringA{rElem: rElem{typ: RPCM_STRINGA}}
             err = binary.Read(fromBuf, binary.BigEndian, &elemLen)
-            tmpBuf = make([]byte, elemLen)
-            _, err = fromBuf.Read(tmpBuf)
+            if uint32(fromBuf.Len()) < elemLen || elemLen == 0 {
+                err = errors.New("Not enough data in buffer")
+            } else {
+                tmpBuf = make([]byte, elemLen)
+                sizeRead, err = fromBuf.Read(tmpBuf)
+                if uint32(sizeRead) != elemLen {
+                    err = errors.New("Error reading enough data from buffer")
+                }
+            }
             if err == nil {
                 elem.(*rStringA).value = string(tmpBuf)
+                if elem.(*rStringA).value[len(elem.(*rStringA).value) - 1] == 0 {
+                    elem.(*rStringA).value = elem.(*rStringA).value[0:len(elem.(*rStringA).value) - 1]
+                }
             }
         case RPCM_STRINGW:
             elem = &rStringW{rElem: rElem{typ: RPCM_STRINGW}}
             err = binary.Read(fromBuf, binary.BigEndian, &elemLen)
-            tmpBuf = make([]byte, elemLen)
-            _, err = fromBuf.Read(tmpBuf)
+            if uint32(fromBuf.Len()) < elemLen || elemLen == 0 {
+                err = errors.New("Not enough data in buffer")
+            } else {
+                tmpBuf = make([]byte, elemLen)
+                sizeRead, err = fromBuf.Read(tmpBuf)
+                if uint32(sizeRead) != elemLen {
+                    err = errors.New("Error reading enough data from buffer")
+                }
+            }
             if err == nil {
                 elem.(*rStringW).value = string(tmpBuf)
+                if elem.(*rStringW).value[len(elem.(*rStringW).value) - 1] == 0 {
+                    elem.(*rStringW).value = elem.(*rStringW).value[0:len(elem.(*rStringW).value) - 1]
+                }
             }
         case RPCM_BUFFER:
             elem = &rBuffer{rElem: rElem{typ: RPCM_BUFFER}}
             err = binary.Read(fromBuf, binary.BigEndian, &elemLen)
-            tmpBuf = make([]byte, elemLen)
-            _, err = fromBuf.Read(tmpBuf)
+            if uint32(fromBuf.Len()) < elemLen || elemLen == 0 {
+                err = errors.New("Not enough data in buffer")
+            } else {
+                tmpBuf = make([]byte, elemLen)
+                sizeRead, err = fromBuf.Read(tmpBuf)
+                if uint32(sizeRead) != elemLen {
+                    err = errors.New("Error reading enough data from buffer")
+                }
+            }
             if err == nil {
                 elem.(*rBuffer).value = tmpBuf
             }
@@ -468,7 +502,10 @@ func rpcmDeserializeElem(fromBuf *bytes.Buffer, typ uint8) rpcmElement {
             err = binary.Read(fromBuf, binary.BigEndian, &elem.(*rIpv4).value)
         case RPCM_IPV6:
             elem = &rIpv6{rElem: rElem{typ: RPCM_IPV6}}
-            _, err = fromBuf.Read(elem.(*rIpv6).value[:])
+            sizeRead, err = fromBuf.Read(elem.(*rIpv6).value[:])
+            if uint32(sizeRead) != 16 {
+                err = errors.New("Error reading enough data from buffer")
+            }
         case RPCM_POINTER_32:
             elem = &rPointer32{rElem: rElem{typ: RPCM_POINTER_32}}
             err = binary.Read(fromBuf, binary.BigEndian, &elem.(*rPointer32).value)
@@ -492,7 +529,7 @@ func rpcmDeserializeElem(fromBuf *bytes.Buffer, typ uint8) rpcmElement {
         elem = nil
     }
 
-    return elem
+    return elem, err
 }
 
 //=============================================================================
@@ -507,7 +544,7 @@ func (this *rSequence) ToMachine() map[uint32]interface{} {
         } else if val.GetType() == RPCM_LIST {
             j[tag] = val.(*rList).ToMachine()
         } else {
-            j[tag] = val
+            j[tag] = val.GetValue()
         }
     }
 
@@ -523,7 +560,7 @@ func (this *rList) ToMachine() []interface{} {
         } else if val.GetType() == RPCM_LIST {
             j = append(j, val.(*rList).ToMachine())
         } else {
-            j = append(j, val)
+            j = append(j, val.GetValue())
         }
     }
 
