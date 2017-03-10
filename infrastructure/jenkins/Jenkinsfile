@@ -12,101 +12,176 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-node('builder && ubuntu-16-04 && 64bit') {
-    stage('Checkout') {
-        git url: 'https://github.com/refractionPOINT/limacharlie.git', branch: 'develop'
-        sh 'git submodule update --init --recursive'
-    }
-    
-    stage('Build') {
-        dir('sensor') {
-            sh 'scons -c'
-            sh 'scons'
-        }
-    }
-            
-    stage('Unit Tests') {
-        dir('sensor/bin/ubuntu/16.04/x86_64/debug/') {
-            catchError {
-                sh './rpal_test'
-            }
-            catchError {
-                sh './processLib_test'
-            }
-            catchError {
-                sh './cryptoLib_test'
-            }
-            catchError {
-                sh './hcp_test'
-            }
-            catchError {
-                sh './libOs_test'
-            }
-            catchError {
-                sh './obsLib_test'
-            }
-        }
-    }
-    
-    stage('Release Binaries') {
-        sh 'rm ./prebuilt_binaries/hcp* || true'
-        sh 'rm ./prebuilt_binaries/hbs* || true'
-        sh 'rm ./prebuilt_binaries/kernel* || true'
-        sh './sensor/scripts/release_binaries.sh `git rev-parse HEAD` || true'
-        archive includes: 'prebuilt_binaries/*', excludes: 'prebuilt_binaries/download_binaries.sh'
-    }
-}
+parallel (
+    "ubuntu-16-04-64" : {
+        node('builder && ubuntu-16-04 && 64bit') {
+            stage('Checkout Ubuntu-16-04-64') {
+                git url: 'https://github.com/refractionPOINT/limacharlie.git', branch: 'develop'
+                sh 'git submodule update --init --recursive'
+            }
+            
+            stage('Build Ubuntu-16-04-64') {
+                dir('sensor') {
+                    sh 'scons -c'
+                    sh 'scons'
+                }
+            }
+                    
+            stage('Unit Tests Ubuntu-16-04-64') {
+                dir('sensor/bin/ubuntu/16.04/x86_64/debug/') {
+                    catchError {
+                        sh './rpal_test'
+                    }
+                    catchError {
+                        sh './processLib_test'
+                    }
+                    catchError {
+                        sh './cryptoLib_test'
+                    }
+                    catchError {
+                        sh './hcp_test'
+                    }
+                    catchError {
+                        sh './libOs_test'
+                    }
+                    catchError {
+                        sh './obsLib_test'
+                    }
+                }
+            }
+            
+            stage('Release Binaries Ubuntu-16-04-64') {
+                sh 'rm ./prebuilt_binaries/hcp* || true'
+                sh 'rm ./prebuilt_binaries/hbs* || true'
+                sh 'rm ./prebuilt_binaries/kernel* || true'
+                sh './sensor/scripts/release_binaries.sh `git rev-parse HEAD` || true'
+                archive includes: 'prebuilt_binaries/*', excludes: 'prebuilt_binaries/download_binaries.sh'
+            }
+        }
+    },
+    "macos-10-12-64" : {
+        node('builder && macos-10-12 && 64bit') {
+            stage('Checkout MacOS-10-12-64') {
+                git url: 'https://github.com/refractionPOINT/limacharlie.git', branch: 'develop'
+                sh 'git submodule update --init --recursive'
+            }
+            
+            stage('Build MacOS-10-12-64') {
+                dir('sensor') {
+                    sh '/usr/local/bin/scons -c'
+                    sh '/usr/local/bin/scons'
+                }
+            }
+                    
+            stage('Unit Tests MacOS-10-12-64') {
+                dir('sensor/bin/macosx/10.12.3/x86_64/debug/') {
+                    catchError {
+                        sh './rpal_test'
+                    }
+                    catchError {
+                        sh './processLib_test'
+                    }
+                    catchError {
+                        sh './cryptoLib_test'
+                    }
+                    catchError {
+                        sh './hcp_test'
+                    }
+                    catchError {
+                        sh './libOs_test'
+                    }
+                    catchError {
+                        sh './obsLib_test'
+                    }
+                }
+            }
+            
+            stage('Release Binaries MacOS-10-12-64') {
+                sh 'rm ./prebuilt_binaries/hcp* || true'
+                sh 'rm ./prebuilt_binaries/hbs* || true'
+                sh 'rm ./prebuilt_binaries/kernel* || true'
+                sh './sensor/scripts/release_binaries.sh `git rev-parse HEAD` || true'
+                archive includes: 'prebuilt_binaries/*', excludes: 'prebuilt_binaries/download_binaries.sh'
+            }
+        }
+    }
+)
 
 node('cloud') {
-    stage('Prep Cloud') {
-        git url: 'https://github.com/refractionPOINT/limacharlie.git', branch: 'develop'
-        sh 'git submodule update --init --recursive'
-        sh 'ln -s `pwd`/cloud/beach/hcp/utils/* `pwd`/cloud/limacharlie/ || true'
-        sh 'python `pwd`/tools/update_headers.py || true'
-        sh 'killall python || true'
-        sh 'echo "drop keyspace hcp_analytics;" | cqlsh || true'
-        sh 'cqlsh -f `pwd`/cloud/schema/scale_db.cql'
-    }
-    
-    stage('Load Binaries') {
-        sh 'rm ./prebuilt_binaries/hbs* || true'
-        sh 'rm ./prebuilt_binaries/hcp* || true'
-        sh 'rm ./prebuilt_binaries/kernel* || true'
-        unarchive mapping: [ 'prebuilt_binaries/*' : './' ]
-        dir('cloud/infrastructure/') {
-            sh 'python ./2_start_single_node_test_cluster.py'
-            sh 'sleep 5'
-            sh 'python ./3_configure_single_node_test_cluster.py --nodownload -hcp sensor/sample_configs/cloud_in_a_can_hcp.conf -hbs sensor/sample_configs/cloud_in_a_can_hbs.conf'
-        }
-        stash name: 'sensors', includes: 'prebuilt_binaries/*', excludes: 'prebuilt_binaries/download_binaries.sh'
-        sh 'curl icanhazip.com > cloud_ip_external.txt'
-        stash name: 'cloud_ip_external', includes: 'cloud_ip_external.txt'
-        sh 'ifconfig ens4 | grep \'inet addr\' | cut -d: -f2 | awk \'{print $1}\' > cloud_ip_internal.txt'
-        stash name: 'cloud_ip_internal', includes: 'cloud_ip_internal.txt'
-    }
-}
-node('sensor && ubuntu-16-04 && 64bit') {
-    stage('Launch Sensor') {
-        sh 'rm hcpcc || true'
-        sh 'rm /usr/local/hcp || true'
-        sh 'rm ./prebuilt_binaries/hcp_* || true'
-        unstash name: 'cloud_ip_external'
-        unstash name: 'cloud_ip_internal'
-        unstash name: 'sensors'
-        sh 'chmod 500 ./prebuilt_binaries/hcp_*'
-        sh './prebuilt_binaries/hcp_ubuntu_x64_debug_* -p `cat cloud_ip_internal.txt` -s `cat cloud_ip_external.txt` &'
-        sh 'sleep 300'
-        sh 'ls hcpcc'
-    }
-    stage('Verify Enrollment') {
-        sh 'ls /usr/local/hcp'
-    }
-    
-    sh 'pkill -f hcp_'
+    stage('Prep Cloud') {
+        git url: 'https://github.com/refractionPOINT/limacharlie.git', branch: 'develop'
+        sh 'git submodule update --init --recursive'
+        sh 'ln -s `pwd`/cloud/beach/hcp/utils/* `pwd`/cloud/limacharlie/ || true'
+        sh 'python `pwd`/tools/update_headers.py || true'
+        sh 'killall python || true'
+        sh 'echo "drop keyspace hcp_analytics;" | cqlsh || true'
+        sh 'cqlsh -f `pwd`/cloud/schema/scale_db.cql'
+    }
+    
+    stage('Load Binaries') {
+        sh 'rm ./prebuilt_binaries/hbs* || true'
+        sh 'rm ./prebuilt_binaries/hcp* || true'
+        sh 'rm ./prebuilt_binaries/kernel* || true'
+        unarchive mapping: [ 'prebuilt_binaries/*' : './' ]
+        dir('cloud/infrastructure/') {
+            sh 'python ./2_start_single_node_test_cluster.py'
+            sh 'sleep 5'
+            sh 'python ./3_configure_single_node_test_cluster.py --nodownload -hcp sensor/sample_configs/cloud_in_a_can_hcp.conf -hbs sensor/sample_configs/cloud_in_a_can_hbs.conf'
+        }
+        stash name: 'sensors', includes: 'prebuilt_binaries/*', excludes: 'prebuilt_binaries/download_binaries.sh'
+        sh 'curl icanhazip.com > cloud_ip_external.txt'
+        stash name: 'cloud_ip_external', includes: 'cloud_ip_external.txt'
+        sh 'ifconfig ens33 | grep \'inet addr\' | cut -d: -f2 | awk \'{print $1}\' > cloud_ip_internal.txt'
+        stash name: 'cloud_ip_internal', includes: 'cloud_ip_internal.txt'
+    }
 }
 
+parallel (
+    "ubuntu-16-04-64" : {
+        node('sensor && ubuntu-16-04 && 64bit') {
+            stage('Launch Sensor Ubuntu-16-04-64') {
+                sh 'rm hcpcc || true'
+                sh 'rm /usr/local/hcp || true'
+                sh 'rm ./prebuilt_binaries/hcp_* || true'
+                unstash name: 'cloud_ip_external'
+                unstash name: 'cloud_ip_internal'
+                unstash name: 'sensors'
+                sh 'chmod 500 ./prebuilt_binaries/hcp_*'
+                sh './prebuilt_binaries/hcp_ubuntu_x64_debug_* -p `cat cloud_ip_internal.txt` -s `cat cloud_ip_external.txt` &'
+                sh 'sleep 300'
+                sh 'ls hcpcc'
+            }
+            stage('Verify Enrollment Ubuntu-16-04-64') {
+                sh 'ls /usr/local/hcp'
+            }
+            
+            sh 'pkill -f hcp_'
+        }
+    },
+    "macos-10-12-64" : {
+        node('sensor && macos-10-12 && 64bit') {
+            stage('Launch Sensor MacOS-10-12-64') {
+                sh 'rm hcpcc || true'
+                sh 'rm /usr/local/hcp || true'
+                sh 'rm ./prebuilt_binaries/hcp_* || true'
+                unstash name: 'cloud_ip_external'
+                unstash name: 'cloud_ip_internal'
+                unstash name: 'sensors'
+                sh 'chmod 500 ./prebuilt_binaries/hcp_*'
+                sh './prebuilt_binaries/hcp_osx_x64_debug_* -p `cat cloud_ip_internal.txt` -s `cat cloud_ip_external.txt` &'
+                sh 'sleep 300'
+                sh 'ls hcpcc'
+            }
+            stage('Verify Enrollment MacOS-10-12-64') {
+                sh 'ls /usr/local/hcp'
+            }
+            
+            sh 'pkill -f hcp_'
+        }
+    }
+)
 node('cloud') {
-    stage('Shutdown Cloud') {
-        sh 'pkill -f beach || true'
-    }
+    stage('Shutdown Cloud') {
+        sh 'pkill -f beach || true'
+    }
 }
