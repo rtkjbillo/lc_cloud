@@ -771,6 +771,7 @@ class CreateOnAccess( object ):
         return getattr( self._instance, item )
 
 def normalAtom( atom ):
+    if atom is None: return None
     try:
         if type( atom ) is uuid.UUID:
             atom = str( atom )
