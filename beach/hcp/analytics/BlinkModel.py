@@ -17,6 +17,8 @@ import time
 from sets import Set
 import uuid
 import json
+import tld
+import tld.utils
 BEAdmin = Actor.importLib( '../admin_lib', 'BEAdmin' )
 EventInterpreter = Actor.importLib( '../utils/EventInterpreter', 'EventInterpreter' )
 Host = Actor.importLib( '../utils/ObjectsDb', 'Host' )
@@ -39,11 +41,47 @@ class BlinkModel( Actor ):
         HostObjects.setDatabase( parameters[ 'scale_db' ] )
         KeyValueStore.setDatabase( parameters[ 'scale_db' ] )
         Atoms.setDatabase( parameters[ 'scale_db' ] )
+        self.alexa = {}
+        self.refreshAlexa()
         self.handle( 'get_host_blink', self.get_host_blink )
 
     def deinit( self ):
         Host.closeDatabase()
         HostObjects.closeDatabase()
+
+    def refreshAlexa( self ):
+        alexaActor = self.getActorHandle( 'analytics/alexadns' )
+        info = alexaActor.request( 'get_list', {} )
+        if info.isSuccess:
+            i = 0
+            newAlexa = {}
+            for domain in info.data[ 'domains' ]:
+                i += 1
+                newAlexa[ domain ] = i
+            self.alexa = newAlexa
+
+        try:
+            tld.update_tld_names()
+        except:
+            pass
+
+        self.delay( 60 * 60 * 24, self.refreshAlexa )
+
+    def getAlexaTag( self, domain ):
+        if domain is None: return None
+        if len( self.alexa ) == 0: return None
+        try:
+            domain = tld.get_tld( domain, fix_protocol = True )
+        except:
+            pass
+        position = self.alexa.get( domain, None )
+        if position is None:
+            tag = '-ALEXA'
+        elif position <= 1000:
+            tag = '+ALEXA/%s' % position
+        else:
+            tag = '?ALEXA/%s' % position
+        return tag
 
     def getVtReportTag( self, h ):
         tag = None
@@ -135,6 +173,9 @@ class BlinkModel( Actor ):
                     tags.append( tag )
             elif 'DNS_REQUEST' == eventType:
                 tag = self.getObjFrequencyTag( aid, *interpreter.object() )
+                if tag is not None:
+                    tags.append( tag )
+                tag = self.getAlexaTag( interpreter.object()[ 0 ] )
                 if tag is not None:
                     tags.append( tag )
             elif 'MODULE_LOAD' == eventType:
