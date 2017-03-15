@@ -98,6 +98,8 @@ class BlinkModel( Actor ):
                     hits += 1
             if hits > 2:
                 tag = '-VT/%s' % hits
+            elif hits == 0:
+                tag = '+VT/%s' % hits
             else:
                 tag = '?VT/%s' % hits
         return tag
