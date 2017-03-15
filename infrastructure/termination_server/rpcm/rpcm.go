@@ -102,17 +102,21 @@ type rTimedelta struct {
     value uint64
 }
 
-type rSequence struct {
+type Sequence struct {
     rElem
     elements map[uint32]rpcmElement
 }
 
-type rList struct {
+type List struct {
     rElem
     elemTag uint32
     elemType uint8
+    iterator int
     elements []rpcmElement
 }
+
+type MachineSequence map[uint32]interface{}
+type MachineList []interface{}
 
 func (this *rElem) GetType() uint8 {
     return this.typ
@@ -170,23 +174,23 @@ func (this *rTimedelta) GetValue() interface{} {
     return this.value
 }
 
-func (this *rSequence) GetValue() interface{} {
+func (this *Sequence) GetValue() interface{} {
     return this.elements
 }
 
-func (this *rList) GetValue() interface{} {
+func (this *List) GetValue() interface{} {
     return this.elements
 }
 
 //=============================================================================
 // Constructors
 //=============================================================================
-func Sequence() *rSequence {
-    return &rSequence{rElem: rElem{RPCM_SEQUENCE}, elements: make(map[uint32]rpcmElement)}
+func NewSequence() *Sequence {
+    return &Sequence{rElem: rElem{RPCM_SEQUENCE}, elements: make(map[uint32]rpcmElement)}
 }
 
-func List(elemTag uint32, elemType uint8) *rList {
-    return &rList{rElem: rElem{RPCM_LIST}, elemTag : elemTag, elemType : elemType}
+func NewList(elemTag uint32, elemType uint8) *List {
+    return &List{rElem: rElem{RPCM_LIST}, elemTag : elemTag, elemType : elemType}
 }
 
 //=============================================================================
@@ -279,7 +283,7 @@ func (this *rTimedelta) Serialize(toBuf *bytes.Buffer) error {
     return binary.Write(toBuf, binary.BigEndian, this.value)
 }
 
-func (this *rSequence) Serialize(toBuf *bytes.Buffer) error {
+func (this *Sequence) Serialize(toBuf *bytes.Buffer) error {
     err := binary.Write(toBuf, binary.BigEndian, uint32(len(this.elements)))
     if err != nil {
         return err
@@ -301,7 +305,7 @@ func (this *rSequence) Serialize(toBuf *bytes.Buffer) error {
     return nil
 }
 
-func (this *rList) Serialize(toBuf *bytes.Buffer) error {
+func (this *List) Serialize(toBuf *bytes.Buffer) error {
     err := binary.Write(toBuf, binary.BigEndian, this.elemTag)
     if err != nil {
         return err
@@ -337,7 +341,7 @@ func (this *rList) Serialize(toBuf *bytes.Buffer) error {
 //=============================================================================
 // Deserialize
 //=============================================================================
-func (this *rSequence)Deserialize(fromBuf *bytes.Buffer) error {
+func (this *Sequence)Deserialize(fromBuf *bytes.Buffer) error {
     var nElements uint32
     var tag uint32
     var typ uint8
@@ -372,7 +376,7 @@ func (this *rSequence)Deserialize(fromBuf *bytes.Buffer) error {
     return err
 }
 
-func (this *rList)Deserialize(fromBuf *bytes.Buffer) error {
+func (this *List)Deserialize(fromBuf *bytes.Buffer) error {
     var nElements uint32
     var tag uint32
     var typ uint8
@@ -516,11 +520,11 @@ func rpcmDeserializeElem(fromBuf *bytes.Buffer, typ uint8) (rpcmElement, error) 
             elem = &rTimedelta{rElem: rElem{typ: RPCM_TIMEDELTA}}
             err = binary.Read(fromBuf, binary.BigEndian, &elem.(*rTimedelta).value)
         case RPCM_SEQUENCE:
-            elem = &rSequence{rElem: rElem{typ: RPCM_SEQUENCE}, elements: make(map[uint32]rpcmElement)}
-            err = elem.(*rSequence).Deserialize(fromBuf)
+            elem = &Sequence{rElem: rElem{typ: RPCM_SEQUENCE}, elements: make(map[uint32]rpcmElement)}
+            err = elem.(*Sequence).Deserialize(fromBuf)
         case RPCM_LIST:
-            elem = &rList{rElem: rElem{typ: RPCM_LIST}}
-            err = elem.(*rList).Deserialize(fromBuf)
+            elem = &List{rElem: rElem{typ: RPCM_LIST}}
+            err = elem.(*List).Deserialize(fromBuf)
         default:
             elem = nil
     }
@@ -535,14 +539,14 @@ func rpcmDeserializeElem(fromBuf *bytes.Buffer, typ uint8) (rpcmElement, error) 
 //=============================================================================
 // Format Change
 //=============================================================================
-func (this *rSequence) ToMachine() map[uint32]interface{} {
+func (this *Sequence) ToMachine() MachineSequence {
     j := make(map[uint32]interface{})
 
     for tag, val := range this.elements {
         if val.GetType() == RPCM_SEQUENCE {
-            j[tag] = val.(*rSequence).ToMachine()
+            j[tag] = val.(*Sequence).ToMachine()
         } else if val.GetType() == RPCM_LIST {
-            j[tag] = val.(*rList).ToMachine()
+            j[tag] = val.(*List).ToMachine()
         } else {
             j[tag] = val.GetValue()
         }
@@ -551,14 +555,14 @@ func (this *rSequence) ToMachine() map[uint32]interface{} {
     return j
 }
 
-func (this *rList) ToMachine() []interface{} {
+func (this *List) ToMachine() MachineList {
     j := make([]interface{},0)
     
     for _, val := range this.elements {
         if val.GetType() == RPCM_SEQUENCE {
-            j = append(j, val.(*rSequence).ToMachine())
+            j = append(j, val.(*Sequence).ToMachine())
         } else if val.GetType() == RPCM_LIST {
-            j = append(j, val.(*rList).ToMachine())
+            j = append(j, val.(*List).ToMachine())
         } else {
             j = append(j, val.GetValue())
         }
@@ -567,7 +571,7 @@ func (this *rList) ToMachine() []interface{} {
     return j
 }
 
-func (this *rSequence) ToJson() map[string]interface{} {
+func (this *Sequence) ToJson() map[string]interface{} {
     var tagLabel string
     var ok bool
 
@@ -579,9 +583,9 @@ func (this *rSequence) ToJson() map[string]interface{} {
         }
 
         if val.GetType() == RPCM_SEQUENCE {
-            j[tagLabel] = val.(*rSequence).ToJson()
+            j[tagLabel] = val.(*Sequence).ToJson()
         } else if val.GetType() == RPCM_LIST {
-            j[tagLabel] = val.(*rList).ToJson()
+            j[tagLabel] = val.(*List).ToJson()
         } else {
             j[tagLabel] = val.GetValue()
         }
@@ -590,14 +594,14 @@ func (this *rSequence) ToJson() map[string]interface{} {
     return j
 }
 
-func (this *rList) ToJson() []interface{} {
+func (this *List) ToJson() []interface{} {
     j := make([]interface{},0)
     
     for _, val := range this.elements {
         if val.GetType() == RPCM_SEQUENCE {
-            j = append(j, val.(*rSequence).ToJson())
+            j = append(j, val.(*Sequence).ToJson())
         } else if val.GetType() == RPCM_LIST {
-            j = append(j, val.(*rList).ToJson())
+            j = append(j, val.(*List).ToJson())
         } else {
             j = append(j, val.GetValue())
         }
@@ -609,87 +613,267 @@ func (this *rList) ToJson() []interface{} {
 //=============================================================================
 // Sequence
 //=============================================================================
-func (this *rSequence) AddInt8(tag uint32, number uint8) *rSequence {
+func (this *Sequence) AddInt8(tag uint32, number uint8) *Sequence {
     this.elements[tag] = &ru8{rElem: rElem{typ: RPCM_RU8}, value: number}
     return this
 }
 
-func (this *rSequence) AddInt16(tag uint32, number uint16) *rSequence {
+func (this *Sequence) AddInt16(tag uint32, number uint16) *Sequence {
     this.elements[tag] = &ru16{rElem: rElem{typ: RPCM_RU16}, value: number}
     return this
 }
 
-func (this *rSequence) AddInt32(tag uint32, number uint32) *rSequence {
+func (this *Sequence) AddInt32(tag uint32, number uint32) *Sequence {
     this.elements[tag] = &ru32{rElem: rElem{typ: RPCM_RU32}, value: number}
     return this
 }
 
-func (this *rSequence) AddInt64(tag uint32, number uint64) *rSequence {
+func (this *Sequence) AddInt64(tag uint32, number uint64) *Sequence {
     this.elements[tag] = &ru64{rElem: rElem{typ: RPCM_RU64}, value: number}
     return this
 }
 
-func (this *rSequence) AddStringA(tag uint32, str string) *rSequence {
+func (this *Sequence) AddStringA(tag uint32, str string) *Sequence {
     this.elements[tag] = &rStringA{rElem: rElem{typ: RPCM_STRINGA}, value: str}
     return this
 }
 
-func (this *rSequence) AddStringW(tag uint32, str string) *rSequence {
+func (this *Sequence) AddStringW(tag uint32, str string) *Sequence {
     this.elements[tag] = &rStringW{rElem: rElem{typ: RPCM_STRINGW}, value: str}
     return this
 }
 
-func (this *rSequence) AddBuffer(tag uint32, buf []byte) *rSequence {
+func (this *Sequence) AddBuffer(tag uint32, buf []byte) *Sequence {
     this.elements[tag] = &rBuffer{rElem: rElem{typ: RPCM_BUFFER}, value: buf}
     return this
 }
 
-func (this *rSequence) AddTimestamp(tag uint32, ts uint64) *rSequence {
+func (this *Sequence) AddTimestamp(tag uint32, ts uint64) *Sequence {
     this.elements[tag] = &rTimestamp{rElem: rElem{typ: RPCM_TIMESTAMP}, value: ts}
     return this
 }
 
-func (this *rSequence) AddIpv4(tag uint32, ip4 uint32) *rSequence {
+func (this *Sequence) AddIpv4(tag uint32, ip4 uint32) *Sequence {
     this.elements[tag] = &rIpv4{rElem: rElem{typ: RPCM_IPV4}, value: ip4}
     return this
 }
 
-func (this *rSequence) AddIpv6(tag uint32, ip6 [16]byte) *rSequence {
+func (this *Sequence) AddIpv6(tag uint32, ip6 [16]byte) *Sequence {
     this.elements[tag] = &rIpv6{rElem: rElem{typ: RPCM_IPV6}, value: ip6}
     return this
 }
 
-func (this *rSequence) AddPointer32(tag uint32, ptr uint32) *rSequence {
+func (this *Sequence) AddPointer32(tag uint32, ptr uint32) *Sequence {
     this.elements[tag] = &rPointer32{rElem: rElem{typ: RPCM_POINTER_32}, value: ptr}
     return this
 }
 
-func (this *rSequence) AddPointer64(tag uint32, ptr uint64) *rSequence {
+func (this *Sequence) AddPointer64(tag uint32, ptr uint64) *Sequence {
     this.elements[tag] = &rPointer64{rElem: rElem{typ: RPCM_POINTER_64}, value: ptr}
     return this
 }
 
-func (this *rSequence) AddTimesdelta(tag uint32, td uint64) *rSequence {
+func (this *Sequence) AddTimesdelta(tag uint32, td uint64) *Sequence {
     this.elements[tag] = &rTimedelta{rElem: rElem{typ: RPCM_TIMEDELTA}, value: td}
     return this
 }
 
-func (this *rSequence) AddSequence(tag uint32, seq *rSequence) *rSequence {
+func (this *Sequence) AddSequence(tag uint32, seq *Sequence) *Sequence {
     seq.typ = RPCM_SEQUENCE
     this.elements[tag] = seq
     return this
 }
 
-func (this *rSequence) AddList(tag uint32, list *rList) *rSequence {
+func (this *Sequence) AddList(tag uint32, list *List) *Sequence {
     list.typ = RPCM_LIST
     this.elements[tag] = list
     return this
 }
 
+func (this *Sequence) GetInt8(tag uint32) (uint8, bool) {
+    var res uint8
+    var ok bool
+
+    if elem, found := this.elements[tag]; found && elem.GetType() == RPCM_RU8 {
+        ok = true
+        res = elem.(*ru8).value
+    }
+
+    return res, ok
+}
+
+func (this *Sequence) GetInt16(tag uint32) (uint16, bool) {
+    var res uint16
+    var ok bool
+
+    if elem, found := this.elements[tag]; found && elem.GetType() == RPCM_RU16 {
+        ok = true
+        res = elem.(*ru16).value
+    }
+
+    return res, ok
+}
+
+func (this *Sequence) GetInt32(tag uint32) (uint32, bool) {
+    var res uint32
+    var ok bool
+
+    if elem, found := this.elements[tag]; found && elem.GetType() == RPCM_RU32 {
+        ok = true
+        res = elem.(*ru32).value
+    }
+
+    return res, ok
+}
+
+func (this *Sequence) GetInt64(tag uint32) (uint64, bool) {
+    var res uint64
+    var ok bool
+
+    if elem, found := this.elements[tag]; found && elem.GetType() == RPCM_RU64 {
+        ok = true
+        res = elem.(*ru64).value
+    }
+
+    return res, ok
+}
+
+func (this *Sequence) GetStringA(tag uint32) (string, bool) {
+    var res string
+    var ok bool
+
+    if elem, found := this.elements[tag]; found && elem.GetType() == RPCM_STRINGA {
+        ok = true
+        res = elem.(*rStringA).value
+    }
+
+    return res, ok
+}
+
+func (this *Sequence) GetStringW(tag uint32) (string, bool) {
+    var res string
+    var ok bool
+
+    if elem, found := this.elements[tag]; found && elem.GetType() == RPCM_STRINGW {
+        ok = true
+        res = elem.(*rStringW).value
+    }
+
+    return res, ok
+}
+
+func (this *Sequence) GetBuffer(tag uint32) ([]byte, bool) {
+    var res []byte
+    var ok bool
+
+    if elem, found := this.elements[tag]; found && elem.GetType() == RPCM_BUFFER {
+        ok = true
+        res = elem.(*rBuffer).value
+    }
+
+    return res, ok
+}
+
+func (this *Sequence) GetTimestamp(tag uint32) (uint64, bool) {
+    var res uint64
+    var ok bool
+
+    if elem, found := this.elements[tag]; found && elem.GetType() == RPCM_TIMESTAMP {
+        ok = true
+        res = elem.(*rTimestamp).value
+    }
+
+    return res, ok
+}
+
+func (this *Sequence) GetIpv4(tag uint32) (uint32, bool) {
+    var res uint32
+    var ok bool
+
+    if elem, found := this.elements[tag]; found && elem.GetType() == RPCM_IPV4 {
+        ok = true
+        res = elem.(*rIpv4).value
+    }
+
+    return res, ok
+}
+
+func (this *Sequence) GetIpv6(tag uint32) ([16]byte, bool) {
+    var res [16]byte
+    var ok bool
+
+    if elem, found := this.elements[tag]; found && elem.GetType() == RPCM_IPV6 {
+        ok = true
+        res = elem.(*rIpv6).value
+    }
+
+    return res, ok
+}
+
+func (this *Sequence) GetPointer32(tag uint32) (uint32, bool) {
+    var res uint32
+    var ok bool
+
+    if elem, found := this.elements[tag]; found && elem.GetType() == RPCM_POINTER_32 {
+        ok = true
+        res = elem.(*rPointer32).value
+    }
+
+    return res, ok
+}
+
+func (this *Sequence) GetPointer64(tag uint32) (uint64, bool) {
+    var res uint64
+    var ok bool
+
+    if elem, found := this.elements[tag]; found && elem.GetType() == RPCM_POINTER_64 {
+        ok = true
+        res = elem.(*rPointer64).value
+    }
+
+    return res, ok
+}
+
+func (this *Sequence) GetTimedelta(tag uint32) (uint64, bool) {
+    var res uint64
+    var ok bool
+
+    if elem, found := this.elements[tag]; found && elem.GetType() == RPCM_TIMEDELTA {
+        ok = true
+        res = elem.(*rTimedelta).value
+    }
+
+    return res, ok
+}
+
+func (this *Sequence) GetSequence(tag uint32) (*Sequence, bool) {
+    var res *Sequence
+    var ok bool
+
+    if elem, found := this.elements[tag]; found && elem.GetType() == RPCM_SEQUENCE {
+        ok = true
+        res = elem.(*Sequence)
+    }
+
+    return res, ok
+}
+
+func (this *Sequence) GetList(tag uint32) (*List, bool) {
+    var res *List
+    var ok bool
+
+    if elem, found := this.elements[tag]; found && elem.GetType() == RPCM_LIST {
+        ok = true
+        res = elem.(*List)
+    }
+
+    return res, ok
+}
+
 //=============================================================================
 // List
 //=============================================================================
-func (this *rList) AddInt8(number uint8) *rList {
+func (this *List) AddInt8(number uint8) *List {
     if this.elemType == RPCM_RU8 {
         this.elements = append(this.elements, &ru8{rElem: rElem{typ: RPCM_RU8}, value: number})
         return this
@@ -697,7 +881,7 @@ func (this *rList) AddInt8(number uint8) *rList {
     return nil
 }
 
-func (this *rList) AddInt16(number uint16) *rList {
+func (this *List) AddInt16(number uint16) *List {
     if this.elemType == RPCM_RU16 {
         this.elements = append(this.elements, &ru16{rElem: rElem{typ: RPCM_RU16}, value: number})
         return this
@@ -705,7 +889,7 @@ func (this *rList) AddInt16(number uint16) *rList {
     return nil
 }
 
-func (this *rList) AddInt32(number uint32) *rList {
+func (this *List) AddInt32(number uint32) *List {
     if this.elemType == RPCM_RU32 {
         this.elements = append(this.elements, &ru32{rElem: rElem{typ: RPCM_RU32}, value: number})
         return this
@@ -713,7 +897,7 @@ func (this *rList) AddInt32(number uint32) *rList {
     return nil
 }
 
-func (this *rList) AddInt64(number uint64) *rList {
+func (this *List) AddInt64(number uint64) *List {
     if this.elemType == RPCM_RU64 {
         this.elements = append(this.elements, &ru64{rElem: rElem{typ: RPCM_RU64}, value: number})
         return this
@@ -721,7 +905,7 @@ func (this *rList) AddInt64(number uint64) *rList {
     return nil
 }
 
-func (this *rList) AddStringA(str string) *rList {
+func (this *List) AddStringA(str string) *List {
     if this.elemType == RPCM_STRINGA {
         this.elements = append(this.elements, &rStringA{rElem: rElem{typ: RPCM_STRINGA}, value: str})
         return this
@@ -729,7 +913,7 @@ func (this *rList) AddStringA(str string) *rList {
     return nil
 }
 
-func (this *rList) AddStringW(str string) *rList {
+func (this *List) AddStringW(str string) *List {
     if this.elemType == RPCM_STRINGW {
         this.elements = append(this.elements, &rStringW{rElem: rElem{typ: RPCM_STRINGW}, value: str})
         return this
@@ -737,7 +921,7 @@ func (this *rList) AddStringW(str string) *rList {
     return nil
 }
 
-func (this *rList) AddBuffer(buf []byte) *rList {
+func (this *List) AddBuffer(buf []byte) *List {
     if this.elemType == RPCM_BUFFER {
         this.elements = append(this.elements, &rBuffer{rElem: rElem{typ: RPCM_BUFFER}, value: buf})
         return this
@@ -745,7 +929,7 @@ func (this *rList) AddBuffer(buf []byte) *rList {
     return nil
 }
 
-func (this *rList) AddTimestamp(ts uint64) *rList {
+func (this *List) AddTimestamp(ts uint64) *List {
     if this.elemType == RPCM_TIMESTAMP {
         this.elements = append(this.elements, &rTimestamp{rElem: rElem{typ: RPCM_TIMESTAMP}, value: ts})
         return this
@@ -753,7 +937,7 @@ func (this *rList) AddTimestamp(ts uint64) *rList {
     return nil
 }
 
-func (this *rList) AddIpv4(ip4 uint32) *rList {
+func (this *List) AddIpv4(ip4 uint32) *List {
     if this.elemType == RPCM_IPV4 {
         this.elements = append(this.elements, &rIpv4{rElem: rElem{typ: RPCM_IPV4}, value: ip4})
         return this
@@ -761,7 +945,7 @@ func (this *rList) AddIpv4(ip4 uint32) *rList {
     return nil
 }
 
-func (this *rList) AddIpv6(ip6 [16]byte) *rList {
+func (this *List) AddIpv6(ip6 [16]byte) *List {
     if this.elemType == RPCM_IPV6 {
         this.elements = append(this.elements, &rIpv6{rElem: rElem{typ: RPCM_IPV6}, value: ip6})
         return this
@@ -769,7 +953,7 @@ func (this *rList) AddIpv6(ip6 [16]byte) *rList {
     return nil
 }
 
-func (this *rList) AddPointer32(ptr uint32) *rList {
+func (this *List) AddPointer32(ptr uint32) *List {
     if this.elemType == RPCM_POINTER_32 {
         this.elements = append(this.elements, &rPointer32{rElem: rElem{typ: RPCM_POINTER_32}, value: ptr})
         return this
@@ -777,7 +961,7 @@ func (this *rList) AddPointer32(ptr uint32) *rList {
     return nil
 }
 
-func (this *rList) AddPointer64(ptr uint64) *rList {
+func (this *List) AddPointer64(ptr uint64) *List {
     if this.elemType == RPCM_POINTER_64 {
         this.elements = append(this.elements, &rPointer64{rElem: rElem{typ: RPCM_POINTER_64}, value: ptr})
         return this
@@ -785,7 +969,7 @@ func (this *rList) AddPointer64(ptr uint64) *rList {
     return nil
 }
 
-func (this *rList) AddTimesdelta(td uint64) *rList {
+func (this *List) AddTimesdelta(td uint64) *List {
     if this.elemType == RPCM_TIMEDELTA {
         this.elements = append(this.elements, &rTimedelta{rElem: rElem{typ: RPCM_TIMEDELTA}, value: td})
         return this
@@ -793,7 +977,7 @@ func (this *rList) AddTimesdelta(td uint64) *rList {
     return nil
 }
 
-func (this *rList) AddSequence(seq *rSequence) *rList {
+func (this *List) AddSequence(seq *Sequence) *List {
     if this.elemType == RPCM_SEQUENCE {
         seq.typ = RPCM_SEQUENCE
         this.elements = append(this.elements, seq)
@@ -802,7 +986,7 @@ func (this *rList) AddSequence(seq *rSequence) *rList {
     return nil
 }
 
-func (this *rList) AddList(list *rList) *rList {
+func (this *List) AddList(list *List) *List {
     if this.elemType == RPCM_LIST {
         list.typ = RPCM_LIST
         this.elements = append(this.elements, list)
@@ -811,3 +995,242 @@ func (this *rList) AddList(list *rList) *rList {
     return nil
 }
 
+func (this *List) GetInt8(tag uint32) (uint8, bool) {
+    var res uint8
+    var ok bool
+
+    if RPCM_RU8 == this.elemType && tag == this.elemTag {
+        if this.iterator > len(this.elements) {
+            this.iterator = 0
+        } else {
+            ok = true
+            res = this.elements[this.iterator].(*ru8).value
+        }
+    }
+
+    return res, ok
+}
+
+func (this *List) GetInt16(tag uint32) (uint16, bool) {
+    var res uint16
+    var ok bool
+
+    if RPCM_RU16 == this.elemType && tag == this.elemTag {
+        if this.iterator > len(this.elements) {
+            this.iterator = 0
+        } else {
+            ok = true
+            res = this.elements[this.iterator].(*ru16).value
+        }
+    }
+
+    return res, ok
+}
+
+func (this *List) GetInt32(tag uint32) (uint32, bool) {
+    var res uint32
+    var ok bool
+
+    if RPCM_RU32 == this.elemType && tag == this.elemTag {
+        if this.iterator > len(this.elements) {
+            this.iterator = 0
+        } else {
+            ok = true
+            res = this.elements[this.iterator].(*ru32).value
+        }
+    }
+
+    return res, ok
+}
+
+func (this *List) GetInt64(tag uint32) (uint64, bool) {
+    var res uint64
+    var ok bool
+
+    if RPCM_RU64 == this.elemType && tag == this.elemTag {
+        if this.iterator > len(this.elements) {
+            this.iterator = 0
+        } else {
+            ok = true
+            res = this.elements[this.iterator].(*ru64).value
+        }
+    }
+
+    return res, ok
+}
+
+func (this *List) GetStringA(tag uint32) (string, bool) {
+    var res string
+    var ok bool
+
+    if RPCM_STRINGA == this.elemType && tag == this.elemTag {
+        if this.iterator > len(this.elements) {
+            this.iterator = 0
+        } else {
+            ok = true
+            res = this.elements[this.iterator].(*rStringA).value
+        }
+    }
+
+    return res, ok
+}
+
+func (this *List) GetStringW(tag uint32) (string, bool) {
+    var res string
+    var ok bool
+
+    if RPCM_STRINGW == this.elemType && tag == this.elemTag {
+        if this.iterator > len(this.elements) {
+            this.iterator = 0
+        } else {
+            ok = true
+            res = this.elements[this.iterator].(*rStringW).value
+        }
+    }
+
+    return res, ok
+}
+
+func (this *List) GetBuffer(tag uint32) ([]byte, bool) {
+    var res []byte
+    var ok bool
+
+    if RPCM_BUFFER == this.elemType && tag == this.elemTag {
+        if this.iterator > len(this.elements) {
+            this.iterator = 0
+        } else {
+            ok = true
+            res = this.elements[this.iterator].(*rBuffer).value
+        }
+    }
+
+    return res, ok
+}
+
+func (this *List) GetTimestamp(tag uint32) (uint64, bool) {
+    var res uint64
+    var ok bool
+
+    if RPCM_TIMESTAMP == this.elemType && tag == this.elemTag {
+        if this.iterator > len(this.elements) {
+            this.iterator = 0
+        } else {
+            ok = true
+            res = this.elements[this.iterator].(*rTimestamp).value
+        }
+    }
+
+    return res, ok
+}
+
+func (this *List) GetIpv4(tag uint32) (uint32, bool) {
+    var res uint32
+    var ok bool
+
+    if RPCM_IPV4 == this.elemType && tag == this.elemTag {
+        if this.iterator > len(this.elements) {
+            this.iterator = 0
+        } else {
+            ok = true
+            res = this.elements[this.iterator].(*rIpv4).value
+        }
+    }
+
+    return res, ok
+}
+
+func (this *List) GetIpv6(tag uint32) ([16]byte, bool) {
+    var res [16]byte
+    var ok bool
+
+    if RPCM_IPV6 == this.elemType && tag == this.elemTag {
+        if this.iterator > len(this.elements) {
+            this.iterator = 0
+        } else {
+            ok = true
+            res = this.elements[this.iterator].(*rIpv6).value
+        }
+    }
+
+    return res, ok
+}
+
+func (this *List) GetPointer32(tag uint32) (uint32, bool) {
+    var res uint32
+    var ok bool
+
+    if RPCM_POINTER_32 == this.elemType && tag == this.elemTag {
+        if this.iterator > len(this.elements) {
+            this.iterator = 0
+        } else {
+            ok = true
+            res = this.elements[this.iterator].(*rPointer32).value
+        }
+    }
+
+    return res, ok
+}
+
+func (this *List) GetPointer64(tag uint32) (uint64, bool) {
+    var res uint64
+    var ok bool
+
+    if RPCM_POINTER_64 == this.elemType && tag == this.elemTag {
+        if this.iterator > len(this.elements) {
+            this.iterator = 0
+        } else {
+            ok = true
+            res = this.elements[this.iterator].(*rPointer64).value
+        }
+    }
+
+    return res, ok
+}
+
+func (this *List) GetTimedelta(tag uint32) (uint64, bool) {
+    var res uint64
+    var ok bool
+
+    if RPCM_TIMEDELTA == this.elemType && tag == this.elemTag {
+        if this.iterator > len(this.elements) {
+            this.iterator = 0
+        } else {
+            ok = true
+            res = this.elements[this.iterator].(*rTimedelta).value
+        }
+    }
+
+    return res, ok
+}
+
+func (this *List) GetSequence(tag uint32) (*Sequence, bool) {
+    var res *Sequence
+    var ok bool
+
+    if RPCM_SEQUENCE == this.elemType && tag == this.elemTag {
+        if this.iterator > len(this.elements) {
+            this.iterator = 0
+        } else {
+            ok = true
+            res = this.elements[this.iterator].(*Sequence)
+        }
+    }
+
+    return res, ok
+}
+
+func (this *List) GetList(tag uint32) (*List, bool) {
+    var res *List
+    var ok bool
+
+    if RPCM_LIST == this.elemType && tag == this.elemTag {
+        if this.iterator > len(this.elements) {
+            this.iterator = 0
+        } else {
+            ok = true
+            res = this.elements[this.iterator].(*List)
+        }
+    }
+
+    return res, ok
+}
