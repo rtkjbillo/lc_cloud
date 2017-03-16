@@ -62,13 +62,14 @@ printStep( 'Updating repo and upgrading existing components.',
     os.system( 'apt-get upgrade -y' ) )
 
 printStep( 'Installing some basic packages required for Beach (mainly).',
-    os.system( 'apt-get install python-pip python-dev debconf-utils python-m2crypto python-pexpect autoconf libtool git flex byacc bison unzip -y' ) )
+    os.system( 'apt-get install openssl python-pip python-dev debconf-utils python-m2crypto python-pexpect autoconf libtool git flex byacc bison unzip -y' ) )
 
 if arguments.genkeys:
     printStep( 'Clean old keys and generate a new set.',
                 os.system( 'rm -rf %s' % os.path.join( root, 'keys', '*' ) ),
-                os.system( 'python %s %s' % ( os.path.join( root, 'tools', 'generate_key.py' ),
-                                              os.path.join( root, 'keys', 'c2' ) ) ),
+                os.system( 'openssl req -x509 -newkey rsa:4096 -keyout %s -out %s -nodes -sha256 -subj "/C=US/ST=CA/L=Mountain View/O=refractionPOINT/CN=rp_c2_dev"' % 
+                           ( os.path.join( root, 'keys', 'c2_key.pem' ),
+                             os.path.join( root, 'keys', 'c2_cert.pem' ) ) ),
                 os.system( 'python %s %s' % ( os.path.join( root, 'tools', 'generate_key.py' ),
                                               os.path.join( root, 'keys', 'hbs_root' ) ) ),
                 os.system( 'python %s %s' % ( os.path.join( root, 'tools', 'generate_key.py' ),
@@ -151,8 +152,9 @@ printStep( 'Setup LC web ui dependencies.',
                                                'limacharlie' ) ) ),
     os.system( 'pip install markdown' ) )
 
-printStep( 'Redirect port 80 to 9090 so we can run as non-root.',
+printStep( 'Redirect port 80 and 443 to 9090 so we can run as non-root.',
            os.system( 'iptables -t nat -A PREROUTING -p tcp --dport 80 -j REDIRECT --to-port 9090' ),
+           os.system( 'iptables -t nat -A PREROUTING -p tcp --dport 443 -j REDIRECT --to-port 9090' ),
            os.system( 'echo iptables-persistent iptables-persistent/autosave_v4 boolean true | sudo debconf-set-selections' ),
            os.system( 'echo iptables-persistent iptables-persistent/autosave_v6 boolean true | sudo debconf-set-selections' ),
            os.system( 'apt-get install iptables-persistent -y' ) )

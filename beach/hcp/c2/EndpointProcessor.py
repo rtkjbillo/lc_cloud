@@ -19,7 +19,7 @@ from gevent.server import StreamServer
 import os
 import sys
 import struct
-import M2Crypto
+import ssl
 import zlib
 import uuid
 import hashlib
@@ -35,55 +35,22 @@ HcpModuleId = Actor.importLib( 'utils/hcp_helpers', 'HcpModuleId' )
 Symbols = Actor.importLib( 'Symbols', 'Symbols' )()
 HcpOperations = Actor.importLib( 'utils/hcp_helpers', 'HcpOperations' )
 
-rsa_2048_min_size = 0x100
-aes_256_iv_size = 0x10
-aes_256_block_size = 0x10
-aes_256_key_size = 0x20
-rsa_header_size = 0x100 + 0x10 # rsa_2048_min_size + aes_256_iv_size
-rsa_signature_size = 0x100
-
 class DisconnectException( Exception ):
     pass
 
 class _ClientContext( object ):
     def __init__( self, parent, socket ):
         self.parent = parent
+        socket = parent.sslContext.wrap_socket( socket, 
+                                                server_side = True, 
+                                                do_handshake_on_connect = True,
+                                                suppress_ragged_eofs = True )
         self.s = socket
         self.aid = None
         self.lock = Semaphore( 1 )
-        self.sKey = None
-        self.sIv = None
-        self.sendAes = None
-        self.recvAes = None
         self.r = rpcm( isHumanReadable = True, isDebug = self.parent.log )
         self.r.loadSymbols( Symbols.lookups )
         self.connId = uuid.uuid4()
-
-    def setKey( self, sKey, sIv ):
-        self.sKey = sKey
-        self.sIv = sIv
-        # We disable padding and do it manually on our own
-        # to bypass the problem with the API. With padding ON
-        # the last call to .update actually withholds the last
-        # block until the call to final is made (to apply padding)
-        # but when .final is called the cipher is destroyed.
-        # In our case we want to keep the cipher alive during the
-        # entire session, but we can't wait indefinitely for the
-        # next message to come along to "release" the previous block.
-        self.sendAes = M2Crypto.EVP.Cipher( alg = 'aes_256_cbc',
-                                            key = self.sKey, 
-                                            iv = self.sIv, 
-                                            salt = False, 
-                                            key_as_bytes = False, 
-                                            padding = False,
-                                            op = 1 ) # 0 == ENC
-        self.recvAes = M2Crypto.EVP.Cipher( alg = 'aes_256_cbc',
-                                            key = self.sKey, 
-                                            iv = self.sIv, 
-                                            salt = False, 
-                                            key_as_bytes = False, 
-                                            padding = False,
-                                            op = 0 ) # 0 == DEC
 
     def setAid( self, aid ):
         self.aid = aid
@@ -124,27 +91,11 @@ class _ClientContext( object ):
         finally:
             timeout.cancel()
 
-    def _pad( self, buffer ):
-        nPad = aes_256_block_size - ( len( buffer ) % aes_256_block_size )
-        if nPad == 0:
-            nPad = aes_256_block_size
-        return buffer + ( struct.pack( 'B', nPad ) * nPad )
-
-    def _unpad( self, buffer ):
-        nPad = struct.unpack( 'B', buffer[ -1 : ] )[ 0 ]
-        if nPad <= aes_256_block_size and buffer.endswith( buffer[ -1 : ] * nPad ):
-            buffer = buffer[ : 0 - nPad ]
-        else:
-            raise Exception( 'invalid payload padding' )
-        return buffer
-
     def recvFrame( self, timeout = None ):
         frameSize = struct.unpack( '>I', self.recvData( 4, timeout = timeout ) )[ 0 ]
         if (1024 * 1024 * 50) < frameSize:
             raise Exception( "frame size too large: %s" % frameSize )
         frame = self.recvData( frameSize, timeout = timeout )
-        frame = self._unpad( self.recvAes.update( frame ) + self.recvAes.update( '' ) )
-        #frame += self.recvAes.final()
         frame = zlib.decompress( frame )
         moduleId = struct.unpack( 'B', frame[ : 1 ] )[ 0 ]
         frame = frame[ 1 : ]
@@ -159,9 +110,6 @@ class _ClientContext( object ):
         hcpData = struct.pack( 'B', moduleId ) + self.r.serialise( msgList )
         data = struct.pack( '>I', len( hcpData ) )
         data += zlib.compress( hcpData )
-        data = self.sendAes.update( self._pad( data ) )
-        #data += self.sendAes.final()
-        #self.parent.log( 'sending frame of size %d' % len( data ) )
         self.sendData( struct.pack( '>I', len( data ) ) + data, timeout = timeout )
 
 class EndpointProcessor( Actor ):
@@ -170,8 +118,11 @@ class EndpointProcessor( Actor ):
         self.handlerPortEnd = parameters.get( 'handler_port_end', 20000 )
         self.bindAddress = parameters.get( 'handler_address', '0.0.0.0' )
         self.bindInterface = parameters.get( 'handler_interface', None )
-        self.privateKey = M2Crypto.RSA.load_key_string( parameters[ '_priv_key' ] )
-        
+        self.privateKey = parameters[ '_priv_key' ]
+        self.privateCert = parameters[ '_priv_cert' ]
+        self.sslContext = ssl.SSLContext( ssl.PROTOCOL_TLSv1_2 )
+        self.sslContext.load_cert_chain( certfile = self.privateCert, keyfile = self.privateKey )
+        self.sslContext.set_ciphers( 'HIGH:!aNULL:!RC4:!DSS' )
 
         if self.bindInterface is not None:
             ip4 = self.getIpv4ForIface( self.bindInterface )
@@ -247,21 +198,12 @@ class EndpointProcessor( Actor ):
     def handleNewClient( self, socket, address ):
         aid = None
         tmpBytesReceived = 0
-        try:
-            self.log( 'New connection from %s:%s' % address )
-            c = _ClientContext( self, socket )
-            handshake = c.recvData( rsa_2048_min_size + aes_256_iv_size, timeout = 30.0 )
-            
-            self.log( 'Handshake received' )
-            sKey = handshake[ : rsa_2048_min_size ]
-            iv = handshake[ rsa_2048_min_size : ]
-            c.setKey( self.privateKey.private_decrypt( sKey, M2Crypto.RSA.pkcs1_padding ), iv )
-            c.sendFrame( HcpModuleId.HCP,
-                         ( rSequence().addBuffer( Symbols.base.BINARY, 
-                                                  handshake ), ) )
-            del( handshake )
-            self.log( 'Handshake valid, getting headers' )
 
+        self.log( 'New connection from %s:%s' % address )
+
+        try:
+            c = _ClientContext( self, socket )
+            
             moduleId, headers, _ = c.recvFrame( timeout = 30.0 )
             if HcpModuleId.HCP != moduleId:
                 raise DisconnectException( 'Headers not from expected module' )
@@ -345,7 +287,7 @@ class EndpointProcessor( Actor ):
         except Exception as e:
             if type( e ) is not DisconnectException:
                 self.log( 'Exception while processing: %s' % str( e ) )
-                #self.log( traceback.format_exc() )
+                self.log( traceback.format_exc() )
                 raise
             else:
                 self.log( 'Disconnecting: %s' % str( e ) )
