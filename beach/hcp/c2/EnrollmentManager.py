@@ -56,7 +56,7 @@ class EnrollmentManager( Actor ):
         self.rules = newRules
 
     def getTokenFor( self, aid ):
-        h = hmac.new( self.enrollmentKey, aid.asString() )
+        h = hmac.new( self.enrollmentKey, aid.asString(), hashlib.sha256 )
         return h.digest()
 
     def enroll( self, msg ):
