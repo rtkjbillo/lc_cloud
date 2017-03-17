@@ -1,0 +1,8 @@
+package main;
+
+message LcServerConfig {
+	optional int32 listenPort = 1;
+	optional string listenIface = 2;
+	optional string secretEnrollmentToken = 3;
+	optional bool isDebug = 4;
+}
