@@ -1,3 +1,41 @@
 listenPort: 443
 listenIface: "0.0.0.0"
 secretEnrollmentToken: "somethingsecretthiswaycomes"
+
+# Enroll any installer for org 1
+enrollmentRules {
+	rule {
+		oid: "00000000-0000-0000-0000-000000000001"
+		iid: "0"
+	}
+}
+
+# Windows 32 bit on any org, installer and sensor
+moduleRules {
+	rule {
+		aid  {
+			oid: "0"
+			iid: "0"
+			sid: "0"
+			platform: 0x10000000
+			architecture: 1
+		}
+		moduleId: 2
+		moduleFile: "hbs_windows_32_release.dll"
+		# Signature file is automatically loaded from moduleFile.sig
+	}
+}
+
+# Windows on any org, installer and sensor
+profileRules {
+	rule {
+		aid  {
+			oid: "0"
+			iid: "0"
+			sid: "0"
+			platform: 0x10000000
+			architecture: 1
+		}
+		profileFile: "hbs_windows.profile"
+	}
+}

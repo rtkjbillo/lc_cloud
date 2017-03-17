@@ -1,7 +1,47 @@
 package LcServerConfig;
 
 message Config {
-	optional int32 listenPort = 1;
-	optional string listenIface = 2;
-	optional string secretEnrollmentToken = 3;
+	required int32 listenPort = 1;
+	required string listenIface = 2;
+	required string secretEnrollmentToken = 3;
+
+	repeated EnrollmentRules enrollmentRules = 4;
+	repeated ModuleRules moduleRules = 5;
+	repeated ProfileRules profileRules = 6;
+}
+
+message EnrollmentRules {
+	repeated EnrollmentRule rule = 1;
+}
+
+message ModuleRules {
+	repeated ModuleRule rule = 1;
+}
+
+message ProfileRules {
+	repeated ProfileRule rule = 1;
+}
+
+message EnrollmentRule {
+	required string oid = 1;
+	required string iid = 2;
+}
+
+message ModuleRule {
+	required AgentId aid = 1;
+	required int32 moduleId = 2;
+	required string moduleFile = 3;
+}
+
+message ProfileRule {
+	required AgentId aid = 1;
+	required string profileFile = 2;
+}
+
+message AgentId {
+	required string oid = 1;
+	required string iid = 2;
+	required string sid = 3;
+	required int32 platform = 4;
+	required int32 architecture = 5;
 }
