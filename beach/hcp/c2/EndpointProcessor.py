@@ -122,7 +122,7 @@ class EndpointProcessor( Actor ):
         self.privateCert = parameters[ '_priv_cert' ]
         self.sslContext = ssl.SSLContext( ssl.PROTOCOL_TLSv1_2 )
         self.sslContext.load_cert_chain( certfile = self.privateCert, keyfile = self.privateKey )
-        self.sslContext.set_ciphers( 'HIGH:!aNULL:!RC4:!DSS' )
+        self.sslContext.set_ciphers( 'ECDHE-RSA-AES128-GCM-SHA256' )
 
         if self.bindInterface is not None:
             ip4 = self.getIpv4ForIface( self.bindInterface )
