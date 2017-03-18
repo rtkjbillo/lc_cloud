@@ -67,8 +67,12 @@ def updateEndpoints( endpointActors, nextUpdate ):
 
     currentEndpoints = newEndpoints
 
+    tmpUpdate = nextUpdate
+    if 0 == len( currentEndpoints ):
+        tmpUpdate = 5
+
     print( "Updated list of endpoints, found %s" % len( currentEndpoints ) )
-    gevent.spawn_later( nextUpdate, updateEndpoints, endpointActors, nextUpdate )
+    gevent.spawn_later( tmpUpdate, updateEndpoints, endpointActors, nextUpdate )
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
