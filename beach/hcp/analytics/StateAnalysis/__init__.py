@@ -45,6 +45,7 @@ class StateMachineDescriptor ( object ):
 
     def setDebugFunc( self, func ):
         self._debugFunc = func
+        self._debugLog( "Debuggning enabled" )
 
     def _debugLog( self, msg ):
         if self._debugFunc is None: return
