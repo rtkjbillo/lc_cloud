@@ -131,12 +131,9 @@ func watchForConfigChanges(configFile string) {
 		return
 	}
 
-	for true {
-		if g_configs.isDraining {
-			break
-		}
+	for !g_configs.isDraining {
 
-		if newFileInfo, err := os.Stat(configFile); err != nil && newFileInfo.ModTime() != lastFileInfo.ModTime() {
+		if newFileInfo, err := os.Stat(configFile); err == nil && newFileInfo.ModTime() != lastFileInfo.ModTime() {
 			log.Println("Detected a change in configuration, reloading.")
 			lastFileInfo = newFileInfo
 			reloadConfigs(configFile)
