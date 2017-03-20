@@ -11,6 +11,14 @@ const (
 	MODULE_ID_KERNEL_ACQ = 5
 )
 
+const (
+	LOAD_MODULE = 1
+    UNLOAD_MODULE = 2
+    SET_HCP_ID = 3
+    SET_GLOBAL_TIME = 4
+    QUIT = 5
+)
+
 type AgentId struct {
 	Oid uuid.UUID
 	Iid uuid.UUID

@@ -5,8 +5,8 @@ secretEnrollmentToken: "somethingsecretthiswaycomes"
 # Enroll any installer for org 1
 enrollmentRules {
 	rule {
-		oid: "00000000-0000-0000-0000-000000000001"
-		iid: "0"
+		oid: "00000000-0000-0000-0000-000000000000"
+		iid: "00000000-0000-0000-0000-000000000000"
 	}
 }
 

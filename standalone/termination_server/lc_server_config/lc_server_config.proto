@@ -5,9 +5,9 @@ message Config {
 	required string listenIface = 2;
 	required string secretEnrollmentToken = 3;
 
-	repeated EnrollmentRules enrollmentRules = 4;
-	repeated ModuleRules moduleRules = 5;
-	repeated ProfileRules profileRules = 6;
+	required EnrollmentRules enrollmentRules = 4;
+	required ModuleRules moduleRules = 5;
+	required ProfileRules profileRules = 6;
 }
 
 message EnrollmentRules {
