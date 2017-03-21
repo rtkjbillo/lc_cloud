@@ -28,20 +28,12 @@ message EnrollmentRule {
 }
 
 message ModuleRule {
-	required AgentId aid = 1;
+	required string aid = 1;
 	required int32 moduleId = 2;
 	required string moduleFile = 3;
 }
 
 message ProfileRule {
-	required AgentId aid = 1;
+	required string aid = 1;
 	required string profileFile = 2;
-}
-
-message AgentId {
-	required string oid = 1;
-	required string iid = 2;
-	required string sid = 3;
-	required int32 platform = 4;
-	required int32 architecture = 5;
 }

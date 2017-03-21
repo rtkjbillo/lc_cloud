@@ -111,7 +111,6 @@ type List struct {
     rElem
     elemTag uint32
     elemType uint8
-    iterator int
     elements []rpcmElement
 }
 
@@ -995,242 +994,182 @@ func (this *List) AddList(list *List) *List {
     return nil
 }
 
-func (this *List) GetInt8(tag uint32) (uint8, bool) {
-    var res uint8
-    var ok bool
+func (this *List) GetInt8(tag uint32) []uint8 {
+    res := make([]uint8, 0)
 
     if RPCM_RU8 == this.elemType && tag == this.elemTag {
-        if this.iterator > len(this.elements) {
-            this.iterator = 0
-        } else {
-            ok = true
-            res = this.elements[this.iterator].(*ru8).value
+        for _, e := range this.elements {
+            res = append(res, e.(*ru8).value)
         }
     }
 
-    return res, ok
+    return res
 }
 
-func (this *List) GetInt16(tag uint32) (uint16, bool) {
-    var res uint16
-    var ok bool
+func (this *List) GetInt16(tag uint32) []uint16 {
+    res := make([]uint16, 0)
 
     if RPCM_RU16 == this.elemType && tag == this.elemTag {
-        if this.iterator > len(this.elements) {
-            this.iterator = 0
-        } else {
-            ok = true
-            res = this.elements[this.iterator].(*ru16).value
+        for _, e := range this.elements {
+            res = append(res, e.(*ru16).value)
         }
     }
 
-    return res, ok
+    return res
 }
 
-func (this *List) GetInt32(tag uint32) (uint32, bool) {
-    var res uint32
-    var ok bool
+func (this *List) GetInt32(tag uint32) []uint32 {
+    res := make([]uint32, 0)
 
     if RPCM_RU32 == this.elemType && tag == this.elemTag {
-        if this.iterator > len(this.elements) {
-            this.iterator = 0
-        } else {
-            ok = true
-            res = this.elements[this.iterator].(*ru32).value
+        for _, e := range this.elements {
+            res = append(res, e.(*ru32).value)
         }
     }
 
-    return res, ok
+    return res
 }
 
-func (this *List) GetInt64(tag uint32) (uint64, bool) {
-    var res uint64
-    var ok bool
+func (this *List) GetInt64(tag uint32) []uint64 {
+    res := make([]uint64, 0)
 
     if RPCM_RU64 == this.elemType && tag == this.elemTag {
-        if this.iterator > len(this.elements) {
-            this.iterator = 0
-        } else {
-            ok = true
-            res = this.elements[this.iterator].(*ru64).value
+        for _, e := range this.elements {
+            res = append(res, e.(*ru64).value)
         }
     }
 
-    return res, ok
+    return res
 }
 
-func (this *List) GetStringA(tag uint32) (string, bool) {
-    var res string
-    var ok bool
+func (this *List) GetStringA(tag uint32) []string {
+    res := make([]string, 0)
 
     if RPCM_STRINGA == this.elemType && tag == this.elemTag {
-        if this.iterator > len(this.elements) {
-            this.iterator = 0
-        } else {
-            ok = true
-            res = this.elements[this.iterator].(*rStringA).value
+        for _, e := range this.elements {
+            res = append(res, e.(*rStringA).value)
         }
     }
 
-    return res, ok
+    return res
 }
 
-func (this *List) GetStringW(tag uint32) (string, bool) {
-    var res string
-    var ok bool
+func (this *List) GetStringW(tag uint32) []string {
+    res := make([]string, 0)
 
     if RPCM_STRINGW == this.elemType && tag == this.elemTag {
-        if this.iterator > len(this.elements) {
-            this.iterator = 0
-        } else {
-            ok = true
-            res = this.elements[this.iterator].(*rStringW).value
+        for _, e := range this.elements {
+            res = append(res, e.(*rStringW).value)
         }
     }
 
-    return res, ok
+    return res
 }
 
-func (this *List) GetBuffer(tag uint32) ([]byte, bool) {
-    var res []byte
-    var ok bool
+func (this *List) GetBuffer(tag uint32) [][]byte {
+    res := make([][]byte, 0)
 
     if RPCM_BUFFER == this.elemType && tag == this.elemTag {
-        if this.iterator > len(this.elements) {
-            this.iterator = 0
-        } else {
-            ok = true
-            res = this.elements[this.iterator].(*rBuffer).value
+        for _, e := range this.elements {
+            res = append(res, e.(*rBuffer).value)
         }
     }
 
-    return res, ok
+    return res
 }
 
-func (this *List) GetTimestamp(tag uint32) (uint64, bool) {
-    var res uint64
-    var ok bool
+func (this *List) GetTimestamp(tag uint32) []uint64 {
+    res := make([]uint64, 0)
 
     if RPCM_TIMESTAMP == this.elemType && tag == this.elemTag {
-        if this.iterator > len(this.elements) {
-            this.iterator = 0
-        } else {
-            ok = true
-            res = this.elements[this.iterator].(*rTimestamp).value
+        for _, e := range this.elements {
+            res = append(res, e.(*rTimestamp).value)
         }
     }
 
-    return res, ok
+    return res
 }
 
-func (this *List) GetIpv4(tag uint32) (uint32, bool) {
-    var res uint32
-    var ok bool
+func (this *List) GetIpv4(tag uint32) []uint32 {
+    res := make([]uint32, 0)
 
     if RPCM_IPV4 == this.elemType && tag == this.elemTag {
-        if this.iterator > len(this.elements) {
-            this.iterator = 0
-        } else {
-            ok = true
-            res = this.elements[this.iterator].(*rIpv4).value
+        for _, e := range this.elements {
+            res = append(res, e.(*rIpv4).value)
         }
     }
 
-    return res, ok
+    return res
 }
 
-func (this *List) GetIpv6(tag uint32) ([16]byte, bool) {
-    var res [16]byte
-    var ok bool
+func (this *List) GetIpv6(tag uint32) [][16]byte {
+    res := make([][16]byte, 0)
 
     if RPCM_IPV6 == this.elemType && tag == this.elemTag {
-        if this.iterator > len(this.elements) {
-            this.iterator = 0
-        } else {
-            ok = true
-            res = this.elements[this.iterator].(*rIpv6).value
+        for _, e := range this.elements {
+            res = append(res, e.(*rIpv6).value)
         }
     }
 
-    return res, ok
+    return res
 }
 
-func (this *List) GetPointer32(tag uint32) (uint32, bool) {
-    var res uint32
-    var ok bool
+func (this *List) GetPointer32(tag uint32) []uint32 {
+    res := make([]uint32, 0)
 
     if RPCM_POINTER_32 == this.elemType && tag == this.elemTag {
-        if this.iterator > len(this.elements) {
-            this.iterator = 0
-        } else {
-            ok = true
-            res = this.elements[this.iterator].(*rPointer32).value
+        for _, e := range this.elements {
+            res = append(res, e.(*rPointer32).value)
         }
     }
 
-    return res, ok
+    return res
 }
 
-func (this *List) GetPointer64(tag uint32) (uint64, bool) {
-    var res uint64
-    var ok bool
+func (this *List) GetPointer64(tag uint32) []uint64 {
+    res := make([]uint64, 0)
 
     if RPCM_POINTER_64 == this.elemType && tag == this.elemTag {
-        if this.iterator > len(this.elements) {
-            this.iterator = 0
-        } else {
-            ok = true
-            res = this.elements[this.iterator].(*rPointer64).value
+        for _, e := range this.elements {
+            res = append(res, e.(*rPointer64).value)
         }
     }
 
-    return res, ok
+    return res
 }
 
-func (this *List) GetTimedelta(tag uint32) (uint64, bool) {
-    var res uint64
-    var ok bool
+func (this *List) GetTimedelta(tag uint32) []uint64 {
+    res := make([]uint64, 0)
 
     if RPCM_TIMEDELTA == this.elemType && tag == this.elemTag {
-        if this.iterator > len(this.elements) {
-            this.iterator = 0
-        } else {
-            ok = true
-            res = this.elements[this.iterator].(*rTimedelta).value
+        for _, e := range this.elements {
+            res = append(res, e.(*rTimedelta).value)
         }
     }
 
-    return res, ok
+    return res
 }
 
-func (this *List) GetSequence(tag uint32) (*Sequence, bool) {
-    var res *Sequence
-    var ok bool
-
+func (this *List) GetSequence(tag uint32) []*Sequence {
+    res := make([]*Sequence, 0)
+    
     if RPCM_SEQUENCE == this.elemType && tag == this.elemTag {
-        if this.iterator > len(this.elements) {
-            this.iterator = 0
-        } else {
-            ok = true
-            res = this.elements[this.iterator].(*Sequence)
+        for _, e := range this.elements {
+            res = append(res, e.(*Sequence))
         }
     }
 
-    return res, ok
+    return res
 }
 
-func (this *List) GetList(tag uint32) (*List, bool) {
-    var res *List
-    var ok bool
+func (this *List) GetList(tag uint32) []*List {
+    res := make([]*List, 0)
 
     if RPCM_LIST == this.elemType && tag == this.elemTag {
-        if this.iterator > len(this.elements) {
-            this.iterator = 0
-        } else {
-            ok = true
-            res = this.elements[this.iterator].(*List)
+        for _, e := range this.elements {
+            res = append(res, e.(*List))
         }
     }
 
-    return res, ok
+    return res
 }

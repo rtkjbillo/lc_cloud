@@ -52,9 +52,22 @@ var g_configs struct {
 	config *LcServerConfig.Config
 	clients struct {
 		sync.RWMutex
-		context map[string]*ClientContext
+		context map[string]*clientContext
 	}
 	enrollmentRules map[string]map[string]bool
+	moduleRules []moduleRule
+}
+
+type clientContext struct {
+	conn net.Conn
+	aid hcp.AgentId
+}
+
+type moduleRule struct {
+	aid hcp.AgentId
+	moduleId uint8
+	hash [32]byte
+	filePath string
 }
 
 func validateEnrollmentToken(aid hcp.AgentId, token []byte) bool {
@@ -80,11 +93,6 @@ func generateEnrollmentToken(aid hcp.AgentId) []byte {
 	return hmacToken.Sum(nil)
 }
 
-type ClientContext struct {
-	conn net.Conn
-	aid *hcp.AgentId
-}
-
 func reloadConfigs(configFile string) error {
 	var err error
 
@@ -104,10 +112,33 @@ func reloadConfigs(configFile string) error {
 
 			log.Printf("Enrollment Rules: %d", i)
 
+			newModuleRules := make([]moduleRule, 0)
+			for _, rule := range tmpConfig.GetModuleRules().GetRule() {
+				var moduleInfo moduleRule
+				if !moduleInfo.aid.FromString(rule.GetAid()) {
+					log.Printf("Badly formated AID in Module Rule (%s), skipping", rule.GetAid())
+					continue
+				}
+				moduleInfo.moduleId = uint8(rule.GetModuleId())
+				moduleInfo.filePath = rule.GetModuleFile()
+
+				if fileContent, err := ioutil.ReadFile(moduleInfo.filePath); err == nil {
+					moduleInfo.hash = sha256.Sum256(fileContent)	
+				} else {
+					log.Printf("Error reading Module file (%s), skipping: %s", moduleInfo.filePath, err)
+					continue
+				}
+
+				newModuleRules = append(newModuleRules, moduleInfo)
+			}
+
+			log.Printf("Module Rules: %d", len(newModuleRules))
+
 			g_configs.Lock()
 
 			g_configs.config = tmpConfig
 			g_configs.enrollmentRules = newEnrollmentRules
+			g_configs.moduleRules = newModuleRules
 
 			g_configs.Unlock()
 		}
@@ -132,7 +163,6 @@ func watchForConfigChanges(configFile string) {
 	}
 
 	for !g_configs.isDraining {
-
 		if newFileInfo, err := os.Stat(configFile); err == nil && newFileInfo.ModTime() != lastFileInfo.ModTime() {
 			log.Println("Detected a change in configuration, reloading.")
 			lastFileInfo = newFileInfo
@@ -173,7 +203,7 @@ func main() {
 		log.Printf("Server is in debug mode")
 	}
 
-	g_configs.clients.context = make(map[string]*ClientContext, 0)
+	g_configs.clients.context = make(map[string]*clientContext, 0)
 
 	if err = reloadConfigs(*configFile); err != nil {
 		log.Fatalf("Could not load initial configs, exiting.")
@@ -229,7 +259,7 @@ func main() {
 }
 
 func handleClient(conn net.Conn) {
-	var ctx ClientContext
+	var ctx clientContext
 	defer conn.Close()
 	defer g_configs.activeGoRoutines.Done()
 
@@ -259,7 +289,7 @@ func handleClient(conn net.Conn) {
 		return
 	}
 
-	ctx.aid = &aid
+	ctx.aid = aid
 
 	if aid.IsSidWild() {
 		log.Printf("Sensor requires enrollment")
@@ -309,10 +339,19 @@ func handleClient(conn net.Conn) {
 		if moduleId, messages, err = recvFrame(&ctx, 30 * time.Second); err != nil {
 			break
 		}
+
+		switch moduleId {
+			case hcp.MODULE_ID_HCP:
+				err = processHCPMessage(&ctx, messages)
+			case hcp.MODULE_ID_HBS:
+				err = processHBSMessage(&ctx, messages)
+			default:
+				log.Printf("Received messages from unexpected module: %d", moduleId)
+		}
 	}
 }
 
-func sendFrame(ctx *ClientContext, moduleId uint8, messages []*rpcm.Sequence, timeout time.Duration) error {
+func sendFrame(ctx *clientContext, moduleId uint8, messages []*rpcm.Sequence, timeout time.Duration) error {
 	var err error
 	endTime := time.Now().Add(timeout)
 	frameData := bytes.Buffer{}
@@ -355,7 +394,7 @@ func sendFrame(ctx *ClientContext, moduleId uint8, messages []*rpcm.Sequence, ti
 	return err
 }
 
-func recvFrame(ctx *ClientContext, timeout time.Duration) (uint8, *rpcm.List, error) {
+func recvFrame(ctx *clientContext, timeout time.Duration) (uint8, *rpcm.List, error) {
 	var err error
 	var endTime time.Time
 	var moduleId uint8
@@ -483,7 +522,7 @@ func agentIdToSequence(aid hcp.AgentId) *rpcm.Sequence {
 	return seq
 }
 
-func sendTimeSync(ctx *ClientContext) error {
+func sendTimeSync(ctx *clientContext) error {
 	var messages []*rpcm.Sequence
 	messages = append(messages, rpcm.NewSequence().
 									AddInt8(rpcm.RP_TAGS_OPERATION, hcp.SET_GLOBAL_TIME).
@@ -492,7 +531,7 @@ func sendTimeSync(ctx *ClientContext) error {
 	return err
 }
 
-func processEnrollment(ctx *ClientContext) bool {
+func processEnrollment(ctx *clientContext) bool {
 	var isWhitelisted bool
 	var isEnrolled bool
 	g_configs.RLock()
@@ -507,12 +546,12 @@ func processEnrollment(ctx *ClientContext) bool {
 
 	if isWhitelisted {
 		ctx.aid.Sid = uuid.New()
-		enrollmentToken := generateEnrollmentToken(*ctx.aid)
+		enrollmentToken := generateEnrollmentToken(ctx.aid)
 
 		var messages []*rpcm.Sequence
 		messages = append(messages, rpcm.NewSequence().
 										AddInt8(rpcm.RP_TAGS_OPERATION, hcp.SET_HCP_ID).
-										AddSequence(rpcm.RP_TAGS_HCP_IDENT, agentIdToSequence(*ctx.aid)).
+										AddSequence(rpcm.RP_TAGS_HCP_IDENT, agentIdToSequence(ctx.aid)).
 										AddBuffer(rpcm.RP_TAGS_HCP_ENROLLMENT_TOKEN, enrollmentToken))
 		if err := sendFrame(ctx, hcp.MODULE_ID_HCP, messages, 10 * time.Second); err == nil {
 			isEnrolled = true
@@ -523,4 +562,99 @@ func processEnrollment(ctx *ClientContext) bool {
 	}
 
 	return isEnrolled
+}
+
+func processHCPMessage(ctx *clientContext, messages *rpcm.List) error {
+	var err error
+
+	var shouldBeLoaded []*moduleRule
+	g_configs.RLock()
+	for _, moduleInfo := range g_configs.moduleRules {
+		if moduleInfo.aid.Matches(ctx.aid) {
+			shouldBeLoaded = append(shouldBeLoaded, &moduleInfo)
+		}
+	}
+	g_configs.RUnlock()
+
+	var currentlyLoaded []moduleRule
+	for _, message := range messages.GetSequence(rpcm.RP_TAGS_MESSAGE) {
+		if modules, ok := message.GetList(rpcm.RP_TAGS_HCP_MODULES); ok {
+			for _, moduleInfo := range modules.GetSequence(rpcm.RP_TAGS_HCP_MODULE) {
+				var hash []byte
+				var moduleId uint8
+				var mod moduleRule
+				var ok bool
+				if hash, ok = moduleInfo.GetBuffer(rpcm.RP_TAGS_HASH); !ok {
+					continue
+				}
+				if moduleId, ok = moduleInfo.GetInt8(rpcm.RP_TAGS_HCP_MODULE_ID); !ok {
+					continue
+				}
+
+				mod.moduleId = moduleId
+				copy(mod.hash[:], hash)
+				currentlyLoaded = append(currentlyLoaded, mod)
+			}
+		}
+	}
+
+	var outMessages []*rpcm.Sequence
+	
+	for _, modIsLoaded := range currentlyLoaded {
+		var isFound bool
+		for _, modShouldBeLoaded := range shouldBeLoaded {
+			if modIsLoaded.moduleId == modShouldBeLoaded.moduleId &&
+			   modIsLoaded.hash == modShouldBeLoaded.hash {
+			   	isFound = true
+			   	break
+			}
+		}
+
+		if !isFound {
+			outMessages = append(outMessages, rpcm.NewSequence().
+												AddInt8(rpcm.RP_TAGS_OPERATION, hcp.UNLOAD_MODULE).
+												AddInt8(rpcm.RP_TAGS_HCP_MODULE_ID, modIsLoaded.moduleId))
+		}
+	}
+
+	for _, modShouldBeLoaded := range shouldBeLoaded {
+		var isFound bool
+		for _, modIsLoaded := range currentlyLoaded {
+			if modIsLoaded.moduleId == modShouldBeLoaded.moduleId &&
+			   modIsLoaded.hash == modShouldBeLoaded.hash {
+			   	isFound = true
+			   	break
+			}
+		}
+
+		if !isFound {
+			var moduleContent []byte
+			var moduleSig []byte
+			if moduleContent, err = ioutil.ReadFile(modShouldBeLoaded.filePath); err != nil {
+				log.Printf("Failed to get module content (%s): %s", modShouldBeLoaded.filePath, err)
+				continue
+			}
+			if moduleSig, err = ioutil.ReadFile(fmt.Sprintf("%s.sig", modShouldBeLoaded.filePath)); err != nil {
+				log.Printf("Failed to get module signature (%s.sig): %s", modShouldBeLoaded.filePath, err)
+				continue
+			}
+
+			outMessages = append(outMessages, rpcm.NewSequence().
+												AddInt8(rpcm.RP_TAGS_OPERATION, hcp.LOAD_MODULE).
+												AddInt8(rpcm.RP_TAGS_HCP_MODULE_ID, modShouldBeLoaded.moduleId).
+												AddBuffer(rpcm.RP_TAGS_BINARY, moduleContent).
+												AddBuffer(rpcm.RP_TAGS_SIGNATURE, moduleSig))
+		}
+	}
+
+	err = sendFrame(ctx, hcp.MODULE_ID_HCP, outMessages, 120 * time.Second)
+
+	return err
+}
+
+func processHBSMessage(ctx *clientContext, messages *rpcm.List) error {
+	var err error
+	log.Println("TODO: Process HBS messages")
+
+	return err
 }

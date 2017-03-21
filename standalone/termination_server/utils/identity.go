@@ -3,6 +3,8 @@ package hcp
 import (
 	"github.com/google/uuid"
 	"fmt"
+	"strings"
+	"strconv"
 )
 
 const (
@@ -61,4 +63,57 @@ func (this AgentId)ToString() string {
 					   UuidAsWildString(this.Sid),
 					   this.Platform,
 					   this.Architecture)
+}
+
+func (this AgentId)FromString(s string) bool {
+	var err error
+	var emptyUuid uuid.UUID
+	var tmp64 uint64
+	components := strings.Split(s, ".")
+	if len(components) != 5 {
+		return false
+	}
+
+	if components[0] == "0" {
+		this.Oid = emptyUuid
+	} else if this.Oid, err = uuid.Parse(components[0]); err != nil {
+		return false
+	}
+
+	if components[1] == "0" {
+		this.Iid = emptyUuid
+	} else if this.Iid, err = uuid.Parse(components[1]); err != nil {
+		return false
+	}
+
+	if components[2] == "0" {
+		this.Sid = emptyUuid
+	} else if this.Sid, err = uuid.Parse(components[2]); err != nil {
+		return false
+	}
+
+	if tmp64, err = strconv.ParseUint(components[3], 16, 32); err != nil {
+		return false
+	}
+	this.Platform = uint32(tmp64)
+
+	if tmp64, err = strconv.ParseUint(components[3], 16, 32); err != nil {
+		return false
+	}
+	this.Architecture = uint32(tmp64)
+
+	return true
+}
+
+func (this AgentId)Matches(compareTo AgentId) bool {
+	var emptyUuid uuid.UUID
+	if (this.Oid == emptyUuid || compareTo.Oid == emptyUuid || this.Oid == compareTo.Oid) &&
+	   (this.Iid == emptyUuid || compareTo.Iid == emptyUuid || this.Iid == compareTo.Iid) &&
+	   (this.Sid == emptyUuid || compareTo.Sid == emptyUuid || this.Sid == compareTo.Sid) &&
+	   (this.Platform == 0 || compareTo.Platform == 0 || this.Platform == compareTo.Platform) &&
+	   (this.Architecture == 0 || compareTo.Architecture == 0 || this.Architecture == compareTo.Architecture) {
+	   	return true
+	}
+
+	return false
 }
