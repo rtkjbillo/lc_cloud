@@ -28,6 +28,7 @@ import (
 	"os/signal"
 	"io/ioutil"
 	"encoding/binary"
+	"encoding/json"
 	"compress/zlib"
 	"crypto/rand"
 	"crypto/tls"
@@ -56,6 +57,7 @@ var g_configs struct {
 	}
 	enrollmentRules map[string]map[string]bool
 	moduleRules []moduleRule
+	hbsProfiles []profileRule
 }
 
 type clientContext struct {
@@ -66,6 +68,12 @@ type clientContext struct {
 type moduleRule struct {
 	aid hcp.AgentId
 	moduleId uint8
+	hash [32]byte
+	filePath string
+}
+
+type profileRule struct {
+	aid hcp.AgentId
 	hash [32]byte
 	filePath string
 }
@@ -95,10 +103,11 @@ func generateEnrollmentToken(aid hcp.AgentId) []byte {
 
 func reloadConfigs(configFile string) error {
 	var err error
+	var configContent []byte
 
 	log.Println("Loading config")
 	tmpConfig := new(LcServerConfig.Config)
-	if configContent, err := ioutil.ReadFile(configFile); err == nil {
+	if configContent, err = ioutil.ReadFile(configFile); err == nil {
 		if err = proto.UnmarshalText(string(configContent), tmpConfig); err == nil {
 			newEnrollmentRules := make(map[string]map[string]bool, 0)
 			i := 0
@@ -122,10 +131,16 @@ func reloadConfigs(configFile string) error {
 				moduleInfo.moduleId = uint8(rule.GetModuleId())
 				moduleInfo.filePath = rule.GetModuleFile()
 
-				if fileContent, err := ioutil.ReadFile(moduleInfo.filePath); err == nil {
+				var fileContent []byte
+				if fileContent, err = ioutil.ReadFile(moduleInfo.filePath); err == nil {
 					moduleInfo.hash = sha256.Sum256(fileContent)	
 				} else {
 					log.Printf("Error reading Module file (%s), skipping: %s", moduleInfo.filePath, err)
+					continue
+				}
+
+				if _, err = os.Stat(fmt.Sprintf("%s.sig", moduleInfo.filePath)); err != nil {
+					log.Printf("Error reading Module signature file (%s), skipping: %s", moduleInfo.filePath, err)
 					continue
 				}
 
@@ -134,11 +149,35 @@ func reloadConfigs(configFile string) error {
 
 			log.Printf("Module Rules: %d", len(newModuleRules))
 
+			newProfiles := make([]profileRule, 0)
+			for _, rule := range tmpConfig.GetProfileRules().GetRule() {
+				var profileInfo profileRule
+				if !profileInfo.aid.FromString(rule.GetAid()) {
+					log.Printf("Badly formated AID in HBS Profile Rule (%s), skipping", rule.GetAid())
+					continue
+				}
+
+				profileInfo.filePath = rule.GetProfileFile()
+
+				var fileContent []byte
+				if fileContent, err = ioutil.ReadFile(profileInfo.filePath); err == nil {
+					profileInfo.hash = sha256.Sum256(fileContent)
+				} else {
+					log.Printf("Error reading HBS Profile file (%s), skipping: %s", profileInfo.filePath, err)
+					continue
+				}
+
+				newProfiles = append(newProfiles, profileInfo)
+			}
+
+			log.Printf("HBS Profiles: %d", len(newProfiles))
+
 			g_configs.Lock()
 
 			g_configs.config = tmpConfig
 			g_configs.enrollmentRules = newEnrollmentRules
 			g_configs.moduleRules = newModuleRules
+			g_configs.hbsProfiles = newProfiles
 
 			g_configs.Unlock()
 		}
@@ -211,16 +250,18 @@ func main() {
 
 	listenAddr := fmt.Sprintf("%s:%d", g_configs.config.GetListenIface(), g_configs.config.GetListenPort())
 	resolvedAddr, err := net.ResolveTCPAddr("tcp", listenAddr)
+
 	if err != nil {
 		log.Fatalf("Failed to resolve listen address: %s", err)
 	}
 
 	listenSocket, err := net.ListenTCP("tcp", resolvedAddr)
 	if err != nil {
-		log.Fatalf("Could not open %s:%d for listening: %s", g_configs.config.GetListenIface(), g_configs.config.GetListenPort(), err.Error())
+		log.Fatalf("Could not open %s:%d for listening: %s", 
+				   g_configs.config.GetListenIface(), 
+				   g_configs.config.GetListenPort(), 
+				   err.Error())
 	}
-
-	defer listenSocket.Close()
 
 	g_configs.activeGoRoutines.Add(1)
 	go watchForConfigChanges(*configFile)
@@ -255,7 +296,9 @@ func main() {
 	}
 
 	log.Println("Draining, waiting on handlers to exit")
+	listenSocket.Close()
 	g_configs.activeGoRoutines.Wait()
+	log.Println("Drained, exiting")
 }
 
 func handleClient(conn net.Conn) {
@@ -349,6 +392,8 @@ func handleClient(conn net.Conn) {
 				log.Printf("Received messages from unexpected module: %d", moduleId)
 		}
 	}
+
+	log.Printf("Client %s disconnected", ctx.aid.ToString())
 }
 
 func sendFrame(ctx *clientContext, moduleId uint8, messages []*rpcm.Sequence, timeout time.Duration) error {
@@ -387,7 +432,7 @@ func sendFrame(ctx *clientContext, moduleId uint8, messages []*rpcm.Sequence, ti
 
 	finalFrame.Write(frameWrapper.Bytes())
 	
-	if err := sendData(ctx.conn, finalFrame.Bytes(), endTime); err != nil {
+	if err = sendData(ctx.conn, finalFrame.Bytes(), endTime); err != nil {
 		return err
 	}
 
@@ -599,6 +644,8 @@ func processHCPMessage(ctx *clientContext, messages *rpcm.List) error {
 	}
 
 	var outMessages []*rpcm.Sequence
+	nLoading := 0
+	nUnloading := 0
 	
 	for _, modIsLoaded := range currentlyLoaded {
 		var isFound bool
@@ -611,6 +658,7 @@ func processHCPMessage(ctx *clientContext, messages *rpcm.List) error {
 		}
 
 		if !isFound {
+			nUnloading++
 			outMessages = append(outMessages, rpcm.NewSequence().
 												AddInt8(rpcm.RP_TAGS_OPERATION, hcp.UNLOAD_MODULE).
 												AddInt8(rpcm.RP_TAGS_HCP_MODULE_ID, modIsLoaded.moduleId))
@@ -639,6 +687,7 @@ func processHCPMessage(ctx *clientContext, messages *rpcm.List) error {
 				continue
 			}
 
+			nLoading++
 			outMessages = append(outMessages, rpcm.NewSequence().
 												AddInt8(rpcm.RP_TAGS_OPERATION, hcp.LOAD_MODULE).
 												AddInt8(rpcm.RP_TAGS_HCP_MODULE_ID, modShouldBeLoaded.moduleId).
@@ -647,6 +696,8 @@ func processHCPMessage(ctx *clientContext, messages *rpcm.List) error {
 		}
 	}
 
+	log.Printf("Sync from %s, loading %d unloading %d", ctx.aid.ToString(), nLoading, nUnloading)
+
 	err = sendFrame(ctx, hcp.MODULE_ID_HCP, outMessages, 120 * time.Second)
 
 	return err
@@ -654,7 +705,64 @@ func processHCPMessage(ctx *clientContext, messages *rpcm.List) error {
 
 func processHBSMessage(ctx *clientContext, messages *rpcm.List) error {
 	var err error
-	log.Println("TODO: Process HBS messages")
+
+	var outMessages []*rpcm.Sequence
+
+	for _, message := range messages.GetSequence(rpcm.RP_TAGS_MESSAGE) {
+		if syncMessage, ok := message.GetSequence(rpcm.RP_TAGS_NOTIFICATION_SYNC); ok {
+			var profileToSend string
+			var expectedHash [32]byte
+			currentProfileHash, _ := syncMessage.GetBuffer(rpcm.RP_TAGS_HASH)
+
+			g_configs.RLock()
+			for _, profile := range g_configs.hbsProfiles {
+				if profile.aid.Matches(ctx.aid) {
+					if currentProfileHash == nil || !bytes.Equal(profile.hash[:], currentProfileHash) {
+						profileToSend = profile.filePath
+						expectedHash = profile.hash
+					}
+					break
+				}
+			}
+			g_configs.RUnlock()
+
+			if profileToSend != "" {
+				var profileContent []byte
+				if profileContent, err = ioutil.ReadFile(profileToSend); err != nil {
+					log.Printf("Failed to get profile content (%s): %s", profileToSend, err)
+					continue
+				}
+
+				currentHash := sha256.Sum256(profileContent)
+
+				if !bytes.Equal(currentHash[:], expectedHash[:]) {
+					log.Println("Profile content seems to have changed!")
+					continue
+				}
+
+				parsedProfile := rpcm.NewList(0, 0)
+				if err = parsedProfile.Deserialize(bytes.NewBuffer(profileContent)); err != nil {
+					log.Printf("Failed to deserialize profile (%s): %s", profileToSend, err)
+					continue
+				}
+
+				outMessages = append(outMessages, rpcm.NewSequence().
+													AddSequence(rpcm.RP_TAGS_NOTIFICATION_SYNC, 
+																rpcm.NewSequence().
+																	AddBuffer(rpcm.RP_TAGS_HASH, expectedHash[:]).
+																	AddList(rpcm.RP_TAGS_HBS_CONFIGURATIONS, 
+																			parsedProfile)))
+			}
+		} else {
+			if collection, err := json.MarshalIndent(messages.ToJson(), "", "    "); err != nil {
+				log.Printf("Error displaying collection: %s", err)
+			} else {
+				log.Println(string(collection))
+			}
+		}
+	}
+
+	err = sendFrame(ctx, hcp.MODULE_ID_HBS, outMessages, 120 * time.Second)
 
 	return err
 }
