@@ -15,30 +15,30 @@
 package main
 
 import (
-	"log"
-	"net"
-	"os"
-	"io"
-	"time"
-	"fmt"
 	"bytes"
-	"flag"
-	"sync"
-	"errors"
-	"os/signal"
-	"io/ioutil"
+	"compress/zlib"
+	"crypto/hmac"
+	"crypto/rand"
+	"crypto/sha256"
+	"crypto/tls"
 	"encoding/binary"
 	"encoding/json"
-	"compress/zlib"
-	"crypto/rand"
-	"crypto/tls"
-	"crypto/sha256"
-	"crypto/hmac"
-	"github.com/google/uuid"
+	"errors"
+	"flag"
+	"fmt"
 	"github.com/golang/protobuf/proto"
+	"github.com/google/uuid"
 	"github.com/refractionPOINT/lc_cloud/standalone/termination_server/lc_server_config"
 	"github.com/refractionPOINT/lc_cloud/standalone/termination_server/rpcm"
 	"github.com/refractionPOINT/lc_cloud/standalone/termination_server/utils"
+	"io"
+	"io/ioutil"
+	"log"
+	"net"
+	"os"
+	"os/signal"
+	"sync"
+	"time"
 )
 
 const (
@@ -47,42 +47,42 @@ const (
 
 var g_configs struct {
 	sync.RWMutex
-	isDebug bool
-	isDraining bool
-    activeGoRoutines sync.WaitGroup
-	config *LcServerConfig.Config
-	clients struct {
+	isDebug          bool
+	isDraining       bool
+	activeGoRoutines sync.WaitGroup
+	config           *LcServerConfig.Config
+	clients          struct {
 		sync.RWMutex
 		context map[string]*clientContext
 	}
 	enrollmentRules map[string]map[string]bool
-	moduleRules []moduleRule
-	hbsProfiles []profileRule
+	moduleRules     []moduleRule
+	hbsProfiles     []profileRule
 }
 
 type clientContext struct {
 	conn net.Conn
-	aid hcp.AgentId
+	aid  hcp.AgentId
 }
 
 type moduleRule struct {
-	aid hcp.AgentId
+	aid      hcp.AgentId
 	moduleId uint8
-	hash [32]byte
+	hash     [32]byte
 	filePath string
 }
 
 type profileRule struct {
-	aid hcp.AgentId
-	hash [32]byte
+	aid      hcp.AgentId
+	hash     [32]byte
 	filePath string
 }
 
 func validateEnrollmentToken(aid hcp.AgentId, token []byte) bool {
 	g_configs.RLock()
-	
+
 	hmacToken := hmac.New(sha256.New, []byte(g_configs.config.GetSecretEnrollmentToken()))
-	
+
 	g_configs.RUnlock()
 
 	hmacToken.Write([]byte(aid.ToString()))
@@ -133,7 +133,7 @@ func reloadConfigs(configFile string) error {
 
 				var fileContent []byte
 				if fileContent, err = ioutil.ReadFile(moduleInfo.filePath); err == nil {
-					moduleInfo.hash = sha256.Sum256(fileContent)	
+					moduleInfo.hash = sha256.Sum256(fileContent)
 				} else {
 					log.Printf("Error reading Module file (%s), skipping: %s", moduleInfo.filePath, err)
 					continue
@@ -218,10 +218,10 @@ func main() {
 
 	interruptsChannel := make(chan os.Signal, 1)
 	signal.Notify(interruptsChannel, os.Interrupt)
-	go func(){
-	    <- interruptsChannel
-	    log.Println("Received exiting signal")
-	    g_configs.isDraining = true
+	go func() {
+		<-interruptsChannel
+		log.Println("Received exiting signal")
+		g_configs.isDraining = true
 	}()
 
 	log.Println("Loading private key")
@@ -257,10 +257,10 @@ func main() {
 
 	listenSocket, err := net.ListenTCP("tcp", resolvedAddr)
 	if err != nil {
-		log.Fatalf("Could not open %s:%d for listening: %s", 
-				   g_configs.config.GetListenIface(), 
-				   g_configs.config.GetListenPort(), 
-				   err.Error())
+		log.Fatalf("Could not open %s:%d for listening: %s",
+			g_configs.config.GetListenIface(),
+			g_configs.config.GetListenPort(),
+			err.Error())
 	}
 
 	g_configs.activeGoRoutines.Add(1)
@@ -311,7 +311,7 @@ func handleClient(conn net.Conn) {
 	var messages *rpcm.List
 	var err error
 
-	if moduleId, messages, err = recvFrame(&ctx, 30 * time.Second); err != nil {
+	if moduleId, messages, err = recvFrame(&ctx, 30*time.Second); err != nil {
 		log.Printf("Failed to receive headers: %s", err)
 		return
 	}
@@ -354,8 +354,6 @@ func handleClient(conn net.Conn) {
 		}
 	}
 
-	
-	
 	if err = sendTimeSync(&ctx); err != nil {
 		log.Printf("Error sending time sync message: %s", err)
 		return
@@ -379,17 +377,17 @@ func handleClient(conn net.Conn) {
 	log.Printf("Client %s registered, beginning to receive data", aid.ToString())
 
 	for !g_configs.isDraining {
-		if moduleId, messages, err = recvFrame(&ctx, 30 * time.Second); err != nil {
+		if moduleId, messages, err = recvFrame(&ctx, 30*time.Second); err != nil {
 			break
 		}
 
 		switch moduleId {
-			case hcp.MODULE_ID_HCP:
-				err = processHCPMessage(&ctx, messages)
-			case hcp.MODULE_ID_HBS:
-				err = processHBSMessage(&ctx, messages)
-			default:
-				log.Printf("Received messages from unexpected module: %d", moduleId)
+		case hcp.MODULE_ID_HCP:
+			err = processHCPMessage(&ctx, messages)
+		case hcp.MODULE_ID_HBS:
+			err = processHBSMessage(&ctx, messages)
+		default:
+			log.Printf("Received messages from unexpected module: %d", moduleId)
 		}
 	}
 
@@ -424,14 +422,13 @@ func sendFrame(ctx *clientContext, moduleId uint8, messages []*rpcm.Sequence, ti
 	zlibWriter.Write(frameData.Bytes())
 	zlibWriter.Close()
 
-
 	finalFrame := bytes.Buffer{}
 	if err = binary.Write(&finalFrame, binary.BigEndian, uint32(frameWrapper.Len())); err != nil {
 		return err
 	}
 
 	finalFrame.Write(frameWrapper.Bytes())
-	
+
 	if err = sendData(ctx.conn, finalFrame.Bytes(), endTime); err != nil {
 		return err
 	}
@@ -497,11 +494,11 @@ func recvData(conn net.Conn, size uint, timeout time.Time) ([]byte, error) {
 	buf := make([]byte, size)
 	var receivedLen uint
 	var err error
-	
+
 	if !timeout.IsZero() {
 		conn.SetReadDeadline(timeout)
 	}
-	
+
 	for receivedLen < size {
 		msgLen := 0
 		msgLen, err = conn.Read(buf[receivedLen:])
@@ -546,7 +543,7 @@ func sendData(conn net.Conn, buf []byte, timeout time.Time) error {
 
 func agentIdFromSequence(message rpcm.MachineSequence) hcp.AgentId {
 	var aid hcp.AgentId
-	
+
 	copy(aid.Oid[:], message[rpcm.RP_TAGS_HCP_ORG_ID].([]byte))
 	copy(aid.Iid[:], message[rpcm.RP_TAGS_HCP_INSTALLER_ID].([]byte))
 	copy(aid.Sid[:], message[rpcm.RP_TAGS_HCP_SENSOR_ID].([]byte))
@@ -570,9 +567,9 @@ func agentIdToSequence(aid hcp.AgentId) *rpcm.Sequence {
 func sendTimeSync(ctx *clientContext) error {
 	var messages []*rpcm.Sequence
 	messages = append(messages, rpcm.NewSequence().
-									AddInt8(rpcm.RP_TAGS_OPERATION, hcp.SET_GLOBAL_TIME).
-									AddTimestamp(rpcm.RP_TAGS_TIMESTAMP, uint64(time.Now().Unix())))
-	err := sendFrame(ctx, hcp.MODULE_ID_HCP, messages, 10 * time.Second)
+		AddInt8(rpcm.RP_TAGS_OPERATION, hcp.SET_GLOBAL_TIME).
+		AddTimestamp(rpcm.RP_TAGS_TIMESTAMP, uint64(time.Now().Unix())))
+	err := sendFrame(ctx, hcp.MODULE_ID_HCP, messages, 10*time.Second)
 	return err
 }
 
@@ -595,10 +592,10 @@ func processEnrollment(ctx *clientContext) bool {
 
 		var messages []*rpcm.Sequence
 		messages = append(messages, rpcm.NewSequence().
-										AddInt8(rpcm.RP_TAGS_OPERATION, hcp.SET_HCP_ID).
-										AddSequence(rpcm.RP_TAGS_HCP_IDENT, agentIdToSequence(ctx.aid)).
-										AddBuffer(rpcm.RP_TAGS_HCP_ENROLLMENT_TOKEN, enrollmentToken))
-		if err := sendFrame(ctx, hcp.MODULE_ID_HCP, messages, 10 * time.Second); err == nil {
+			AddInt8(rpcm.RP_TAGS_OPERATION, hcp.SET_HCP_ID).
+			AddSequence(rpcm.RP_TAGS_HCP_IDENT, agentIdToSequence(ctx.aid)).
+			AddBuffer(rpcm.RP_TAGS_HCP_ENROLLMENT_TOKEN, enrollmentToken))
+		if err := sendFrame(ctx, hcp.MODULE_ID_HCP, messages, 10*time.Second); err == nil {
 			isEnrolled = true
 			log.Printf("Sensor enrolled: %s", ctx.aid.ToString())
 		} else {
@@ -646,22 +643,22 @@ func processHCPMessage(ctx *clientContext, messages *rpcm.List) error {
 	var outMessages []*rpcm.Sequence
 	nLoading := 0
 	nUnloading := 0
-	
+
 	for _, modIsLoaded := range currentlyLoaded {
 		var isFound bool
 		for _, modShouldBeLoaded := range shouldBeLoaded {
 			if modIsLoaded.moduleId == modShouldBeLoaded.moduleId &&
-			   modIsLoaded.hash == modShouldBeLoaded.hash {
-			   	isFound = true
-			   	break
+				modIsLoaded.hash == modShouldBeLoaded.hash {
+				isFound = true
+				break
 			}
 		}
 
 		if !isFound {
 			nUnloading++
 			outMessages = append(outMessages, rpcm.NewSequence().
-												AddInt8(rpcm.RP_TAGS_OPERATION, hcp.UNLOAD_MODULE).
-												AddInt8(rpcm.RP_TAGS_HCP_MODULE_ID, modIsLoaded.moduleId))
+				AddInt8(rpcm.RP_TAGS_OPERATION, hcp.UNLOAD_MODULE).
+				AddInt8(rpcm.RP_TAGS_HCP_MODULE_ID, modIsLoaded.moduleId))
 		}
 	}
 
@@ -669,9 +666,9 @@ func processHCPMessage(ctx *clientContext, messages *rpcm.List) error {
 		var isFound bool
 		for _, modIsLoaded := range currentlyLoaded {
 			if modIsLoaded.moduleId == modShouldBeLoaded.moduleId &&
-			   modIsLoaded.hash == modShouldBeLoaded.hash {
-			   	isFound = true
-			   	break
+				modIsLoaded.hash == modShouldBeLoaded.hash {
+				isFound = true
+				break
 			}
 		}
 
@@ -689,16 +686,16 @@ func processHCPMessage(ctx *clientContext, messages *rpcm.List) error {
 
 			nLoading++
 			outMessages = append(outMessages, rpcm.NewSequence().
-												AddInt8(rpcm.RP_TAGS_OPERATION, hcp.LOAD_MODULE).
-												AddInt8(rpcm.RP_TAGS_HCP_MODULE_ID, modShouldBeLoaded.moduleId).
-												AddBuffer(rpcm.RP_TAGS_BINARY, moduleContent).
-												AddBuffer(rpcm.RP_TAGS_SIGNATURE, moduleSig))
+				AddInt8(rpcm.RP_TAGS_OPERATION, hcp.LOAD_MODULE).
+				AddInt8(rpcm.RP_TAGS_HCP_MODULE_ID, modShouldBeLoaded.moduleId).
+				AddBuffer(rpcm.RP_TAGS_BINARY, moduleContent).
+				AddBuffer(rpcm.RP_TAGS_SIGNATURE, moduleSig))
 		}
 	}
 
 	log.Printf("Sync from %s, loading %d unloading %d", ctx.aid.ToString(), nLoading, nUnloading)
 
-	err = sendFrame(ctx, hcp.MODULE_ID_HCP, outMessages, 120 * time.Second)
+	err = sendFrame(ctx, hcp.MODULE_ID_HCP, outMessages, 120*time.Second)
 
 	return err
 }
@@ -747,11 +744,11 @@ func processHBSMessage(ctx *clientContext, messages *rpcm.List) error {
 				}
 
 				outMessages = append(outMessages, rpcm.NewSequence().
-													AddSequence(rpcm.RP_TAGS_NOTIFICATION_SYNC, 
-																rpcm.NewSequence().
-																	AddBuffer(rpcm.RP_TAGS_HASH, expectedHash[:]).
-																	AddList(rpcm.RP_TAGS_HBS_CONFIGURATIONS, 
-																			parsedProfile)))
+					AddSequence(rpcm.RP_TAGS_NOTIFICATION_SYNC,
+						rpcm.NewSequence().
+							AddBuffer(rpcm.RP_TAGS_HASH, expectedHash[:]).
+							AddList(rpcm.RP_TAGS_HBS_CONFIGURATIONS,
+								parsedProfile)))
 			}
 		} else {
 			if collection, err := json.MarshalIndent(messages.ToJson(), "", "    "); err != nil {
@@ -762,7 +759,7 @@ func processHBSMessage(ctx *clientContext, messages *rpcm.List) error {
 		}
 	}
 
-	err = sendFrame(ctx, hcp.MODULE_ID_HBS, outMessages, 120 * time.Second)
+	err = sendFrame(ctx, hcp.MODULE_ID_HBS, outMessages, 120*time.Second)
 
 	return err
 }
