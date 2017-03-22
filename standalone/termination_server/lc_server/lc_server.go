@@ -26,6 +26,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"github.com/golang/glog"
 	"github.com/golang/protobuf/proto"
 	"github.com/google/uuid"
 	"github.com/refractionPOINT/lc_cloud/standalone/termination_server/lc_server_config"
@@ -33,7 +34,6 @@ import (
 	"github.com/refractionPOINT/lc_cloud/standalone/termination_server/utils"
 	"io"
 	"io/ioutil"
-	"log"
 	"net"
 	"os"
 	"os/signal"
@@ -105,7 +105,7 @@ func reloadConfigs(configFile string) error {
 	var err error
 	var configContent []byte
 
-	log.Println("Loading config")
+	glog.Info("loading config")
 	tmpConfig := new(LcServerConfig.Config)
 	if configContent, err = ioutil.ReadFile(configFile); err == nil {
 		if err = proto.UnmarshalText(string(configContent), tmpConfig); err == nil {
@@ -119,13 +119,13 @@ func reloadConfigs(configFile string) error {
 				i++
 			}
 
-			log.Printf("Enrollment Rules: %d", i)
+			glog.Infof("enrollment Rules: %d", i)
 
 			newModuleRules := make([]moduleRule, 0)
 			for _, rule := range tmpConfig.GetModuleRules().GetRule() {
 				var moduleInfo moduleRule
 				if !moduleInfo.aid.FromString(rule.GetAid()) {
-					log.Printf("Badly formated AID in Module Rule (%s), skipping", rule.GetAid())
+					glog.Errorf("badly formated AID in Module Rule (%s), skipping", rule.GetAid())
 					continue
 				}
 				moduleInfo.moduleId = uint8(rule.GetModuleId())
@@ -135,25 +135,25 @@ func reloadConfigs(configFile string) error {
 				if fileContent, err = ioutil.ReadFile(moduleInfo.filePath); err == nil {
 					moduleInfo.hash = sha256.Sum256(fileContent)
 				} else {
-					log.Printf("Error reading Module file (%s), skipping: %s", moduleInfo.filePath, err)
+					glog.Errorf("error reading Module file (%s), skipping: %s", moduleInfo.filePath, err)
 					continue
 				}
 
 				if _, err = os.Stat(fmt.Sprintf("%s.sig", moduleInfo.filePath)); err != nil {
-					log.Printf("Error reading Module signature file (%s), skipping: %s", moduleInfo.filePath, err)
+					glog.Errorf("error reading Module signature file (%s), skipping: %s", moduleInfo.filePath, err)
 					continue
 				}
 
 				newModuleRules = append(newModuleRules, moduleInfo)
 			}
 
-			log.Printf("Module Rules: %d", len(newModuleRules))
+			glog.Infof("module Rules: %d", len(newModuleRules))
 
 			newProfiles := make([]profileRule, 0)
 			for _, rule := range tmpConfig.GetProfileRules().GetRule() {
 				var profileInfo profileRule
 				if !profileInfo.aid.FromString(rule.GetAid()) {
-					log.Printf("Badly formated AID in HBS Profile Rule (%s), skipping", rule.GetAid())
+					glog.Errorf("eadly formated AID in HBS Profile Rule (%s), skipping", rule.GetAid())
 					continue
 				}
 
@@ -163,14 +163,14 @@ func reloadConfigs(configFile string) error {
 				if fileContent, err = ioutil.ReadFile(profileInfo.filePath); err == nil {
 					profileInfo.hash = sha256.Sum256(fileContent)
 				} else {
-					log.Printf("Error reading HBS Profile file (%s), skipping: %s", profileInfo.filePath, err)
+					glog.Errorf("error reading HBS Profile file (%s), skipping: %s", profileInfo.filePath, err)
 					continue
 				}
 
 				newProfiles = append(newProfiles, profileInfo)
 			}
 
-			log.Printf("HBS Profiles: %d", len(newProfiles))
+			glog.Infof("hbs Profiles: %d", len(newProfiles))
 
 			g_configs.Lock()
 
@@ -184,7 +184,7 @@ func reloadConfigs(configFile string) error {
 	}
 
 	if err != nil {
-		log.Fatalf("Error loading config: %s", err)
+		glog.Fatalf("error loading config: %s", err)
 	}
 
 	return err
@@ -197,13 +197,13 @@ func watchForConfigChanges(configFile string) {
 	defer g_configs.activeGoRoutines.Done()
 
 	if lastFileInfo, err = os.Stat(configFile); err != nil {
-		log.Println("Could not get initial config modification time, won't detect changes and reload automatically: %s", err)
+		glog.Errorf("could not get initial config modification time, won't detect changes and reload automatically: %s", err)
 		return
 	}
 
 	for !g_configs.isDraining {
 		if newFileInfo, err := os.Stat(configFile); err == nil && newFileInfo.ModTime() != lastFileInfo.ModTime() {
-			log.Println("Detected a change in configuration, reloading.")
+			glog.Info("detected a change in configuration, reloading.")
 			lastFileInfo = newFileInfo
 			reloadConfigs(configFile)
 		}
@@ -214,20 +214,20 @@ func watchForConfigChanges(configFile string) {
 
 func main() {
 	var err error
-	log.Println("Starting LC Termination Server")
+	glog.Info("starting LC Termination Server")
 
 	interruptsChannel := make(chan os.Signal, 1)
 	signal.Notify(interruptsChannel, os.Interrupt)
 	go func() {
 		<-interruptsChannel
-		log.Println("Received exiting signal")
+		glog.Info("received exiting signal")
 		g_configs.isDraining = true
 	}()
 
-	log.Println("Loading private key")
+	glog.Info("loading private key")
 	cert, err := tls.LoadX509KeyPair("./c2_cert.pem", "./c2_key.pem")
 	if err != nil {
-		log.Fatalf("Failed to load cert and key: %s", err)
+		glog.Fatalf("failed to load cert and key: %s", err)
 	}
 
 	tlsConfig := tls.Config{Certificates: []tls.Certificate{cert}}
@@ -239,25 +239,25 @@ func main() {
 
 	if *isDebug {
 		g_configs.isDebug = true
-		log.Printf("Server is in debug mode")
+		glog.Infof("server is in debug mode")
 	}
 
 	g_configs.clients.context = make(map[string]*clientContext, 0)
 
 	if err = reloadConfigs(*configFile); err != nil {
-		log.Fatalf("Could not load initial configs, exiting.")
+		glog.Fatalf("could not load initial configs, exiting.")
 	}
 
 	listenAddr := fmt.Sprintf("%s:%d", g_configs.config.GetListenIface(), g_configs.config.GetListenPort())
 	resolvedAddr, err := net.ResolveTCPAddr("tcp", listenAddr)
 
 	if err != nil {
-		log.Fatalf("Failed to resolve listen address: %s", err)
+		glog.Fatalf("failed to resolve listen address: %s", err)
 	}
 
 	listenSocket, err := net.ListenTCP("tcp", resolvedAddr)
 	if err != nil {
-		log.Fatalf("Could not open %s:%d for listening: %s",
+		glog.Fatalf("could not open %s:%d for listening: %s",
 			g_configs.config.GetListenIface(),
 			g_configs.config.GetListenPort(),
 			err.Error())
@@ -266,7 +266,7 @@ func main() {
 	g_configs.activeGoRoutines.Add(1)
 	go watchForConfigChanges(*configFile)
 
-	log.Printf("Listening on %s:%d", g_configs.config.GetListenIface(), g_configs.config.GetListenPort())
+	glog.Infof("listening on %s:%d", g_configs.config.GetListenIface(), g_configs.config.GetListenPort())
 
 	for {
 
@@ -285,20 +285,20 @@ func main() {
 			if opErr, ok := err.(*net.OpError); ok && opErr.Timeout() {
 				continue
 			}
-			log.Fatalf("Error accepting on socket: %s", err.Error())
+			glog.Fatalf("error accepting on socket: %s", err.Error())
 		}
 
 		conn = tls.Server(conn, &tlsConfig)
 
-		log.Printf("Handing out new connection to handler")
+		glog.Infof("handing out new connection to handler")
 		g_configs.activeGoRoutines.Add(1)
 		go handleClient(conn)
 	}
 
-	log.Println("Draining, waiting on handlers to exit")
+	glog.Info("draining, waiting on handlers to exit")
 	listenSocket.Close()
 	g_configs.activeGoRoutines.Wait()
-	log.Println("Drained, exiting")
+	glog.Info("drained, exiting")
 }
 
 func handleClient(conn net.Conn) {
@@ -312,12 +312,12 @@ func handleClient(conn net.Conn) {
 	var err error
 
 	if moduleId, messages, err = recvFrame(&ctx, 30*time.Second); err != nil {
-		log.Printf("Failed to receive headers: %s", err)
+		glog.Errorf("failed to receive headers: %s", err)
 		return
 	}
 
 	if moduleId != hcp.MODULE_ID_HCP {
-		log.Printf("Received unexpected frames from module instead of headers: %d", moduleId)
+		glog.Warningf("received unexpected frames from module instead of headers: %d", moduleId)
 		return
 	}
 
@@ -326,36 +326,36 @@ func handleClient(conn net.Conn) {
 	hostName := headers[rpcm.RP_TAGS_HOST_NAME]
 	internalIp := headers[rpcm.RP_TAGS_IP_ADDRESS]
 	aid := agentIdFromSequence(headers[rpcm.RP_TAGS_HCP_IDENT].(rpcm.MachineSequence))
-	log.Printf("Initial contact: %s / %s / 0x%08x", hostName, aid.ToString(), internalIp)
+	glog.Infof("Initial contact: %s / %s / 0x%08x", hostName, aid.ToString(), internalIp)
 	if !aid.IsAbsolute() && !g_configs.isDebug {
-		log.Printf("Invalid agent id containing wildcard")
+		glog.Warningf("invalid agent id containing wildcard")
 		return
 	}
 
 	ctx.aid = aid
 
 	if aid.IsSidWild() {
-		log.Printf("Sensor requires enrollment")
+		glog.Infof("sensor requires enrollment")
 		if !processEnrollment(&ctx) {
 			return
 		}
 	} else {
 		sensorToken, ok := headers[rpcm.RP_TAGS_HCP_ENROLLMENT_TOKEN].([]byte)
 		if !ok {
-			log.Printf("Missing enrollment token from sensor")
+			glog.Warningf("missing enrollment token from sensor")
 			return
 		}
 
 		if validateEnrollmentToken(aid, sensorToken) {
-			log.Printf("Enrollment token OK")
+			glog.Infof("enrollment token OK")
 		} else {
-			log.Printf("Invalid enrollment token")
+			glog.Warningf("invalid enrollment token")
 			return
 		}
 	}
 
 	if err = sendTimeSync(&ctx); err != nil {
-		log.Printf("Error sending time sync message: %s", err)
+		glog.Warningf("error sending time sync message: %s", err)
 		return
 	}
 
@@ -374,7 +374,7 @@ func handleClient(conn net.Conn) {
 	g_configs.clients.Unlock()
 	g_configs.RUnlock()
 
-	log.Printf("Client %s registered, beginning to receive data", aid.ToString())
+	glog.Infof("client %s registered, beginning to receive data", aid.ToString())
 
 	for !g_configs.isDraining {
 		if moduleId, messages, err = recvFrame(&ctx, 30*time.Second); err != nil {
@@ -387,11 +387,11 @@ func handleClient(conn net.Conn) {
 		case hcp.MODULE_ID_HBS:
 			err = processHBSMessage(&ctx, messages)
 		default:
-			log.Printf("Received messages from unexpected module: %d", moduleId)
+			glog.Warningf("received messages from unexpected module: %d", moduleId)
 		}
 	}
 
-	log.Printf("Client %s disconnected", ctx.aid.ToString())
+	glog.Infof("client %s disconnected", ctx.aid.ToString())
 }
 
 func sendFrame(ctx *clientContext, moduleId uint8, messages []*rpcm.Sequence, timeout time.Duration) error {
@@ -405,7 +405,7 @@ func sendFrame(ctx *clientContext, moduleId uint8, messages []*rpcm.Sequence, ti
 	messageBundle := rpcm.NewList(rpcm.RP_TAGS_MESSAGE, rpcm.RPCM_SEQUENCE)
 	for _, message := range messages {
 		if messageBundle = messageBundle.AddSequence(message); messageBundle == nil {
-			return errors.New("Failed to bundle messages")
+			return errors.New("failed to bundle messages")
 		}
 	}
 
@@ -458,7 +458,7 @@ func recvFrame(ctx *clientContext, timeout time.Duration) (uint8, *rpcm.List, er
 	}
 
 	if MAX_INBOUND_FRAME_SIZE < frameSize {
-		return 0, nil, errors.New("Frame size indicated too large or not a multiple of block size")
+		return 0, nil, errors.New("frame size indicated too large or not a multiple of block size")
 	}
 
 	if buf, err = recvData(ctx.conn, uint(frameSize), endTime); buf == nil || err != nil || len(buf) == 0 {
@@ -475,7 +475,7 @@ func recvFrame(ctx *clientContext, timeout time.Duration) (uint8, *rpcm.List, er
 		if err != nil {
 			return 0, nil, err
 		} else {
-			return 0, nil, errors.New("Received empty frame")
+			return 0, nil, errors.New("received empty frame")
 		}
 	}
 
@@ -581,7 +581,7 @@ func processEnrollment(ctx *clientContext) bool {
 	if g_configs.enrollmentRules[ctx.aid.Oid.String()][ctx.aid.Iid.String()] {
 		isWhitelisted = true
 	} else {
-		log.Printf("Sensor is not whitelisted for enrollment( OID:%s, IID:%s )", ctx.aid.Oid.String(), ctx.aid.Iid.String())
+		glog.Warningf("sensor is not whitelisted for enrollment( OID:%s, IID:%s )", ctx.aid.Oid.String(), ctx.aid.Iid.String())
 	}
 
 	g_configs.RUnlock()
@@ -597,9 +597,9 @@ func processEnrollment(ctx *clientContext) bool {
 			AddBuffer(rpcm.RP_TAGS_HCP_ENROLLMENT_TOKEN, enrollmentToken))
 		if err := sendFrame(ctx, hcp.MODULE_ID_HCP, messages, 10*time.Second); err == nil {
 			isEnrolled = true
-			log.Printf("Sensor enrolled: %s", ctx.aid.ToString())
+			glog.Infof("sensor enrolled: %s", ctx.aid.ToString())
 		} else {
-			log.Println("Failed to send enrollment to sensor: %s", err)
+			glog.Warningf("failed to send enrollment to sensor: %s", err)
 		}
 	}
 
@@ -676,11 +676,11 @@ func processHCPMessage(ctx *clientContext, messages *rpcm.List) error {
 			var moduleContent []byte
 			var moduleSig []byte
 			if moduleContent, err = ioutil.ReadFile(modShouldBeLoaded.filePath); err != nil {
-				log.Printf("Failed to get module content (%s): %s", modShouldBeLoaded.filePath, err)
+				glog.Errorf("failed to get module content (%s): %s", modShouldBeLoaded.filePath, err)
 				continue
 			}
 			if moduleSig, err = ioutil.ReadFile(fmt.Sprintf("%s.sig", modShouldBeLoaded.filePath)); err != nil {
-				log.Printf("Failed to get module signature (%s.sig): %s", modShouldBeLoaded.filePath, err)
+				glog.Errorf("failed to get module signature (%s.sig): %s", modShouldBeLoaded.filePath, err)
 				continue
 			}
 
@@ -693,7 +693,7 @@ func processHCPMessage(ctx *clientContext, messages *rpcm.List) error {
 		}
 	}
 
-	log.Printf("Sync from %s, loading %d unloading %d", ctx.aid.ToString(), nLoading, nUnloading)
+	glog.Infof("sync from %s, loading %d unloading %d", ctx.aid.ToString(), nLoading, nUnloading)
 
 	err = sendFrame(ctx, hcp.MODULE_ID_HCP, outMessages, 120*time.Second)
 
@@ -726,20 +726,20 @@ func processHBSMessage(ctx *clientContext, messages *rpcm.List) error {
 			if profileToSend != "" {
 				var profileContent []byte
 				if profileContent, err = ioutil.ReadFile(profileToSend); err != nil {
-					log.Printf("Failed to get profile content (%s): %s", profileToSend, err)
+					glog.Errorf("failed to get profile content (%s): %s", profileToSend, err)
 					continue
 				}
 
 				currentHash := sha256.Sum256(profileContent)
 
 				if !bytes.Equal(currentHash[:], expectedHash[:]) {
-					log.Println("Profile content seems to have changed!")
+					glog.Errorf("profile content seems to have changed!")
 					continue
 				}
 
 				parsedProfile := rpcm.NewList(0, 0)
 				if err = parsedProfile.Deserialize(bytes.NewBuffer(profileContent)); err != nil {
-					log.Printf("Failed to deserialize profile (%s): %s", profileToSend, err)
+					glog.Errorf("failed to deserialize profile (%s): %s", profileToSend, err)
 					continue
 				}
 
@@ -752,9 +752,9 @@ func processHBSMessage(ctx *clientContext, messages *rpcm.List) error {
 			}
 		} else {
 			if collection, err := json.MarshalIndent(messages.ToJson(), "", "    "); err != nil {
-				log.Printf("Error displaying collection: %s", err)
+				glog.Errorf("error displaying collection: %s", err)
 			} else {
-				log.Println(string(collection))
+				glog.Info(string(collection))
 			}
 		}
 	}

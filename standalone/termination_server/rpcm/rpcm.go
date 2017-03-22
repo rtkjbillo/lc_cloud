@@ -1,3 +1,36 @@
+// Copyright 2015 refractionPOINT
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//    http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+/*
+The RPCM package provides an interface to serialize, deserialize and generally
+manipulate RPCommonMessages that are used by LimaCharlie.
+
+The messages are analogous to JSON where every element has a Type and a Tag.
+
+The basic building blocks in RPCM are the Sequence and the List.
+
+The Sequence is a dictionary where only one element with a certain Tag (the key) is
+present regardless of the Type and value of that element.
+
+The List is an array of elements where ALL elements have the same Tag and Type.
+
+Sequences and Lists can be embedded into each other at will.
+
+Messages are serialized with Tags as UINT32, the mapping to a human readable format
+is done when necessary using a machine-generated "header" from a source JSON file used
+as a ground truth Uint32<-->Str between the various programming languages supported.
+*/
 package rpcm
 
 import (
@@ -7,6 +40,7 @@ import (
 	"strconv"
 )
 
+// Data type values
 const (
 	RPCM_INVALID_TYPE  = 0
 	RPCM_RU8           = 1
@@ -30,7 +64,7 @@ const (
 type rpcmElement interface {
 	GetType() byte
 	GetValue() interface{}
-	Serialize(toBuf *bytes.Buffer) error
+	serialize(toBuf *bytes.Buffer) error
 }
 
 type rElem struct {
@@ -114,7 +148,10 @@ type List struct {
 	elements []rpcmElement
 }
 
+// MachineSequence is a native Go representation of a Sequence
 type MachineSequence map[uint32]interface{}
+
+// MachineList is a native Go representation of a List
 type MachineList []interface{}
 
 func (this *rElem) GetType() uint8 {
@@ -184,10 +221,14 @@ func (this *List) GetValue() interface{} {
 //=============================================================================
 // Constructors
 //=============================================================================
+
+// NewSequence creates a new blank Sequence
 func NewSequence() *Sequence {
 	return &Sequence{rElem: rElem{RPCM_SEQUENCE}, elements: make(map[uint32]rpcmElement)}
 }
 
+
+// NewList creates a new blank list of elemTag and elemType items
 func NewList(elemTag uint32, elemType uint8) *List {
 	return &List{rElem: rElem{RPCM_LIST}, elemTag: elemTag, elemType: elemType}
 }
@@ -195,23 +236,24 @@ func NewList(elemTag uint32, elemType uint8) *List {
 //=============================================================================
 // Serialize
 //=============================================================================
-func (this *ru8) Serialize(toBuf *bytes.Buffer) error {
+
+func (this *ru8) serialize(toBuf *bytes.Buffer) error {
 	return toBuf.WriteByte(this.value)
 }
 
-func (this *ru16) Serialize(toBuf *bytes.Buffer) error {
+func (this *ru16) serialize(toBuf *bytes.Buffer) error {
 	return binary.Write(toBuf, binary.BigEndian, this.value)
 }
 
-func (this *ru32) Serialize(toBuf *bytes.Buffer) error {
+func (this *ru32) serialize(toBuf *bytes.Buffer) error {
 	return binary.Write(toBuf, binary.BigEndian, this.value)
 }
 
-func (this *ru64) Serialize(toBuf *bytes.Buffer) error {
+func (this *ru64) serialize(toBuf *bytes.Buffer) error {
 	return binary.Write(toBuf, binary.BigEndian, this.value)
 }
 
-func (this *rStringA) Serialize(toBuf *bytes.Buffer) error {
+func (this *rStringA) serialize(toBuf *bytes.Buffer) error {
 	err := binary.Write(toBuf, binary.BigEndian, uint32(len(this.value)+1))
 	if err != nil {
 		return err
@@ -228,7 +270,7 @@ func (this *rStringA) Serialize(toBuf *bytes.Buffer) error {
 	return nil
 }
 
-func (this *rStringW) Serialize(toBuf *bytes.Buffer) error {
+func (this *rStringW) serialize(toBuf *bytes.Buffer) error {
 	err := binary.Write(toBuf, binary.BigEndian, uint32(len(this.value)+1))
 	if err != nil {
 		return err
@@ -245,7 +287,7 @@ func (this *rStringW) Serialize(toBuf *bytes.Buffer) error {
 	return nil
 }
 
-func (this *rBuffer) Serialize(toBuf *bytes.Buffer) error {
+func (this *rBuffer) serialize(toBuf *bytes.Buffer) error {
 	err := binary.Write(toBuf, binary.BigEndian, uint32(len(this.value)))
 	if err != nil {
 		return err
@@ -258,31 +300,35 @@ func (this *rBuffer) Serialize(toBuf *bytes.Buffer) error {
 	return nil
 }
 
-func (this *rTimestamp) Serialize(toBuf *bytes.Buffer) error {
+func (this *rTimestamp) serialize(toBuf *bytes.Buffer) error {
 	return binary.Write(toBuf, binary.BigEndian, this.value)
 }
 
-func (this *rIpv4) Serialize(toBuf *bytes.Buffer) error {
+func (this *rIpv4) serialize(toBuf *bytes.Buffer) error {
 	return binary.Write(toBuf, binary.BigEndian, this.value)
 }
 
-func (this *rIpv6) Serialize(toBuf *bytes.Buffer) error {
+func (this *rIpv6) serialize(toBuf *bytes.Buffer) error {
 	return binary.Write(toBuf, binary.BigEndian, this.value)
 }
 
-func (this *rPointer32) Serialize(toBuf *bytes.Buffer) error {
+func (this *rPointer32) serialize(toBuf *bytes.Buffer) error {
 	return binary.Write(toBuf, binary.BigEndian, this.value)
 }
 
-func (this *rPointer64) Serialize(toBuf *bytes.Buffer) error {
+func (this *rPointer64) serialize(toBuf *bytes.Buffer) error {
 	return binary.Write(toBuf, binary.BigEndian, this.value)
 }
 
-func (this *rTimedelta) Serialize(toBuf *bytes.Buffer) error {
+func (this *rTimedelta) serialize(toBuf *bytes.Buffer) error {
 	return binary.Write(toBuf, binary.BigEndian, this.value)
 }
 
 func (this *Sequence) Serialize(toBuf *bytes.Buffer) error {
+    return this.serialize(toBuf)
+}
+
+func (this *Sequence) serialize(toBuf *bytes.Buffer) error {
 	err := binary.Write(toBuf, binary.BigEndian, uint32(len(this.elements)))
 	if err != nil {
 		return err
@@ -296,7 +342,7 @@ func (this *Sequence) Serialize(toBuf *bytes.Buffer) error {
 		if err != nil {
 			return err
 		}
-		err = elem.Serialize(toBuf)
+		err = elem.serialize(toBuf)
 		if err != nil {
 			return err
 		}
@@ -305,6 +351,10 @@ func (this *Sequence) Serialize(toBuf *bytes.Buffer) error {
 }
 
 func (this *List) Serialize(toBuf *bytes.Buffer) error {
+    return this.serialize(toBuf)
+}
+
+func (this *List) serialize(toBuf *bytes.Buffer) error {
 	err := binary.Write(toBuf, binary.BigEndian, this.elemTag)
 	if err != nil {
 		return err
@@ -329,7 +379,7 @@ func (this *List) Serialize(toBuf *bytes.Buffer) error {
 		if err != nil {
 			return err
 		}
-		err = elem.Serialize(toBuf)
+		err = elem.serialize(toBuf)
 		if err != nil {
 			return err
 		}
