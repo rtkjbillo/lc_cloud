@@ -48,8 +48,12 @@ const (
 var g_configs struct {
 	sync.RWMutex
 	isDebug          bool
+	isStdOut    	 bool
 	isDraining       bool
+	isDrained 	     bool
+	outputGoRoutines sync.WaitGroup
 	activeGoRoutines sync.WaitGroup
+	collectionLog	 chan collectionData
 	config           *LcServerConfig.Config
 	clients          struct {
 		sync.RWMutex
@@ -76,6 +80,11 @@ type profileRule struct {
 	aid      hcp.AgentId
 	hash     [32]byte
 	filePath string
+}
+
+type collectionData struct {
+	message *rpcm.Sequence
+	aid *hcp.AgentId
 }
 
 func validateEnrollmentToken(aid hcp.AgentId, token []byte) bool {
@@ -212,8 +221,91 @@ func watchForConfigChanges(configFile string) {
 	}
 }
 
+func logCollection() {
+	var err error
+	defer g_configs.outputGoRoutines.Done()
+	outputFile := g_configs.config.GetOutputFile()
+	var fileHandle *os.File
+	nextFileCycle := time.Now().Add(60 * time.Minute)
+
+	if outputFile != "" {
+		glog.Infof("opening collection log file: %s", outputFile)
+		fileHandle, err = os.Create(outputFile)
+		if err != nil {
+			glog.Fatalf("could not open collection log file: %s", err)
+		}
+	}
+
+	for !g_configs.isDraining {
+		var collection collectionData
+
+		timeout := make(chan bool, 1)
+		go func() {
+		    time.Sleep(10 * time.Second)
+		    timeout <- true
+		}()
+
+		select {
+			case collection = <- g_configs.collectionLog:
+			case <- timeout:
+				if g_configs.isDrained {
+					return
+				}
+		}
+
+		if collection.message == nil {
+			continue
+		}
+
+		if time.Now().After(nextFileCycle) {
+			glog.Info("cycling collection log file")
+
+			nextFileCycle = time.Now().Add(60 * time.Minute)
+
+			fileHandle.Close()
+			if err = os.Rename(outputFile, outputFile + ".1"); err != nil {
+				glog.Fatalf("could not move collection file to old: %s", err)
+			}
+			if fileHandle, err = os.Create(outputFile); err != nil {
+				glog.Fatalf("could not open collection log file: %s", err)
+			}
+		}
+
+		wrapper := make(map[string]interface{}, 2)
+		wrapper["event"] = collection.message.ToJson()
+		wrapper["routing"] = make(map[string]string, 1)
+		wrapper["routing"].(map[string]string)["aid"] = collection.aid.ToString()
+
+		if g_configs.isStdOut {
+			if jsonMessage, err := json.MarshalIndent(wrapper, "", "    "); err != nil {
+				glog.Errorf("error displaying collection: %s", err)
+			} else {
+				fmt.Print(string(jsonMessage))
+			}
+		}
+
+		if fileHandle != nil {
+			if jsonMessage, err := json.Marshal(wrapper); err != nil {
+				glog.Errorf("error displaying collection: %s", err)
+			} else {
+				fileHandle.Write(jsonMessage)
+			}
+		}
+	}
+
+	if fileHandle != nil {
+		fileHandle.Close()
+	}
+}
+
 func main() {
 	var err error
+
+	isDebug := flag.Bool("debug", false, "start server in debug mode")
+	isOutputToStdout := flag.Bool("stdout", false, "outputs traffic from sensors to stdout")
+	configFile := flag.String("conf", "lc_config.pb.txt", "path to config file")
+	flag.Parse()
+
 	glog.Info("starting LC Termination Server")
 
 	interruptsChannel := make(chan os.Signal, 1)
@@ -233,13 +325,14 @@ func main() {
 	tlsConfig := tls.Config{Certificates: []tls.Certificate{cert}}
 	tlsConfig.Rand = rand.Reader
 
-	isDebug := flag.Bool("debug", false, "start server in debug mode")
-	configFile := flag.String("conf", "lc_config.pb.txt", "path to config file")
-	flag.Parse()
-
 	if *isDebug {
 		g_configs.isDebug = true
 		glog.Infof("server is in debug mode")
+	}
+
+	if *isOutputToStdout {
+		g_configs.isStdOut = true
+		glog.Info("outputing sensor traffic to stdout")
 	}
 
 	g_configs.clients.context = make(map[string]*clientContext, 0)
@@ -266,6 +359,10 @@ func main() {
 	g_configs.activeGoRoutines.Add(1)
 	go watchForConfigChanges(*configFile)
 
+	g_configs.collectionLog = make(chan collectionData, 1000)
+	g_configs.outputGoRoutines.Add(1)
+	go logCollection()
+
 	glog.Infof("listening on %s:%d", g_configs.config.GetListenIface(), g_configs.config.GetListenPort())
 
 	for {
@@ -290,7 +387,6 @@ func main() {
 
 		conn = tls.Server(conn, &tlsConfig)
 
-		glog.Infof("handing out new connection to handler")
 		g_configs.activeGoRoutines.Add(1)
 		go handleClient(conn)
 	}
@@ -298,6 +394,8 @@ func main() {
 	glog.Info("draining, waiting on handlers to exit")
 	listenSocket.Close()
 	g_configs.activeGoRoutines.Wait()
+	g_configs.isDrained = true
+	g_configs.outputGoRoutines.Wait()
 	glog.Info("drained, exiting")
 }
 
@@ -751,11 +849,10 @@ func processHBSMessage(ctx *clientContext, messages *rpcm.List) error {
 								parsedProfile)))
 			}
 		} else {
-			if collection, err := json.MarshalIndent(messages.ToJson(), "", "    "); err != nil {
-				glog.Errorf("error displaying collection: %s", err)
-			} else {
-				glog.Info(string(collection))
-			}
+			var data collectionData
+			data.message = message
+			data.aid = &ctx.aid
+			g_configs.collectionLog <- data
 		}
 	}
 
