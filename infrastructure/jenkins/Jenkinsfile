@@ -54,7 +54,7 @@ parallel (
                 sh 'rm ./prebuilt_binaries/hcp* || true'
                 sh 'rm ./prebuilt_binaries/hbs* || true'
                 sh 'rm ./prebuilt_binaries/kernel* || true'
-                sh './sensor/scripts/release_binaries.sh `git rev-parse HEAD` || true'
+                sh 'python ./sensor/scripts/release_binaries.py --version `git rev-parse HEAD` || true'
                 archive includes: 'prebuilt_binaries/*', excludes: 'prebuilt_binaries/download_binaries.sh'
             }
         }
@@ -100,7 +100,7 @@ parallel (
                 sh 'rm ./prebuilt_binaries/hcp* || true'
                 sh 'rm ./prebuilt_binaries/hbs* || true'
                 sh 'rm ./prebuilt_binaries/kernel* || true'
-                sh './sensor/scripts/release_binaries.sh `git rev-parse HEAD` || true'
+                sh 'python ./sensor/scripts/release_binaries.py --version `git rev-parse HEAD` || true'
                 archive includes: 'prebuilt_binaries/*', excludes: 'prebuilt_binaries/download_binaries.sh'
             }
         }
