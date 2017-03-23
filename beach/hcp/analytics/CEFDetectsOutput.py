@@ -31,7 +31,7 @@ class CEFDetectsOutput( Actor ):
         self._cef_logger.setLevel( logging.INFO )
         self._cef_logger.addHandler( handler )
         self._lc_web = parameters.get( 'lc_web', '127.0.0.1' )
-        self.handle( 'report', self.report )
+        self.handle( 'report_detect', self.report )
         
     def deinit( self ):
         Host.closeDatabase()

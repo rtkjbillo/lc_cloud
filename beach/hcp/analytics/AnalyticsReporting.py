@@ -77,6 +77,8 @@ class AnalyticsReporting( Actor ):
         if type( self.pageDest ) is str or type( self.pageDest ) is unicode:
             self.pageDest = [ self.pageDest ]
 
+        self.model = CreateOnAccess( self.getActorHandle, resources[ 'modeling' ] )
+
     def deinit( self ):
         self.db.stop()
         self._db.shutdown()
@@ -120,7 +122,7 @@ class AnalyticsReporting( Actor ):
         except:
             import traceback
             self.logCritical( 'Exc storing detect %s / %s' % ( str( msg.data ), traceback.format_exc() ) )
-        self.outputs.shoot( 'report', msg.data )
+        self.outputs.shoot( 'report_detect', msg.data )
 
         if 0 != len( self.pageDest ):
             self.paging.shoot( 'page', { 'to' : self.pageDest,
@@ -148,6 +150,17 @@ class AnalyticsReporting( Actor ):
         oid = AgentId( source.split( ' / ' )[ 0 ] ).org_id
 
         self.db.execute( self.close_inv_stmt.bind( ( self.getOrgTtl( oid ), ts, invId, hunter ) ) )
+
+        info = self.model.request( 'get_detect', { 'id' : invId, 'with_inv' : True } )
+        investigations = []
+        if info.isSuccess:
+            investigations = info.data[ 'inv' ]
+        for inv in investigations:
+            if inv[ 'hunter' ] == hunter:
+                inv[ 'source' ] = source
+                self.outputs.shoot( 'report_inv', inv )
+                break
+
         return ( True, )
 
     def inv_task( self, msg ):

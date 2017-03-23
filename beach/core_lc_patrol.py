@@ -472,30 +472,6 @@ Patrol( 'AnalyticsStateful',
             'n_concurrent' : 5 } )
 
 #######################################
-# AsynchronousRelationBuilder
-# This actor responsible for sending
-# messages of the right type to the
-# right stateful detection actors.
-#######################################
-Patrol( 'AsynchronousRelationBuilder',
-        initialInstances = 1,
-        maxInstances = None,
-        relaunchOnFailure = True,
-        onFailureCall = None,
-        scalingFactor = 1000,
-        actorArgs = ( 'analytics/AsynchronousRelationBuilder',
-                      'analytics/async/relbuilder/1.0' ),
-        actorKwArgs = {
-            'resources' : {},
-            'parameters' : { 'db' : SCALE_DB,
-                             'rate_limit_per_sec' : 200,
-                             'max_concurrent' : 5,
-                             'block_on_queue_size' : 200000 },
-            'secretIdent' : 'analysis/038528f5-5135-4ca8-b79f-d6b8ffc53bf5',
-            'trustedIdents' : [ 'intake/6058e556-a102-4e51-918e-d36d6d1823db' ],
-            'n_concurrent' : 5 } )
-
-#######################################
 # AnalyticsReporting
 # This actor receives Detecs from the
 # stateless and stateful detection
@@ -523,7 +499,8 @@ Patrol( 'AnalyticsReporting',
                       'analytics/reporting/1.0' ),
         actorKwArgs = {
             'resources' : { 'output' : 'analytics/output/detects',
-                            'paging' : 'paging' },
+                            'paging' : 'paging',
+                            'modeling' : 'models' },
             'parameters' : { 'db' : SCALE_DB,
                              'rate_limit_per_sec' : 10,
                              'max_concurrent' : 5,
@@ -588,7 +565,8 @@ Patrol( 'FileEventsOutput',
         onFailureCall = None,
         scalingFactor = 10000,
         actorArgs = ( 'analytics/FileEventsOutput',
-                      'analytics/output/events/file/1.0' ),
+                      'analytics/output/events/file/1.0',
+                      'analytics/output/detects/file/1.0' ),
         actorKwArgs = {
             'resources' : {},
             'parameters' : { 'output_dir' : '/tmp/lc_out/',
@@ -842,33 +820,6 @@ Patrol( 'AlexaDNS',
             'trustedIdents' : [ 'analysis/038528f5-5135-4ca8-b79f-d6b8ffc53bf5',
                                 'hunter/8e0f55c0-6593-4747-9d02-a4937fa79517' ],
             'n_concurrent' : 10 } )
-
-#######################################
-# StatsComputer
-# This actor computes stats on Objects
-# and their relationships to determine
-# which ones can be used as strong
-# outliers for runtime detection.
-# Parameters:
-# scale_db: the Cassandra seed nodes to
-#    connect to for storage.
-#######################################
-Patrol( 'StatsComputer',
-        initialInstances = 1,
-        maxInstances = None,
-        relaunchOnFailure = True,
-        onFailureCall = None,
-        scalingFactor = 100000,
-        actorArgs = ( 'analytics/StatsComputer',
-                      'analytics/stats/1.0' ),
-        actorKwArgs = {
-            'resources' : {},
-            'parameters' : { 'scale_db' : SCALE_DB },
-            'secretIdent' : 'stats/3088dc10-b40c-40f8-bf3a-d07be4758098',
-            'trustedIdents' : [ 'analysis/038528f5-5135-4ca8-b79f-d6b8ffc53bf5',
-                                'hunter/8e0f55c0-6593-4747-9d02-a4937fa79517' ],
-            'n_concurrent' : 5,
-            'isIsolated' : True } )
 
 #######################################
 # YaraUpdater
