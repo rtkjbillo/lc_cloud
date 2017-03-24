@@ -23,11 +23,17 @@ from functools import wraps
 import inspect
 from contextlib import contextmanager
 
-from beach.actor import Actor
-rSequence = Actor.importLib( './rpcm', 'rSequence' )
+try:
+    from beach.actor import Actor
+    rSequence = Actor.importLib( './rpcm', 'rSequence' )
+except:
+    from rpcm import rSequence
 
-import gevent.lock
-import gevent.event
+try:
+    import gevent.lock
+    import gevent.event
+except:
+    print( "gevent not installed, some functionality won't work" )
 
 import uuid
 
