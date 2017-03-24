@@ -25,12 +25,14 @@ import (
 	"strings"
 )
 
+// Module IDs of common HCP modules
 const (
 	MODULE_ID_HCP        = 1
 	MODULE_ID_HBS        = 2
 	MODULE_ID_KERNEL_ACQ = 5
 )
 
+// Command IDs of HCP commands
 const (
 	LOAD_MODULE     = 1
 	UNLOAD_MODULE   = 2
@@ -39,6 +41,8 @@ const (
 	QUIT            = 5
 )
 
+// AgentId is the logical representation of the ID components used
+// to identify a specific sensor and its basic characteristics
 type AgentId struct {
 	Oid          uuid.UUID
 	Iid          uuid.UUID
@@ -47,6 +51,7 @@ type AgentId struct {
 	Architecture uint32
 }
 
+// IsAbsolute returns true if none of the components of the AgentId are wildcards (0)
 func (this AgentId) IsAbsolute() bool {
 	var emptyUuid uuid.UUID
 	if this.Oid == emptyUuid ||
@@ -59,12 +64,13 @@ func (this AgentId) IsAbsolute() bool {
 	}
 }
 
+// IsSidWild returns true if the SensorId component of the AgentId is a wildcard
 func (this AgentId) IsSidWild() bool {
 	var emptyUuid uuid.UUID
 	return this.Sid == emptyUuid
 }
 
-func UuidAsWildString(id uuid.UUID) string {
+func uuidAsWildString(id uuid.UUID) string {
 	var emptyUuid uuid.UUID
 	if id == emptyUuid {
 		return "0"
@@ -73,16 +79,18 @@ func UuidAsWildString(id uuid.UUID) string {
 	}
 }
 
+// ToString converts the AgentId to its standardized string representation
 func (this AgentId) ToString() string {
 
 	return fmt.Sprintf("%s.%s.%s.%x.%x",
-		UuidAsWildString(this.Oid),
-		UuidAsWildString(this.Iid),
-		UuidAsWildString(this.Sid),
+		uuidAsWildString(this.Oid),
+		uuidAsWildString(this.Iid),
+		uuidAsWildString(this.Sid),
 		this.Platform,
 		this.Architecture)
 }
 
+// FromString converts the standardized string representation of an AgentId into an AgentId
 func (this AgentId) FromString(s string) bool {
 	var err error
 	var emptyUuid uuid.UUID
@@ -123,6 +131,7 @@ func (this AgentId) FromString(s string) bool {
 	return true
 }
 
+// Matches returns true if both AgentIds are equal (or wildcarded) in all components
 func (this AgentId) Matches(compareTo AgentId) bool {
 	var emptyUuid uuid.UUID
 	if (this.Oid == emptyUuid || compareTo.Oid == emptyUuid || this.Oid == compareTo.Oid) &&

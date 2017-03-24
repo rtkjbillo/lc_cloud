@@ -40,7 +40,7 @@ import (
 	"strconv"
 )
 
-// Data type values
+// Data type values supported in RPCM
 const (
 	RPCM_INVALID_TYPE  = 0
 	RPCM_RU8           = 1
@@ -324,6 +324,8 @@ func (this *rTimedelta) serialize(toBuf *bytes.Buffer) error {
 	return binary.Write(toBuf, binary.BigEndian, this.value)
 }
 
+// Serialize convertts the Sequence structure in a slice of bytes that can be used
+// to restore the original Sequence regardless of the platform.
 func (this *Sequence) Serialize(toBuf *bytes.Buffer) error {
     return this.serialize(toBuf)
 }
@@ -350,6 +352,8 @@ func (this *Sequence) serialize(toBuf *bytes.Buffer) error {
 	return nil
 }
 
+// Serialize convertts the List structure in a slice of bytes that can be used
+// to restore the original List regardless of the platform.
 func (this *List) Serialize(toBuf *bytes.Buffer) error {
     return this.serialize(toBuf)
 }
@@ -390,6 +394,8 @@ func (this *List) serialize(toBuf *bytes.Buffer) error {
 //=============================================================================
 // Deserialize
 //=============================================================================
+
+// Deserialize a slice of bytes into the Sequence it represents.
 func (this *Sequence) Deserialize(fromBuf *bytes.Buffer) error {
 	var nElements uint32
 	var tag uint32
@@ -425,6 +431,7 @@ func (this *Sequence) Deserialize(fromBuf *bytes.Buffer) error {
 	return err
 }
 
+// Deserialize a slice of bytes into the List it represents.
 func (this *List) Deserialize(fromBuf *bytes.Buffer) error {
 	var nElements uint32
 	var tag uint32
@@ -588,6 +595,8 @@ func rpcmDeserializeElem(fromBuf *bytes.Buffer, typ uint8) (rpcmElement, error) 
 //=============================================================================
 // Format Change
 //=============================================================================
+
+// ToMachine takes a Sequence and turns it into a native Go structure of slices and maps.
 func (this *Sequence) ToMachine() MachineSequence {
 	j := make(map[uint32]interface{})
 
@@ -604,6 +613,7 @@ func (this *Sequence) ToMachine() MachineSequence {
 	return j
 }
 
+// ToMachine takes a List and turns it into a native Go structure of slices and maps.
 func (this *List) ToMachine() MachineList {
 	j := make([]interface{}, 0)
 
@@ -620,6 +630,7 @@ func (this *List) ToMachine() MachineList {
 	return j
 }
 
+// ToMachine takes a Sequence and turns it into the JSON compatible format.
 func (this *Sequence) ToJson() map[string]interface{} {
 	var tagLabel string
 	var ok bool
@@ -643,6 +654,7 @@ func (this *Sequence) ToJson() map[string]interface{} {
 	return j
 }
 
+// ToMachine takes a List and turns it into the JSON compatible format.
 func (this *List) ToJson() []interface{} {
 	j := make([]interface{}, 0)
 
@@ -662,83 +674,100 @@ func (this *List) ToJson() []interface{} {
 //=============================================================================
 // Sequence
 //=============================================================================
+
+// AddInt8 adds an 8 bit unsigned integer with the specified tag to the Sequence.
 func (this *Sequence) AddInt8(tag uint32, number uint8) *Sequence {
 	this.elements[tag] = &ru8{rElem: rElem{typ: RPCM_RU8}, value: number}
 	return this
 }
 
+// AddInt16 adds an 16 bit unsigned integer with the specified tag to the Sequence.
 func (this *Sequence) AddInt16(tag uint32, number uint16) *Sequence {
 	this.elements[tag] = &ru16{rElem: rElem{typ: RPCM_RU16}, value: number}
 	return this
 }
 
+// AddInt32 adds an 32 bit unsigned integer with the specified tag to the Sequence.
 func (this *Sequence) AddInt32(tag uint32, number uint32) *Sequence {
 	this.elements[tag] = &ru32{rElem: rElem{typ: RPCM_RU32}, value: number}
 	return this
 }
 
+// AddInt64 adds an 64 bit unsigned integer with the specified tag to the Sequence.
 func (this *Sequence) AddInt64(tag uint32, number uint64) *Sequence {
 	this.elements[tag] = &ru64{rElem: rElem{typ: RPCM_RU64}, value: number}
 	return this
 }
 
+// AddStringA adds a ascii string with the specified tag to the Sequence.
 func (this *Sequence) AddStringA(tag uint32, str string) *Sequence {
 	this.elements[tag] = &rStringA{rElem: rElem{typ: RPCM_STRINGA}, value: str}
 	return this
 }
 
+// AddStringW adds a wide character string with the specified tag to the Sequence.
 func (this *Sequence) AddStringW(tag uint32, str string) *Sequence {
 	this.elements[tag] = &rStringW{rElem: rElem{typ: RPCM_STRINGW}, value: str}
 	return this
 }
 
+// AddBuffer adds a buffer with the specified tag to the Sequence.
 func (this *Sequence) AddBuffer(tag uint32, buf []byte) *Sequence {
 	this.elements[tag] = &rBuffer{rElem: rElem{typ: RPCM_BUFFER}, value: buf}
 	return this
 }
 
+// AddTimestamp adds a 64 bit timestamp with the specified tag to the Sequence.
 func (this *Sequence) AddTimestamp(tag uint32, ts uint64) *Sequence {
 	this.elements[tag] = &rTimestamp{rElem: rElem{typ: RPCM_TIMESTAMP}, value: ts}
 	return this
 }
 
+// AddIpv4 adds an IP v4 with the specified tag to the Sequence.
 func (this *Sequence) AddIpv4(tag uint32, ip4 uint32) *Sequence {
 	this.elements[tag] = &rIpv4{rElem: rElem{typ: RPCM_IPV4}, value: ip4}
 	return this
 }
 
+// AddIpv6 adds an IP v6 with the specified tag to the Sequence.
 func (this *Sequence) AddIpv6(tag uint32, ip6 [16]byte) *Sequence {
 	this.elements[tag] = &rIpv6{rElem: rElem{typ: RPCM_IPV6}, value: ip6}
 	return this
 }
 
+// AddPointer32 adds a 32 bit pointer with the specified tag to the Sequence.
 func (this *Sequence) AddPointer32(tag uint32, ptr uint32) *Sequence {
 	this.elements[tag] = &rPointer32{rElem: rElem{typ: RPCM_POINTER_32}, value: ptr}
 	return this
 }
 
+// AddPointer64 adds a 64 bit pointer with the specified tag to the Sequence.
 func (this *Sequence) AddPointer64(tag uint32, ptr uint64) *Sequence {
 	this.elements[tag] = &rPointer64{rElem: rElem{typ: RPCM_POINTER_64}, value: ptr}
 	return this
 }
 
-func (this *Sequence) AddTimesdelta(tag uint32, td uint64) *Sequence {
+// AddTimedelta adds a time delta with the specified tag to the Sequence.
+func (this *Sequence) AddTimedelta(tag uint32, td uint64) *Sequence {
 	this.elements[tag] = &rTimedelta{rElem: rElem{typ: RPCM_TIMEDELTA}, value: td}
 	return this
 }
 
+// AddSequence adds a Sequence with the specified tag to the Sequence.
 func (this *Sequence) AddSequence(tag uint32, seq *Sequence) *Sequence {
 	seq.typ = RPCM_SEQUENCE
 	this.elements[tag] = seq
 	return this
 }
 
+// AddList adds a List with the specified tag to the Sequence.
 func (this *Sequence) AddList(tag uint32, list *List) *Sequence {
 	list.typ = RPCM_LIST
 	this.elements[tag] = list
 	return this
 }
 
+// GetInt8 returns an 8 bit unsigned integer with the specific tag, if present.
 func (this *Sequence) GetInt8(tag uint32) (uint8, bool) {
 	var res uint8
 	var ok bool
@@ -751,6 +780,7 @@ func (this *Sequence) GetInt8(tag uint32) (uint8, bool) {
 	return res, ok
 }
 
+// GetInt16 returns an 16 bit unsigned integer with the specific tag, if present.
 func (this *Sequence) GetInt16(tag uint32) (uint16, bool) {
 	var res uint16
 	var ok bool
@@ -763,6 +793,7 @@ func (this *Sequence) GetInt16(tag uint32) (uint16, bool) {
 	return res, ok
 }
 
+// GetInt32 returns an 32 bit unsigned integer with the specific tag, if present.
 func (this *Sequence) GetInt32(tag uint32) (uint32, bool) {
 	var res uint32
 	var ok bool
@@ -775,6 +806,7 @@ func (this *Sequence) GetInt32(tag uint32) (uint32, bool) {
 	return res, ok
 }
 
+// GetInt64 returns an 64 bit unsigned integer with the specific tag, if present.
 func (this *Sequence) GetInt64(tag uint32) (uint64, bool) {
 	var res uint64
 	var ok bool
@@ -787,6 +819,7 @@ func (this *Sequence) GetInt64(tag uint32) (uint64, bool) {
 	return res, ok
 }
 
+// GetStringA returns an ascii string with the specific tag, if present.
 func (this *Sequence) GetStringA(tag uint32) (string, bool) {
 	var res string
 	var ok bool
@@ -799,6 +832,7 @@ func (this *Sequence) GetStringA(tag uint32) (string, bool) {
 	return res, ok
 }
 
+// GetStringW returns a wide character string with the specific tag, if present.
 func (this *Sequence) GetStringW(tag uint32) (string, bool) {
 	var res string
 	var ok bool
@@ -811,6 +845,7 @@ func (this *Sequence) GetStringW(tag uint32) (string, bool) {
 	return res, ok
 }
 
+// GetBuffer returns a buffer with the specific tag, if present.
 func (this *Sequence) GetBuffer(tag uint32) ([]byte, bool) {
 	var res []byte
 	var ok bool
@@ -823,6 +858,7 @@ func (this *Sequence) GetBuffer(tag uint32) ([]byte, bool) {
 	return res, ok
 }
 
+// GetTimestamp returns a timestamp with the specific tag, if present.
 func (this *Sequence) GetTimestamp(tag uint32) (uint64, bool) {
 	var res uint64
 	var ok bool
@@ -835,6 +871,7 @@ func (this *Sequence) GetTimestamp(tag uint32) (uint64, bool) {
 	return res, ok
 }
 
+// GetIpv4 returns an IP v4 with the specific tag, if present.
 func (this *Sequence) GetIpv4(tag uint32) (uint32, bool) {
 	var res uint32
 	var ok bool
@@ -847,6 +884,7 @@ func (this *Sequence) GetIpv4(tag uint32) (uint32, bool) {
 	return res, ok
 }
 
+// GetIpv6 returns an IP v6 with the specific tag, if present.
 func (this *Sequence) GetIpv6(tag uint32) ([16]byte, bool) {
 	var res [16]byte
 	var ok bool
@@ -859,6 +897,7 @@ func (this *Sequence) GetIpv6(tag uint32) ([16]byte, bool) {
 	return res, ok
 }
 
+// GetPointer32 returns a 32 bit pointer with the specific tag, if present.
 func (this *Sequence) GetPointer32(tag uint32) (uint32, bool) {
 	var res uint32
 	var ok bool
@@ -871,6 +910,7 @@ func (this *Sequence) GetPointer32(tag uint32) (uint32, bool) {
 	return res, ok
 }
 
+// GetPointer64 returns a 64 bit pointer with the specific tag, if present.
 func (this *Sequence) GetPointer64(tag uint32) (uint64, bool) {
 	var res uint64
 	var ok bool
@@ -883,6 +923,7 @@ func (this *Sequence) GetPointer64(tag uint32) (uint64, bool) {
 	return res, ok
 }
 
+// GetTimedelta returns a time delta with the specific tag, if present.
 func (this *Sequence) GetTimedelta(tag uint32) (uint64, bool) {
 	var res uint64
 	var ok bool
@@ -895,6 +936,7 @@ func (this *Sequence) GetTimedelta(tag uint32) (uint64, bool) {
 	return res, ok
 }
 
+// GetSequence returns a Sequence with the specific tag, if present.
 func (this *Sequence) GetSequence(tag uint32) (*Sequence, bool) {
 	var res *Sequence
 	var ok bool
@@ -907,6 +949,7 @@ func (this *Sequence) GetSequence(tag uint32) (*Sequence, bool) {
 	return res, ok
 }
 
+// GetList returns a List with the specific tag, if present.
 func (this *Sequence) GetList(tag uint32) (*List, bool) {
 	var res *List
 	var ok bool
@@ -922,6 +965,8 @@ func (this *Sequence) GetList(tag uint32) (*List, bool) {
 //=============================================================================
 // List
 //=============================================================================
+
+// AddInt8 adds an 8 bit unsigned integer with the specified tag to the List.
 func (this *List) AddInt8(number uint8) *List {
 	if this.elemType == RPCM_RU8 {
 		this.elements = append(this.elements, &ru8{rElem: rElem{typ: RPCM_RU8}, value: number})
@@ -930,6 +975,7 @@ func (this *List) AddInt8(number uint8) *List {
 	return nil
 }
 
+// AddInt16 adds an 16 bit unsigned integer with the specified tag to the List.
 func (this *List) AddInt16(number uint16) *List {
 	if this.elemType == RPCM_RU16 {
 		this.elements = append(this.elements, &ru16{rElem: rElem{typ: RPCM_RU16}, value: number})
@@ -938,6 +984,7 @@ func (this *List) AddInt16(number uint16) *List {
 	return nil
 }
 
+// AddInt32 adds an 32 bit unsigned integer with the specified tag to the List.
 func (this *List) AddInt32(number uint32) *List {
 	if this.elemType == RPCM_RU32 {
 		this.elements = append(this.elements, &ru32{rElem: rElem{typ: RPCM_RU32}, value: number})
@@ -946,6 +993,7 @@ func (this *List) AddInt32(number uint32) *List {
 	return nil
 }
 
+// AddInt64 adds an 64 bit unsigned integer with the specified tag to the List.
 func (this *List) AddInt64(number uint64) *List {
 	if this.elemType == RPCM_RU64 {
 		this.elements = append(this.elements, &ru64{rElem: rElem{typ: RPCM_RU64}, value: number})
@@ -954,6 +1002,7 @@ func (this *List) AddInt64(number uint64) *List {
 	return nil
 }
 
+// AddStringA adds an ascii string with the specified tag to the List.
 func (this *List) AddStringA(str string) *List {
 	if this.elemType == RPCM_STRINGA {
 		this.elements = append(this.elements, &rStringA{rElem: rElem{typ: RPCM_STRINGA}, value: str})
@@ -962,6 +1011,7 @@ func (this *List) AddStringA(str string) *List {
 	return nil
 }
 
+// AddStringW adds a wide character string with the specified tag to the List.
 func (this *List) AddStringW(str string) *List {
 	if this.elemType == RPCM_STRINGW {
 		this.elements = append(this.elements, &rStringW{rElem: rElem{typ: RPCM_STRINGW}, value: str})
@@ -970,6 +1020,7 @@ func (this *List) AddStringW(str string) *List {
 	return nil
 }
 
+// AddBuffer adds a buffer with the specified tag to the List.
 func (this *List) AddBuffer(buf []byte) *List {
 	if this.elemType == RPCM_BUFFER {
 		this.elements = append(this.elements, &rBuffer{rElem: rElem{typ: RPCM_BUFFER}, value: buf})
@@ -978,6 +1029,7 @@ func (this *List) AddBuffer(buf []byte) *List {
 	return nil
 }
 
+// AddTimestamp adds a timestamp with the specified tag to the List.
 func (this *List) AddTimestamp(ts uint64) *List {
 	if this.elemType == RPCM_TIMESTAMP {
 		this.elements = append(this.elements, &rTimestamp{rElem: rElem{typ: RPCM_TIMESTAMP}, value: ts})
@@ -986,6 +1038,7 @@ func (this *List) AddTimestamp(ts uint64) *List {
 	return nil
 }
 
+// AddIpv4 adds an IP v4 with the specified tag to the List.
 func (this *List) AddIpv4(ip4 uint32) *List {
 	if this.elemType == RPCM_IPV4 {
 		this.elements = append(this.elements, &rIpv4{rElem: rElem{typ: RPCM_IPV4}, value: ip4})
@@ -994,6 +1047,7 @@ func (this *List) AddIpv4(ip4 uint32) *List {
 	return nil
 }
 
+// AddIpv6 adds an IP v6 with the specified tag to the List.
 func (this *List) AddIpv6(ip6 [16]byte) *List {
 	if this.elemType == RPCM_IPV6 {
 		this.elements = append(this.elements, &rIpv6{rElem: rElem{typ: RPCM_IPV6}, value: ip6})
@@ -1002,6 +1056,7 @@ func (this *List) AddIpv6(ip6 [16]byte) *List {
 	return nil
 }
 
+// AddPointer32 adds a 32 bit pointer with the specified tag to the List.
 func (this *List) AddPointer32(ptr uint32) *List {
 	if this.elemType == RPCM_POINTER_32 {
 		this.elements = append(this.elements, &rPointer32{rElem: rElem{typ: RPCM_POINTER_32}, value: ptr})
@@ -1010,6 +1065,7 @@ func (this *List) AddPointer32(ptr uint32) *List {
 	return nil
 }
 
+// AddPointer64 adds a 64 bit pointer with the specified tag to the List.
 func (this *List) AddPointer64(ptr uint64) *List {
 	if this.elemType == RPCM_POINTER_64 {
 		this.elements = append(this.elements, &rPointer64{rElem: rElem{typ: RPCM_POINTER_64}, value: ptr})
@@ -1018,7 +1074,8 @@ func (this *List) AddPointer64(ptr uint64) *List {
 	return nil
 }
 
-func (this *List) AddTimesdelta(td uint64) *List {
+// AddTimedelta adds a time delta with the specified tag to the List.
+func (this *List) AddTimedelta(td uint64) *List {
 	if this.elemType == RPCM_TIMEDELTA {
 		this.elements = append(this.elements, &rTimedelta{rElem: rElem{typ: RPCM_TIMEDELTA}, value: td})
 		return this
@@ -1026,6 +1083,7 @@ func (this *List) AddTimesdelta(td uint64) *List {
 	return nil
 }
 
+// AddSequence adds a Sequence with the specified tag to the List.
 func (this *List) AddSequence(seq *Sequence) *List {
 	if this.elemType == RPCM_SEQUENCE {
 		seq.typ = RPCM_SEQUENCE
@@ -1035,6 +1093,7 @@ func (this *List) AddSequence(seq *Sequence) *List {
 	return nil
 }
 
+// AddList adds a List with the specified tag to the List.
 func (this *List) AddList(list *List) *List {
 	if this.elemType == RPCM_LIST {
 		list.typ = RPCM_LIST
@@ -1044,6 +1103,7 @@ func (this *List) AddList(list *List) *List {
 	return nil
 }
 
+// GetInt8 returns an 8 bit unsigned integer with the specific tag, if present.
 func (this *List) GetInt8(tag uint32) []uint8 {
 	res := make([]uint8, 0)
 
@@ -1056,6 +1116,7 @@ func (this *List) GetInt8(tag uint32) []uint8 {
 	return res
 }
 
+// GetInt16 returns an 16 bit unsigned integer with the specific tag, if present.
 func (this *List) GetInt16(tag uint32) []uint16 {
 	res := make([]uint16, 0)
 
@@ -1068,6 +1129,7 @@ func (this *List) GetInt16(tag uint32) []uint16 {
 	return res
 }
 
+// GetInt32 returns an 32 bit unsigned integer with the specific tag, if present.
 func (this *List) GetInt32(tag uint32) []uint32 {
 	res := make([]uint32, 0)
 
@@ -1080,6 +1142,7 @@ func (this *List) GetInt32(tag uint32) []uint32 {
 	return res
 }
 
+// GetInt64 returns an 64 bit unsigned integer with the specific tag, if present.
 func (this *List) GetInt64(tag uint32) []uint64 {
 	res := make([]uint64, 0)
 
@@ -1092,6 +1155,7 @@ func (this *List) GetInt64(tag uint32) []uint64 {
 	return res
 }
 
+// GetStringA returns an ascii string with the specific tag, if present.
 func (this *List) GetStringA(tag uint32) []string {
 	res := make([]string, 0)
 
@@ -1104,6 +1168,7 @@ func (this *List) GetStringA(tag uint32) []string {
 	return res
 }
 
+// GetStringW returns a wide character string with the specific tag, if present.
 func (this *List) GetStringW(tag uint32) []string {
 	res := make([]string, 0)
 
@@ -1116,6 +1181,7 @@ func (this *List) GetStringW(tag uint32) []string {
 	return res
 }
 
+// GetBuffer returns a buffer with the specific tag, if present.
 func (this *List) GetBuffer(tag uint32) [][]byte {
 	res := make([][]byte, 0)
 
@@ -1128,6 +1194,7 @@ func (this *List) GetBuffer(tag uint32) [][]byte {
 	return res
 }
 
+// GetTimestamp returns a timestamp with the specific tag, if present.
 func (this *List) GetTimestamp(tag uint32) []uint64 {
 	res := make([]uint64, 0)
 
@@ -1140,6 +1207,7 @@ func (this *List) GetTimestamp(tag uint32) []uint64 {
 	return res
 }
 
+// GetIpv4 returns an IP v4 with the specific tag, if present.
 func (this *List) GetIpv4(tag uint32) []uint32 {
 	res := make([]uint32, 0)
 
@@ -1152,6 +1220,7 @@ func (this *List) GetIpv4(tag uint32) []uint32 {
 	return res
 }
 
+// GetIpv6 returns an IP v6 with the specific tag, if present.
 func (this *List) GetIpv6(tag uint32) [][16]byte {
 	res := make([][16]byte, 0)
 
@@ -1164,6 +1233,7 @@ func (this *List) GetIpv6(tag uint32) [][16]byte {
 	return res
 }
 
+// GetPointer32 returns a 32 bit pointer with the specific tag, if present.
 func (this *List) GetPointer32(tag uint32) []uint32 {
 	res := make([]uint32, 0)
 
@@ -1176,6 +1246,7 @@ func (this *List) GetPointer32(tag uint32) []uint32 {
 	return res
 }
 
+// GetPointer64 returns a 64 bit pointer with the specific tag, if present.
 func (this *List) GetPointer64(tag uint32) []uint64 {
 	res := make([]uint64, 0)
 
@@ -1188,6 +1259,7 @@ func (this *List) GetPointer64(tag uint32) []uint64 {
 	return res
 }
 
+// GetTimedelta returns a time delta with the specific tag, if present.
 func (this *List) GetTimedelta(tag uint32) []uint64 {
 	res := make([]uint64, 0)
 
@@ -1200,6 +1272,7 @@ func (this *List) GetTimedelta(tag uint32) []uint64 {
 	return res
 }
 
+// GetSequence returns a Sequence with the specific tag, if present.
 func (this *List) GetSequence(tag uint32) []*Sequence {
 	res := make([]*Sequence, 0)
 
@@ -1212,6 +1285,7 @@ func (this *List) GetSequence(tag uint32) []*Sequence {
 	return res
 }
 
+// GetList returns a List with the specific tag, if present.
 func (this *List) GetList(tag uint32) []*List {
 	res := make([]*List, 0)
 

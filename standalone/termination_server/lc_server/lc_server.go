@@ -48,12 +48,12 @@ const (
 var g_configs struct {
 	sync.RWMutex
 	isDebug          bool
-	isStdOut    	 bool
+	isStdOut         bool
 	isDraining       bool
-	isDrained 	     bool
+	isDrained        bool
 	outputGoRoutines sync.WaitGroup
 	activeGoRoutines sync.WaitGroup
-	collectionLog	 chan collectionData
+	collectionLog    chan collectionData
 	config           *LcServerConfig.Config
 	clients          struct {
 		sync.RWMutex
@@ -84,30 +84,34 @@ type profileRule struct {
 
 type collectionData struct {
 	message *rpcm.Sequence
-	aid *hcp.AgentId
+	aid     *hcp.AgentId
 }
 
-func validateEnrollmentToken(aid hcp.AgentId, token []byte) bool {
-	g_configs.RLock()
+//=============================================================================
+//	Helper Functions
+//=============================================================================
 
-	hmacToken := hmac.New(sha256.New, []byte(g_configs.config.GetSecretEnrollmentToken()))
+func agentIdFromSequence(message rpcm.MachineSequence) hcp.AgentId {
+	var aid hcp.AgentId
 
-	g_configs.RUnlock()
+	copy(aid.Oid[:], message[rpcm.RP_TAGS_HCP_ORG_ID].([]byte))
+	copy(aid.Iid[:], message[rpcm.RP_TAGS_HCP_INSTALLER_ID].([]byte))
+	copy(aid.Sid[:], message[rpcm.RP_TAGS_HCP_SENSOR_ID].([]byte))
+	aid.Architecture, _ = message[rpcm.RP_TAGS_HCP_ARCHITECTURE].(uint32)
+	aid.Platform, _ = message[rpcm.RP_TAGS_HCP_PLATFORM].(uint32)
 
-	hmacToken.Write([]byte(aid.ToString()))
-	expectedToken := hmacToken.Sum(nil)
-	return hmac.Equal(token, expectedToken)
+	return aid
 }
 
-func generateEnrollmentToken(aid hcp.AgentId) []byte {
-	g_configs.RLock()
+func agentIdToSequence(aid hcp.AgentId) *rpcm.Sequence {
+	seq := rpcm.NewSequence().
+		AddBuffer(rpcm.RP_TAGS_HCP_ORG_ID, aid.Oid[:]).
+		AddBuffer(rpcm.RP_TAGS_HCP_INSTALLER_ID, aid.Iid[:]).
+		AddBuffer(rpcm.RP_TAGS_HCP_SENSOR_ID, aid.Sid[:]).
+		AddInt32(rpcm.RP_TAGS_HCP_ARCHITECTURE, aid.Platform).
+		AddInt32(rpcm.RP_TAGS_HCP_PLATFORM, aid.Architecture)
 
-	hmacToken := hmac.New(sha256.New, []byte(g_configs.config.GetSecretEnrollmentToken()))
-
-	g_configs.RUnlock()
-
-	hmacToken.Write([]byte(aid.ToString()))
-	return hmacToken.Sum(nil)
+	return seq
 }
 
 func reloadConfigs(configFile string) error {
@@ -199,6 +203,9 @@ func reloadConfigs(configFile string) error {
 	return err
 }
 
+//=============================================================================
+//	GoRoutines
+//=============================================================================
 func watchForConfigChanges(configFile string) {
 	var lastFileInfo os.FileInfo
 	var err error
@@ -241,16 +248,16 @@ func logCollection() {
 
 		timeout := make(chan bool, 1)
 		go func() {
-		    time.Sleep(10 * time.Second)
-		    timeout <- true
+			time.Sleep(10 * time.Second)
+			timeout <- true
 		}()
 
 		select {
-			case collection = <- g_configs.collectionLog:
-			case <- timeout:
-				if g_configs.isDrained {
-					return
-				}
+		case collection = <-g_configs.collectionLog:
+		case <-timeout:
+			if g_configs.isDrained {
+				return
+			}
 		}
 
 		if collection.message == nil {
@@ -263,7 +270,7 @@ func logCollection() {
 			nextFileCycle = time.Now().Add(60 * time.Minute)
 
 			fileHandle.Close()
-			if err = os.Rename(outputFile, outputFile + ".1"); err != nil {
+			if err = os.Rename(outputFile, outputFile+".1"); err != nil {
 				glog.Fatalf("could not move collection file to old: %s", err)
 			}
 			if fileHandle, err = os.Create(outputFile); err != nil {
@@ -296,107 +303,6 @@ func logCollection() {
 	if fileHandle != nil {
 		fileHandle.Close()
 	}
-}
-
-func main() {
-	var err error
-
-	isDebug := flag.Bool("debug", false, "start server in debug mode")
-	isOutputToStdout := flag.Bool("stdout", false, "outputs traffic from sensors to stdout")
-	configFile := flag.String("conf", "lc_config.pb.txt", "path to config file")
-	flag.Parse()
-
-	glog.Info("starting LC Termination Server")
-
-	interruptsChannel := make(chan os.Signal, 1)
-	signal.Notify(interruptsChannel, os.Interrupt)
-	go func() {
-		<-interruptsChannel
-		glog.Info("received exiting signal")
-		g_configs.isDraining = true
-	}()
-
-	glog.Info("loading private key")
-	cert, err := tls.LoadX509KeyPair("./c2_cert.pem", "./c2_key.pem")
-	if err != nil {
-		glog.Fatalf("failed to load cert and key: %s", err)
-	}
-
-	tlsConfig := tls.Config{Certificates: []tls.Certificate{cert}}
-	tlsConfig.Rand = rand.Reader
-
-	if *isDebug {
-		g_configs.isDebug = true
-		glog.Infof("server is in debug mode")
-	}
-
-	if *isOutputToStdout {
-		g_configs.isStdOut = true
-		glog.Info("outputing sensor traffic to stdout")
-	}
-
-	g_configs.clients.context = make(map[string]*clientContext, 0)
-
-	if err = reloadConfigs(*configFile); err != nil {
-		glog.Fatalf("could not load initial configs, exiting.")
-	}
-
-	listenAddr := fmt.Sprintf("%s:%d", g_configs.config.GetListenIface(), g_configs.config.GetListenPort())
-	resolvedAddr, err := net.ResolveTCPAddr("tcp", listenAddr)
-
-	if err != nil {
-		glog.Fatalf("failed to resolve listen address: %s", err)
-	}
-
-	listenSocket, err := net.ListenTCP("tcp", resolvedAddr)
-	if err != nil {
-		glog.Fatalf("could not open %s:%d for listening: %s",
-			g_configs.config.GetListenIface(),
-			g_configs.config.GetListenPort(),
-			err.Error())
-	}
-
-	g_configs.activeGoRoutines.Add(1)
-	go watchForConfigChanges(*configFile)
-
-	g_configs.collectionLog = make(chan collectionData, 1000)
-	g_configs.outputGoRoutines.Add(1)
-	go logCollection()
-
-	glog.Infof("listening on %s:%d", g_configs.config.GetListenIface(), g_configs.config.GetListenPort())
-
-	for {
-
-		if g_configs.isDraining {
-			break
-		}
-
-		listenSocket.SetDeadline(time.Now().Add(5 * time.Second))
-		conn, err := listenSocket.Accept()
-
-		if g_configs.isDraining {
-			break
-		}
-
-		if err != nil {
-			if opErr, ok := err.(*net.OpError); ok && opErr.Timeout() {
-				continue
-			}
-			glog.Fatalf("error accepting on socket: %s", err.Error())
-		}
-
-		conn = tls.Server(conn, &tlsConfig)
-
-		g_configs.activeGoRoutines.Add(1)
-		go handleClient(conn)
-	}
-
-	glog.Info("draining, waiting on handlers to exit")
-	listenSocket.Close()
-	g_configs.activeGoRoutines.Wait()
-	g_configs.isDrained = true
-	g_configs.outputGoRoutines.Wait()
-	glog.Info("drained, exiting")
 }
 
 func handleClient(conn net.Conn) {
@@ -492,6 +398,9 @@ func handleClient(conn net.Conn) {
 	glog.Infof("client %s disconnected", ctx.aid.ToString())
 }
 
+//=============================================================================
+//	TLS Server Helper Functions
+//=============================================================================
 func sendFrame(ctx *clientContext, moduleId uint8, messages []*rpcm.Sequence, timeout time.Duration) error {
 	var err error
 	endTime := time.Now().Add(timeout)
@@ -639,27 +548,134 @@ func sendData(conn net.Conn, buf []byte, timeout time.Time) error {
 	return err
 }
 
-func agentIdFromSequence(message rpcm.MachineSequence) hcp.AgentId {
-	var aid hcp.AgentId
+//=============================================================================
+//	Main Entrypoint
+//=============================================================================
+func main() {
+	var err error
 
-	copy(aid.Oid[:], message[rpcm.RP_TAGS_HCP_ORG_ID].([]byte))
-	copy(aid.Iid[:], message[rpcm.RP_TAGS_HCP_INSTALLER_ID].([]byte))
-	copy(aid.Sid[:], message[rpcm.RP_TAGS_HCP_SENSOR_ID].([]byte))
-	aid.Architecture, _ = message[rpcm.RP_TAGS_HCP_ARCHITECTURE].(uint32)
-	aid.Platform, _ = message[rpcm.RP_TAGS_HCP_PLATFORM].(uint32)
+	isDebug := flag.Bool("debug", false, "start server in debug mode")
+	isOutputToStdout := flag.Bool("stdout", false, "outputs traffic from sensors to stdout")
+	configFile := flag.String("conf", "lc_config.pb.txt", "path to config file")
+	flag.Parse()
 
-	return aid
+	glog.Info("starting LC Termination Server")
+
+	interruptsChannel := make(chan os.Signal, 1)
+	signal.Notify(interruptsChannel, os.Interrupt)
+	go func() {
+		<-interruptsChannel
+		glog.Info("received exiting signal")
+		g_configs.isDraining = true
+	}()
+
+	glog.Info("loading private key")
+	cert, err := tls.LoadX509KeyPair("./c2_cert.pem", "./c2_key.pem")
+	if err != nil {
+		glog.Fatalf("failed to load cert and key: %s", err)
+	}
+
+	tlsConfig := tls.Config{Certificates: []tls.Certificate{cert}}
+	tlsConfig.Rand = rand.Reader
+
+	if *isDebug {
+		g_configs.isDebug = true
+		glog.Infof("server is in debug mode")
+	}
+
+	if *isOutputToStdout {
+		g_configs.isStdOut = true
+		glog.Info("outputing sensor traffic to stdout")
+	}
+
+	g_configs.clients.context = make(map[string]*clientContext, 0)
+
+	if err = reloadConfigs(*configFile); err != nil {
+		glog.Fatalf("could not load initial configs, exiting.")
+	}
+
+	listenAddr := fmt.Sprintf("%s:%d", g_configs.config.GetListenIface(), g_configs.config.GetListenPort())
+	resolvedAddr, err := net.ResolveTCPAddr("tcp", listenAddr)
+
+	if err != nil {
+		glog.Fatalf("failed to resolve listen address: %s", err)
+	}
+
+	listenSocket, err := net.ListenTCP("tcp", resolvedAddr)
+	if err != nil {
+		glog.Fatalf("could not open %s:%d for listening: %s",
+			g_configs.config.GetListenIface(),
+			g_configs.config.GetListenPort(),
+			err.Error())
+	}
+
+	g_configs.activeGoRoutines.Add(1)
+	go watchForConfigChanges(*configFile)
+
+	g_configs.collectionLog = make(chan collectionData, 1000)
+	g_configs.outputGoRoutines.Add(1)
+	go logCollection()
+
+	glog.Infof("listening on %s:%d", g_configs.config.GetListenIface(), g_configs.config.GetListenPort())
+
+	for {
+
+		if g_configs.isDraining {
+			break
+		}
+
+		listenSocket.SetDeadline(time.Now().Add(5 * time.Second))
+		conn, err := listenSocket.Accept()
+
+		if g_configs.isDraining {
+			break
+		}
+
+		if err != nil {
+			if opErr, ok := err.(*net.OpError); ok && opErr.Timeout() {
+				continue
+			}
+			glog.Fatalf("error accepting on socket: %s", err.Error())
+		}
+
+		conn = tls.Server(conn, &tlsConfig)
+
+		g_configs.activeGoRoutines.Add(1)
+		go handleClient(conn)
+	}
+
+	glog.Info("draining, waiting on handlers to exit")
+	listenSocket.Close()
+	g_configs.activeGoRoutines.Wait()
+	g_configs.isDrained = true
+	g_configs.outputGoRoutines.Wait()
+	glog.Info("drained, exiting")
 }
 
-func agentIdToSequence(aid hcp.AgentId) *rpcm.Sequence {
-	seq := rpcm.NewSequence().
-		AddBuffer(rpcm.RP_TAGS_HCP_ORG_ID, aid.Oid[:]).
-		AddBuffer(rpcm.RP_TAGS_HCP_INSTALLER_ID, aid.Iid[:]).
-		AddBuffer(rpcm.RP_TAGS_HCP_SENSOR_ID, aid.Sid[:]).
-		AddInt32(rpcm.RP_TAGS_HCP_ARCHITECTURE, aid.Platform).
-		AddInt32(rpcm.RP_TAGS_HCP_PLATFORM, aid.Architecture)
+//=============================================================================
+//	Handlers & HCP Functionality
+//=============================================================================
+func validateEnrollmentToken(aid hcp.AgentId, token []byte) bool {
+	g_configs.RLock()
 
-	return seq
+	hmacToken := hmac.New(sha256.New, []byte(g_configs.config.GetSecretEnrollmentToken()))
+
+	g_configs.RUnlock()
+
+	hmacToken.Write([]byte(aid.ToString()))
+	expectedToken := hmacToken.Sum(nil)
+	return hmac.Equal(token, expectedToken)
+}
+
+func generateEnrollmentToken(aid hcp.AgentId) []byte {
+	g_configs.RLock()
+
+	hmacToken := hmac.New(sha256.New, []byte(g_configs.config.GetSecretEnrollmentToken()))
+
+	g_configs.RUnlock()
+
+	hmacToken.Write([]byte(aid.ToString()))
+	return hmacToken.Sum(nil)
 }
 
 func sendTimeSync(ctx *clientContext) error {
