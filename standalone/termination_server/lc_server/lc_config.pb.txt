@@ -25,6 +25,6 @@ moduleRules {
 profileRules {
 	rule {
 		aid: "0.0.0.10000000.1"
-		profileFile: "hbs_windows.profile"
+		profileFile: "hbs_passive.profile"
 	}
 }
