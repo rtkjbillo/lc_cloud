@@ -157,7 +157,6 @@ class DeploymentManager( Actor ):
             self.audit.shoot( 'record', { 'oid' : self.admin_oid, 'etype' : 'conf_change', 'msg' : 'Setting secondary port: %s.' % secondaryPort } )
 
     def get_global_config( self, msg ):
-        self.log( 'get_global_config' )
         req = msg.data
 
         globalConf = {
@@ -181,14 +180,13 @@ class DeploymentManager( Actor ):
         return ( True, globalConf )
 
     def set_config( self, msg ):
-        self.log( 'set_config' )
         req = msg.data
 
         conf = req[ 'conf' ]
         value = req[ 'value' ]
         byUser = req[ 'by' ]
 
-        info = self.db.execute( 'UPDATE configs SET value = %s WHERE conf = %s', ( conf, value ) )
+        info = self.db.execute( 'UPDATE configs SET value = %s WHERE conf = %s', ( value, conf ) )
 
         self.audit.shoot( 'record', { 'oid' : self.admin_oid, 'etype' : 'conf_change', 'msg' : 'Config %s was changed by %s.' % ( conf, byUser ) } )
 
@@ -197,12 +195,9 @@ class DeploymentManager( Actor ):
     def deploy_org( self, msg ):
         req = msg.data
 
-        self.log( 'huhhh' )
-
         return ( True, {} )
 
     def get_c2_cert( self, msg ):
-        self.log( 'get_c2_cert' )
         req = msg.data
 
         info = self.db.getOne( 'SELECT conf, value FROM configs WHERE conf = %s', ( 'key/c2', ) )

@@ -56,6 +56,8 @@ $def with (content)
 	  	</span>
 	    <nav class="mdl-navigation" style="padding:0px">
 	      <a class="mdl-navigation__link" href="/profile"><strong>$session.email</strong></a>
+	      $if session.is_admin:
+	        <a class="mdl-navigation__link" href="/configs">Configurations</a>
 	      <a class="mdl-navigation__link" href="/sensors">Sensors</a>
 	      <a class="mdl-navigation__link" href="/detects">Detections</a>
 	      <a class="mdl-navigation__link" href="/capabilities">Capabilities</a>

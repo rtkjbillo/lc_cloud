@@ -74,6 +74,7 @@ urls = (
     '/set_conclusion', 'SetConclusion',
     '/blink', 'Blink',
     '/blink_data', 'BlinkData',
+    '/configs', 'Configs',
     '/provision', 'Provision',
     '/provision_keys', 'ProvisionKeys',
     '/provision_installers', 'ProvisionInstallers',
@@ -183,6 +184,7 @@ model = beach.getActorHandle( 'models', nRetries = 3, timeout = 30, ident = IDEN
 capabilities = beach.getActorHandle( 'analytics/capabilitymanager', nRetries = 3, timeout = 120, ident = IDENT )
 sensordir = beach.getActorHandle( 'c2/sensordir', nRetries = 3, timeout = 30, ident = IDENT )
 identmanager = beach.getActorHandle( 'c2/identmanager', nRetries = 3, timeout = 30, ident = IDENT )
+deployment = beach.getActorHandle( 'c2/deploymentmanager', nRetries = 3, timeout = 30, ident = IDENT )
 dataexporter = beach.getActorHandle( 'analytics/dataexporter', nRetries = 1, timeout = 3600, ident = IDENT )
 page = beach.getActorHandle( 'paging', nRetries = 3, timeout = 30, ident = IDENT )
 audit = beach.getActorHandle( 'c2/audit', nRetries = 3, timeout = 10, ident = IDENT )
@@ -1133,7 +1135,7 @@ class SetConclusion ( AuthenticatedPage ):
                                               'with_inv' : False } )
         if not resp.isSuccess:
             session.notice = 'Error: could not find investigation.'
-            redirectTo( '/detects' )
+            redirectTo( 'detects' )
 
         isAllowed = False
         try:
@@ -1152,7 +1154,7 @@ class SetConclusion ( AuthenticatedPage ):
 
         if not resp.isSuccess:
             session.notice = 'Error: %s' % resp
-            redirectTo( '/detects' )
+            redirectTo( 'detects' )
 
         if params.conclusion is not None:
             resp = reporting.request( 'set_inv_conclusion', { 'inv_id' : params.did, 
@@ -1161,11 +1163,11 @@ class SetConclusion ( AuthenticatedPage ):
 
         if not resp.isSuccess:
             session.notice = 'Error: %s' % resp
-            redirectTo( '/detects' )
+            redirectTo( 'detects' )
 
         session.notice = 'Investigation conclusion set.'
 
-        redirectTo( '/detects' )
+        redirectTo( 'detects' )
 
 
 class Blink ( AuthenticatedPage ):
@@ -1250,6 +1252,73 @@ class ProvisionKeys ( AuthenticatedAdminPage ):
             return renderAlone.error( 'Missing or bad oid.' )
 
         return renderAlone.card_provision_keys( oid )
+
+class Configs ( AuthenticatedAdminPage ):
+    def doGET( self ):
+        params = web.input()
+
+        info = deployment.request( 'get_global_config', {} )
+        if info.isSuccess:
+            info = info.data
+        else:
+            return renderAlone.error( 'Could not global settings from deployment manager: %s' % str( info ) )
+
+        return render.configs( info )
+
+    def doPOST( self ):
+        params = web.input( primary_domain = None, primary_port = None,
+                            secondary_domain = None, secondary_port = None,
+                            enrollmentsecret = None, 
+                            paging_user = None, paging_from = None, paging_password = None,
+                            virustotalkey = None, 
+                            sensorpackage = None )
+
+        if params.primary_domain is not None and params.primary_port is not None:
+            if ( deployment.request( 'set_config', 
+                                     { 'conf' : 'global/primary', 'value' : params.primary_domain, 'by' : session.email } ).isSuccess and
+                 deployment.request( 'set_config', 
+                                     { 'conf' : 'global/primary_port', 'value' : params.primary_port, 'by' : session.email } ).isSuccess ):
+                session.notice = 'Success setting primary domain.'
+            else:
+                session.notice = 'Error setting primary domain.'
+        elif params.secondary_domain is not None and params.secondary_port is not None:
+            if ( deployment.request( 'set_config', 
+                                     { 'conf' : 'global/secondary', 'value' : params.secondary_domain, 'by' : session.email } ).isSuccess and
+                 deployment.request( 'set_config', 
+                                     { 'conf' : 'global/secondary_port', 'value' : params.secondary_port, 'by' : session.email } ).isSuccess ):
+                session.notice = 'Success setting secondary domain.'
+            else:
+                session.notice = 'Error setting secondary domain.'
+        elif params.enrollmentsecret is not None:
+            if deployment.request( 'set_config', 
+                                   { 'conf' : 'global/enrollmentsecret', 'value' : params.enrollmentsecret, 'by' : session.email } ).isSuccess:
+                session.notice = 'Success setting enrollment secret.'
+            else:
+                session.notice = 'Error setting enrollment secret.'
+        elif params.paging_user is not None and params.paging_from is not None and params.paging_password is not None:
+            if ( deployment.request( 'set_config', 
+                                     { 'conf' : 'global/paging_user', 'value' : params.paging_user, 'by' : session.email } ).isSuccess and
+                 deployment.request( 'set_config', 
+                                     { 'conf' : 'global/paging_from', 'value' : params.paging_from, 'by' : session.email } ).isSuccess and
+                 deployment.request( 'set_config', 
+                                     { 'conf' : 'global/paging_password', 'value' : params.paging_password, 'by' : session.email } ).isSuccess ):
+                session.notice = 'Success setting paging account.'
+            else:
+                session.notice = 'Error setting paging account.'
+        elif params.virustotalkey is not None:
+            if deployment.request( 'set_config', 
+                                   { 'conf' : 'global/virustotalkey', 'value' : params.virustotalkey, 'by' : session.email } ).isSuccess:
+                session.notice = 'Success setting VirusTotal key.'
+            else:
+                session.notice = 'Error setting VirusTotal key.'
+        elif params.sensorpackage is not None:
+            if deployment.request( 'set_config', 
+                                   { 'conf' : 'global/sensorpackage', 'value' : params.sensorpackage, 'by' : session.email } ).isSuccess:
+                session.notice = 'Success setting sensor package.'
+            else:
+                session.notice = 'Error setting sensor package.'
+
+        redirectTo( 'configs' )
 
 #==============================================================================
 #   CARDS
