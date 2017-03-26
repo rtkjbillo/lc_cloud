@@ -1,0 +1,25 @@
+$def with (org_name, members)
+<div class="mdl-card mdl-cell mdl-cell--4-col mdl-shadow--4dp std_height">
+  <div class="mdl-card__title">
+    <h4 class="mdl-card__title-text">Org Members: $org_name</h4>
+  </div>
+  <div class="mdl-card__supporting-text">
+    <table class="mdl-data-table mdl-js-data-table mdl-shadow--2dp" style="width: 100%;">
+      <thead>
+        <tr>
+          <th class="mdl-data-table__cell--non-numeric">Name</th>
+          <th class="mdl-data-table__cell--non-numeric">UID</th>
+        </tr>
+      </thead>
+      <tbody>
+        $for member in members:
+          <tr>
+            <td class="mdl-data-table__cell--non-numeric click-to-copy">$member[ 0 ]</td>
+            <td class="mdl-data-table__cell--non-numeric click-to-copy">$member[ 1 ]</td>
+          </tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="mdl-card__actions mdl-card--border">
+  </div>
+</div>

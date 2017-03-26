@@ -1,0 +1,204 @@
+$def with ( aid, hostname, after, before )
+<div class="mdl-card mdl-cell mdl-cell--12-col mdl-shadow--4dp">
+  <div class="mdl-card__title">
+    <h4 class="mdl-card__title-text">Sensors Traffic: $hostname</h4><div class="mdl-layout-spacer"></div><i class="material-icons update_status" style="color:red;">compare_arrows</i>
+  </div>
+  <div class="mdl-card__supporting-text">
+    <div class="mdl-selectfield mdl-js-selectfield mdl-selectfield--floating-label">
+      <select id="eventsperpage" name="eventsperpage" class="mdl-selectfield__select" required>
+          $for t in ('10','50','100','500'):
+              <option value="$t" $('selected' if t == '10' else '')>$t</option>
+      </select>
+      <label class="mdl-selectfield__label" for="eventsperpage"># Events to Display</label>
+    </div>
+    <div class="mdl-selectfield mdl-js-selectfield mdl-selectfield--floating-label">
+      <select id="maxeventsize" name="maxeventsize" class="mdl-selectfield__select" required>
+          $for t in ('512','2048','4096','40960'):
+              <option value="$t" $('selected' if t == '2048' else '')>$t</option>
+      </select>
+      <label class="mdl-selectfield__label" for="maxeventsize">Max Event Size</label>
+    </div>
+    <br/>
+    <div class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label">
+      <input class="mdl-textfield__input" type="text" id="event_filter" name="event_filter"/>
+      <label class="mdl-textfield__label" for="event_filter">Text Filter</label>
+    </div>
+    <br/>
+    <div class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label">
+      <input class="mdl-textfield__input" type="datetime" id="filter_after" name="filter_after" pattern="[0-9]{4}-[0-9]{2}-[0-9]{2} [0-9]{2}:[0-9]{2}:[0-9]{2}"/>
+      <label class="mdl-textfield__label" for="filter_after">After (YYYY-MM-DD HH:MM:SS)</label>
+    </div>
+    <div class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label">
+      <input class="mdl-textfield__input" type="datetime" id="filter_before" name="filter_before" pattern="[0-9]{4}-[0-9]{2}-[0-9]{2} [0-9]{2}:[0-9]{2}:[0-9]{2}"/>
+      <label class="mdl-textfield__label" for="filter_before">Before (YYYY-MM-DD HH:MM:SS)</label>
+    </div>
+    <br/>
+    <button class="mdl-button mdl-button--colored mdl-js-button mdl-js-ripple-effect mdl-button--raised" onclick="return set_time_range();">Apply Time Range</button>
+    <button class="mdl-button mdl-button--colored mdl-js-button mdl-js-ripple-effect mdl-button--raised" onclick="return download_time_range();">Download Time Range</button>
+    <br/><br/>
+    <table class="mdl-data-table mdl-js-data-table mdl-shadow--2dp" style="width: 100%;">
+      <tbody id="timeline">
+      </tbody>
+    </table>
+  </div>
+  <div class="mdl-card__actions mdl-card--border">
+  </div>
+</div>
+<iframe id="download_iframe" style="display:none;"></iframe>
+<script type="text/javascript">
+  var from_time = 0;
+  var to_time = 0;
+  var all_events = {};
+
+  function add_to_timeline( info )
+  {
+      var filterValue = jQuery('#event_filter').val();
+
+      if( 'events' in info )
+      {
+          events = info[ 'events' ];
+      }
+      else
+      {
+          events = [];
+      }
+      if( 'new_start' in info )
+      {
+          from_time = info[ 'new_start' ];
+      }
+
+      jQuery.each(events,function(){
+          var e = this;
+          if ( !( e[ 2 ] in all_events ) )
+          {
+              var eventContent = '<<< Too Large >>>';
+
+              eventContent = jQuery('<td>').html(e[3]).css('text-align','left').css('height', '100%').css('width', '100%');
+
+              jQuery('#timeline').prepend(
+                  jQuery('<tr>').append(
+                      jQuery('<td>').css('width', '0px')
+                                    .addClass( 'mdl-data-table__cell--non-numeric' )
+                                    .append( jQuery('<i>').html( ts_to_time( Math.floor( e[ 0 ] ) ) ) )
+                                    .append( jQuery('<br>') )
+                                    .append( jQuery('<b>').html( e[ 1 ] ) )
+                                    .append( jQuery('<br>') )
+                                    .append( jQuery('<br>') )
+                                    .append( jQuery('<a>').attr('href','/event?eid=' + e[ 2 ] )
+                                                          .attr('title','View Event')
+                                                          .attr('target', '_blank')
+                                                          .addClass('material-icons' )
+                                                          .css('font-size', '30px')
+                                                          .text('input') )
+                                    .append(" ")
+                                    .append( jQuery('<a>').attr('href','/explore?atid=' + e[ 4 ] )
+                                                          .attr('title','Explore')
+                                                          .attr('target', '_blank')
+                                                          .addClass('material-icons' )
+                                                          .css('font-size', '30px')
+                                                          .text('zoom_out_map') )
+                  ).append(
+                      eventContent
+                  ).attr( 'id', e[ 2 ] )
+                   .addClass( 't_event' )
+                   .hide()
+                   .filter(":contains('" + filterValue + "')")
+                   .show('slow')
+              );
+
+              eventContent.each(function(i, e) {hljs.highlightBlock(e)});
+
+              from_time = Math.floor( e[ 0 ] / 1000 ) - 1;
+              all_events[ e[ 2 ] ] = 0;
+              if( parseInt( jQuery('#eventsperpage').find(":selected").text(), 10 ) < Object.keys( all_events ).length )
+              {
+                  while( Object.keys( all_events ).length > parseInt( jQuery('#eventsperpage').find(":selected").text(), 10 ) )
+                  {
+                      event = jQuery( '.t_event' ).last();
+                      t_id = event.attr( 'id' );
+                      delete all_events[ t_id ];
+                      event.remove();
+                  }
+              }
+          }
+          if( from_time > ( Math.floor(Date.now() / 1000) ) + 30 )
+          {
+            from_time = Math.floor(Date.now() / 1000) - 1;
+          }
+      });
+  }
+
+  function do_refresh_timeline()
+  {
+      future = jQuery.getJSON( '/traffic',
+                  { sid : "$aid.sensor_id",
+                    rich : "true",
+                    max_size : jQuery('#maxeventsize').find(":selected").text(),
+                    $if before is not None:
+                        before : Date.parse("$before" + " GMT") / 1000,
+                    $if after is not None:
+                        after : Date.parse("$after" + " GMT") / 1000
+                    $else:
+                        after : from_time,
+                        before : to_time
+                   }).done(function(data){
+                        add_to_timeline(data);
+                        update_status(true);})
+                     .fail(function(){
+                        add_to_timeline([]);
+                        update_status(false);});
+      future.error(function(jqXHR, textStatus, errorThrown){jQuery('#timeline').parent().after(jQuery('<div>').html('<center><h1><div style="color:red;">ERROR: ' + errorThrown + '</div></h1></center>'))});
+
+      if( 0 == to_time )
+      {
+          future.always(function(){setTimeout( do_refresh_timeline, 5000 );});
+      }
+  }
+
+  function update_from_filter()
+  {
+      var filterValue = jQuery('#event_filter').val();
+      jQuery("#timeline").children(":contains('" + filterValue + "')").show();
+      jQuery("#timeline").children(":not(:contains('" + filterValue + "'))").hide();
+  }
+
+  function set_time_range()
+  {
+      var after = Date.parse(jQuery('#filter_after').val() + " GMT") / 1000;
+      var before = Date.parse(jQuery('#filter_before').val() + " GMT") / 1000;
+      if( isNaN( after ) )
+      {
+          after = 0;
+      }
+      if( isNaN( before ) )
+      {
+          before = 0;
+      }
+      from_time = after;
+      to_time = before;
+      jQuery('#timeline').empty();
+      all_events = {};
+      do_refresh_timeline();
+  }
+
+  function download_time_range()
+  {
+      var after = Date.parse(jQuery('#filter_after').val() + " GMT") / 1000;
+      var before = Date.parse(jQuery('#filter_before').val() + " GMT") / 1000;
+      if( isNaN( after ) )
+      {
+          after = 0;
+      }
+      if( isNaN( before ) )
+      {
+          before = 0;
+      }
+
+      document.getElementById('download_iframe').src = '/export?sid=$aid.sensor_id&after=' + after + '&before=' + before;
+  }
+
+  jQuery(function() {
+      do_refresh_timeline();
+      jQuery('#event_filter').change(function(){update_from_filter()});
+  });
+</script>

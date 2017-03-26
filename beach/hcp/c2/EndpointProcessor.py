@@ -26,6 +26,7 @@ import hashlib
 import random
 import traceback
 import time
+import tempfile
 import netifaces
 rpcm = Actor.importLib( 'utils/rpcm', 'rpcm' )
 rList = Actor.importLib( 'utils/rpcm', 'rList' )
@@ -118,12 +119,7 @@ class EndpointProcessor( Actor ):
         self.handlerPortEnd = parameters.get( 'handler_port_end', 20000 )
         self.bindAddress = parameters.get( 'handler_address', '0.0.0.0' )
         self.bindInterface = parameters.get( 'handler_interface', None )
-        self.privateKey = parameters[ '_priv_key' ]
-        self.privateCert = parameters[ '_priv_cert' ]
-        self.sslContext = ssl.SSLContext( ssl.PROTOCOL_TLSv1_2 )
-        self.sslContext.load_cert_chain( certfile = self.privateCert, keyfile = self.privateKey )
-        self.sslContext.set_ciphers( 'ECDHE-RSA-AES128-GCM-SHA256' )
-
+        
         if self.bindInterface is not None:
             ip4 = self.getIpv4ForIface( self.bindInterface )
             if ip4 is not None:
@@ -140,6 +136,42 @@ class EndpointProcessor( Actor ):
         self.sensorDir = self.getActorHandle( resources[ 'sensordir' ] )
         self.moduleManager = self.getActorHandle( resources[ 'module_tasking' ] )
         self.hbsProfileManager = self.getActorHandle( resources[ 'hbs_profiles' ] )
+        self.deploymentManager = self.getActorHandle( resources[ 'deployment' ] )
+
+        self.privateKey = parameters.get( '_priv_key', None )
+        self.privateCert = parameters.get( '_priv_cert', None )
+
+        self.sslContext = ssl.SSLContext( ssl.PROTOCOL_TLSv1_2 )
+
+        if self.privateKey is None or self.privateCert is None:
+            resp = self.deploymentManager.request( 'get_c2_cert', {} )
+            if resp.isSuccess:
+                self.privateKey = resp.data[ 'key' ]
+                self.privateCert = resp.data[ 'cert' ]
+
+                tmpHandle, tmpPathKey = tempfile.mkstemp()
+                with open( tmpPathKey, 'wb' ) as f:
+                    f.write( self.privateKey )
+                os.close( tmpHandle )
+
+                tmpHandle, tmpPathCert = tempfile.mkstemp()
+                with open( tmpPathCert, 'wb' ) as f:
+                    f.write( self.privateCert )
+                os.close( tmpHandle )
+
+                self.log( 'got keys from deployment manager' )
+                self.sslContext.load_cert_chain( certfile = tmpPathCert, keyfile = tmpPathKey )
+                
+                os.unlink( tmpPathKey )
+                os.unlink( tmpPathCert )
+            else:
+                raise Exception( 'no cert specified in parameters or through deployment manager' )
+        else:
+            self.log( 'got keys from disk' )
+            self.sslContext.load_cert_chain( certfile = self.privateCert, keyfile = self.privateKey )
+
+        self.sslContext.set_ciphers( 'ECDHE-RSA-AES128-GCM-SHA256' )
+
         self.handle( 'task', self.taskClient )
         self.handle( 'report', self.report )
 

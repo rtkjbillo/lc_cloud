@@ -17,17 +17,30 @@ from beach.actor import Actor
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 import smtplib
+CreateOnAccess = Actor.importLib( 'utils/hcp_helpers', 'CreateOnAccess' )
 
 class PagingActor( Actor ):
     def init( self, parameters, resources ):
+        self.deploymentManager = CreateOnAccess( self.getActorHandle, resources[ 'deployment' ] )
         self.fromAddr = parameters.get( 'from', None )
         self.user = parameters.get( 'user', None )
         self.password = parameters.get( 'password', None )
         self.smtpServer = parameters.get( 'smtp_server', 'smtp.gmail.com' )
         self.smtpPort = parameters.get( 'smtp_port', '587' )
-        self.handle( 'page', self.page )
+        if self.user is None:
+            resp = self.deploymentManager.request( 'get_global_config', {} )
+            if resp.isSuccess:
+                self.fromAddr = resp.data[ 'global/paging_from' ]
+                self.user = resp.data[ 'global/paging_user' ]
+                self.password = resp.data[ 'global/paging_password' ]
+                self.log( 'got credentials from deployment manager' )
+        else:
+            self.log( 'got credentials from parameters' )
+
         if self.user is None or self.password is None:
             self.logCritical( 'missing user or password' )
+
+        self.handle( 'page', self.page )
 
     def deinit( self ):
         pass

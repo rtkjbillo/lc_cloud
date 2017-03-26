@@ -17,10 +17,20 @@ import virustotal
 import json
 RingCache = Actor.importLib( '../utils/hcp_helpers', 'RingCache' )
 Mutex = Actor.importLib( '../utils/hcp_helpers', 'Mutex' )
+CreateOnAccess = Actor.importLib( '../utils/hcp_helpers', 'CreateOnAccess' )
 
 class VirusTotalActor ( Actor ):
     def init( self, parameters, resources ):
+        self.deploymentManager = CreateOnAccess( self.getActorHandle, resources[ 'deployment' ] )
         self.key = parameters.get( '_key', None )
+        if self.key is None:
+            resp = self.deploymentManager.request( 'get_global_config', {} )
+            if resp.isSuccess:
+                self.key = resp.data[ 'global/virustotalkey' ]
+                self.log( 'got virustotal key from deployment manager' )
+        else:
+            self.log( 'got virustotal key from parameters' )
+
         if self.key is None: self.logCritical( 'missing API key' )
 
         # Maximum number of queries per minute

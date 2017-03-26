@@ -2,6 +2,13 @@ CREATE KEYSPACE "hcp_analytics" WITH REPLICATION = { 'class' : 'SimpleStrategy',
 
 use hcp_analytics;
 
+CREATE TABLE configs(
+  conf varchar,
+  value varchar,
+  PRIMARY KEY( conf )
+
+) WITH compaction = { 'class' : 'SizeTieredCompactionStrategy' } AND gc_grace_seconds = 86400;
+
 CREATE TABLE sensor_states(
   sid uuid,
   oid uuid,

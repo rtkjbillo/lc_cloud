@@ -1,0 +1,76 @@
+$def with (oid)
+$var title = 'Provision Org'
+<div class="mdl-card mdl-cell mdl-cell--10-col mdl-shadow--8dp" style="height: 300px;">
+  <div class="mdl-card__title">
+    <h4 class="mdl-card__title-text">Keys</h4>
+  </div>
+  <div class="mdl-card__supporting-text" id="prov_keys">
+    <div class="mdl-spinner mdl-js-spinner is-active" id="loading_keys" style="visibility: hidden;"></div>
+  </div>
+  <div class="mdl-card__actions mdl-card--border">
+  </div>
+</div>
+
+<div class="mdl-card mdl-cell mdl-cell--10-col mdl-shadow--8dp" style="height: 300px;">
+  <div class="mdl-card__title">
+    <h4 class="mdl-card__title-text">Installers</h4>
+  </div>
+  <div class="mdl-card__supporting-text" id="prov_installers">
+    <div class="mdl-spinner mdl-js-spinner is-active" id="loading_installers" style="visibility: hidden;"></div>
+  </div>
+  <div class="mdl-card__actions mdl-card--border">
+  </div>
+</div>
+
+<div class="mdl-card mdl-cell mdl-cell--10-col mdl-shadow--8dp" style="height: 300px;">
+  <div class="mdl-card__title">
+    <h4 class="mdl-card__title-text">Sensors</h4>
+  </div>
+  <div class="mdl-card__supporting-text" id="prov_sensors">
+    <div class="mdl-spinner mdl-js-spinner is-active" id="loading_sensors" style="visibility: hidden;"></div>
+  </div>
+  <div class="mdl-card__actions mdl-card--border">
+  </div>
+</div>
+
+<script type="text/javascript">
+function load_keys() {
+  jQuery("#load_keys").css("visibility", "visible");
+
+  jQuery.post( '/provision_keys' , { oid : "$oid" } )
+    .done( function(data) {
+      jQuery("#prov_keys").html(data);
+    })
+    .fail( function() {
+      jQuery("#prov_keys").text("Failed to get provision status.");
+    })
+  }
+
+function load_installers() {
+  jQuery("#load_installers").css("visibility", "visible");
+
+  jQuery.post( '/provision_installers' , { oid : "$oid" } )
+    .done( function(data) {
+      jQuery("#prov_installers").html(data);
+    })
+    .fail( function() {
+      jQuery("#prov_installers").text("Failed to get provision status.");
+    })
+  }
+
+function load_sensors() {
+  jQuery("#load_sensors").css("visibility", "visible");
+
+  jQuery.post( '/provision_sensors' , { oid : "$oid" } )
+    .done( function(data) {
+      jQuery("#prov_sensors").html(data);
+    })
+    .fail( function() {
+      jQuery("#prov_sensors").text("Failed to get provision status.");
+    })
+  }
+
+jQuery(document).ready(function() {
+  load_keys();
+});
+</script>

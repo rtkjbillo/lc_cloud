@@ -1,0 +1,52 @@
+$def with ()
+$var title = 'Policy'
+
+<div class="mdl-card mdl-cell mdl-cell--10-col mdl-shadow--4dp">
+  <div class="mdl-card__title">
+    <h4 class="mdl-card__title-text">Data and Usage Policy</h4>
+  </div>
+  <div class="mdl-card__supporting-text">
+    <h3>How your data is handled</h3>
+    All raw data from sensors, in the form of events, are kept private and under the control of the system owner, as assumed by User membership into the Organization listed as owner of the sensor.<br/>
+    Events will at no point be looked at or exported outside the Service without the express authorization of a member of the owning Organization, even for debugging purposes.<br/>
+    For troubleshooting purposes an operator of the Service may request access, but it is up to you as owner to approve or deny. If access is approved, auditing of the access will be visible through
+    the general audit log visible to you as the operator temporarily joining the Organization requiring troubleshooting.
+    <br/>
+    <br/>
+    Extracted information, in the form of Objects (as seen through the Service) will be deemed shareable when its source has been anonymized.<br/>
+    <br/>
+    <br/>
+    This means that 
+    the information tuple ( PROCESS_NAME, MyServerNumber2, explorer.exe ) is NOT shareable.<br/>
+    but the information tuple ( PROCESS_NAME, explorer.exe, "seen on 3000 hosts" ) IS shareable.
+    <br/>
+    <br/>
+    However, Object sharing to other users of the Service is done on a if-seen-by-organization basis. This means that "explorer.exe" will
+    only be visible to a User if that User is a member of an Organization that has observed that process on one of its sensors.
+    <br/>
+    <br/>
+    Therefore, you running "some_unique_exrcutable_to_you.exe" on one of your sensors, where that executable is unique and has never 
+    been observed anywhere else, will not result in the sharing of the existence of the executable with Users not member of your Organization.
+    <br/>
+    <br/>
+    We believe this sharing policy strikes a good balance between privacy and information sharing between users of the Service allowing
+    for a better visibility and investigative power. If you disagree, contact us at info@limacharlie.io.
+    <br/>
+      
+    <h3>Guarantees</h3>
+    None of any kind, whether for risk, damage or privacy.<br/>
+    Access to LimaCharlie.io (now referred to as the Service) is provided without any guarantees and is at your own risk.<br/>
+    Data provided to the Service through sensor or through the web user interface is handled with the guidelines outlines below, but without guarantees of any kind.<br/>
+    The Service is secured and actively monitored but the operators are not responsible for any damages or leaks from the use of the Service.
+    <br/>
+    <br/>
+    Use at your own risk. We discourage you from using the Service for mission critical or on systems with sensitive information.<br/>
+    You are responsible for ensuring that all laws and certifications relating to the systems where you install sensors are respected.
+    <br/>
+    <br/>
+    <br/>
+    <center><h4 style="color: red;">If you have questions or are not sure of understanding the risks involved, contact us at info@limacharlie.io.</h4></center>
+  </div>
+  <div class="mdl-card__actions mdl-card--border">
+  </div>
+</div>

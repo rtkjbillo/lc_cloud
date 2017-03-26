@@ -15,50 +15,104 @@
 from gevent import monkey
 monkey.patch_all()
 
-import os
-import sys
-
 from beach.beach_api import Beach
+
+import web
+from functools import wraps
+import uuid
+import hashlib
+import traceback
+import pyqrcode
+import base64
+import datetime
+import json
+import re
+import time
+import urllib
 from hcp_helpers import AgentId
-from hcp_helpers import timeToTs
 from hcp_helpers import _x_
 from hcp_helpers import _xm_
+from hcp_helpers import normalAtom
 from hcp_helpers import InvestigationNature
 from hcp_helpers import InvestigationConclusion
 from EventInterpreter import EventInterpreter
-
-import traceback
-import web
-import datetime
-import time
-import json
-import base64
-import uuid
-from functools import wraps
 import markdown
 import markdown.extensions.tables
 
-from hcp_helpers import _x_
-from hcp_helpers import _xm_
-from hcp_helpers import timeToTs
-from hcp_helpers import normalAtom
+#==============================================================================
+#   SITE DEFINITION
+#==============================================================================
+urls = (
+    '/favicon.ico', 'Favicon',
+    '/', 'Welcome',
+    '/policy', 'Policy',
+    '/dashboard', 'Dashboard',
+    '/login', 'Login',
+    '/logout', 'Logout',
+    '/changepassword', 'ChangePassword',
+    '/profile', 'Profile',
+    '/manage', 'Manage',
+    '/installer', 'Installer',
+    '/confirm_email', 'ConfirmEmail',
+    '/sensors', 'Sensors',
+    '/sensor_state', 'SensorState',
+    '/sensor_ips', 'SensorIps',
+    '/sensor_lastevents', 'SensorLastEvents',
+    '/sensor', 'Sensor',
+    '/traffic', 'Traffic',
+    '/explore', 'Explore',
+    '/explorerdata', 'ExplorerData',
+    '/event', 'EventView',
+    '/search', 'Search',
+    '/objsearch', 'ObjSearch',
+    '/obj', 'ObjView',
+    '/export', 'Exporter',
+    '/hostchanges', 'HostChanges',
+    '/detects', 'Detects',
+    '/capabilities', 'Capabilities',
+    '/set_conclusion', 'SetConclusion',
+    '/blink', 'Blink',
+    '/blink_data', 'BlinkData',
+    '/provision', 'Provision',
+    '/provision_keys', 'ProvisionKeys',
+    '/provision_installers', 'ProvisionInstallers',
+    '/provision_sensors', 'ProvisionSensors',
+)
 
+ADMIN_OID = uuid.UUID( '00000000-0000-0000-0000-000000000000' )
+ADMIN_EMAIL = 'admin@org'
 
-###############################################################################
-# CUSTOM EXCEPTIONS
-###############################################################################
+web.config.debug = False
+web.config.session_parameters['cookie_name'] = 'lc_session'
+web.config.session_parameters['cookie_domain'] = 'limacharlie'
+web.config.session_parameters['timeout'] = 60 * 60 * 24 * 7
+web.config.session_parameters['ignore_change_ip'] = True
+web.config.session_parameters['secret_key'] = '41a7b8d0-1702-4805-a21c-065067fbf2df'
+web.config.session_parameters['expired_message'] = 'Session expired'
 
+app = web.application(urls, globals())
+session = web.session.Session( app, 
+                               web.session.DiskStore( 'sessions' ), 
+                               initializer =  { 'is_logged_in' : False,
+                                                'is_admin' : False,
+                                                'uid' : None,
+                                                'email' : None,
+                                                'orgs' : [],
+                                                'must_change_password' : False,
+                                                'notice' : None,
+                                                '_tmp_otp' : None } )
 
-###############################################################################
-# REFERENCE ELEMENTS
-###############################################################################
+class _renderWrapper( object ):
+    def __init__( self, renderer ):
+        self._renderer = renderer
 
-
-###############################################################################
-# CORE HELPER FUNCTIONS
-###############################################################################
-def msTsToTime( ts ):
-    return datetime.datetime.fromtimestamp( float( ts ) / 1000 ).strftime( '%Y-%m-%d %H:%M:%S.%f' )
+    def __getattr__( self, item ):
+        res =  getattr( self._renderer, item )
+        def _cleanNotice( *args, **kwargs ):
+            _res = res( *args, **kwargs )
+            session.notice = None
+            return _res
+        return _cleanNotice
 
 def sanitizeJson( o, summarized = False ):
     if type( o ) is dict:
@@ -79,15 +133,117 @@ def sanitizeJson( o, summarized = False ):
 
     return o
 
-def downloadFileName( name ):
-    web.header( 'Content-Disposition', 'attachment;filename="%s"' % name )
+def msTsToTime( ts ):
+    return datetime.datetime.fromtimestamp( float( ts ) / 1000 ).strftime( '%Y-%m-%d %H:%M:%S.%f' )
 
 def doMarkdown( content ):
     return markdown.markdown( content, extensions = [ 'markdown.extensions.tables' ] )
 
-###############################################################################
-# PAGE DECORATORS
-###############################################################################
+render = _renderWrapper( web.template.render( 'templates', 
+                                              base = 'base', 
+                                              globals = { 'session' : session, 
+                                                          'str' : str, 
+                                                          'msTsToTime' : msTsToTime,
+                                                          'AgentId' : AgentId,
+                                                          'json' : json,
+                                                          'sorted' : sorted,
+                                                          'md' : doMarkdown,
+                                                          'type' : type } ) )
+renderAlone = web.template.render( 'templates', globals = { 'session' : session, 
+                                                            'str' : str, 
+                                                            'msTsToTime' : msTsToTime,
+                                                            'AgentId' : AgentId,
+                                                            'json' : json,
+                                                            'InvestigationNature' : InvestigationNature,
+                                                            'InvestigationConclusion' : InvestigationConclusion,
+                                                            'sorted' : sorted,
+                                                            'md' : doMarkdown,
+                                                            'type' : type } )
+eventRender = web.template.render( 'templates/custom_events', globals = { 'json' : json,
+                                                                          'msTsToTime' : msTsToTime,
+                                                                          '_x_' : _x_,
+                                                                          '_xm_' : _xm_,
+                                                                          'AgentId' : AgentId,
+                                                                          'hex' : hex,
+                                                                          'sanitize' : sanitizeJson,
+                                                                          'EventInterpreter' : EventInterpreter,
+                                                                          'sorted' : sorted,
+                                                                          'md' : doMarkdown,
+                                                                          'type' : type } )
+
+BEACH_CONFIG_FILE = '/website/beach.conf'
+IDENT = 'lc/0bf01f7e-62bd-4cc4-9fec-4c52e82eb903'
+beach = Beach( BEACH_CONFIG_FILE, realm = 'hcp' )
+model = beach.getActorHandle( 'models', nRetries = 3, timeout = 30, ident = IDENT )
+capabilities = beach.getActorHandle( 'analytics/capabilitymanager', nRetries = 3, timeout = 120, ident = IDENT )
+sensordir = beach.getActorHandle( 'c2/sensordir', nRetries = 3, timeout = 30, ident = IDENT )
+identmanager = beach.getActorHandle( 'c2/identmanager', nRetries = 3, timeout = 30, ident = IDENT )
+dataexporter = beach.getActorHandle( 'analytics/dataexporter', nRetries = 1, timeout = 3600, ident = IDENT )
+page = beach.getActorHandle( 'paging', nRetries = 3, timeout = 30, ident = IDENT )
+audit = beach.getActorHandle( 'c2/audit', nRetries = 3, timeout = 10, ident = IDENT )
+reporting = beach.getActorHandle( 'analytics/reporting/', nRetries = 3, timeout = 30, ident = IDENT )
+blink = beach.getActorHandle( 'analytics/blinkmodel/', nRetries = 3, timeout = 60, ident = IDENT )
+
+#==============================================================================
+#   HELPERS
+#==============================================================================
+def redirectTo( page, **kwargs ):
+    dest = '/%s?%s' % ( page, urllib.urlencode( kwargs ) )
+    raise web.seeother( dest )
+
+def reportError( f ):
+    @wraps( f )
+    def wrapped( *args, **kwargs ):
+        try:
+            return f( *args, **kwargs )
+        except:
+            return renderAlone.error( traceback.format_exc() )
+    return wrapped
+
+def authenticated( f ):
+    @wraps( f )
+    def wrapped( *args, **kwargs ):
+        if session.is_logged_in is not True:
+            redirectTo( 'login' )
+        elif session.must_change_password is True:
+            redirectTo( 'changepassword' )
+        else:
+            return f( *args, **kwargs )
+    return wrapped
+
+def adminAuthenticated( f ):
+    @wraps( f )
+    def wrapped( *args, **kwargs ):
+        if session.is_admin is not True:
+            session.notice = 'This page is for administrators only.'
+            redirectTo( 'dashboard' )
+        else:
+            return f( *args, **kwargs )
+    return wrapped
+
+class AuthenticatedPage:
+    @authenticated
+    @reportError
+    def GET( self, *args, **kwargs ):
+        return self.doGET( *args, **kwargs )
+
+    @authenticated
+    @reportError
+    def POST( self, *args, **kwargs ):
+        return self.doPOST( *args, **kwargs )
+
+class AuthenticatedAdminPage:
+    @authenticated
+    @adminAuthenticated
+    @reportError
+    def GET( self, *args, **kwargs ):
+        return self.doGET( *args, **kwargs )
+
+    @authenticated
+    @reportError
+    def POST( self, *args, **kwargs ):
+        return self.doPOST( *args, **kwargs )
+
 def jsonApi( f ):
     ''' Decorator to basic exception handling on function. '''
     @wraps( f )
@@ -101,6 +257,66 @@ def jsonApi( f ):
                                  'exception' : traceback.format_exc() } )
     return wrapped
 
+def wipeSession():
+    session.is_logged_in = False
+    session.is_admin = False
+    session.uid = None
+    session.email = None
+    session.orgs = []
+
+def refreshOrgMembership():
+    info = identmanager.request( 'get_user_membership', { 'uid' : session.uid } )
+    if info.isSuccess:
+        session.orgs = map( uuid.UUID, info.data[ 'orgs' ] )
+
+def isOrgAllowed( oid ):
+    if type( oid ) is not uuid.UUID:
+        oid = uuid.UUID( oid )
+    if oid in session.orgs:
+        return True
+    return False
+
+def getOrgName( oid ):
+    orgs = identmanager.request( 'get_org_info', { 'oid' : oid } )
+    res = {}
+    if orgs.isSuccess:
+        orgs = orgs.data[ 'orgs' ]
+        for name, oid, ttls in orgs:
+            res[ oid ] = name
+    return res
+
+def getOrgNames():
+    return getOrgName( session.orgs )
+
+def getUserEmail( uid ):
+    uids = identmanager.request( 'get_user_info', { 'uid' : uid } )
+    res = {}
+    if orgs.isSuccess:
+        res = orgs.data
+    return res
+
+def getAllSensors( isAllOrgs = False ):
+    info = {}
+    if not isAllOrgs:
+        aid = AgentId( '0.0.0.0.0' )
+        for oid in session.orgs:
+            aid.org_id = oid
+            res = model.request( 'list_sensors', { 'aid' : aid } )
+            if res.isSuccess:
+                info[ oid ] = res.data
+    else:
+        res = model.request( 'list_sensors', {} )
+        if res.isSuccess:
+            for sid, sensor in res.data.iteritems():
+                info.setdefault( AgentId( sensor[ 'aid' ] ).org_id, {} )[ sid ] = sensor
+    return info
+
+def isSensorAllowed( sid ):
+    pas
+
+def setDownloadFileName( name ):
+    web.header( 'Content-Disposition', 'attachment;filename="%s"' % name )
+
 def fileDownload( f ):
     ''' Decorator to basic exception handling on function. '''
     @wraps( f )
@@ -109,57 +325,348 @@ def fileDownload( f ):
         return f( *args, **kwargs )
     return wrapped
 
-###############################################################################
-# PAGES
-###############################################################################
-class Index:
+#==============================================================================
+#   PAGES
+#==============================================================================
+class Login:
     def GET( self ):
-        return render.index()
+        params = web.input( no2fa = None )
+        return renderAlone.login( params.no2fa )
 
-class Dashboard:
+    def POST( self ):
+        params = web.input( email = None, password = None, totp = None )
+
+        if params.email is None or params.password is None:
+            return renderAlone.error( 'Missing parameter email, password or 2nd factor.' )
+
+        otp = None
+        try:
+            if params.totp is not None and params.totp != '':
+                otp = int( params.totp )
+        except:
+            return renderAlone.error( 'Invalid 2nd factor format.' )
+
+        info = identmanager.request( 'authenticate', { 'email' : params.email, 'password' : params.password, 'totp' : otp } )
+        if not info.isSuccess:
+            return renderAlone.error( 'Error authenticating: %s' % info )
+
+        if info.data[ 'is_authenticated' ] is False and info.data.get( 'needs_confirmation', False ) is True:
+            return renderAlone.error( 'Account email requires confirmation, please follow the link provided in the invite email.' )            
+
+        if info.data[ 'is_authenticated' ] is True:
+            session.is_logged_in = True
+            session.uid = uuid.UUID( info.data[ 'uid' ] )
+            session.orgs = map( uuid.UUID, info.data[ 'orgs' ] )
+            session.email = info.data[ 'email' ]
+            session.must_change_password = info.data[ 'must_change_password' ]
+            session._tmp_otp = info.data.get( 'otp', None )
+            if ADMIN_OID in session.orgs:
+                session.is_admin = True
+            redirectTo( 'dashboard' )
+
+        return renderAlone.error( 'Invalid email, password or 2nd factor.' )
+
+class Logout:
     def GET( self ):
+        wipeSession()
+        redirectTo( '' )
 
-        sensors = model.request( 'list_sensors', {} )
+    def POST( self ):
+        wipeSession()
+        redirectTo( '' )
 
-        if not sensors.isSuccess:
-            return render.error( str( sensors ) )
-
-        return render.dashboard( sensors = sanitizeJson( sensors.data ) )
-
-class Sensor:
+class ConfirmEmail:
     def GET( self ):
-        params = web.input( sensor_id = None, before = None, after = None, max_size = '4096', per_page = '10' )
+        params = web.input( token = None, email = None )
 
-        if params.sensor_id is None:
-            return render.error( 'sensor_id required' )
+        if params.token is None or params.email is None:
+            return renderAlone.error( 'Missing parameter email or token.' )
 
-        info = model.request( 'get_sensor_info', { 'id_or_host' : params.sensor_id } )
+        info = identmanager.request( 'confirm_email', { 'email' : params.email, 'token' : params.token } )
 
         if not info.isSuccess:
-            return render.error( str( info ) )
+            return renderAlone.error( 'Error confirming email: %s' % info )
 
-        if 0 == len( info.data ):
-            return render.error( 'Sensor not found' )
+        if info.data[ 'confirmed' ]  is False:
+            return renderAlone.error( 'Bad email confirmation token.' )
 
-        before = None
-        after = None
+        session.notice = 'Email confirmed, you can now login.'
 
-        if '' != params.before:
-            before = params.before
-        if '' != params.after:
-            after = params.after
+        redirectTo( 'login', no2fa = 'true' )
 
-        return render.sensor( AgentId( info.data[ 'id' ] ), info.data[ 'hostname' ], before, after, params.max_size, params.per_page )
+class ChangePassword:
+    def getOtp( self ):
+        totp = session._tmp_otp
+        totpImg = None
+        if totp is not None:
+            totpImg = 'data:image/png;base64,%s' % pyqrcode.create( totp ).png_as_base64_str( scale = 4 )
+        return ( totp, totpImg )
 
-class SensorState:
-    @jsonApi
     def GET( self ):
+        totp, totpImg = self.getOtp()
+        return render.changepassword( totp, totpImg )
+
+    def POST( self ):
+        params = web.input( password = None, totp = None )
+        try:
+            if params.totp is not None and params.totp != '':
+                totp = int( params.totp )
+        except:
+            totp = None
+        if params.password is None or totp is None:
+            session.notice = 'Missing password or 2nd factor.'
+            redirectTo( 'changepassword' )
+        if session.is_logged_in is not True: return renderAlone.error( 'Must be logged in.' )
+
+        res = identmanager.request( 'change_password', { 'email' : session.email, 'password' : params.password, 'by' : session.email, 'totp' : totp } )
+        if not res.isSuccess or not res.data.get( 'is_changed', False ):
+            session.notice = 'Error changing password: %s' % res
+            totp, totpImg = self.getOtp()
+            return render.changepassword( totp, totpImg )
+
+        session.must_change_password = False
+        session._tmp_otp = None
+
+        session.notice = 'Password changed successfully.'
+
+        redirectTo( 'policy' )
+
+class Favicon:
+    def GET( self ):
+        redirectTo( 'static/img/logo.png' )
+
+class Welcome:
+    def GET( self ):
+        if session.is_logged_in:
+            redirectTo( 'dashboard' )
+        else:
+            return renderAlone.welcome()
+
+class Policy ( AuthenticatedPage ):
+    def doGET( self ):
+        return render.policy()
+
+class Dashboard ( AuthenticatedPage ):
+    def doGET( self ):
+        cards = []
+        orgNames = getOrgNames()
+        orgSensors = getAllSensors()
+        allLiveDir = sensordir.request( 'get_dir', {} )
+        if allLiveDir.isSuccess:
+            allLiveDir = allLiveDir.data[ 'dir' ]
+        else:
+            allLiveDir = {}
+        if session.is_admin:
+            mergedSensors = {}
+            for oid, sensors in getAllSensors( isAllOrgs = True ).iteritems():
+                for sid, sensor in sensors.iteritems():
+                    sensor[ 'realtime' ] = True if str( AgentId( sensor[ 'aid' ] ).sensor_id ) in allLiveDir else False
+                    mergedSensors[ sid ] = sensor
+                if oid not in session.orgs:
+                    cards.append( card_sensor_stats( str( oid ), sensors ) )
+            cards.insert( 0, card_sensor_stats( 'Total', mergedSensors ) )
+            del( mergedSensors )
+        for oid, sensors in orgSensors.iteritems():
+            for sid, sensor in sensors.iteritems():
+                sensor[ 'realtime' ] = True if str( AgentId( sensor[ 'aid' ] ).sensor_id ) in allLiveDir else False
+            cards.insert( 1, card_sensor_stats( orgNames[ str( oid ) ], sensors ) )
+        return render.dashboard( cards )
+
+class Profile ( AuthenticatedPage ):
+    def renderProfile( self ):
+        orgs = identmanager.request( 'get_org_info', { 'oid' : session.orgs } )
+        if orgs.isSuccess:
+            orgs = orgs.data[ 'orgs' ]
+        else:
+            return renderAlone.error( 'Error fetching orgs: %s.' % str( orgs ) )
+        if session.is_admin:
+            all_orgs = identmanager.request( 'get_org_info', { 'include_all' : True } )
+            if all_orgs.isSuccess:
+                all_orgs = all_orgs.data[ 'orgs' ]
+            else:
+                return renderAlone.error( 'Error fetching all orgs: %s.' % str( orgs ) )
+        else:
+            all_orgs = None
+        extra_cards = []
+        for org in orgs:
+            extra_cards.append( card_org_membership( org[ 0 ], org[ 1 ] ) )
+            extra_cards.append( card_org_retention( org[ 0 ], org[ 1 ], org[ 2 ] ) )
+        return render.profile( orgs, all_orgs, extra_cards )
+
+    def doGET( self ):
+        return self.renderProfile()
+
+    def doPOST( self ):
+        params = web.input( action = None, orgs = [], email = None )
+        if params.action is None:
+            session.notice = 'Missing action parameter.'
+            redirectTo( 'profile' )
+
+        if not session.is_admin:
+            if any( map( lambda x: not self.isOrgAllowed( x ), params.orgs ) ):
+                session.notice = 'Permission denied on %s' % oid
+                redirectTo( 'profile' )
+
+        if 'admin_join' == params.action:
+            for oid in params.orgs:
+                res = identmanager.request( 'add_user_to_org', { 'email' : session.email, 'oid' : oid, 'by' : session.email } )
+                if not res.isSuccess: 
+                    session.notice = 'Error adding user %s to %s by %s (%s).' % ( session.email, oid, session.email, str( res ) )
+                    redirectTo( 'profile' )
+                page.shoot( 'page', 
+                            { 'to' : ADMIN_EMAIL, 
+                              'msg' : 'The user %s has been ADMIN added to the organization %s by %s.' % ( session.email, oid, session.email ), 
+                              'subject' : 'User added to org' } )
+            session.notice = 'Success joining %s' % oid
+        elif 'join' == params.action:
+            if params.email is None:
+                session.notice = 'Missing user email parameter.'
+                redirectTo( 'profile' )
+            for oid in params.orgs:
+                res = identmanager.request( 'add_user_to_org', { 'email' : params.email, 'oid' : oid, 'by' : session.email } )
+                if not res.isSuccess: 
+                    session.notice = 'Error adding user %s to %s by %s (%s).' % ( params.email, oid, session.email, str( res ) )
+                    redirectTo( 'profile' )
+            session.notice = 'Success adding %s to orgs' % params.email
+        elif 'leave' == params.action:
+            for oid in params.orgs:
+                res = identmanager.request( 'remove_user_from_org', { 'email' : session.email, 'oid' : oid, 'by' : session.email } )
+                if not res.isSuccess or not res.data.get( 'is_removed', False ):
+                    session.notice = 'Error removing user %s from %s by %s (%s).' % ( session.email, oid, session.email, str( res ) )
+                    redirectTo( 'profile' )
+            session.notice = 'Success leaving orgs'
+        elif 'kick' == params.action:
+            if params.email is None: 
+                session.notice = 'Missing user email parameter.'
+                redirectTo( 'profile' )
+            for oid in params.orgs:
+                res = identmanager.request( 'remove_user_from_org', { 'email' : params.email, 'oid' : oid, 'by' : session.email } )
+                if not res.isSuccess: 
+                    session.notice = 'Error removing user %s from %s by %s (%s).' % ( params.email, oid, session.email, str( res ) )
+                    redirectTo( 'profile' )
+            session.notice = 'Success removing %s from orgs' % params.email
+        elif 'account_create' == params.action and session.is_admin:
+            tempPassword = str( uuid.uuid4() )
+            res = identmanager.request( 'create_user', { 'email' : params.email, 'by' : session.email, 'password' : tempPassword } )
+            if res.isSuccess and res.data[ 'is_created' ] is True:
+                confirmToken = res.data[ 'confirmation_token' ]
+                res = page.request( 'page', { 'to' : params.email, 
+                                              'msg' : '\n'.join( [ 'Your new LimaCharlie.io account has been created.',
+                                                                   '',
+                                                                   'You can now login at limacharlie.io with the temporary password: %s' % tempPassword,
+                                                                   '',
+                                                                   'Confirm your email address by following this link: <a href="https://limacharlie.io/confirm_email?token=%s&email=%s">https://limacharlie.io/confirm_email?token=%s&email=%s</a>' % ( confirmToken, params.email, confirmToken, params.email ),
+                                                                   '',
+                                                                   'Get help and stay up to date the following ways:',
+                                                                   ' - Twitter: @rp_limacharlie',
+                                                                   ' - Google Groups: <a href="https://groups.google.com/d/forum/limacharlie">https://groups.google.com/d/forum/limacharlie</a>',
+                                                                   ' - Slack Channel: <a href="http://limacharlie.herokuapp.com/">http://limacharlie.herokuapp.com/</a>',
+                                                                   ' - Wiki: <a href="https://github.com/refractionPOINT/limacharlie/wiki">https://github.com/refractionPOINT/limacharlie/wiki</a>',
+                                                                   ' - YouTube Tutorials: <a href="https://www.youtube.com/channel/UCR0GhNmc4gVcD9Uj07HS5AA">https://www.youtube.com/channel/UCR0GhNmc4gVcD9Uj07HS5AA</a>',
+                                                                   '',
+                                                                   '',
+                                                                   'The LimaCharlie.io team.' ] ), 
+                                              'subject' : 'LimaCharlie.io Account Created' } )
+                if not res.isSuccess:
+                    identmanager.shoot( 'delete_user', { 'email' : params.email, 'by' : 'limacharlie.io' } )
+                    session.notice = 'Account created but automated email failed, try again later: %s.' % res
+                    redirectTo( 'profile' )
+                session.notice = 'Success creating user %s' % params.email
+            else:
+                session.notice = 'Error creating users: %s' % res
+                redirectTo( 'profile' )
+        elif 'account_delete' == params.action and session.is_admin:
+            res = identmanager.request( 'delete_user', { 'email' : params.email, 'by' : session.email } )
+            if not res.isSuccess:
+                session.notice = 'Error deleting user: %s' % res
+                redirectTo( 'profile' )
+            session.notice = 'Success deleting account %s' % params.email
+        elif 'org_create' == params.action and session.is_admin:
+            tempPassword = str( uuid.uuid4() )
+            res = identmanager.request( 'create_org', { 'name' : params.orgname, 'by' : session.email } )
+            if not res.isSuccess or res.data[ 'is_created' ] is not True:
+                session.notice = 'Error creating org.'
+                redirectTo( 'profile' )
+            else:
+                session.notice = 'Org created with oid: %s' % res.data[ 'oid' ]
+        else:
+            session.notice = 'Action not supported.'
+            redirectTo( 'profile' )
+
+        refreshOrgMembership()
+
+        redirectTo( 'profile' )
+
+class Manage ( AuthenticatedPage ):
+    def doGET( self ):
+        params = web.input()
+
+        info = model.request( 'get_backend_config', { 'oid' : session.orgs } )
+        if not info.isSuccess:
+            return renderAlone.error( 'Error getting backend configs: %s' % info )
+
+        installers = info.data[ 'hcp_installers' ]
+        profiles = info.data[ 'hbs_profiles' ]
+
+        info = audit.request( 'get_log', { 'oid' : session.orgs, 'limit' : 20 } )
+        if not info.isSuccess:
+            return renderAlone.error( 'Error getting audit logs: %s' % info )
+
+        logs = info.data[ 'logs' ]
+
+        return render.manage( installers, profiles, getOrgNames(), logs )
+
+class Installer ( AuthenticatedPage ):
+    @fileDownload
+    def doGET( self ):
+        params = web.input( oid = None, iid = None, hash = None )
+
+        oid = None
+        iid = None
+        hash = None
+        try:
+            oid = uuid.UUID( params.oid )
+            iid = uuid.UUID( params.iid )
+            hash = params.hash
+        except:
+            session.notice = 'Error: bad or missing parameter.'
+            redirectTo( 'manage' )
+
+        if not isOrgAllowed( oid ):
+            session.notice = 'Permission denied.'
+            redirectTo( 'manage' )
+
+        res = model.request( 'get_installer', { 'oid' : oid, 'iid' : iid, 'hash' : hash, 'with_content' : True } )
+
+        if not res.isSuccess or 0 == len( res.data[ 'installers' ] ):
+            session.notice = 'Error getting installer: %s' % res
+            redirectTo( 'manage' )
+
+        setDownloadFileName( re.sub( '_........\-....\-....\-....\-............', '', res.data[ 'installers' ][ 0 ][ 'description' ] ) )
+
+        return res.data[ 'installers' ][ 0 ][ 'data' ]
+
+class Sensors ( AuthenticatedPage ):
+    def doGET( self ):
+        cards = []
+        orgNames = getOrgNames()
+        orgSensors = getAllSensors()
+        for oid, sensors in orgSensors.iteritems():
+            cards.append( card_sensors( orgNames[ str( oid ) ], sensors ) )
+        return render.sensors( cards )
+
+class SensorState ( AuthenticatedPage ):
+    @jsonApi
+    def doGET( self ):
         params = web.input( sensor_id = None )
 
         if params.sensor_id is None:
             raise web.HTTPError( '400 Bad Request: sensor id required' )
 
         info = model.request( 'get_sensor_info', { 'id_or_host' : params.sensor_id } )
+
+        if not isOrgAllowed( AgentId( info.data[ 'id' ] ).org_id ):
+            raise web.HTTPError( '401 Unauthorized' )
         live_status = sensordir.request( 'get_endpoint', { 'aid' : params.sensor_id } )
         if not live_status.isSuccess:
             live_status = False
@@ -179,13 +686,74 @@ class SensorState:
 
         return info.data
 
-class Timeline:
+class SensorIps ( AuthenticatedPage ):
     @jsonApi
-    def GET( self ):
-        params = web.input( sensor_id = None, after = None, before = None, max_size = '4096', rich = 'false', max_time = None )
+    def doGET( self ):
+        params = web.input( sensor_id = None )
 
         if params.sensor_id is None:
             raise web.HTTPError( '400 Bad Request: sensor id required' )
+
+        info = model.request( 'get_sensor_info', { 'id_or_host' : params.sensor_id } )
+
+        if not isOrgAllowed( AgentId( info.data[ 'id' ] ).org_id ):
+            raise web.HTTPError( '401 Unauthorized' )
+        
+        info = model.request( 'get_lastips', { 'id' : params.sensor_id } )
+
+        if not info.isSuccess:
+            raise web.HTTPError( '503 Service Unavailable: %s' % str( info ) )
+
+        return info.data
+
+class SensorLastEvents ( AuthenticatedPage ):
+    @jsonApi
+    def doGET( self ):
+        params = web.input( sensor_id = None )
+
+        if params.sensor_id is None:
+            raise web.HTTPError( '400 Bad Request: sensor id required' )
+
+        info = model.request( 'get_sensor_info', { 'id_or_host' : params.sensor_id } )
+
+        if not isOrgAllowed( AgentId( info.data[ 'id' ] ).org_id ):
+            raise web.HTTPError( '401 Unauthorized' )
+        
+        info = model.request( 'get_lastevents', { 'id' : params.sensor_id } )
+
+        if not info.isSuccess:
+            raise web.HTTPError( '503 Service Unavailable: %s' % str( info ) )
+
+        return info.data
+
+class Sensor ( AuthenticatedPage ):
+    def doGET( self ):
+        params = web.input( sid = None )
+
+        if params.sid is None:
+            return renderAlone.error( 'Must provide a sid.' )
+
+        info = model.request( 'get_sensor_info', { 'id_or_host' : params.sid } )
+        aid = AgentId( info.data[ 'id' ] )
+        hostname = info.data[ 'hostname' ]
+        if not isOrgAllowed( aid.org_id ):
+            return renderAlone.error( 'Unauthorized.' )
+
+        cards = []
+        orgNames = getOrgNames()
+        cards.append( card_sensor_ident( aid, hostname, orgNames[ str( aid.org_id ) ] ) )
+        cards.append( card_sensor_last( aid, hostname ) )
+        cards.append( card_sensor_changes( aid, hostname ) )
+        cards.append( card_sensor_traffic( aid, hostname, None, None ) )
+        return render.sensor( hostname, aid, cards )
+
+class Traffic:
+    @jsonApi
+    def GET( self ):
+        params = web.input( sid = None, after = None, before = None, max_size = '4096', rich = 'false', max_time = None )
+
+        if params.sid is None:
+            raise web.HTTPError( '400 Bad Request: sid required' )
 
         if params.after is None or '' == params.after:
             raise web.HTTPError( '400 Bad Request: need start time' )
@@ -196,7 +764,7 @@ class Timeline:
         if params.max_time is not None and '' != params.max_time:
             max_time = int( params.max_time )
         end_time = None
-        if params.before is not None and '' != params.before:
+        if params.before is not None and '' != params.before and '0' != params.before:
             end_time = int( params.before )
         rich = True if params.rich == 'true' else False
 
@@ -210,7 +778,7 @@ class Timeline:
         if 0 == start_time:
             start_time = int( time.time() ) - 5
 
-        req = { 'id' : params.sensor_id,
+        req = { 'id' : params.sid,
                 'is_include_content' : True,
                 'after' : start_time }
 
@@ -223,7 +791,7 @@ class Timeline:
         info = model.request( 'get_timeline', req )
 
         if not info.isSuccess:
-            return render.error( str( info ) )
+            return renderAlone.error( str( info ) )
 
         if 0 == int( params.after ):
             info.data[ 'new_start' ] = start_time
@@ -249,213 +817,52 @@ class Timeline:
                                                 thisAtom ) )
         return info.data
 
-class ObjSearch:
-    def GET( self ):
-        params = web.input( objname = None )
+class Explore ( AuthenticatedPage ):
+    def doGET( self ):
+        params = web.input( atid = None )
 
-        if params.objname is None:
-            return render.error( 'Must specify an object name' )
+        atid = params.atid
 
-        objects = model.request( 'get_obj_list', { 'name' : params.objname } )
+        try:
+            atid = uuid.UUID( atid )
+        except:
+            atid = None
 
-        if not objects.isSuccess:
-            return render.error( str( objects ) )
+        if atid is None:
+            return renderAlone.error( 'Must provide a valid atid.' )
 
-        return render.objlist( sanitizeJson( objects.data[ 'objects' ] ), None )
+        cards = []
+        cards.append( card_event_explorer( atid ) )
+        return render.explore( cards )
 
-class ObjViewer:
-    def GET( self ):
-        params = web.input( sensor_id = None, id = None )
-
-        if params.id is None:
-            return render.error( 'need to supply an object id' )
-
-        req = { 'id' : params.id }
-
-        if params.sensor_id is not None:
-            req[ 'host' ] = params.sensor_id
-
-        info = model.request( 'get_obj_view', req )
-
-        if not info.isSuccess:
-            return render.error( str( info ) )
-
-        return render.obj( sanitizeJson( info.data ), params.sensor_id )
-
-class LastEvents:
+class ExplorerData:
     @jsonApi
     def GET( self ):
-        params = web.input( sensor_id = None )
+        params = web.input( atid = None )
 
-        if params.sensor_id is None:
-            raise web.HTTPError( '400 Bad Request: sensor id required' )
+        if params.atid is None:
+            raise web.HTTPError( '400 Bad Request: atid required' )
 
-        info = model.request( 'get_lastevents', { 'id' : params.sensor_id } )
+        effectiveId = normalAtom( params.atid )
+
+        info = model.request( 'get_atoms_from_root', { 'id' : effectiveId, 'with_routing' : True } )
 
         if not info.isSuccess:
             raise web.HTTPError( '503 Service Unavailable : %s' % str( info ) )
 
-        return info.data.get( 'events', [] )
+        info.data = list( info.data )
 
-class EventView:
-    def GET( self ):
-        params = web.input( id = None, summarized = 1024 )
-
-        if params.id is None:
-            return render.error( 'need to supply an event id' )
-
-        info = model.request( 'get_event', { 'id' : params.id } )
-
-        if not info.isSuccess:
-            return render.error( str( info ) )
-
-        event = info.data.get( 'event', {} )
-
-        thisAtom = event[ 1 ].values()[ 0 ].get( 'hbs.THIS_ATOM', None )
-
-        return render.event( sanitizeJson( event, summarized = params.summarized ), thisAtom )
-
-class HostObjects:
-    def GET( self ):
-        params = web.input( sensor_id = None, otype = None )
-
-        if params.sensor_id is None:
-            return render.error( 'need to supply a sensor id' )
-
-        req = { 'host' : params.sensor_id }
-
-        if params.otype is not None:
-            req[ 'type' ] = params.otype
-
-        objects = model.request( 'get_obj_list', req )
-
-        return render.objlist( sanitizeJson( objects.data[ 'objects' ] ), params.sensor_id )
-
-class JsonDetects:
-    @jsonApi
-    def GET( self ):
-        params = web.input( before = None, after = None )
-
-        if params.after is None or '' == params.after:
-            raise web.HTTPError( '400 Bad Request: start time required' )
-
-        start_time = None
-        if params.after is not None:
-            start_time = int( params.after )
-
-        if start_time is None or 0 == start_time:
-            start_time = int( time.time() ) - 5
-
-        search = { 'oid' : '00000000-0000-0000-0000-000000000001' }
-
-        if start_time is not None:
-            search [ 'after' ] = start_time
-
-        if params.before is not None:
-            search[ 'before' ] = int( params.before )
-
-        detects = model.request( 'get_detects', search )
-
-        if not detects.isSuccess:
-            return render.error( str( detects ) )
-        else:
-            # Massage the reports a bit
-            reports = []
-            for report in detects.data[ 'reports' ]:
-                report = list( report )
-                report[ 2 ] = ' / '.join( [ str( AgentId( x ).sensor_id ) for x in report[ 2 ].split( ' / ' ) ] )
-                reports.append( report )
-            return { 'reports' : reports }
-
-class ViewDetects:
-    def GET( self ):
-        params = web.input( before = None, after = None )
-
-        before = None
-        after = None
-
-        if params.before is not None and '' != params.before:
-            before = params.before
-        if params.after is not None and '' != params.after:
-            after = params.after
-
-        return render.detects( before, after )
-
-class ViewDetect:
-    def GET( self ):
-        params = web.input( id = None )
-
-        if params.id is None:
-            return render.error( 'need to supply a detect id' )
-
-        info = model.request( 'get_detect', { 'id' : params.id, 'with_events' : True, 'with_inv' : True } )
-
-        if not info.isSuccess:
-            return render.error( str( info ) )
-
-        return render.detect( sanitizeJson( info.data.get( 'detect', [] ) ), sanitizeJson( info.data.get( 'inv', {} ) ) )
-
-class HostChanges:
-    @jsonApi
-    def GET( self ):
-        params = web.input( sensor_id = None )
-
-        if params.sensor_id is None:
-            raise web.HTTPError( '400 Bad Request: sensor id required' )
-
-        info = model.request( 'get_host_changes', { 'id' : params.sensor_id } )
-
-        if not info.isSuccess:
-            raise web.HTTPError( '503 Service Unavailable : %s' % str( info ) )
-
-        return info.data.get( 'changes', {} )
-
-class DownloadFileInEvent:
-    @fileDownload
-    def GET( self ):
-        params = web.input( id = None )
-
-        if params.id is None:
-            raise web.HTTPError( '400 Bad Request: event id required' )
-
-        info = model.request( 'get_file_in_event', { 'id' : params.id } )
-
-        if not info.isSuccess:
-            raise web.HTTPError( '503 Service Unavailable : %s' % str( info ) )
-
-        if 'path' not in info.data or 'data' not in info.data:
-            return render.error( 'no file path or content found in event' )
-
-        downloadFileName( '%s__%s' % ( params.id, ( info.data[ 'path' ].replace( '/', '_' )
-                                                                       .replace( '\\', '_' )
-                                                                       .replace( '.', '_' ) ) ) )
-
-        return info.data[ 'data' ]
-
-
-class Explorer:
-    @jsonApi
-    def GET( self ):
-        params = web.input( id = None )
-
-        if params.id is None:
-            raise web.HTTPError( '400 Bad Request: id required' )
-
-        effectiveId = normalAtom( params.id )
-
-        info = model.request( 'get_atoms_from_root', { 'id' : effectiveId } )
-
-        if not info.isSuccess:
-            raise web.HTTPError( '503 Service Unavailable : %s' % str( info ) )
+        for routing, _ in info.data:
+            if not isOrgAllowed( AgentId( routing[ 'aid' ] ).org_id ):
+                raise web.HTTPError( '401 Unauthorized' )
 
         # Make sure the root is present
-        info.data = list( info.data )
         isFound = False
-        for atom in info.data:
+        for _, atom in info.data:
             if effectiveId == normalAtom( atom.values()[0]['hbs.THIS_ATOM'] ):
                 isFound = True
                 break
-        info.data = map( lambda x: { 'data' : x, 'key' : EventInterpreter( x ).shortKey() }, info.data )
+        info.data = map( lambda x: { 'data' : x[ 1 ], 'key' : EventInterpreter( x[ 1 ] ).shortKey() }, info.data )
         if not isFound:
             info.data.append( { 'data' : { 'UNKNOWN' : { 'hbs.THIS_ATOM' : effectiveId } },
                                 'key' : 'UNKNOWN' } )
@@ -464,44 +871,225 @@ class Explorer:
 
         return info.data
 
+class EventView ( AuthenticatedPage ):
+    def doGET( self ):
+        params = web.input( eid = None, summarized = 1024 )
 
-class ExplorerView:
-    def GET( self ):
-        params = web.input( id = None )
+        if params.eid is None:
+            return renderAlone.error( 'need to supply an event eid' )
 
-        if params.id is None:
-            return render.error( 'requires an initial id' )
-
-        return renderFullPage.explorer( id = params.id )
-
-class Backend:
-    def GET( self ):
-        params = web.input()
-
-        info = model.request( 'get_backend_config' )
+        info = model.request( 'get_event', { 'id' : params.eid, 'with_routing' : True } )
 
         if not info.isSuccess:
-            return render.error( 'failed to get config: %s' % info.error )
+            return renderAlone.error( str( info ) )
 
-        return render.backend( info.data )
+        event = info.data.get( 'event', [ None, ( {}, {} ) ] )
+        eid, event = event
+        routing, event = event
 
+        if not isOrgAllowed( AgentId( routing[ 'aid' ] ).org_id ):
+            return renderAlone.error( 'Unauthorized.' )
 
-class Capabilities:
-    def POST( self ):
-        params = web.input( urlToAdd = None, nameToRem = None, nameToAdd = None, argsToAdd = None )
+        thisAtom = event.values()[ 0 ].get( 'hbs.THIS_ATOM', None )
+
+        cards = []
+        cards.append( card_event( ( eid, sanitizeJson( event, summarized = params.summarized ) ), thisAtom ) )
+
+        return render.event( cards )
+
+class Search ( AuthenticatedPage ):
+    def doGET( self ):
+        params = web.input( term = None )
+
+        if params.term is None:
+            return renderAlone.error( 'need to supply search term' )
+
+        info = model.request( 'get_sensor_info', { 'id_or_host' : params.term } )
+        if info.isSuccess and 'id' in info.data:
+            redirectTo( 'sensor', sid = AgentId( info.data[ 'id' ] ).sensor_id )
+
+        info = model.request( 'get_obj_list', { 'name' : params.term } )
+        if info.isSuccess and 0 != len( info.data[ 'objects' ] ):
+            redirectTo( 'objsearch', obj = params.term )
+
+        session.notice = 'Nothing found with this search term.'
+        redirectTo( '' )
+
+class ObjSearch ( AuthenticatedPage ):
+    def doGET( self ):
+        params = web.input( obj = None )
+
+        if params.obj is None:
+            return renderAlone.error( 'need to supply an obj' )
+
+        cards = []
+        info = model.request( 'get_obj_list', { 'name' : params.obj, 'orgs' : session.orgs } )
+        if info.isSuccess and 0 != len( info.data[ 'objects' ] ):
+            for oid, oname, otype in info.data[ 'objects' ]:
+                cards.append( card_objsummary( oid, oname, otype ) )
+        elif not info.isSuccess:
+            session.notice = 'Error searching for object: %s' % str( info )
+        else:
+            session.notice = 'No objects found of that name.'
+
+        return render.objsearch( cards )
+
+class ObjView ( AuthenticatedPage ):
+    def doGET( self ):
+        params = web.input( oid = None, sid = None )
+
+        if params.oid is None:
+            return renderAlone.error( 'need to supply an oid' )
+
+        filt = { 'id' : params.oid, 'orgs' : session.orgs }
+        if params.sid is not None:
+            if '' == params.sid or 'None' == params.sid or 'null' == params.sid:
+                params.sid = None
+            else:
+                params.sid = uuid.UUID( params.sid )
+                filt[ 'host' ] = params.sid
+        if params.sid is not None:
+            info = model.request( 'get_sensor_info', { 'id_or_host' : params.sid } )
+
+            if not isOrgAllowed( AgentId( info.data[ 'id' ] ).org_id ):
+                return renderAlone.error( 'Unauthorized.' )
+        info = model.request( 'get_obj_view', filt )
+        cards = []
+        if info.isSuccess and 0 != len( info.data ):
+            cards.append( card_object( info.data[ 'id' ], 
+                                       info.data[ 'oname' ],
+                                       info.data[ 'otype' ],
+                                       info.data[ 'olocs' ],
+                                       info.data[ 'locs' ],
+                                       info.data[ 'rlocs' ],
+                                       info.data[ 'parents' ],
+                                       info.data[ 'children' ],
+                                       params.sid ) )
+        elif 0 == len( info.data ):
+            session.notice = 'No object found.'
+        else:
+            session.notice = 'Error fetching object info: %s' % str( info )
+        
+        return render.object( info.data[ 'id' ], info.data[ 'oname' ], info.data[ 'otype' ], cards )
+
+class Exporter ( AuthenticatedPage ):
+    @fileDownload
+    def doGET( self ):
+        params = web.input( sid = None, after = None, before = None, is_json = True, is_flat = False )
+
+        if params.sid is None:
+            return renderAlone.error( 'Must provide a sid.' )
+
+        info = model.request( 'get_sensor_info', { 'id_or_host' : params.sid } )
+        aid = AgentId( info.data[ 'id' ] )
+        if not isOrgAllowed( aid.org_id ):
+            raise web.HTTPError( '401 Unauthorized' )
+
+        req = { 'sid' : params.sid,
+                'is_json' : params.is_json,
+                'is_flat' : params.is_flat,
+                'oid' : aid.org_id, 'by' : session.email }
+        if params.after is not None and '0' != params.after:
+            req[ 'after' ] = int( params.after )
+        if params.before is not None and '0' != params.before:
+            req[ 'before' ] = int( params.before )
+
+        res = dataexporter.request( 'export_sensor', req )
+
+        if not res.isSuccess:
+            raise web.HTTPError( '503 Service Unavailable: %s' % str( res ) )
+
+        setDownloadFileName( res.data[ 'export_name' ] )
+
+        return res.data[ 'export' ]
+
+class HostChanges ( AuthenticatedPage ):
+    @jsonApi
+    def doGET( self ):
+        params = web.input( sensor_id = None )
+
+        if params.sensor_id is None:
+            raise web.HTTPError( '400 Bad Request: sensor id required' )
+
+        info = model.request( 'get_sensor_info', { 'id_or_host' : params.sensor_id } )
+
+        if not isOrgAllowed( AgentId( info.data[ 'id' ] ).org_id ):
+            raise web.HTTPError( '401 Unauthorized' )
+
+        changes = model.request( 'get_host_changes', { 'id' : params.sensor_id } )
+        if not changes.isSuccess:
+            raise web.HTTPError( '503 Service Unavailable: %s' % str( changes ) )
+
+        return changes.data
+
+class Detects ( AuthenticatedPage ):
+    def doGET( self ):
+        params = web.input( before = None, after = None, is_all = False )
+
+        isAll = False if params.is_all is False else True
+        before = int( params.before ) if params.before is not None else None
+        after = int( params.after ) if params.after is not None else None
+        if after is None and before is None:
+            after = int( time.time() ) - ( 60 * 60 * 24 * 7 )
+
+        allDetects = []
+        for oid in session.orgs:
+            detects = model.request( 'get_detects', { 'oid' : oid, 
+                                                      'before' : before, 
+                                                      'after' : after } )
+            if detects.isSuccess:
+                allDetects.extend( detects.data[ 'reports' ] )
+
+        allDetects = sorted( allDetects, key = lambda d: d[ 0 ], reverse = True )
+        
+        cards = []
+        hostcache = {}
+        orgNames = getOrgNames()
+        for detect in allDetects:
+            sensors = [ x for x in detect[ 2 ].split( ' / ' ) ]
+            for sensor in sensors:
+                if sensor not in hostcache:
+                    info = model.request( 'get_sensor_info', { 'id_or_host' : sensor } )
+                    if info.isSuccess:
+                        hostcache[ sensor ] = info.data[ 'hostname' ]
+            info = model.request( 'get_detect', { 'id' : detect[ 1 ], 'with_inv' : True } )
+            investigations = []
+            if info.isSuccess:
+                investigations = info.data[ 'inv' ]
+            cards.append( renderAlone.card_detect( detect, hostcache, orgNames, investigations, isAll ) )
+
+        return render.detects( cards )
+
+class Capabilities ( AuthenticatedPage ):
+    def doPOST( self ):
+        if session.is_admin is not True:
+            session.notice = 'Error: capabilities modifications is limited to administrators.'
+            redirectTo( 'dashboard' )
+
+        params = web.input( urlToAdd = None, nameToRem = None, nameToAdd = None, argsToAdd = None, contentToAdd = None )
 
         cap = {}
 
-        if params.urlToAdd is not None and params.nameToAdd is not None:
-            capabilities.request( 'load', { 'url' : params.urlToAdd,
-                                            'user_defined_name' : params.nameToAdd,
-                                            'args' : params.argsToAdd } )
-        elif params.nameToRem is not None:
-            capabilities.request( 'unload', { 'user_defined_name' : params.nameToRem } )
+        resp = None
+        if ( ( ( params.urlToAdd is not None and params.urlToAdd != '' ) or 
+               ( params.contentToAdd is not None and params.contentToAdd != '' ) ) and ( params.nameToAdd is not None
+                                                                                         and params.nameToAdd != '' ) ):
+            req = { 'user_defined_name' : params.nameToAdd,
+                    'args' : params.argsToAdd }
+            if params.urlToAdd is not None and params.urlToAdd != '':
+                req[ 'url' ] = params.urlToAdd
+            else:
+                req[ 'content' ] = params.contentToAdd
+            resp = capabilities.request( 'load', req )
+        elif params.nameToRem is not None and params.nameToRem != '':
+            resp = capabilities.request( 'unload', { 'user_defined_name' : params.nameToRem } )
 
-        return self.GET()
+        if not resp.isSuccess:
+            session.notice = 'Error: %s' % resp
 
-    def GET( self ):
+        redirectTo( 'capabilities' )
+
+    def doGET( self ):
         params = web.input()
 
         cap = {}
@@ -511,112 +1099,202 @@ class Capabilities:
             cap.update( capReq.data[ 'loadedDetections' ] )
             cap.update( capReq.data[ 'loadedPatrols' ] )
 
-        return render.capabilities( capabilities = cap )
+        return render.capabilities( capabilities = cap, is_admin = session.is_admin )
 
-class Installer:
-    @fileDownload
-    def GET( self ):
-        params = web.input( oid = None, iid = None, hash = None )
+class SetConclusion ( AuthenticatedPage ):
+    def doGET( self ):
+        params = web.input( did = None, hunter = None, nature = None, conclusion = None )
 
-        if params.oid is None or params.iid is None or params.hash is None:
-            raise web.HTTPError( '400 Bad Request: event id required' )
+        if params.did is None:
+            return renderAlone.error( 'need to supply a did' )
 
-        info = model.request( 'get_installer', { 'oid' : params.oid, 'iid' : params.iid, 'hash' : params.hash } )
+        if params.hunter is None:
+            return renderAlone.error( 'need to supply a hunter' )
+
+        try:
+            params.nature = int( params.nature )
+        except:
+            params.nature = None
+
+        try:
+            params.conclusion = int( params.conclusion )
+        except:
+            params.conclusion = None
+
+        if params.nature is None and params.conclusion is None:
+            return renderAlone.error( 'need to supply a nature or conclusion' )
+
+        resp = model.request( 'get_detect', { 'id' : params.did, 
+                                              'with_events' : False,
+                                              'with_inv' : False } )
+        if not resp.isSuccess:
+            session.notice = 'Error: could not find investigation.'
+            redirectTo( '/detects' )
+
+        isAllowed = False
+        try:
+            if isOrgAllowed( AgentId( resp.data[ 'detect' ][ 2 ].split( ' / ' )[ 0 ] ).org_id ):
+                isAllowed = True
+        except:
+            isAllowed = False
+
+        if not isAllowed:
+            return renderAlone.error( 'Unauthorized.' )
+
+        if params.nature is not None:
+            resp = reporting.request( 'set_inv_nature', { 'inv_id' : params.did, 
+                                                          'hunter' : params.hunter, 
+                                                          'nature' : params.nature } )
+
+        if not resp.isSuccess:
+            session.notice = 'Error: %s' % resp
+            redirectTo( '/detects' )
+
+        if params.conclusion is not None:
+            resp = reporting.request( 'set_inv_conclusion', { 'inv_id' : params.did, 
+                                                              'hunter' : params.hunter, 
+                                                              'conclusion' : params.conclusion } )
+
+        if not resp.isSuccess:
+            session.notice = 'Error: %s' % resp
+            redirectTo( '/detects' )
+
+        session.notice = 'Investigation conclusion set.'
+
+        redirectTo( '/detects' )
+
+
+class Blink ( AuthenticatedPage ):
+    def doGET( self ):
+        params = web.input( sid = None, after = None, before = None )
+
+        if params.sid is None:
+            return renderAlone.error( 'Must provide a sid.' )
+
+        if params.after is None or params.after == '':
+            params.after = time.time() - ( 60 * 10 * 1 )
+        params.after = int( params.after )
+
+        if params.before is None or params.before == '':
+            params.before = time.time() + ( 60 * 60 * 1 )
+        params.before = int( params.before )
+
+        info = model.request( 'get_sensor_info', { 'id_or_host' : params.sid } )
+        aid = AgentId( info.data[ 'id' ] )
+        hostname = info.data[ 'hostname' ]
+        if not isOrgAllowed( aid.org_id ):
+            return renderAlone.error( 'Unauthorized.' )
+
+        card = renderAlone.card_blink( aid.sensor_id, hostname, params.after, params.before )
+
+        return render.blink( hostname, card )
+
+class BlinkData ( AuthenticatedPage ):
+    @jsonApi
+    def doGET( self ):
+        params = web.input( sid = None, before = None, after = None )
+
+        if params.sid is None:
+            raise web.HTTPError( '400 Bad Request: sid required' )
+
+        if params.after is None:
+            raise web.HTTPError( '400 Bad Request: after required' )
+
+        if params.before is None:
+            raise web.HTTPError( '400 Bad Request: before required' )
+
+        params.after = int( params.after )
+        params.before = int( params.before )
+
+        info = model.request( 'get_sensor_info', { 'id_or_host' : params.sid } )
+
+        aid = AgentId( info.data[ 'id' ] )
+        if not isOrgAllowed( aid.org_id ):
+            raise web.HTTPError( '401 Unauthorized' )
+        
+        info = blink.request( 'get_host_blink', { 'aid' : aid, 'after' : params.after, 'before' : params.before } )
 
         if not info.isSuccess:
-            raise web.HTTPError( '503 Service Unavailable : %s' % str( info ) )
+            raise web.HTTPError( '503 Service Unavailable: %s' % str( info ) )
 
-        toDownload = None
-        for installer in info.data[ 'installers' ]:
-            if ( installer[ 'oid' ].lower() == params.oid.lower() and 
-                 installer[ 'iid' ].lower() == params.iid.lower() and 
-                 installer[ 'hash' ].lower() == params.hash.lower() ):
-                toDownload = installer
-                break
+        return info.data
 
-        if toDownload is None:
-            return render.error( 'could not find the right installer' )
+class Provision ( AuthenticatedAdminPage ):
+    def doGET( self ):
+        params = web.input( oid = None )
 
-        downloadFileName( '%s__%s' % ( ( toDownload[ 'description' ].replace( '/', '_' )
-                                                                    .replace( '\\', '_' )
-                                                                    .replace( '.', '_' ) ),
-                                       toDownload[ 'hash' ] ) )
+        try:
+            oid = uuid.UUID( params.oid )
+        except:
+            oid = None
 
-        return toDownload[ 'data' ]
+        if oid is None:
+            return renderAlone.error( 'Missing or bad oid.' )
 
-###############################################################################
-# BOILER PLATE
-###############################################################################
-os.chdir( os.path.dirname( os.path.abspath( __file__ ) ) )
+        return render.provision( oid )
 
-urls = ( r'/', 'Index',
-         r'/dashboard', 'Dashboard',
-         r'/sensor', 'Sensor',
-         r'/search', 'Search',
-         r'/sensor_state', 'SensorState',
-         r'/timeline', 'Timeline',
-         r'/explorer', 'Explorer',
-         r'/explorer_view', 'ExplorerView',
-         r'/objsearch', 'ObjSearch',
-         r'/obj', 'ObjViewer',
-         r'/lastevents', 'LastEvents',
-         r'/event', 'EventView',
-         r'/hostobjects', 'HostObjects',
-         r'/detects_data', 'JsonDetects',
-         r'/detects', 'ViewDetects',
-         r'/detect', 'ViewDetect',
-         r'/hostchanges', 'HostChanges',
-         r'/downloadfileinevent', 'DownloadFileInEvent',
-         r'/backend', 'Backend',
-         r'/capabilities', 'Capabilities',
-         r'/installer', 'Installer' )
+class ProvisionKeys ( AuthenticatedAdminPage ):
+    def doPOST( self ):
+        params = web.input( oid = None )
 
-web.config.debug = False
-app = web.application( urls, globals() )
+        try:
+            oid = uuid.UUID( params.oid )
+        except:
+            oid = None
 
-render = web.template.render( 'templates', base = 'base', globals = { 'json' : json,
-                                                                      'msTsToTime' : msTsToTime,
-                                                                      '_x_' : _x_,
-                                                                      '_xm_' : _xm_,
-                                                                      'AgentId' : AgentId,
-                                                                      'hex' : hex,
-                                                                      'sanitize' : sanitizeJson,
-                                                                      'EventInterpreter' : EventInterpreter,
-                                                                      'md' : doMarkdown,
-                                                                      'sorted' : sorted,
-                                                                      'InvestigationNature' : InvestigationNature,
-                                                                      'InvestigationConclusion' : InvestigationConclusion } )
+        if oid is None:
+            return renderAlone.error( 'Missing or bad oid.' )
 
-renderFullPage = web.template.render( 'templates', base = 'base_full', globals = { 'json' : json,
-                                                                                   'msTsToTime' : msTsToTime,
-                                                                                   '_x_' : _x_,
-                                                                                   '_xm_' : _xm_,
-                                                                                   'AgentId' : AgentId,
-                                                                                   'hex' : hex,
-                                                                                   'sanitize' : sanitizeJson,
-                                                                                   'EventInterpreter' : EventInterpreter,
-                                                                                   'md' : doMarkdown,
-                                                                                   'sorted' : sorted,
-                                                                                   'InvestigationNature' : InvestigationNature,
-                                                                                   'InvestigationConclusion' : InvestigationConclusion } )
-eventRender = web.template.render( 'templates/custom_events', globals = { 'json' : json,
-                                                                          'msTsToTime' : msTsToTime,
-                                                                          '_x_' : _x_,
-                                                                          '_xm_' : _xm_,
-                                                                          'AgentId' : AgentId,
-                                                                          'hex' : hex,
-                                                                          'sanitize' : sanitizeJson,
-                                                                          'EventInterpreter' : EventInterpreter,
-                                                                          'sorted' : sorted } )
+        return renderAlone.card_provision_keys( oid )
 
-if len( sys.argv ) < 2:
-    print( "Usage: python app.py beach_config [listen_port]" )
-    sys.exit()
+#==============================================================================
+#   CARDS
+#==============================================================================
+def card_sensor_stats( name, sensors ):
+    return renderAlone.card_sensor_stats( sensors, name )
 
-beach = Beach( sys.argv[ 1 ], realm = 'hcp' )
-del( sys.argv[ 1 ] )
-model = beach.getActorHandle( 'models', nRetries = 3, timeout = 30, ident = 'lc/0bf01f7e-62bd-4cc4-9fec-4c52e82eb903' )
-capabilities = beach.getActorHandle( 'analytics/capabilitymanager', nRetries = 3, timeout = 60, ident = 'lc/0bf01f7e-62bd-4cc4-9fec-4c52e82eb903' )
-sensordir = beach.getActorHandle( 'c2/sensordir', nRetries = 3, timeout = 30, ident = 'lc/0bf01f7e-62bd-4cc4-9fec-4c52e82eb903' )
+def card_org_membership( name, oid ):
+    members = []
+    res = identmanager.request( 'get_org_members', { 'oid' : oid } )
+    if res.isSuccess:
+        for uid, email in res.data[ 'orgs' ][ oid ].iteritems():
+            members.append( ( email, uid ) )
+    return renderAlone.card_org_membership( name, members )
 
-app.run()
+def card_org_retention( name, oid, ttls ):
+    return renderAlone.card_org_retention( name, ttls )
+
+def card_sensors( name, sensors ):
+    return renderAlone.card_sensors( sensors, name )
+
+def card_sensor_ident( aid, hostname, orgName ):
+    return renderAlone.card_sensor_ident( aid, hostname, orgName )
+
+def card_sensor_traffic( aid, hostname, after, before ):
+    return renderAlone.card_sensor_traffic( aid, hostname, after, before )
+
+def card_event_explorer( eid ):
+    return renderAlone.card_event_explorer( eid )
+
+def card_event( event, atom ):
+    return renderAlone.card_event( event, atom )
+
+def card_objsummary( oid, oname, otype ):
+    return renderAlone.card_objsummary( oid, oname, otype )
+
+def card_object( oid, oname, otype, olocs, locs, rlocs, parents, children, sid ):
+    return renderAlone.card_object( oid, oname, otype, olocs, locs, rlocs, parents, children, sid )
+
+def card_sensor_last( aid, hostname ):
+    return renderAlone.card_sensor_last( aid, hostname )
+
+def card_sensor_changes( aid, hostname ):
+    return renderAlone.card_sensor_changes( aid, hostname )
+
+#==============================================================================
+#   START
+#==============================================================================
+if __name__ == '__main__':
+    app.run()
+
+application = app.wsgifunc()

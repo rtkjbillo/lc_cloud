@@ -1,0 +1,30 @@
+$def with ( sensors, orgName )
+<div class="mdl-card mdl-cell mdl-cell--4-col mdl-shadow--4dp std_height">
+  <div class="mdl-card__title">
+    <h4 class="mdl-card__title-text">Sensors Stats: $orgName</h4>
+  </div>
+  <div class="mdl-card__supporting-text">
+    <table class="mdl-data-table mdl-js-data-table mdl-shadow--2dp" style="width: 100%;">
+      <thead>
+        <th class="mdl-data-table__cell--non-numeric">Platform</th>
+        <th>Online / Total</th>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="mdl-data-table__cell--non-numeric click-to-copy"><i class="fa fa-windows fa-2x" aria-hidden="true"></i><b> Windows Sensors</b></td>
+          <td class="click-to-copy">$('%s / %s' % ( len( [ x for x in sensors.values() if AgentId( x[ 'aid' ] ).isWindows() and x[ 'realtime' ] ] ), len( [ x for x in sensors.values() if AgentId( x[ 'aid' ] ).isWindows() ] ) ) )</td>
+        </tr>
+        <tr>
+          <td class="mdl-data-table__cell--non-numeric click-to-copy"><i class="fa fa-apple fa-2x" aria-hidden="true"></i><b> macOS Sensors</b></td>
+          <td class="click-to-copy">$( '%s / %s' % ( len( [ x for x in sensors.values() if AgentId( x[ 'aid' ] ).isMacOSX() and x[ 'realtime' ] ] ), len( [ x for x in sensors.values() if AgentId( x[ 'aid' ] ).isMacOSX() ] ) ) )</td>
+        </tr>
+        <tr>
+          <td class="mdl-data-table__cell--non-numeric click-to-copy"><i class="fa fa-linux fa-2x" aria-hidden="true"></i><b> Linux Sensors</b></td>
+          <td class="click-to-copy">$( '%s / %s' % ( len( [ x for x in sensors.values() if AgentId( x[ 'aid' ] ).isLinux() and x[ 'realtime' ] ] ), len( [ x for x in sensors.values() if AgentId( x[ 'aid' ] ).isLinux() ] ) ) )</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="mdl-card__actions mdl-card--border">
+  </div>
+</div>

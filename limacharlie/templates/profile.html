@@ -1,0 +1,137 @@
+$def with ( orgs, all_orgs, extra_cards)
+$var title = 'Profile'
+<div class="mdl-card mdl-cell mdl-cell--4-col mdl-shadow--4dp std_height">
+  <div class="mdl-card__title">
+    <h2 class="mdl-card__title-text">Member Organizations</h2>
+  </div>
+  <div class="mdl-card__supporting-text">
+    <form method="POST" id="form_member_org">
+      <table class="mdl-data-table mdl-js-data-table mdl-shadow--2dp" style="width: 100%;">
+        <thead>
+          <tr>
+            <th></th>
+            <th class="mdl-data-table__cell--non-numeric">Name</th>
+            <th class="mdl-data-table__cell--non-numeric">OID</th>
+          </tr>
+        </thead>
+        <tbody>
+          $for org in orgs:
+            <tr>
+            <td class="checkbox-col">
+                <label class="mdl-checkbox mdl-js-checkbox mdl-js-ripple-effect mdl-data-table__select">
+                  <input type="checkbox" name="orgs" value="$org[1]" class="mdl-checkbox__input" />
+                </label>
+              </td>
+              <td class="mdl-data-table__cell--non-numeric click-to-copy">$org[ 0 ]</td>
+              <td class="mdl-data-table__cell--non-numeric click-to-copy">$org[ 1 ]</td>
+            </tr>
+        </tbody>
+      </table>
+      <div class="mdl-textfield mdl-js-textfield">
+        <input class="mdl-textfield__input" type="email" id="email" name="email"/>
+        <label class="mdl-textfield__label" for="email">Email</label>
+      </div>
+    </form>
+  </div>
+  <div class="mdl-card__actions mdl-card--border">
+    <center>
+      <button class="mdl-button mdl-button--colored mdl-js-button mdl-js-ripple-effect mdl-button--raised" type="submit" form="form_member_org" name="action" value="leave" onclick="return confirm('Are you sure you want to leave the selected orgs?');">Leave Selected</button>
+      <button class="mdl-button mdl-button--colored mdl-js-button mdl-js-ripple-effect mdl-button--raised" type="submit" form="form_member_org" name="action" value="join" onclick="return confirm('Are you sure you want to add the user to the selected orgs?');">Add to Selected</button>
+      <button class="mdl-button mdl-button--colored mdl-js-button mdl-js-ripple-effect mdl-button--raised" type="submit" form="form_member_org" name="action" value="kick" onclick="return confirm('Are you sure you want to remove the user from the selected orgs?');">Remove from Selected</button>
+    </center>
+  </div>
+</div>
+<div class="mdl-card mdl-cell mdl-cell--4-col mdl-shadow--4dp std_height">
+  <div class="mdl-card__title">
+    <h2 class="mdl-card__title-text">Change Password</h2>
+  </div>
+  <div class="mdl-card__supporting-text">
+    Change password...
+  </div>
+  <div class="mdl-card__actions mdl-card--border">
+    <form method="GET" action="/changepassword">
+      <center>
+        <button class="mdl-button mdl-button--colored mdl-js-button mdl-js-ripple-effect mdl-button--raised" type="submit">Change Password</button>
+      </center>
+    </form>
+  </div>
+</div>
+
+$for card in extra_cards:
+  $:card
+
+$if all_orgs is not None:
+  <div class="mdl-card mdl-cell mdl-cell--4-col mdl-shadow--4dp std_height">  
+    <div class="mdl-card__title">
+      <h2 class="mdl-card__title-text">All Organizations</h2>
+    </div>
+    <div class="mdl-card__supporting-text">
+      <form method="POST" id="form_admin_orgs">
+        <table class="mdl-data-table mdl-js-data-table mdl-shadow--2dp" style="width: 100%;">
+          <thead>
+            <tr>
+              <th></th>
+              <th class="mdl-data-table__cell--non-numeric">Name</th>
+              <th class="mdl-data-table__cell--non-numeric">OID</th>
+            </tr>
+          </thead>
+          <tbody>
+            $for org in all_orgs:
+              <tr>
+                <td class="checkbox-col">
+                  <label class="mdl-checkbox mdl-js-checkbox mdl-js-ripple-effect mdl-data-table__select">
+                    <input type="checkbox" name="orgs" value="$org[1]" class="mdl-checkbox__input" />
+                  </label>
+                </td>
+                <td class="mdl-data-table__cell--non-numeric click-to-copy">$org[ 0 ]</td>
+                <td class="mdl-data-table__cell--non-numeric click-to-copy">$org[ 1 ]</td>
+              </tr>
+          </tbody>
+        </table>
+      </form>
+    </div>
+    <div class="mdl-card__actions mdl-card--border">
+      <center>
+        <button class="mdl-button mdl-button--colored mdl-js-button mdl-js-ripple-effect mdl-button--raised" type="submit" form="form_admin_orgs" name="action" value="admin_join" onclick="return confirm('Are you sure you want to ADMIN-join the selected orgs?');">Join Organizations</button>
+      </center>
+    </div>
+  </div>
+
+  <div class="mdl-card mdl-cell mdl-cell--4-col mdl-shadow--4dp std_height">  
+    <div class="mdl-card__title">
+      <h2 class="mdl-card__title-text">Create/Delete Account</h2>
+    </div>
+    <div class="mdl-card__supporting-text">
+      <form method="POST" id="form_admin_mod_account">
+        <div class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label">
+          <input class="mdl-textfield__input" type="email" id="email" name="email"/>
+          <label class="mdl-textfield__label" for="email">Email</label>
+        </div>
+      </form>
+    </div>
+    <div class="mdl-card__actions mdl-card--border">
+      <center>
+        <button class="mdl-button mdl-button--colored mdl-js-button mdl-js-ripple-effect mdl-button--raised" type="submit" form="form_admin_mod_account" name="action" value="account_create" onclick="return confirm('Are you sure you want to CREATE this acocunt?');">Create Account</button>
+        <button class="mdl-button mdl-button--colored mdl-js-button mdl-js-ripple-effect mdl-button--raised" type="submit" form="form_admin_mod_account" name="action" value="account_delete" onclick="return confirm('Are you sure you want to DELETE this acocunt?');">Delete Account</button>
+      </center>
+    </div>
+  </div>
+
+  <div class="mdl-card mdl-cell mdl-cell--4-col mdl-shadow--4dp std_height">  
+    <div class="mdl-card__title">
+      <h2 class="mdl-card__title-text">Create Org</h2>
+    </div>
+    <div class="mdl-card__supporting-text">
+      <form method="POST" id="form_admin_mod_org">
+        <div class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label">
+          <input class="mdl-textfield__input" type="text" id="orgname" name="orgname"/>
+          <label class="mdl-textfield__label" for="orgname">Org Name</label>
+        </div>
+      </form>
+    </div>
+    <div class="mdl-card__actions mdl-card--border">
+      <center>
+        <button class="mdl-button mdl-button--colored mdl-js-button mdl-js-ripple-effect mdl-button--raised" type="submit" form="form_admin_mod_org" name="action" value="org_create" onclick="return confirm('Are you sure you want to CREATE this org?');">Create Org</button>
+      </center>
+    </div>
+  </div>

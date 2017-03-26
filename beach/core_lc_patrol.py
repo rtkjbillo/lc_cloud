@@ -20,9 +20,11 @@ REPO_ROOT = os.path.join( os.path.dirname( os.path.abspath( __file__ ) ), '..', 
 SCALE_DB = [ 'hcp-scale-db' ]
 
 #######################################
-# EnrollmentManager
-# This actor is responsible for managing
-# enrollment requests from sensors.
+# DeploymentManager
+# This actor is responsible for 
+# managing global deployment related
+# configurations, generating keys
+# and other information for deployments.
 # Parameters:
 # db: the Cassandra seed nodes to
 #    connect to for storage.
@@ -33,29 +35,57 @@ SCALE_DB = [ 'hcp-scale-db' ]
 #    db queries.
 # block_on_queue_size: stop queuing after
 #    n number of items awaiting ingestion.
-# enrollment_token: secret token used
-#    to verify enrolled sensor identities.
 #######################################
-Patrol( 'EnrollmentManager',
+Patrol( 'DeploymentManager',
         initialInstances = 1,
-        maxInstances = 1,
+        maxInstances = None,
         relaunchOnFailure = True,
         onFailureCall = None,
-        scalingFactor = 1000,
-        actorArgs = ( 'c2/EnrollmentManager',
-                      'c2/enrollments/1.0' ),
+        scalingFactor = 5000,
+        actorArgs = ( 'c2/DeploymentManager',
+                      [ 'c2/deploymentmanager/1.0' ] ),
         actorKwArgs = {
-            'resources' : {},
+            'resources' : { 'auditing' : 'c2/audit',
+                            'paging' : 'paging' },
             'parameters' : { 'db' : SCALE_DB,
                              'rate_limit_per_sec' : 200,
                              'max_concurrent' : 5,
                              'block_on_queue_size' : 100,
-                             'enrollment_token' : 'DEFAULT_HCP_ENROLLMENT_TOKEN' },
-            'secretIdent' : 'enrollment/a3bebbb0-00e2-4345-990b-4c36a40b475e',
-            'trustedIdents' : [ 'beacon/09ba97ab-5557-4030-9db0-1dbe7f2b9cfd',
-                                'admin/dde768a4-8f27-4839-9e26-354066c8540e' ],
+                             'admin_oid' : '04a9d860-bcd3-11e6-a56f-8dc8378d2ca2' },
+            'secretIdent' : 'deploymentmanagager/afd2a4e5-3319-4c1c-bef7-dc4456d7a235',
+            'trustedIdents' : [ 'lc/0bf01f7e-62bd-4cc4-9fec-4c52e82eb903',
+                                'vt/8299a488-7fff-4511-a311-76e6600b4a7a',
+                                'paging/31d29b6a-d455-4df7-a196-aec3104f105d',
+                                'beacon/09ba97ab-5557-4030-9db0-1dbe7f2b9cfd' ],
             'n_concurrent' : 5,
-            'isIsolated' : True } )
+            'isIsolated' : True,
+            'strategy' : 'random' } )
+
+#######################################
+# SensorDirectory
+# This actor is responsible for keeping
+# a list of which sensors are online and
+# at which endpoint.
+# Parameters:
+#######################################
+Patrol( 'SensorDirectory',
+        initialInstances = 1,
+        maxInstances = None,
+        relaunchOnFailure = True,
+        onFailureCall = None,
+        scalingFactor = 10000,
+        actorArgs = ( 'c2/SensorDirectory',
+                      [ 'c2/sensordir/1.0' ] ),
+        actorKwArgs = {
+            'resources' : {},
+            'parameters' : {},
+            'secretIdent' : 'sensordir/3babff24-400b-4233-bcac-18f538a88fe1',
+            'trustedIdents' : [ 'beacon/09ba97ab-5557-4030-9db0-1dbe7f2b9cfd',
+                                'taskingproxy/794729aa-1ef5-4930-b377-48dda7b759a5',
+                                'lc/0bf01f7e-62bd-4cc4-9fec-4c52e82eb903' ],
+            'n_concurrent' : 5,
+            'isIsolated' : False,
+            'strategy' : 'random' } )
 
 #######################################
 # StateUpdater
@@ -91,13 +121,13 @@ Patrol( 'StateUpdater',
             'secretIdent' : 'stateupdater/d3c521c6-d5c6-4726-9b0c-84d0ac356409',
             'trustedIdents' : [ 'beacon/09ba97ab-5557-4030-9db0-1dbe7f2b9cfd' ],
             'n_concurrent' : 5,
-            'isIsolated' : True } )
+            'isIsolated' : True,
+            'strategy' : 'random' } )
 
 #######################################
-# PersistentTasking
-# This actor is responsible for updating
-# the current status of connections with
-# sensors.
+# AuditManager
+# This actor is responsible for managing
+# general auditing functions.
 # Parameters:
 # db: the Cassandra seed nodes to
 #    connect to for storage.
@@ -109,51 +139,67 @@ Patrol( 'StateUpdater',
 # block_on_queue_size: stop queuing after
 #    n number of items awaiting ingestion.
 #######################################
-Patrol( 'PersistentTasking',
+Patrol( 'AuditManager',
         initialInstances = 1,
-        maxInstances = None,
+        maxInstances = 1,
         relaunchOnFailure = True,
         onFailureCall = None,
         scalingFactor = 1000,
-        actorArgs = ( 'c2/PersistentTasking',
-                      [ 'c2/persistenttasking/1.0',
-                        'c2/states/persistenttasking/1.0' ] ),
+        actorArgs = ( 'c2/AuditManager',
+                      'c2/audit/1.0' ),
         actorKwArgs = {
-            'resources' : { 'tasking_proxy' : 'c2/taskingproxy/' },
+            'resources' : {},
             'parameters' : { 'db' : SCALE_DB,
                              'rate_limit_per_sec' : 200,
                              'max_concurrent' : 5,
                              'block_on_queue_size' : 100 },
-            'secretIdent' : 'persistenttasking/54158388-2b0b-47c0-9642-f90835b5057b',
+            'secretIdent' : 'audit/46aa388f-3ceb-4c6c-a36a-0cb6416065f9',
+            'trustedIdents' : [ 'lc/0bf01f7e-62bd-4cc4-9fec-4c52e82eb903',
+                                'admin/dde768a4-8f27-4839-9e26-354066c8540e',
+                                'identmanager/f5c3a323-50e5-412a-b711-0e30d8284aa1',
+                                'dataexporter/dbf240e5-e8df-46ac-8b5e-356a291fdd40' ],
+            'n_concurrent' : 5,
+            'isIsolated' : True,
+            'strategy' : 'random' } )
+
+#######################################
+# EnrollmentManager
+# This actor is responsible for managing
+# enrollment requests from sensors.
+# Parameters:
+# db: the Cassandra seed nodes to
+#    connect to for storage.
+# rate_limit_per_sec: number of db ops
+#    per second, limiting to avoid
+#    db overload since C* is bad at that.
+# max_concurrent: number of concurrent
+#    db queries.
+# block_on_queue_size: stop queuing after
+#    n number of items awaiting ingestion.
+# enrollment_token: secret token used
+#    to verify enrolled sensor identities.
+#######################################
+Patrol( 'EnrollmentManager',
+        initialInstances = 1,
+        maxInstances = 1,
+        relaunchOnFailure = True,
+        onFailureCall = None,
+        scalingFactor = 1000,
+        actorArgs = ( 'c2/EnrollmentManager',
+                      'c2/enrollments/1.0' ),
+        actorKwArgs = {
+            'resources' : {},
+            'parameters' : { 'db' : SCALE_DB,
+                             'rate_limit_per_sec' : 200,
+                             'max_concurrent' : 5,
+                             'block_on_queue_size' : 100,
+                             'enrollment_token' : '595f06f1-49cf-48fe-8410-8706dc469116' },
+            'secretIdent' : 'enrollment/a3bebbb0-00e2-4345-990b-4c36a40b475e',
             'trustedIdents' : [ 'beacon/09ba97ab-5557-4030-9db0-1dbe7f2b9cfd',
                                 'admin/dde768a4-8f27-4839-9e26-354066c8540e' ],
             'n_concurrent' : 5,
-            'isIsolated' : True } )
-
-#######################################
-# SensorDirectory
-# This actor is responsible for keeping
-# a list of which sensors are online and
-# at which endpoint.
-# Parameters:
-#######################################
-Patrol( 'SensorDirectory',
-        initialInstances = 1,
-        maxInstances = None,
-        relaunchOnFailure = True,
-        onFailureCall = None,
-        scalingFactor = 10000,
-        actorArgs = ( 'c2/SensorDirectory',
-                      [ 'c2/sensordir/1.0' ] ),
-        actorKwArgs = {
-            'resources' : {},
-            'parameters' : {},
-            'secretIdent' : 'sensordir/3babff24-400b-4233-bcac-18f538a88fe1',
-            'trustedIdents' : [ 'beacon/09ba97ab-5557-4030-9db0-1dbe7f2b9cfd',
-                                'taskingproxy/794729aa-1ef5-4930-b377-48dda7b759a5',
-                                'lc/0bf01f7e-62bd-4cc4-9fec-4c52e82eb903' ],
-            'n_concurrent' : 5,
-            'isIsolated' : False } )
+            'isIsolated' : True,
+            'strategy' : 'random' } )
 
 #######################################
 # TaskingProxy
@@ -178,7 +224,8 @@ Patrol( 'TaskingProxy',
                                 'admin/dde768a4-8f27-4839-9e26-354066c8540e',
                                 'persistenttasking/54158388-2b0b-47c0-9642-f90835b5057b' ],
             'n_concurrent' : 5,
-            'isIsolated' : False } )
+            'isIsolated' : False,
+            'strategy' : 'random' } )
 
 #######################################
 # ModuleManager
@@ -214,7 +261,8 @@ Patrol( 'ModuleManager',
             'trustedIdents' : [ 'beacon/09ba97ab-5557-4030-9db0-1dbe7f2b9cfd',
                                 'admin/dde768a4-8f27-4839-9e26-354066c8540e' ],
             'n_concurrent' : 5,
-            'isIsolated' : True } )
+            'isIsolated' : True,
+            'strategy' : 'random' } )
 
 #######################################
 # AdminEndpoint
@@ -240,7 +288,7 @@ Patrol( 'AdminEndpoint',
         actorArgs = ( 'c2/AdminEndpoint',
                       'c2/admin/1.0' ),
         actorKwArgs = {
-            'resources' : { 'auditing' : 'c2/auditing',
+            'resources' : { 'auditing' : 'c2/audit',
                             'enrollments' : 'c2/enrollments',
                             'module_tasking' : 'c2/modulemanager',
                             'hbs_profiles' : 'c2/hbsprofilemanager',
@@ -253,7 +301,8 @@ Patrol( 'AdminEndpoint',
             'secretIdent' : 'admin/dde768a4-8f27-4839-9e26-354066c8540e',
             'trustedIdents' : [ 'cli/955f6e63-9119-4ba6-a969-84b38bfbcc05' ],
             'n_concurrent' : 5,
-            'isIsolated' : True } )
+            'isIsolated' : True,
+            'strategy' : 'random' } )
 
 #######################################
 # HbsProfileManager
@@ -289,354 +338,51 @@ Patrol( 'HbsProfileManager',
             'trustedIdents' : [ 'beacon/09ba97ab-5557-4030-9db0-1dbe7f2b9cfd',
                                 'admin/dde768a4-8f27-4839-9e26-354066c8540e' ],
             'n_concurrent' : 5,
-            'isIsolated' : True } )
+            'isIsolated' : True,
+            'strategy' : 'random' } )
 
 #######################################
-# EndpointProcessor
-# This actor will process incoming
-# connections from the sensors.
+# IdentManager
+# This actor is responsible for adding
+# and authenticating users.
 # Parameters:
-# _priv_key: the C2 private key.
-# handler_port_*: start and end port
-#    where incoming connections will
-#    be processed.
-# handler_address: the ip address to do
-#    a listen on.
-# handler_interface: the network interface
-#    to listen on, overrides handler_address.
+# db: the Cassandra seed nodes to
+#    connect to for storage.
+# rate_limit_per_sec: number of db ops
+#    per second, limiting to avoid
+#    db overload since C* is bad at that.
+# max_concurrent: number of concurrent
+#    db queries.
+# block_on_queue_size: stop queuing after
+#    n number of items awaiting ingestion.
 #######################################
-Patrol( 'EndpointProcessor',
+Patrol( 'IdentManager',
         initialInstances = 1,
         maxInstances = None,
         relaunchOnFailure = True,
         onFailureCall = None,
-        scalingFactor = 1000,
-        actorArgs = ( 'c2/EndpointProcessor',
-                      'c2/endpoint/1.0' ),
-        actorKwArgs = {
-            'resources' : { 'analytics' : 'analytics/intake',
-                            'enrollments' : 'c2/enrollments',
-                            'states' : 'c2/states/',
-                            'sensordir' : 'c2/sensordir/',
-                            'module_tasking' : 'c2/modulemanager',
-                            'hbs_profiles' : 'c2/hbsprofilemanager' },
-            'parameters' : { '_priv_key' : os.path.join( REPO_ROOT,
-                                                         'keys',
-                                                         'c2_key.pem' ),
-                             '_priv_cert' : os.path.join( REPO_ROOT,
-                                                          'keys',
-                                                          'c2_cert.pem' ) },
-            'secretIdent' : 'beacon/09ba97ab-5557-4030-9db0-1dbe7f2b9cfd',
-            'trustedIdents' : [ 'taskingproxy/794729aa-1ef5-4930-b377-48dda7b759a5',
-                                'endpointproxy/8e7a890b-8016-4396-b012-aec73d055dd6' ],
-            'n_concurrent' : 5,
-            'isIsolated' : False } )
-
-#######################################
-# AssistantEndpoint
-# This actor will serve as a comms
-# endpoint by the admin_lib/cli
-# to administer the LC.
-# Parameters:
-#######################################
-Patrol( 'AssistantEndpoint',
-        initialInstances = 1,
-        maxInstances = None,
-        relaunchOnFailure = True,
         scalingFactor = 5000,
-        actorArgs = ( 'c2/AssistantEndpoint',
-                      'c2/assistant/1.0' ),
+        actorArgs = ( 'c2/IdentManager',
+                      [ 'c2/identmanager/1.0' ] ),
         actorKwArgs = {
-            'resources' : { 'modeling' : 'models' },
-            'parameters' : {},
-            'secretIdent' : 'assistant/2f25cc4a-7386-42c2-af64-04fca2503086',
-            'trustedIdents' : [ 'restbridge/67581309-3aa1-42b6-864e-a14eab681a13' ],
+            'resources' : { 'auditing' : 'c2/audit',
+                            'paging' : 'paging' },
+            'parameters' : { 'db' : SCALE_DB,
+                             'rate_limit_per_sec' : 200,
+                             'max_concurrent' : 5,
+                             'block_on_queue_size' : 100,
+                             'admin_oid' : '04a9d860-bcd3-11e6-a56f-8dc8378d2ca2' },
+            'secretIdent' : 'identmanager/f5c3a323-50e5-412a-b711-0e30d8284aa1',
+            'trustedIdents' : [ 'lc/0bf01f7e-62bd-4cc4-9fec-4c52e82eb903',
+                                'analysis/038528f5-5135-4ca8-b79f-d6b8ffc53bf5',
+                                'reporting/9ddcc95e-274b-4a49-a003-c952d12049b8' ],
             'n_concurrent' : 5,
-            'isIsolated' : False } )
+            'isIsolated' : True,
+            'strategy' : 'random' } )
 
 ###############################################################################
 # Analysis Intake
 ###############################################################################
-
-#######################################
-# AnalyticsIntake
-# This actor receives the messages from
-# the beacons and does initial parsing
-# of components that will be of
-# interest to all analytics and then
-# forwards it on to other components.
-#######################################
-Patrol( 'AnalyticsIntake',
-        initialInstances = 1,
-        maxInstances = None,
-        relaunchOnFailure = True,
-        onFailureCall = None,
-        scalingFactor = 500,
-        actorArgs = ( 'analytics/AnalyticsIntake',
-                      'analytics/intake/1.0' ),
-        actorKwArgs = {
-            'resources' : { 'stateless' : 'analytics/stateless/intake',
-                            'stateful' : 'analytics/stateful/intake',
-                            'modeling' : 'analytics/modeling/intake',
-                            'investigation' : 'analytics/investigation/intake',
-                            'relation_builder' : 'analytics/async/relbuilder' },
-            'parameters' : {},
-            'secretIdent' : 'intake/6058e556-a102-4e51-918e-d36d6d1823db',
-            'trustedIdents' : [ 'beacon/09ba97ab-5557-4030-9db0-1dbe7f2b9cfd' ],
-            'n_concurrent' : 5 } )
-
-#######################################
-# AnalyticsModeling
-# This actor is responsible to model
-# and record the information extracted
-# from the messages in all the different
-# pre-pivoted databases.
-# Parameters:
-# db: the Cassandra seed nodes to
-#    connect to for storage.
-# rate_limit_per_sec: number of db ops
-#    per second, limiting to avoid
-#    db overload since C* is bad at that.
-# max_concurrent: number of concurrent
-#    db queries.
-# block_on_queue_size: stop queuing after
-#    n number of items awaiting ingestion.
-#######################################
-Patrol( 'AnalyticsModeling',
-        initialInstances = 1,
-        maxInstances = None,
-        relaunchOnFailure = True,
-        onFailureCall = None,
-        scalingFactor = 1000,
-        actorArgs = ( 'analytics/AnalyticsModeling',
-                      [ 'analytics/modeling/intake/1.0',
-                        'analytics/modeling/inv/1.0' ] ),
-        actorKwArgs = {
-            'resources' : {},
-            'parameters' : { 'db' : SCALE_DB,
-                             'rate_limit_per_sec' : 400,
-                             'max_concurrent' : 5,
-                             'block_on_queue_size' : 200000,
-                             'retention_raw_events' : ( 60 * 60 * 24 * 14 ),
-                             'retention_investigations' : ( 60 * 60 * 24 * 30 ),
-                             'retention_objects_primary' : ( 60 * 60 * 24 * 365 ),
-                             'retention_objects_secondary' : ( 60 * 60 * 24 * 30 * 6 ),
-                             'retention_explorer' : ( 60 * 60 * 24 * 30 ) },
-            'secretIdent' : 'analysis/038528f5-5135-4ca8-b79f-d6b8ffc53bf5',
-            'trustedIdents' : [ 'intake/6058e556-a102-4e51-918e-d36d6d1823db' ],
-            'n_concurrent' : 5,
-            'isIsolated' : True } )
-
-#######################################
-# AnalyticsStateless
-# This actor responsible for sending
-# messages of the right type to the
-# right stateless detection actors.
-#######################################
-Patrol( 'AnalyticsStateless',
-        initialInstances = 1,
-        maxInstances = None,
-        relaunchOnFailure = True,
-        onFailureCall = None,
-        scalingFactor = 2000,
-        actorArgs = ( 'analytics/AnalyticsStateless',
-                      'analytics/stateless/intake/1.0' ),
-        actorKwArgs = {
-            'resources' : { 'all' : 'analytics/stateless/all/',
-                            'output' : 'analytics/output/events/',
-                            'specific' : 'analytics/stateless/%s/%s/' },
-            'parameters' : {},
-            'secretIdent' : 'analysis/038528f5-5135-4ca8-b79f-d6b8ffc53bf5',
-            'trustedIdents' : [ 'intake/6058e556-a102-4e51-918e-d36d6d1823db' ],
-            'n_concurrent' : 5 } )
-
-#######################################
-# AnalyticsStateful
-# This actor responsible for sending
-# messages of the right type to the
-# right stateful detection actors.
-#######################################
-Patrol( 'AnalyticsStateful',
-        initialInstances = 1,
-        maxInstances = None,
-        relaunchOnFailure = True,
-        onFailureCall = None,
-        scalingFactor = 500,
-        actorArgs = ( 'analytics/AnalyticsStateful',
-                      'analytics/stateful/intake/1.0' ),
-        actorKwArgs = {
-            'resources' : { 'modules' : 'analytics/stateful/modules/%s/' },
-            'parameters' : {},
-            'secretIdent' : 'analysis/038528f5-5135-4ca8-b79f-d6b8ffc53bf5',
-            'trustedIdents' : [ 'intake/6058e556-a102-4e51-918e-d36d6d1823db' ],
-            'n_concurrent' : 5 } )
-
-#######################################
-# AnalyticsReporting
-# This actor receives Detecs from the
-# stateless and stateful detection
-# actors and ingest them into the
-# reporting pipeline.
-# Parameters:
-# db: the Cassandra seed nodes to
-#    connect to for storage.
-# rate_limit_per_sec: number of db ops
-#    per second, limiting to avoid
-#    db overload since C* is bad at that.
-# max_concurrent: number of concurrent
-#    db queries.
-# block_on_queue_size: stop queuing after
-#    n number of items awaiting ingestion.
-# paging_dest: email addresses to page.
-#######################################
-Patrol( 'AnalyticsReporting',
-        initialInstances = 1,
-        maxInstances = None,
-        relaunchOnFailure = True,
-        onFailureCall = None,
-        scalingFactor = 10000,
-        actorArgs = ( 'analytics/AnalyticsReporting',
-                      'analytics/reporting/1.0' ),
-        actorKwArgs = {
-            'resources' : { 'output' : 'analytics/output/detects',
-                            'paging' : 'paging',
-                            'modeling' : 'models' },
-            'parameters' : { 'db' : SCALE_DB,
-                             'rate_limit_per_sec' : 10,
-                             'max_concurrent' : 5,
-                             'block_on_queue_size' : 200000,
-                             'paging_dest' : [] },
-            'secretIdent' : 'reporting/9ddcc95e-274b-4a49-a003-c952d12049b8',
-            'trustedIdents' : [ 'analysis/038528f5-5135-4ca8-b79f-d6b8ffc53bf5',
-                                'hunter/8e0f55c0-6593-4747-9d02-a4937fa79517' ],
-            'n_concurrent' : 5,
-            'isIsolated' : True } )
-
-#######################################
-# CEFDetectsOutput
-# This actor receives Detecs from the
-# reporting actor and outputs them to
-# a CEF-based SIEM.
-# Parameters:
-# siem_server: the log destination.
-# lc_web: the base url for the LC GUI.
-# scale_db: connection information to
-#   Cassandra scale database.
-#######################################
-Patrol( 'CEFOutput',
-        initialInstances = 1,
-        maxInstances = None,
-        relaunchOnFailure = True,
-        onFailureCall = None,
-        scalingFactor = 10000,
-        actorArgs = ( 'analytics/CEFDetectsOutput',
-                      'analytics/output/detects/cef/1.0' ),
-        actorKwArgs = {
-            'resources' : {},
-            'parameters' : { 'siem_server' : '/dev/log',
-                             'lc_web' : '127.0.0.1',
-                             'scale_db' : SCALE_DB },
-            'secretIdent' : 'output/bf73a858-8f05-45ab-9ead-05493e29429a',
-            'trustedIdents' : [ 'reporting/9ddcc95e-274b-4a49-a003-c952d12049b8' ],
-            'n_concurrent' : 5,
-            'isIsolated' : True } )
-
-#######################################
-# FileEventsOutput
-# This actor writes out all events as
-# files to the disk for ingestion in
-# other systems like Splunk.
-# Parameters:
-# output_dir: the directory where
-#   events get written to.
-# max_bytes: max size of single log
-#   file before being rotated.
-# backup_count: number of rotated 
-#   files to keep.
-# is_flat: set to True to format events
-#   into flat key/value records on 
-#   systems that don't support nesting
-#   like LogStash
-#######################################
-Patrol( 'FileEventsOutput',
-        initialInstances = 1,
-        maxInstances = None,
-        relaunchOnFailure = True,
-        onFailureCall = None,
-        scalingFactor = 10000,
-        actorArgs = ( 'analytics/FileEventsOutput',
-                      'analytics/output/events/file/1.0',
-                      'analytics/output/detects/file/1.0' ),
-        actorKwArgs = {
-            'resources' : {},
-            'parameters' : { 'output_dir' : '/tmp/lc_out/',
-                             'is_flat' : False },
-            'secretIdent' : 'output/bf73a858-8f05-45ab-9ead-05493e29429a',
-            'trustedIdents' : [ 'analysis/038528f5-5135-4ca8-b79f-d6b8ffc53bf5' ],
-            'n_concurrent' : 5,
-            'isIsolated' : False } )
-
-#######################################
-# AnalyticsInvestigation
-# This actor responsible for sending
-# messages to the actors interested in
-# specific investigations.
-# Parameters:
-# ttl: the number of seconds the data
-#    flow for an investigation remains
-#    open after last data seen.
-#######################################
-Patrol( 'AnalyticsInvestigation',
-        initialInstances = 1,
-        maxInstances = None,
-        relaunchOnFailure = True,
-        onFailureCall = None,
-        scalingFactor = 1000,
-        actorArgs = ( 'analytics/AnalyticsInvestigation',
-                      'analytics/investigation/intake/1.0' ),
-        actorKwArgs = {
-            'resources' : { 'investigations' : 'analytics/inv_id/%s' },
-            'parameters' : { 'ttl' : ( 60 * 60 * 24 ) },
-            'secretIdent' : 'analysis/038528f5-5135-4ca8-b79f-d6b8ffc53bf5',
-            'trustedIdents' : [ 'intake/6058e556-a102-4e51-918e-d36d6d1823db' ],
-            'n_concurrent' : 5 } )
-
-#######################################
-# ModelView
-# This actor is responsible to query
-# the model to retrieve different
-# advanced queries for UI or for
-# other detection mechanisms.
-# Parameters:
-# db: the Cassandra seed nodes to
-#    connect to for storage.
-# rate_limit_per_sec: number of db ops
-#    per second, limiting to avoid
-#    db overload since C* is bad at that.
-# max_concurrent: number of concurrent
-#    db queries.
-# block_on_queue_size: stop queuing after
-#    n number of items awaiting ingestion.
-#######################################
-Patrol( 'AnalyticsModelView',
-        initialInstances = 1,
-        maxInstances = None,
-        relaunchOnFailure = True,
-        onFailureCall = None,
-        scalingFactor = 1000,
-        actorArgs = ( 'analytics/ModelView',
-                      'models/1.0' ),
-        actorKwArgs = {
-            'resources' : {},
-            'parameters' : { 'scale_db' : SCALE_DB,
-                             'rate_limit_per_sec' : 500,
-                             'max_concurrent' : 10 },
-            'trustedIdents' : [ 'lc/0bf01f7e-62bd-4cc4-9fec-4c52e82eb903',
-                                'hunter/8e0f55c0-6593-4747-9d02-a4937fa79517',
-                                'assistant/2f25cc4a-7386-42c2-af64-04fca2503086',
-                                'virustotal/697bfbf7-aa78-41f3-adb8-26f59bdba0da' ],
-            'n_concurrent' : 5,
-            'isIsolated' : True } )
 
 #######################################
 # AutoTasking
@@ -686,8 +432,62 @@ Patrol( 'AutoTasking',
                                            'yara_update' ],
                              'log_file' : './admin_cli.log' },
             'secretIdent' : 'autotasking/a6cd8d9a-a90c-42ec-bd60-0519b6fb1f64',
-            'trustedIdents' : [ 'analysis/038528f5-5135-4ca8-b79f-d6b8ffc53bf5',
+            'trustedIdents' : [ 'analysis/01e9a19d-78e1-4c37-9a6e-37cb592e3897',
                                 'hunter/8e0f55c0-6593-4747-9d02-a4937fa79517' ],
+            'n_concurrent' : 5,
+            'isIsolated' : True } )
+
+#######################################
+# AnalyticsIntake
+# This actor receives the messages from
+# the beacons and does initial parsing
+# of components that will be of
+# interest to all analytics and then
+# forwards it on to other components.
+#######################################
+Patrol( 'AnalyticsIntake',
+        initialInstances = 1,
+        maxInstances = None,
+        relaunchOnFailure = True,
+        onFailureCall = None,
+        scalingFactor = 500,
+        actorArgs = ( 'analytics/AnalyticsIntake',
+                      'analytics/intake/1.0' ),
+        actorKwArgs = {
+            'resources' : { 'stateless' : 'analytics/stateless/intake',
+                            'stateful' : 'analytics/stateful/intake',
+                            'modeling' : 'analytics/modeling/intake',
+                            'investigation' : 'analytics/investigation/intake',
+                            'relation_builder' : 'analytics/async/relbuilder' },
+            'parameters' : {},
+            'secretIdent' : 'intake/6058e556-a102-4e51-918e-d36d6d1823db',
+            'trustedIdents' : [ 'beacon/09ba97ab-5557-4030-9db0-1dbe7f2b9cfd' ],
+            'n_concurrent' : 5,
+        'strategy' : 'random' } )
+
+#######################################
+# AnalyticsInvestigation
+# This actor responsible for sending
+# messages to the actors interested in
+# specific investigations.
+# Parameters:
+# ttl: the number of seconds the data
+#    flow for an investigation remains
+#    open after last data seen.
+#######################################
+Patrol( 'AnalyticsInvestigation',
+        initialInstances = 1,
+        maxInstances = None,
+        relaunchOnFailure = True,
+        onFailureCall = None,
+        scalingFactor = 1000,
+        actorArgs = ( 'analytics/AnalyticsInvestigation',
+                      'analytics/investigation/intake/1.0' ),
+        actorKwArgs = {
+            'resources' : { 'investigations' : 'analytics/inv_id/%s' },
+            'parameters' : { 'ttl' : ( 60 * 60 * 24 ) },
+            'secretIdent' : 'analysis/01e9a19d-78e1-4c37-9a6e-37cb592e3897',
+            'trustedIdents' : [ 'intake/6058e556-a102-4e51-918e-d36d6d1823db' ],
             'n_concurrent' : 5 } )
 
 #######################################
@@ -713,30 +513,86 @@ Patrol( 'HuntsManager',
             'n_concurrent' : 5 } )
 
 #######################################
-# CapabilityManager
-# This actor manages backend capabilities
-# loaded as stateless, stateful or hunters.
+# AnalyticsModeling
+# This actor is responsible to model
+# and record the information extracted
+# from the messages in all the different
+# pre-pivoted databases.
 # Parameters:
+# db: the Cassandra seed nodes to
+#    connect to for storage.
+# rate_limit_per_sec: number of db ops
+#    per second, limiting to avoid
+#    db overload since C* is bad at that.
+# max_concurrent: number of concurrent
+#    db queries.
+# block_on_queue_size: stop queuing after
+#    n number of items awaiting ingestion.
 #######################################
-Patrol( 'CapabilityManager',
+Patrol( 'AnalyticsModeling',
         initialInstances = 1,
-        maxInstances = 1,
+        maxInstances = None,
         relaunchOnFailure = True,
         onFailureCall = None,
-        scalingFactor = 10000,
-        actorArgs = ( 'analytics/CapabilityManager',
-                      'analytics/capabilitymanager/1.0' ),
+        scalingFactor = 100,
+        actorArgs = ( 'analytics/AnalyticsModeling',
+                      [ 'analytics/modeling/intake/1.0',
+                        'analytics/modeling/inv/1.0' ] ),
+        actorKwArgs = {
+            'resources' : { 'identmanager' : 'c2/identmanager' },
+            'parameters' : { 'db' : SCALE_DB,
+                             'rate_limit_per_sec' : 1000,
+                             'max_concurrent' : 5,
+                             'block_on_queue_size' : 200000,
+                             'retention_raw_events' : ( 60 * 60 * 24 * 14 ),
+                             'retention_investigations' : ( 60 * 60 * 24 * 30 ),
+                             'retention_objects_primary' : ( 60 * 60 * 24 * 365 ),
+                             'retention_objects_secondary' : ( 60 * 60 * 24 * 30 * 6 ),
+                             'retention_explorer' : ( 60 * 60 * 24 * 30 ) },
+            'secretIdent' : 'analysis/038528f5-5135-4ca8-b79f-d6b8ffc53bf5',
+            'trustedIdents' : [ 'intake/6058e556-a102-4e51-918e-d36d6d1823db' ],
+            'n_concurrent' : 5,
+            'isIsolated' : True,
+            'strategy' : 'random' } )
+
+#######################################
+# ModelView
+# This actor is responsible to query
+# the model to retrieve different
+# advanced queries for UI or for
+# other detection mechanisms.
+# Parameters:
+# db: the Cassandra seed nodes to
+#    connect to for storage.
+# rate_limit_per_sec: number of db ops
+#    per second, limiting to avoid
+#    db overload since C* is bad at that.
+# max_concurrent: number of concurrent
+#    db queries.
+# block_on_queue_size: stop queuing after
+#    n number of items awaiting ingestion.
+#######################################
+Patrol( 'AnalyticsModelView',
+        initialInstances = 1,
+        maxInstances = None,
+        relaunchOnFailure = True,
+        onFailureCall = None,
+        scalingFactor = 1000,
+        actorArgs = ( 'analytics/ModelView',
+                      'models/1.0' ),
         actorKwArgs = {
             'resources' : {},
-            'parameters' : { 'scale' : 10,
-                             'detect_secret_ident' : 'analysis/038528f5-5135-4ca8-b79f-d6b8ffc53bf5',
-                             'hunter_secret_ident' : 'hunter/8e0f55c0-6593-4747-9d02-a4937fa79517',
-                             'detect_trusted_ident' : 'analysis/038528f5-5135-4ca8-b79f-d6b8ffc53bf5',
-                             'hunter_trusted_ident' : 'analysis/038528f5-5135-4ca8-b79f-d6b8ffc53bf5' },
-            'secretIdent' : 'huntsmanager/d666cbc3-38d5-4086-b9ce-c543625ee45c',
-            'trustedIdents' : [ 'hunter/8e0f55c0-6593-4747-9d02-a4937fa79517',
-                                'lc/0bf01f7e-62bd-4cc4-9fec-4c52e82eb903' ],
-            'n_concurrent' : 5 } )
+            'parameters' : { 'scale_db' : SCALE_DB,
+                             'rate_limit_per_sec' : 500,
+                             'max_concurrent' : 10 },
+            'trustedIdents' : [ 'lc/0bf01f7e-62bd-4cc4-9fec-4c52e82eb903',
+                                'hunter/8e0f55c0-6593-4747-9d02-a4937fa79517',
+                                'assistant/2f25cc4a-7386-42c2-af64-04fca2503086',
+                                'vt/8299a488-7fff-4511-a311-76e6600b4a7a',
+                                'dataexporter/dbf240e5-e8df-46ac-8b5e-356a291fdd40' ],
+            'n_concurrent' : 5,
+            'isIsolated' : True,
+            'strategy' : 'random' } )
 
 #######################################
 # PagingActor
@@ -744,7 +600,6 @@ Patrol( 'CapabilityManager',
 # pages by email.
 # Parameters:
 # from: email/user to send page from.
-# user: the email account to use.
 # password: password of the account
 #    used to send.
 # smtp_server: URI of the smtp server.
@@ -759,11 +614,39 @@ Patrol( 'PagingActor',
         actorArgs = ( 'PagingActor',
                       'paging/1.0' ),
         actorKwArgs = {
-            'resources' : {},
+            'resources' : { 'deployment' : 'c2/deploymentmanager' },
             'parameters' : {},
             'secretIdent' : 'paging/31d29b6a-d455-4df7-a196-aec3104f105d',
-            'trustedIdents' : [ 'reporting/9ddcc95e-274b-4a49-a003-c952d12049b8' ],
-            'n_concurrent' : 5 } )
+            'trustedIdents' : [ 'reporting/9ddcc95e-274b-4a49-a003-c952d12049b8',
+                                'lc/0bf01f7e-62bd-4cc4-9fec-4c52e82eb903',
+                                'identmanager/f5c3a323-50e5-412a-b711-0e30d8284aa1' ],
+            'n_concurrent' : 5,
+            'strategy' : 'random' } )
+
+#######################################
+# DataExporter
+# This actor is responsible for exporting
+# all types of data collected by LC into
+# various formats.
+# Parameters:
+#######################################
+Patrol( 'DataExporter',
+        initialInstances = 1,
+        maxInstances = None,
+        relaunchOnFailure = True,
+        onFailureCall = None,
+        scalingFactor = 1000,
+        actorArgs = ( 'analytics/DataExporter',
+                      [ 'analytics/dataexporter/1.0' ] ),
+        actorKwArgs = {
+            'resources' : { 'models' : 'models/',
+                            'auditing' : 'c2/audit' },
+            'parameters' : {},
+            'secretIdent' : 'dataexporter/dbf240e5-e8df-46ac-8b5e-356a291fdd40',
+            'trustedIdents' : [ 'lc/0bf01f7e-62bd-4cc4-9fec-4c52e82eb903' ],
+            'n_concurrent' : 5,
+            'isIsolated' : True,
+            'strategy' : 'random' } )
 
 #######################################
 # VirusTotalActor
@@ -788,14 +671,14 @@ Patrol( 'VirusTotalActor',
         actorArgs = ( 'analytics/VirusTotalActor',
                       'analytics/virustotal/1.0' ),
         actorKwArgs = {
-            'resources' : { 'modeling' : 'models' },
-            'parameters' : { 'qpm' : 4, 
-                             'ttl' : ( 60 * 60 * 24 ),
-                             '_key' : None },
-            'secretIdent' : 'virustotal/697bfbf7-aa78-41f3-adb8-26f59bdba0da',
-            'trustedIdents' : [ 'analysis/038528f5-5135-4ca8-b79f-d6b8ffc53bf5',
+            'resources' : { 'modeling' : 'models',
+                            'deployment' : 'c2/deploymentmanager' },
+            'parameters' : { 'qpm' : 4,
+                             'ttl' : ( 60 * 60 * 24 ) },
+            'secretIdent' : 'vt/8299a488-7fff-4511-a311-76e6600b4a7a',
+            'trustedIdents' : [ 'analysis/01e9a19d-78e1-4c37-9a6e-37cb592e3897',
                                 'hunter/8e0f55c0-6593-4747-9d02-a4937fa79517' ],
-            'n_concurrent' : 1 } )
+            'n_concurrent' : 50 } )
 
 #######################################
 # AlexaDNS
@@ -817,27 +700,194 @@ Patrol( 'AlexaDNS',
             'resources' : {},
             'parameters' : {},
             'secretIdent' : 'alexadns/e1527553-815b-4dd5-8a40-708a287605b4',
-            'trustedIdents' : [ 'analysis/038528f5-5135-4ca8-b79f-d6b8ffc53bf5',
-                                'hunter/8e0f55c0-6593-4747-9d02-a4937fa79517' ],
+            'trustedIdents' : [ 'analysis/01e9a19d-78e1-4c37-9a6e-37cb592e3897',
+                                'hunter/8e0f55c0-6593-4747-9d02-a4937fa79517',
+                                'blink/6babf560-88db-403d-a5f6-3689397e0104' ],
             'n_concurrent' : 10 } )
 
 #######################################
-# YaraUpdater
-# This actor does not generate detects,
-# it merely updates new sensor coming
-# online with the most recent Yara rules.
+# AnalyticsStateless
+# This actor responsible for sending
+# messages of the right type to the
+# right stateless detection actors.
 #######################################
-Patrol( 'YaraUpdater',
+Patrol( 'AnalyticsStateless',
+        initialInstances = 1,
+        maxInstances = None,
+        relaunchOnFailure = True,
+        onFailureCall = None,
+        scalingFactor = 2000,
+        actorArgs = ( 'analytics/AnalyticsStateless',
+                      'analytics/stateless/intake/1.0' ),
+        actorKwArgs = {
+            'resources' : { 'all' : 'analytics/stateless/all/',
+                            'output' : 'analytics/output/events/',
+                            'specific' : 'analytics/stateless/%s/%s/' },
+            'parameters' : {},
+            'secretIdent' : 'analysis/01e9a19d-78e1-4c37-9a6e-37cb592e3897',
+            'trustedIdents' : [ 'intake/6058e556-a102-4e51-918e-d36d6d1823db' ],
+            'n_concurrent' : 5 } )
+
+#######################################
+# AnalyticsStateful
+# This actor responsible for sending
+# messages of the right type to the
+# right stateful detection actors.
+#######################################
+Patrol( 'AnalyticsStateful',
+        initialInstances = 1,
+        maxInstances = None,
+        relaunchOnFailure = True,
+        onFailureCall = None,
+        scalingFactor = 500,
+        actorArgs = ( 'analytics/AnalyticsStateful',
+                      'analytics/stateful/intake/1.0' ),
+        actorKwArgs = {
+            'resources' : { 'modules' : 'analytics/stateful/modules/%s/' },
+            'parameters' : {},
+            'secretIdent' : 'analysis/01e9a19d-78e1-4c37-9a6e-37cb592e3897',
+            'trustedIdents' : [ 'intake/6058e556-a102-4e51-918e-d36d6d1823db' ],
+            'n_concurrent' : 5 } )
+
+#######################################
+# AnalyticsReporting
+# This actor receives Detecs from the
+# stateless and stateful detection
+# actors and ingest them into the
+# reporting pipeline.
+# Parameters:
+# db: the Cassandra seed nodes to
+#    connect to for storage.
+# rate_limit_per_sec: number of db ops
+#    per second, limiting to avoid
+#    db overload since C* is bad at that.
+# max_concurrent: number of concurrent
+#    db queries.
+# block_on_queue_size: stop queuing after
+#    n number of items awaiting ingestion.
+# paging_dest: email addresses to page.
+#######################################
+Patrol( 'AnalyticsReporting',
         initialInstances = 1,
         maxInstances = None,
         relaunchOnFailure = True,
         onFailureCall = None,
         scalingFactor = 10000,
-        actorArgs = ( 'analytics/YaraUpdater',
-                      'analytics/stateless/common/notification.STARTING_UP/yaraupdater/1.0' ),
+        actorArgs = ( 'analytics/AnalyticsReporting',
+                      'analytics/reporting/1.0' ),
         actorKwArgs = {
-            'parameters' : { 'rules_dir' : 'hcp/analytics/yara_rules/',
-                             'remote_rules' : { 'windows/yararules.com.yar' : 'http://yararules.com/rules/malware.yar' } },
-            'secretIdent' : 'analysis/038528f5-5135-4ca8-b79f-d6b8ffc53bf5',
-            'trustedIdents' : [ 'analysis/038528f5-5135-4ca8-b79f-d6b8ffc53bf5' ],
+            'resources' : { 'output' : 'analytics/output/detects',
+                            'paging' : 'paging',
+                            'identmanager' : 'c2/identmanager',
+                            'modeling' : 'models' },
+            'parameters' : { 'db' : SCALE_DB,
+                             'rate_limit_per_sec' : 10,
+                             'max_concurrent' : 5,
+                             'block_on_queue_size' : 200000,
+                             'paging_dest' : [],
+                             'retention_investigations' : 60 * 60 * 24 * 7 },
+            'secretIdent' : 'reporting/9ddcc95e-274b-4a49-a003-c952d12049b8',
+            'trustedIdents' : [ 'analysis/01e9a19d-78e1-4c37-9a6e-37cb592e3897',
+                                'hunter/8e0f55c0-6593-4747-9d02-a4937fa79517',
+                                'lc/0bf01f7e-62bd-4cc4-9fec-4c52e82eb903' ],
+            'n_concurrent' : 5,
+            'isIsolated' : True } )
+
+#######################################
+# CapabilityManager
+# This actor manages backend capabilities
+# loaded as stateless, stateful or hunters.
+# Parameters:
+#######################################
+Patrol( 'CapabilityManager',
+        initialInstances = 1,
+        maxInstances = 1,
+        relaunchOnFailure = True,
+        onFailureCall = None,
+        scalingFactor = 10000,
+        actorArgs = ( 'analytics/CapabilityManager',
+                      'analytics/capabilitymanager/1.0' ),
+        actorKwArgs = {
+            'resources' : {},
+            'parameters' : { 'scale' : 50,
+                             'detect_secret_ident' : 'analysis/01e9a19d-78e1-4c37-9a6e-37cb592e3897',
+                             'hunter_secret_ident' : 'hunter/8e0f55c0-6593-4747-9d02-a4937fa79517',
+                             'detect_trusted_ident' : 'analysis/01e9a19d-78e1-4c37-9a6e-37cb592e3897',
+                             'hunter_trusted_ident' : 'analysis/01e9a19d-78e1-4c37-9a6e-37cb592e3897' },
+            'secretIdent' : 'capabilitymanager/4fe13a22-0ca1-4e1f-aa33-20f045db2fb6',
+            'trustedIdents' : [ 'hunter/8e0f55c0-6593-4747-9d02-a4937fa79517',
+                                'lc/0bf01f7e-62bd-4cc4-9fec-4c52e82eb903' ],
             'n_concurrent' : 5 } )
+
+#######################################
+# BlinkModel
+# This actor is responsible for managing
+# enrollment requests from sensors.
+# Parameters:
+# db: the Cassandra seed nodes to
+#    connect to for storage.
+# rate_limit_per_sec: number of db ops
+#    per second, limiting to avoid
+#    db overload since C* is bad at that.
+# max_concurrent: number of concurrent
+#    db queries.
+# block_on_queue_size: stop queuing after
+#    n number of items awaiting ingestion.
+#######################################
+Patrol( 'BlinkModel',
+        initialInstances = 1,
+        maxInstances = None,
+        relaunchOnFailure = True,
+        onFailureCall = None,
+        scalingFactor = 1000,
+        actorArgs = ( 'analytics/BlinkModel',
+                      'analytics/blinkmodel/1.0' ),
+        actorKwArgs = {
+            'resources' : {},
+            'parameters' : { 'scale_db' : SCALE_DB,
+                             'rate_limit_per_sec' : 200,
+                             'max_concurrent' : 5,
+                             'block_on_queue_size' : 100 },
+            'secretIdent' : 'blink/6babf560-88db-403d-a5f6-3689397e0104',
+            'trustedIdents' : [ 'lc/0bf01f7e-62bd-4cc4-9fec-4c52e82eb903' ],
+            'n_concurrent' : 5,
+            'isIsolated' : True,
+            'strategy' : 'random' } )
+
+#######################################
+# EndpointProcessor
+# This actor will process incoming
+# connections from the sensors.
+# Parameters:
+# _priv_key: the C2 private key.
+# handler_port_*: start and end port
+#    where incoming connections will
+#    be processed.
+# handler_address: the ip address to do
+#    a listen on.
+# handler_interface: the network interface
+#    to listen on, overrides handler_address.
+#######################################
+Patrol( 'EndpointProcessor',
+        initialInstances = 1,
+        maxInstances = None,
+        relaunchOnFailure = True,
+        onFailureCall = None,
+        scalingFactor = 1000,
+        actorArgs = ( 'c2/EndpointProcessor',
+                      'c2/endpoint/1.0' ),
+        actorKwArgs = {
+            'resources' : { 'analytics' : 'analytics/intake',
+                            'enrollments' : 'c2/enrollments',
+                            'states' : 'c2/states/',
+                            'sensordir' : 'c2/sensordir/',
+                            'module_tasking' : 'c2/modulemanager',
+                            'hbs_profiles' : 'c2/hbsprofilemanager',
+                            'deployment' : 'c2/deploymentmanager' },
+            'parameters' : { 'handler_interface' : 'eth1' },
+            'secretIdent' : 'beacon/09ba97ab-5557-4030-9db0-1dbe7f2b9cfd',
+            'trustedIdents' : [ 'taskingproxy/794729aa-1ef5-4930-b377-48dda7b759a5',
+                                'endpointproxy/8e7a890b-8016-4396-b012-aec73d055dd6' ],
+            'n_concurrent' : 5,
+            'isIsolated' : False,
+            'strategy' : 'random' } )
