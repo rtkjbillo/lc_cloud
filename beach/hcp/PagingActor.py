@@ -28,12 +28,8 @@ class PagingActor( Actor ):
         self.smtpServer = parameters.get( 'smtp_server', 'smtp.gmail.com' )
         self.smtpPort = parameters.get( 'smtp_port', '587' )
         if self.user is None:
-            resp = self.deploymentManager.request( 'get_global_config', {} )
-            if resp.isSuccess:
-                self.fromAddr = resp.data[ 'global/paging_from' ]
-                self.user = resp.data[ 'global/paging_user' ]
-                self.password = resp.data[ 'global/paging_password' ]
-                self.log( 'got credentials from deployment manager' )
+            self.refreshCredentials()
+            self.log( 'got credentials from deployment manager' )
         else:
             self.log( 'got credentials from parameters' )
 
@@ -45,8 +41,22 @@ class PagingActor( Actor ):
     def deinit( self ):
         pass
 
+    def refreshCredentials( self ):
+        resp = self.deploymentManager.request( 'get_global_config', {} )
+        if resp.isSuccess:
+            fromAddr = resp.data[ 'global/paging_from' ]
+            user = resp.data[ 'global/paging_user' ]
+            password = resp.data[ 'global/paging_password' ]
+            if '' == user:
+                self.user = None
+            if '' == password:
+                self.password = None
+            if '' == fromAddr:
+                self.fromAddr = None
+        self.delay( 60, self.refreshCredentials )
+
     def page( self, msg ):
-        if self.fromAddr is None or self.password is None: return ( True, )
+        if self.fromAddr is None or self.password is None: return ( False, )
         toAddr = msg.data.get( 'to', None )
         message = msg.data.get( 'msg', None )
         subject = msg.data.get( 'subject', None )

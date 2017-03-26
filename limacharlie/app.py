@@ -81,7 +81,8 @@ urls = (
 )
 
 ADMIN_OID = uuid.UUID( 'a4cf1d41-eca9-4d6f-93cd-f429e7dfd501' )
-ADMIN_EMAIL = 'admin@limacharlie'
+DOMAIN_NAME = 'limacharlie'
+ADMIN_EMAIL = 'admin@%s' % DOMAIN_NAME
 
 ROOT_DIRECTORY = os.path.dirname( os.path.abspath( __file__ ) )
 os.chdir( ROOT_DIRECTORY )
@@ -366,8 +367,6 @@ class Login:
             session._tmp_otp = info.data.get( 'otp', None )
             if ADMIN_OID in session.orgs:
                 session.is_admin = True
-            print( session )
-            print( info )
             redirectTo( 'dashboard' )
 
         return renderAlone.error( 'Invalid email, password or 2nd factor.' )
@@ -557,11 +556,11 @@ class Profile ( AuthenticatedPage ):
             if res.isSuccess and res.data[ 'is_created' ] is True:
                 confirmToken = res.data[ 'confirmation_token' ]
                 res = page.request( 'page', { 'to' : params.email, 
-                                              'msg' : '\n'.join( [ 'Your new LimaCharlie.io account has been created.',
+                                              'msg' : '\n'.join( [ 'Your new %s account has been created.' % DOMAIN_NAME,
                                                                    '',
-                                                                   'You can now login at limacharlie.io with the temporary password: %s' % tempPassword,
+                                                                   'You can now login at %s with the temporary password: %s' % ( DOMAIN_NAME, tempPassword ),
                                                                    '',
-                                                                   'Confirm your email address by following this link: <a href="https://limacharlie.io/confirm_email?token=%s&email=%s">https://limacharlie.io/confirm_email?token=%s&email=%s</a>' % ( confirmToken, params.email, confirmToken, params.email ),
+                                                                   'Confirm your email address by following this link: <a href="http://%s/confirm_email?token=%s&email=%s">http://%s/confirm_email?token=%s&email=%s</a>' % ( DOMAIN_NAME, confirmToken, params.email, DOMAIN_NAME, confirmToken, params.email ),
                                                                    '',
                                                                    'Get help and stay up to date the following ways:',
                                                                    ' - Twitter: @rp_limacharlie',
@@ -571,12 +570,11 @@ class Profile ( AuthenticatedPage ):
                                                                    ' - YouTube Tutorials: <a href="https://www.youtube.com/channel/UCR0GhNmc4gVcD9Uj07HS5AA">https://www.youtube.com/channel/UCR0GhNmc4gVcD9Uj07HS5AA</a>',
                                                                    '',
                                                                    '',
-                                                                   'The LimaCharlie.io team.' ] ), 
-                                              'subject' : 'LimaCharlie.io Account Created' } )
+                                                                   'The %s team.' % DOMAIN_NAME ] ), 
+                                              'subject' : '%s Account Created' % DOMAIN_NAME } )
                 if not res.isSuccess:
-                    identmanager.shoot( 'delete_user', { 'email' : params.email, 'by' : 'limacharlie.io' } )
-                    session.notice = 'Account created but automated email failed, try again later: %s.' % res
-                    redirectTo( 'profile' )
+                    link = 'http://%s/confirm_email?token=%s&email=%s' % ( DOMAIN_NAME, confirmToken, params.email )
+                    return renderAlone.error( 'Failed to send automated email, is your paging email account configured? User is created, copy this confirmation link (that could not be email), the user MUST use this link to login for the first time: %s' % link )
                 session.notice = 'Success creating user %s' % params.email
             else:
                 session.notice = 'Error creating users: %s' % res
