@@ -17,6 +17,7 @@ monkey.patch_all()
 
 from beach.beach_api import Beach
 
+import os
 import web
 from functools import wraps
 import uuid
@@ -79,12 +80,15 @@ urls = (
     '/provision_sensors', 'ProvisionSensors',
 )
 
-ADMIN_OID = uuid.UUID( '00000000-0000-0000-0000-000000000000' )
-ADMIN_EMAIL = 'admin@org'
+ADMIN_OID = uuid.UUID( 'a4cf1d41-eca9-4d6f-93cd-f429e7dfd501' )
+ADMIN_EMAIL = 'admin@limacharlie'
+
+ROOT_DIRECTORY = os.path.dirname( os.path.abspath( __file__ ) )
+os.chdir( ROOT_DIRECTORY )
 
 web.config.debug = False
 web.config.session_parameters['cookie_name'] = 'lc_session'
-web.config.session_parameters['cookie_domain'] = 'limacharlie'
+web.config.session_parameters['cookie_domain'] = None
 web.config.session_parameters['timeout'] = 60 * 60 * 24 * 7
 web.config.session_parameters['ignore_change_ip'] = True
 web.config.session_parameters['secret_key'] = '41a7b8d0-1702-4805-a21c-065067fbf2df'
@@ -92,7 +96,7 @@ web.config.session_parameters['expired_message'] = 'Session expired'
 
 app = web.application(urls, globals())
 session = web.session.Session( app, 
-                               web.session.DiskStore( 'sessions' ), 
+                               web.session.DiskStore( os.path.join( ROOT_DIRECTORY, 'sessions' ) ), 
                                initializer =  { 'is_logged_in' : False,
                                                 'is_admin' : False,
                                                 'uid' : None,
@@ -171,7 +175,7 @@ eventRender = web.template.render( 'templates/custom_events', globals = { 'json'
                                                                           'md' : doMarkdown,
                                                                           'type' : type } )
 
-BEACH_CONFIG_FILE = '/website/beach.conf'
+BEACH_CONFIG_FILE = os.path.join( ROOT_DIRECTORY, 'beach.conf' )
 IDENT = 'lc/0bf01f7e-62bd-4cc4-9fec-4c52e82eb903'
 beach = Beach( BEACH_CONFIG_FILE, realm = 'hcp' )
 model = beach.getActorHandle( 'models', nRetries = 3, timeout = 30, ident = IDENT )
@@ -362,6 +366,8 @@ class Login:
             session._tmp_otp = info.data.get( 'otp', None )
             if ADMIN_OID in session.orgs:
                 session.is_admin = True
+            print( session )
+            print( info )
             redirectTo( 'dashboard' )
 
         return renderAlone.error( 'Invalid email, password or 2nd factor.' )

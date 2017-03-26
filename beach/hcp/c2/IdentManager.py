@@ -25,6 +25,9 @@ import hmac
 CassDb = Actor.importLib( 'utils/hcp_databases', 'CassDb' )
 CassPool = Actor.importLib( 'utils/hcp_databases', 'CassPool' )
 
+ADMIN_OID = uuid.UUID( 'a4cf1d41-eca9-4d6f-93cd-f429e7dfd501' )
+ADMIN_EMAIL = 'admin@limacharlie'
+
 class IdentManager( Actor ):
     def init( self, parameters, resources ):
         self.admin_oid = parameters.get( 'admin_oid', None )
@@ -41,6 +44,8 @@ class IdentManager( Actor ):
         self.audit = self.getActorHandle( resources[ 'auditing' ] )
         self.page = self.getActorHandle( resources[ 'paging' ] )
 
+        self.genDefaultsIfNotPresent()
+
         self.handle( 'authenticate', self.authenticate )
         self.handle( 'create_user', self.createUser )
         self.handle( 'delete_user', self.deleteUser )
@@ -56,6 +61,19 @@ class IdentManager( Actor ):
         
     def deinit( self ):
         pass
+
+    def genDefaultsIfNotPresent( self ):
+        info = self.db.getOne( 'SELECT COUNT(*) FROM user_info' )
+        if 0 == info[ 0 ]:
+            self.log( 'no existing users, generating default creds (user: admin@limacharlie, pass: letmein)' )
+
+            class _dummyRequest ( object ):
+                def __init__( self, data ):
+                    self.data = data
+
+            self.createUser( _dummyRequest( { 'email' : ADMIN_EMAIL, 'password' : 'letmein', 'by' : 'limacharlie', 'no_confirm' : True } ) )
+            self.createOrg( _dummyRequest( { 'name' : 'ADMIN_ORG', 'by' : 'limacharlie', 'existing_oid' : ADMIN_OID } ) )
+            self.addUserToOrg( _dummyRequest( { 'email' : ADMIN_EMAIL, 'oid' : ADMIN_OID, 'by' : 'limacharlie' } ) )
 
     def asUuidList( self, elem ):
         if type( elem ) not in ( list, tuple ):
@@ -110,19 +128,20 @@ class IdentManager( Actor ):
         email = req[ 'email' ]
         password = req[ 'password' ]
         byUser = req[ 'by' ]
+        isNoConfirm = req.get( 'no_confirm', False )
         uid = uuid.uuid4()
         salt = hashlib.sha256( str( uuid.uuid4() ) ).hexdigest()
         salted_password = hashlib.sha256( '%s%s' % ( password, salt ) ).hexdigest()
-
-        otp = TwoFactorAuth( username = email )
         confirmationToken = str( uuid.uuid4() )
 
+        otp = TwoFactorAuth( username = email )
+        
         info = self.db.getOne( 'SELECT uid, is_deleted FROM user_info WHERE email = %s', ( email, ) )
         if info is not None and info[ 1 ] is not True:
             return ( True, { 'is_created' : False } )
 
         self.db.execute( 'INSERT INTO user_info ( email, uid, salt, salted_password, totp_secret, confirmation_token, is_deleted, must_change_password ) VALUES ( %s, %s, %s, %s, %s, %s, false, true )', 
-                         ( email, uid, salt, salted_password, otp.getSecret( asOtp = False ), confirmationToken ) )
+                         ( email, uid, salt, salted_password, otp.getSecret( asOtp = False ), '' if isNoConfirm else confirmationToken ) )
 
         self.audit.shoot( 'record', { 'oid' : self.admin_oid, 'etype' : 'user_create', 'msg' : 'User %s created by %s.' % ( email, byUser ) } )
 
@@ -188,7 +207,7 @@ class IdentManager( Actor ):
         ttl_short_obj = req.get( 'ttl_short_obj', 86400 * 7 )
         ttl_atoms = req.get( 'ttl_atoms', 86400 * 7 )
         ttl_detections = req.get( 'ttl_detections', 86400 * 7 )
-        oid = uuid.uuid4()
+        oid = uuid.UUID( str( req.get( 'existing_oid', uuid.uuid4() ) ) )
 
         self.db.execute( 'INSERT INTO org_info ( oid, name, ttl_events, ttl_long_obj, ttl_short_obj, ttl_atoms, ttl_detections ) VALUES ( %s, %s, %s, %s, %s, %s, %s )', 
                          ( oid, name, ttl_events, ttl_long_obj, ttl_short_obj, ttl_atoms, ttl_detections ) )
@@ -201,7 +220,7 @@ class IdentManager( Actor ):
         req = msg.data
 
         email = req[ 'email' ]
-        oid = uuid.UUID( req[ 'oid' ] )
+        oid = uuid.UUID( str( req[ 'oid' ] ) )
         byUser = req[ 'by' ]
 
         info = self.db.getOne( 'SELECT uid FROM user_info WHERE email = %s', ( email, ) )
