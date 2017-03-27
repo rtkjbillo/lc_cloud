@@ -27,7 +27,7 @@ message EnrollmentRule {
 
 message ModuleRule {
 	required string aid = 1;
-	required int32 moduleId = 2;
+	required int32 moduleID = 2;
 	required string moduleFile = 3;
 }
 

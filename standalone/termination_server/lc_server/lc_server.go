@@ -12,6 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+/*
+Package main implements the TLS server that serves as a main backend entry point
+for the sensors. It strips encryption, deserializes and outputs events to the rest
+of the backend.
+*/
 package main
 
 import (
@@ -42,10 +47,10 @@ import (
 )
 
 const (
-	MAX_INBOUND_FRAME_SIZE = (1024 * 1024 * 50)
+	maxInboundFrameSize = (1024 * 1024 * 50)
 )
 
-var g_configs struct {
+var gConfigs struct {
 	sync.RWMutex
 	isDebug          bool
 	isStdOut         bool
@@ -66,33 +71,33 @@ var g_configs struct {
 
 type clientContext struct {
 	conn net.Conn
-	aid  hcp.AgentId
+	aid  hcp.AgentID
 }
 
 type moduleRule struct {
-	aid      hcp.AgentId
-	moduleId uint8
+	aid      hcp.AgentID
+	moduleID uint8
 	hash     [32]byte
 	filePath string
 }
 
 type profileRule struct {
-	aid      hcp.AgentId
+	aid      hcp.AgentID
 	hash     [32]byte
 	filePath string
 }
 
 type collectionData struct {
 	message *rpcm.Sequence
-	aid     *hcp.AgentId
+	aid     *hcp.AgentID
 }
 
 //=============================================================================
 //	Helper Functions
 //=============================================================================
 
-func agentIdFromSequence(message rpcm.MachineSequence) hcp.AgentId {
-	var aid hcp.AgentId
+func AgentIDFromSequence(message rpcm.MachineSequence) hcp.AgentID {
+	var aid hcp.AgentID
 
 	copy(aid.Oid[:], message[rpcm.RP_TAGS_HCP_ORG_ID].([]byte))
 	copy(aid.Iid[:], message[rpcm.RP_TAGS_HCP_INSTALLER_ID].([]byte))
@@ -103,7 +108,7 @@ func agentIdFromSequence(message rpcm.MachineSequence) hcp.AgentId {
 	return aid
 }
 
-func agentIdToSequence(aid hcp.AgentId) *rpcm.Sequence {
+func AgentIDToSequence(aid hcp.AgentID) *rpcm.Sequence {
 	seq := rpcm.NewSequence().
 		AddBuffer(rpcm.RP_TAGS_HCP_ORG_ID, aid.Oid[:]).
 		AddBuffer(rpcm.RP_TAGS_HCP_INSTALLER_ID, aid.Iid[:]).
@@ -141,7 +146,7 @@ func reloadConfigs(configFile string) error {
 					glog.Errorf("badly formated AID in Module Rule (%s), skipping", rule.GetAid())
 					continue
 				}
-				moduleInfo.moduleId = uint8(rule.GetModuleId())
+				moduleInfo.moduleID = uint8(rule.GetModuleID())
 				moduleInfo.filePath = rule.GetModuleFile()
 
 				var fileContent []byte
@@ -185,14 +190,14 @@ func reloadConfigs(configFile string) error {
 
 			glog.Infof("hbs Profiles: %d", len(newProfiles))
 
-			g_configs.Lock()
+			gConfigs.Lock()
 
-			g_configs.config = tmpConfig
-			g_configs.enrollmentRules = newEnrollmentRules
-			g_configs.moduleRules = newModuleRules
-			g_configs.hbsProfiles = newProfiles
+			gConfigs.config = tmpConfig
+			gConfigs.enrollmentRules = newEnrollmentRules
+			gConfigs.moduleRules = newModuleRules
+			gConfigs.hbsProfiles = newProfiles
 
-			g_configs.Unlock()
+			gConfigs.Unlock()
 		}
 	}
 
@@ -210,14 +215,14 @@ func watchForConfigChanges(configFile string) {
 	var lastFileInfo os.FileInfo
 	var err error
 
-	defer g_configs.activeGoRoutines.Done()
+	defer gConfigs.activeGoRoutines.Done()
 
 	if lastFileInfo, err = os.Stat(configFile); err != nil {
 		glog.Errorf("could not get initial config modification time, won't detect changes and reload automatically: %s", err)
 		return
 	}
 
-	for !g_configs.isDraining {
+	for !gConfigs.isDraining {
 		if newFileInfo, err := os.Stat(configFile); err == nil && newFileInfo.ModTime() != lastFileInfo.ModTime() {
 			glog.Info("detected a change in configuration, reloading.")
 			lastFileInfo = newFileInfo
@@ -230,7 +235,7 @@ func watchForConfigChanges(configFile string) {
 
 func logCollection(outputFile string) {
 	var err error
-	defer g_configs.outputGoRoutines.Done()
+	defer gConfigs.outputGoRoutines.Done()
 	var fileHandle *os.File
 	nextFileCycle := time.Now().Add(60 * time.Minute)
 
@@ -242,7 +247,7 @@ func logCollection(outputFile string) {
 		}
 	}
 
-	for !g_configs.isDraining {
+	for !gConfigs.isDraining {
 		var collection collectionData
 
 		timeout := make(chan bool, 1)
@@ -252,9 +257,9 @@ func logCollection(outputFile string) {
 		}()
 
 		select {
-		case collection = <-g_configs.collectionLog:
+		case collection = <-gConfigs.collectionLog:
 		case <-timeout:
-			if g_configs.isDrained {
+			if gConfigs.isDrained {
 				return
 			}
 		}
@@ -282,7 +287,7 @@ func logCollection(outputFile string) {
 		wrapper["routing"] = make(map[string]string, 1)
 		wrapper["routing"].(map[string]string)["aid"] = collection.aid.ToString()
 
-		if g_configs.isStdOut {
+		if gConfigs.isStdOut {
 			if jsonMessage, err := json.MarshalIndent(wrapper, "", "    "); err != nil {
 				glog.Errorf("error displaying collection: %s", err)
 			} else {
@@ -307,30 +312,30 @@ func logCollection(outputFile string) {
 func handleClient(conn net.Conn) {
 	var ctx clientContext
 	defer conn.Close()
-	defer g_configs.activeGoRoutines.Done()
+	defer gConfigs.activeGoRoutines.Done()
 
 	ctx.conn = conn
-	var moduleId uint8
+	var moduleID uint8
 	var messages *rpcm.List
 	var err error
 
-	if moduleId, messages, err = recvFrame(&ctx, 30*time.Second); err != nil {
+	if moduleID, messages, err = recvFrame(&ctx, 30*time.Second); err != nil {
 		glog.Errorf("failed to receive headers: %s", err)
 		return
 	}
 
-	if moduleId != hcp.MODULE_ID_HCP {
-		glog.Warningf("received unexpected frames from module instead of headers: %d", moduleId)
+	if moduleID != hcp.ModuleIDHcp {
+		glog.Warningf("received unexpected frames from module instead of headers: %d", moduleID)
 		return
 	}
 
 	headers := messages.ToMachine()[0].(rpcm.MachineSequence)
 
 	hostName := headers[rpcm.RP_TAGS_HOST_NAME]
-	internalIp := headers[rpcm.RP_TAGS_IP_ADDRESS]
-	aid := agentIdFromSequence(headers[rpcm.RP_TAGS_HCP_IDENT].(rpcm.MachineSequence))
-	glog.Infof("Initial contact: %s / %s / 0x%08x", hostName, aid.ToString(), internalIp)
-	if !aid.IsAbsolute() && !g_configs.isDebug {
+	internalIP := headers[rpcm.RP_TAGS_IP_ADDRESS]
+	aid := AgentIDFromSequence(headers[rpcm.RP_TAGS_HCP_IDENT].(rpcm.MachineSequence))
+	glog.Infof("Initial contact: %s / %s / 0x%08x", hostName, aid.ToString(), internalIP)
+	if !aid.IsAbsolute() && !gConfigs.isDebug {
 		glog.Warningf("invalid agent id containing wildcard")
 		return
 	}
@@ -362,35 +367,35 @@ func handleClient(conn net.Conn) {
 		return
 	}
 
-	g_configs.RLock()
-	g_configs.clients.Lock()
+	gConfigs.RLock()
+	gConfigs.clients.Lock()
 
-	g_configs.clients.context[aid.ToString()] = &ctx
+	gConfigs.clients.context[aid.ToString()] = &ctx
 	defer func() {
-		g_configs.RLock()
-		g_configs.clients.Lock()
-		delete(g_configs.clients.context, aid.ToString())
-		g_configs.clients.Unlock()
-		g_configs.RUnlock()
+		gConfigs.RLock()
+		gConfigs.clients.Lock()
+		delete(gConfigs.clients.context, aid.ToString())
+		gConfigs.clients.Unlock()
+		gConfigs.RUnlock()
 	}()
 
-	g_configs.clients.Unlock()
-	g_configs.RUnlock()
+	gConfigs.clients.Unlock()
+	gConfigs.RUnlock()
 
 	glog.Infof("client %s registered, beginning to receive data", aid.ToString())
 
-	for !g_configs.isDraining {
-		if moduleId, messages, err = recvFrame(&ctx, 30*time.Second); err != nil {
+	for !gConfigs.isDraining {
+		if moduleID, messages, err = recvFrame(&ctx, 30*time.Second); err != nil {
 			break
 		}
 
-		switch moduleId {
-		case hcp.MODULE_ID_HCP:
+		switch moduleID {
+		case hcp.ModuleIDHcp:
 			err = processHCPMessage(&ctx, messages)
-		case hcp.MODULE_ID_HBS:
+		case hcp.ModuleIDHbs:
 			err = processHBSMessage(&ctx, messages)
 		default:
-			glog.Warningf("received messages from unexpected module: %d", moduleId)
+			glog.Warningf("received messages from unexpected module: %d", moduleID)
 		}
 	}
 
@@ -400,15 +405,15 @@ func handleClient(conn net.Conn) {
 //=============================================================================
 //	TLS Server Helper Functions
 //=============================================================================
-func sendFrame(ctx *clientContext, moduleId uint8, messages []*rpcm.Sequence, timeout time.Duration) error {
+func sendFrame(ctx *clientContext, moduleID uint8, messages []*rpcm.Sequence, timeout time.Duration) error {
 	var err error
 	endTime := time.Now().Add(timeout)
 	frameData := bytes.Buffer{}
-	if err = binary.Write(&frameData, binary.BigEndian, moduleId); err != nil {
+	if err = binary.Write(&frameData, binary.BigEndian, moduleID); err != nil {
 		return err
 	}
 
-	messageBundle := rpcm.NewList(rpcm.RP_TAGS_MESSAGE, rpcm.RPCM_SEQUENCE)
+	messageBundle := rpcm.NewList(rpcm.RP_TAGS_MESSAGE, rpcm.TypeSequence)
 	for _, message := range messages {
 		if messageBundle = messageBundle.AddSequence(message); messageBundle == nil {
 			return errors.New("failed to bundle messages")
@@ -445,7 +450,7 @@ func sendFrame(ctx *clientContext, moduleId uint8, messages []*rpcm.Sequence, ti
 func recvFrame(ctx *clientContext, timeout time.Duration) (uint8, *rpcm.List, error) {
 	var err error
 	var endTime time.Time
-	var moduleId uint8
+	var moduleID uint8
 	var buf []byte
 	var frameSize uint32
 
@@ -453,7 +458,7 @@ func recvFrame(ctx *clientContext, timeout time.Duration) (uint8, *rpcm.List, er
 		endTime = time.Now().Add(timeout)
 	}
 
-	received := rpcm.NewList(rpcm.RP_TAGS_MESSAGE, rpcm.RPCM_SEQUENCE)
+	received := rpcm.NewList(rpcm.RP_TAGS_MESSAGE, rpcm.TypeSequence)
 
 	if buf, err = recvData(ctx.conn, 4, endTime); buf == nil || err != nil {
 		return 0, nil, err
@@ -463,7 +468,7 @@ func recvFrame(ctx *clientContext, timeout time.Duration) (uint8, *rpcm.List, er
 		return 0, nil, err
 	}
 
-	if MAX_INBOUND_FRAME_SIZE < frameSize {
+	if maxInboundFrameSize < frameSize {
 		return 0, nil, errors.New("frame size indicated too large or not a multiple of block size")
 	}
 
@@ -480,12 +485,11 @@ func recvFrame(ctx *clientContext, timeout time.Duration) (uint8, *rpcm.List, er
 	if size, err := io.Copy(&decompressedBuf, zlibReader); err != nil || 0 >= size {
 		if err != nil {
 			return 0, nil, err
-		} else {
-			return 0, nil, errors.New("received empty frame")
 		}
+		return 0, nil, errors.New("received empty frame")
 	}
 
-	if moduleId, err = decompressedBuf.ReadByte(); err != nil {
+	if moduleID, err = decompressedBuf.ReadByte(); err != nil {
 		return 0, nil, err
 	}
 
@@ -493,7 +497,7 @@ func recvFrame(ctx *clientContext, timeout time.Duration) (uint8, *rpcm.List, er
 		return 0, nil, err
 	}
 
-	return moduleId, received, err
+	return moduleID, received, err
 }
 
 func recvData(conn net.Conn, size uint, timeout time.Time) ([]byte, error) {
@@ -567,7 +571,7 @@ func main() {
 	go func() {
 		<-interruptsChannel
 		glog.Info("received exiting signal")
-		g_configs.isDraining = true
+		gConfigs.isDraining = true
 	}()
 
 	glog.Info("loading private key")
@@ -580,16 +584,16 @@ func main() {
 	tlsConfig.Rand = rand.Reader
 
 	if *isDebug {
-		g_configs.isDebug = true
+		gConfigs.isDebug = true
 		glog.Infof("server is in debug mode")
 	}
 
 	if *isOutputToStdout {
-		g_configs.isStdOut = true
+		gConfigs.isStdOut = true
 		glog.Info("outputing sensor traffic to stdout")
 	}
 
-	g_configs.clients.context = make(map[string]*clientContext, 0)
+	gConfigs.clients.context = make(map[string]*clientContext, 0)
 
 	if err = reloadConfigs(*configFile); err != nil {
 		glog.Fatalf("could not load initial configs, exiting.")
@@ -608,25 +612,25 @@ func main() {
 			err.Error())
 	}
 
-	g_configs.activeGoRoutines.Add(1)
+	gConfigs.activeGoRoutines.Add(1)
 	go watchForConfigChanges(*configFile)
-
-	g_configs.collectionLog = make(chan collectionData, 1000)
-	g_configs.outputGoRoutines.Add(1)
+	
+	gConfigs.collectionLog = make(chan collectionData, 1000)
+	gConfigs.outputGoRoutines.Add(1)
 	go logCollection( *outputLogFile )
 
 	glog.Infof("listening on %s", *listenIface)
 
 	for {
 
-		if g_configs.isDraining {
+		if gConfigs.isDraining {
 			break
 		}
 
 		listenSocket.SetDeadline(time.Now().Add(5 * time.Second))
 		conn, err := listenSocket.Accept()
 
-		if g_configs.isDraining {
+		if gConfigs.isDraining {
 			break
 		}
 
@@ -639,39 +643,39 @@ func main() {
 
 		conn = tls.Server(conn, &tlsConfig)
 
-		g_configs.activeGoRoutines.Add(1)
+		gConfigs.activeGoRoutines.Add(1)
 		go handleClient(conn)
 	}
 
 	glog.Info("draining, waiting on handlers to exit")
 	listenSocket.Close()
-	g_configs.activeGoRoutines.Wait()
-	g_configs.isDrained = true
-	g_configs.outputGoRoutines.Wait()
+	gConfigs.activeGoRoutines.Wait()
+	gConfigs.isDrained = true
+	gConfigs.outputGoRoutines.Wait()
 	glog.Info("drained, exiting")
 }
 
 //=============================================================================
 //	Handlers & HCP Functionality
 //=============================================================================
-func validateEnrollmentToken(aid hcp.AgentId, token []byte) bool {
-	g_configs.RLock()
+func validateEnrollmentToken(aid hcp.AgentID, token []byte) bool {
+	gConfigs.RLock()
 
-	hmacToken := hmac.New(sha256.New, []byte(g_configs.config.GetSecretEnrollmentToken()))
+	hmacToken := hmac.New(sha256.New, []byte(gConfigs.config.GetSecretEnrollmentToken()))
 
-	g_configs.RUnlock()
+	gConfigs.RUnlock()
 
 	hmacToken.Write([]byte(aid.ToString()))
 	expectedToken := hmacToken.Sum(nil)
 	return hmac.Equal(token, expectedToken)
 }
 
-func generateEnrollmentToken(aid hcp.AgentId) []byte {
-	g_configs.RLock()
+func generateEnrollmentToken(aid hcp.AgentID) []byte {
+	gConfigs.RLock()
 
-	hmacToken := hmac.New(sha256.New, []byte(g_configs.config.GetSecretEnrollmentToken()))
+	hmacToken := hmac.New(sha256.New, []byte(gConfigs.config.GetSecretEnrollmentToken()))
 
-	g_configs.RUnlock()
+	gConfigs.RUnlock()
 
 	hmacToken.Write([]byte(aid.ToString()))
 	return hmacToken.Sum(nil)
@@ -680,24 +684,24 @@ func generateEnrollmentToken(aid hcp.AgentId) []byte {
 func sendTimeSync(ctx *clientContext) error {
 	var messages []*rpcm.Sequence
 	messages = append(messages, rpcm.NewSequence().
-		AddInt8(rpcm.RP_TAGS_OPERATION, hcp.SET_GLOBAL_TIME).
+		AddInt8(rpcm.RP_TAGS_OPERATION, hcp.SetGlobalTime).
 		AddTimestamp(rpcm.RP_TAGS_TIMESTAMP, uint64(time.Now().Unix())))
-	err := sendFrame(ctx, hcp.MODULE_ID_HCP, messages, 10*time.Second)
+	err := sendFrame(ctx, hcp.ModuleIDHcp, messages, 10*time.Second)
 	return err
 }
 
 func processEnrollment(ctx *clientContext) bool {
 	var isWhitelisted bool
 	var isEnrolled bool
-	g_configs.RLock()
+	gConfigs.RLock()
 
-	if g_configs.enrollmentRules[ctx.aid.Oid.String()][ctx.aid.Iid.String()] {
+	if gConfigs.enrollmentRules[ctx.aid.Oid.String()][ctx.aid.Iid.String()] {
 		isWhitelisted = true
 	} else {
 		glog.Warningf("sensor is not whitelisted for enrollment( OID:%s, IID:%s )", ctx.aid.Oid.String(), ctx.aid.Iid.String())
 	}
 
-	g_configs.RUnlock()
+	gConfigs.RUnlock()
 
 	if isWhitelisted {
 		ctx.aid.Sid = uuid.New()
@@ -705,10 +709,10 @@ func processEnrollment(ctx *clientContext) bool {
 
 		var messages []*rpcm.Sequence
 		messages = append(messages, rpcm.NewSequence().
-			AddInt8(rpcm.RP_TAGS_OPERATION, hcp.SET_HCP_ID).
-			AddSequence(rpcm.RP_TAGS_HCP_IDENT, agentIdToSequence(ctx.aid)).
+			AddInt8(rpcm.RP_TAGS_OPERATION, hcp.SetHcpID).
+			AddSequence(rpcm.RP_TAGS_HCP_IDENT, AgentIDToSequence(ctx.aid)).
 			AddBuffer(rpcm.RP_TAGS_HCP_ENROLLMENT_TOKEN, enrollmentToken))
-		if err := sendFrame(ctx, hcp.MODULE_ID_HCP, messages, 10*time.Second); err == nil {
+		if err := sendFrame(ctx, hcp.ModuleIDHcp, messages, 10*time.Second); err == nil {
 			isEnrolled = true
 			glog.Infof("sensor enrolled: %s", ctx.aid.ToString())
 		} else {
@@ -723,30 +727,30 @@ func processHCPMessage(ctx *clientContext, messages *rpcm.List) error {
 	var err error
 
 	var shouldBeLoaded []*moduleRule
-	g_configs.RLock()
-	for _, moduleInfo := range g_configs.moduleRules {
+	gConfigs.RLock()
+	for _, moduleInfo := range gConfigs.moduleRules {
 		if moduleInfo.aid.Matches(ctx.aid) {
 			shouldBeLoaded = append(shouldBeLoaded, &moduleInfo)
 		}
 	}
-	g_configs.RUnlock()
+	gConfigs.RUnlock()
 
 	var currentlyLoaded []moduleRule
 	for _, message := range messages.GetSequence(rpcm.RP_TAGS_MESSAGE) {
 		if modules, ok := message.GetList(rpcm.RP_TAGS_HCP_MODULES); ok {
 			for _, moduleInfo := range modules.GetSequence(rpcm.RP_TAGS_HCP_MODULE) {
 				var hash []byte
-				var moduleId uint8
+				var moduleID uint8
 				var mod moduleRule
 				var ok bool
 				if hash, ok = moduleInfo.GetBuffer(rpcm.RP_TAGS_HASH); !ok {
 					continue
 				}
-				if moduleId, ok = moduleInfo.GetInt8(rpcm.RP_TAGS_HCP_MODULE_ID); !ok {
+				if moduleID, ok = moduleInfo.GetInt8(rpcm.RP_TAGS_HCP_MODULE_ID); !ok {
 					continue
 				}
 
-				mod.moduleId = moduleId
+				mod.moduleID = moduleID
 				copy(mod.hash[:], hash)
 				currentlyLoaded = append(currentlyLoaded, mod)
 			}
@@ -760,7 +764,7 @@ func processHCPMessage(ctx *clientContext, messages *rpcm.List) error {
 	for _, modIsLoaded := range currentlyLoaded {
 		var isFound bool
 		for _, modShouldBeLoaded := range shouldBeLoaded {
-			if modIsLoaded.moduleId == modShouldBeLoaded.moduleId &&
+			if modIsLoaded.moduleID == modShouldBeLoaded.moduleID &&
 				modIsLoaded.hash == modShouldBeLoaded.hash {
 				isFound = true
 				break
@@ -770,15 +774,15 @@ func processHCPMessage(ctx *clientContext, messages *rpcm.List) error {
 		if !isFound {
 			nUnloading++
 			outMessages = append(outMessages, rpcm.NewSequence().
-				AddInt8(rpcm.RP_TAGS_OPERATION, hcp.UNLOAD_MODULE).
-				AddInt8(rpcm.RP_TAGS_HCP_MODULE_ID, modIsLoaded.moduleId))
+				AddInt8(rpcm.RP_TAGS_OPERATION, hcp.UnloadModule).
+				AddInt8(rpcm.RP_TAGS_HCP_MODULE_ID, modIsLoaded.moduleID))
 		}
 	}
 
 	for _, modShouldBeLoaded := range shouldBeLoaded {
 		var isFound bool
 		for _, modIsLoaded := range currentlyLoaded {
-			if modIsLoaded.moduleId == modShouldBeLoaded.moduleId &&
+			if modIsLoaded.moduleID == modShouldBeLoaded.moduleID &&
 				modIsLoaded.hash == modShouldBeLoaded.hash {
 				isFound = true
 				break
@@ -799,8 +803,8 @@ func processHCPMessage(ctx *clientContext, messages *rpcm.List) error {
 
 			nLoading++
 			outMessages = append(outMessages, rpcm.NewSequence().
-				AddInt8(rpcm.RP_TAGS_OPERATION, hcp.LOAD_MODULE).
-				AddInt8(rpcm.RP_TAGS_HCP_MODULE_ID, modShouldBeLoaded.moduleId).
+				AddInt8(rpcm.RP_TAGS_OPERATION, hcp.LoadModule).
+				AddInt8(rpcm.RP_TAGS_HCP_MODULE_ID, modShouldBeLoaded.moduleID).
 				AddBuffer(rpcm.RP_TAGS_BINARY, moduleContent).
 				AddBuffer(rpcm.RP_TAGS_SIGNATURE, moduleSig))
 		}
@@ -808,7 +812,7 @@ func processHCPMessage(ctx *clientContext, messages *rpcm.List) error {
 
 	glog.Infof("sync from %s, loading %d unloading %d", ctx.aid.ToString(), nLoading, nUnloading)
 
-	err = sendFrame(ctx, hcp.MODULE_ID_HCP, outMessages, 120*time.Second)
+	err = sendFrame(ctx, hcp.ModuleIDHcp, outMessages, 120*time.Second)
 
 	return err
 }
@@ -824,8 +828,8 @@ func processHBSMessage(ctx *clientContext, messages *rpcm.List) error {
 			var expectedHash [32]byte
 			currentProfileHash, _ := syncMessage.GetBuffer(rpcm.RP_TAGS_HASH)
 
-			g_configs.RLock()
-			for _, profile := range g_configs.hbsProfiles {
+			gConfigs.RLock()
+			for _, profile := range gConfigs.hbsProfiles {
 				if profile.aid.Matches(ctx.aid) {
 					if currentProfileHash == nil || !bytes.Equal(profile.hash[:], currentProfileHash) {
 						profileToSend = profile.filePath
@@ -834,7 +838,7 @@ func processHBSMessage(ctx *clientContext, messages *rpcm.List) error {
 					break
 				}
 			}
-			g_configs.RUnlock()
+			gConfigs.RUnlock()
 
 			if profileToSend != "" {
 				var profileContent []byte
@@ -867,11 +871,11 @@ func processHBSMessage(ctx *clientContext, messages *rpcm.List) error {
 			var data collectionData
 			data.message = message
 			data.aid = &ctx.aid
-			g_configs.collectionLog <- data
+			gConfigs.collectionLog <- data
 		}
 	}
 
-	err = sendFrame(ctx, hcp.MODULE_ID_HBS, outMessages, 120*time.Second)
+	err = sendFrame(ctx, hcp.ModuleIDHbs, outMessages, 120*time.Second)
 
 	return err
 }

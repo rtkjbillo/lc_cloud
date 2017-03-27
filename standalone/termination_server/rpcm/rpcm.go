@@ -13,7 +13,7 @@
 // limitations under the License.
 
 /*
-The RPCM package provides an interface to serialize, deserialize and generally
+Package rpcm provides an interface to serialize, deserialize and generally
 manipulate RPCommonMessages that are used by LimaCharlie.
 
 The messages are analogous to JSON where every element has a Type and a Tag.
@@ -42,23 +42,23 @@ import (
 
 // Data type values supported in RPCM
 const (
-	RPCM_INVALID_TYPE  = 0
-	RPCM_RU8           = 1
-	RPCM_RU16          = 2
-	RPCM_RU32          = 3
-	RPCM_RU64          = 4
-	RPCM_STRINGA       = 5
-	RPCM_STRINGW       = 6
-	RPCM_BUFFER        = 7
-	RPCM_TIMESTAMP     = 8
-	RPCM_IPV4          = 9
-	RPCM_IPV6          = 10
-	RPCM_POINTER_32    = 11
-	RPCM_POINTER_64    = 12
-	RPCM_TIMEDELTA     = 13
-	RPCM_COMPLEX_TYPES = 0x80
-	RPCM_SEQUENCE      = 0x81
-	RPCM_LIST          = 0x82
+	TypeInvalid  = 0
+	TypeRu8           = 1
+	TypeRu16          = 2
+	TypeRu32          = 3
+	TypeRu64          = 4
+	TypeStringA       = 5
+	TypeStringW       = 6
+	TypeBuffer        = 7
+	TypeTimestamp     = 8
+	TypeIPv4          = 9
+	TypeIPv6          = 10
+	TypePointer32    = 11
+	TypePointer64    = 12
+	TypeTimedelta     = 13
+	TypeComplexTypes = 0x80
+	TypeSequence      = 0x81
+	TypeList          = 0x82
 )
 
 type rpcmElement interface {
@@ -224,13 +224,13 @@ func (this *List) GetValue() interface{} {
 
 // NewSequence creates a new blank Sequence
 func NewSequence() *Sequence {
-	return &Sequence{rElem: rElem{RPCM_SEQUENCE}, elements: make(map[uint32]rpcmElement)}
+	return &Sequence{rElem: rElem{TypeSequence}, elements: make(map[uint32]rpcmElement)}
 }
 
 
 // NewList creates a new blank list of elemTag and elemType items
 func NewList(elemTag uint32, elemType uint8) *List {
-	return &List{rElem: rElem{RPCM_LIST}, elemTag: elemTag, elemType: elemType}
+	return &List{rElem: rElem{TypeList}, elemTag: elemTag, elemType: elemType}
 }
 
 //=============================================================================
@@ -402,7 +402,7 @@ func (this *Sequence) Deserialize(fromBuf *bytes.Buffer) error {
 	var typ uint8
 	var err error
 
-	this.typ = RPCM_SEQUENCE
+	this.typ = TypeSequence
 
 	err = binary.Read(fromBuf, binary.BigEndian, &nElements)
 	if err != nil {
@@ -438,7 +438,7 @@ func (this *List) Deserialize(fromBuf *bytes.Buffer) error {
 	var typ uint8
 	var err error
 
-	this.typ = RPCM_LIST
+	this.typ = TypeList
 
 	err = binary.Read(fromBuf, binary.BigEndian, &this.elemTag)
 	if err != nil {
@@ -491,20 +491,20 @@ func rpcmDeserializeElem(fromBuf *bytes.Buffer, typ uint8) (rpcmElement, error) 
 	var sizeRead int
 
 	switch typ {
-	case RPCM_RU8:
-		elem = &ru8{rElem: rElem{typ: RPCM_RU8}}
+	case TypeRu8:
+		elem = &ru8{rElem: rElem{typ: typ}}
 		err = binary.Read(fromBuf, binary.BigEndian, &elem.(*ru8).value)
-	case RPCM_RU16:
-		elem = &ru16{rElem: rElem{typ: RPCM_RU16}}
+	case TypeRu16:
+		elem = &ru16{rElem: rElem{typ: typ}}
 		err = binary.Read(fromBuf, binary.BigEndian, &elem.(*ru16).value)
-	case RPCM_RU32:
-		elem = &ru32{rElem: rElem{typ: RPCM_RU32}}
+	case TypeRu32:
+		elem = &ru32{rElem: rElem{typ: typ}}
 		err = binary.Read(fromBuf, binary.BigEndian, &elem.(*ru32).value)
-	case RPCM_RU64:
-		elem = &ru64{rElem: rElem{typ: RPCM_RU64}}
+	case TypeRu64:
+		elem = &ru64{rElem: rElem{typ: typ}}
 		err = binary.Read(fromBuf, binary.BigEndian, &elem.(*ru64).value)
-	case RPCM_STRINGA:
-		elem = &rStringA{rElem: rElem{typ: RPCM_STRINGA}}
+	case TypeStringA:
+		elem = &rStringA{rElem: rElem{typ: TypeStringA}}
 		err = binary.Read(fromBuf, binary.BigEndian, &elemLen)
 		if uint32(fromBuf.Len()) < elemLen || elemLen == 0 {
 			err = errors.New("Not enough data in buffer")
@@ -521,8 +521,8 @@ func rpcmDeserializeElem(fromBuf *bytes.Buffer, typ uint8) (rpcmElement, error) 
 				elem.(*rStringA).value = elem.(*rStringA).value[0 : len(elem.(*rStringA).value)-1]
 			}
 		}
-	case RPCM_STRINGW:
-		elem = &rStringW{rElem: rElem{typ: RPCM_STRINGW}}
+	case TypeStringW:
+		elem = &rStringW{rElem: rElem{typ: typ}}
 		err = binary.Read(fromBuf, binary.BigEndian, &elemLen)
 		if uint32(fromBuf.Len()) < elemLen || elemLen == 0 {
 			err = errors.New("Not enough data in buffer")
@@ -539,8 +539,8 @@ func rpcmDeserializeElem(fromBuf *bytes.Buffer, typ uint8) (rpcmElement, error) 
 				elem.(*rStringW).value = elem.(*rStringW).value[0 : len(elem.(*rStringW).value)-1]
 			}
 		}
-	case RPCM_BUFFER:
-		elem = &rBuffer{rElem: rElem{typ: RPCM_BUFFER}}
+	case TypeBuffer:
+		elem = &rBuffer{rElem: rElem{typ: typ}}
 		err = binary.Read(fromBuf, binary.BigEndian, &elemLen)
 		if uint32(fromBuf.Len()) < elemLen || elemLen == 0 {
 			err = errors.New("Not enough data in buffer")
@@ -554,32 +554,32 @@ func rpcmDeserializeElem(fromBuf *bytes.Buffer, typ uint8) (rpcmElement, error) 
 		if err == nil {
 			elem.(*rBuffer).value = tmpBuf
 		}
-	case RPCM_TIMESTAMP:
-		elem = &rTimestamp{rElem: rElem{typ: RPCM_TIMESTAMP}}
+	case TypeTimestamp:
+		elem = &rTimestamp{rElem: rElem{typ: typ}}
 		err = binary.Read(fromBuf, binary.BigEndian, &elem.(*rTimestamp).value)
-	case RPCM_IPV4:
-		elem = &rIpv4{rElem: rElem{typ: RPCM_IPV4}}
+	case TypeIPv4:
+		elem = &rIpv4{rElem: rElem{typ: typ}}
 		err = binary.Read(fromBuf, binary.BigEndian, &elem.(*rIpv4).value)
-	case RPCM_IPV6:
-		elem = &rIpv6{rElem: rElem{typ: RPCM_IPV6}}
+	case TypeIPv6:
+		elem = &rIpv6{rElem: rElem{typ: typ}}
 		sizeRead, err = fromBuf.Read(elem.(*rIpv6).value[:])
 		if uint32(sizeRead) != 16 {
 			err = errors.New("Error reading enough data from buffer")
 		}
-	case RPCM_POINTER_32:
-		elem = &rPointer32{rElem: rElem{typ: RPCM_POINTER_32}}
+	case TypePointer32:
+		elem = &rPointer32{rElem: rElem{typ: typ}}
 		err = binary.Read(fromBuf, binary.BigEndian, &elem.(*rPointer32).value)
-	case RPCM_POINTER_64:
-		elem = &rPointer64{rElem: rElem{typ: RPCM_POINTER_64}}
+	case TypePointer64:
+		elem = &rPointer64{rElem: rElem{typ: typ}}
 		err = binary.Read(fromBuf, binary.BigEndian, &elem.(*rPointer64).value)
-	case RPCM_TIMEDELTA:
-		elem = &rTimedelta{rElem: rElem{typ: RPCM_TIMEDELTA}}
+	case TypeTimedelta:
+		elem = &rTimedelta{rElem: rElem{typ: typ}}
 		err = binary.Read(fromBuf, binary.BigEndian, &elem.(*rTimedelta).value)
-	case RPCM_SEQUENCE:
-		elem = &Sequence{rElem: rElem{typ: RPCM_SEQUENCE}, elements: make(map[uint32]rpcmElement)}
+	case TypeSequence:
+		elem = &Sequence{rElem: rElem{typ: typ}, elements: make(map[uint32]rpcmElement)}
 		err = elem.(*Sequence).Deserialize(fromBuf)
-	case RPCM_LIST:
-		elem = &List{rElem: rElem{typ: RPCM_LIST}}
+	case TypeList:
+		elem = &List{rElem: rElem{typ: typ}}
 		err = elem.(*List).Deserialize(fromBuf)
 	default:
 		elem = nil
@@ -601,9 +601,9 @@ func (this *Sequence) ToMachine() MachineSequence {
 	j := make(map[uint32]interface{})
 
 	for tag, val := range this.elements {
-		if val.GetType() == RPCM_SEQUENCE {
+		if val.GetType() == TypeSequence {
 			j[tag] = val.(*Sequence).ToMachine()
-		} else if val.GetType() == RPCM_LIST {
+		} else if val.GetType() == TypeList {
 			j[tag] = val.(*List).ToMachine()
 		} else {
 			j[tag] = val.GetValue()
@@ -618,9 +618,9 @@ func (this *List) ToMachine() MachineList {
 	j := make([]interface{}, 0)
 
 	for _, val := range this.elements {
-		if val.GetType() == RPCM_SEQUENCE {
+		if val.GetType() == TypeSequence {
 			j = append(j, val.(*Sequence).ToMachine())
-		} else if val.GetType() == RPCM_LIST {
+		} else if val.GetType() == TypeList {
 			j = append(j, val.(*List).ToMachine())
 		} else {
 			j = append(j, val.GetValue())
@@ -642,9 +642,9 @@ func (this *Sequence) ToJson() map[string]interface{} {
 			tagLabel = strconv.FormatUint(uint64(tag), 16)
 		}
 
-		if val.GetType() == RPCM_SEQUENCE {
+		if val.GetType() == TypeSequence {
 			j[tagLabel] = val.(*Sequence).ToJson()
-		} else if val.GetType() == RPCM_LIST {
+		} else if val.GetType() == TypeList {
 			j[tagLabel] = val.(*List).ToJson()
 		} else {
 			j[tagLabel] = val.GetValue()
@@ -659,9 +659,9 @@ func (this *List) ToJson() []interface{} {
 	j := make([]interface{}, 0)
 
 	for _, val := range this.elements {
-		if val.GetType() == RPCM_SEQUENCE {
+		if val.GetType() == TypeSequence {
 			j = append(j, val.(*Sequence).ToJson())
-		} else if val.GetType() == RPCM_LIST {
+		} else if val.GetType() == TypeList {
 			j = append(j, val.(*List).ToJson())
 		} else {
 			j = append(j, val.GetValue())
@@ -677,92 +677,92 @@ func (this *List) ToJson() []interface{} {
 
 // AddInt8 adds an 8 bit unsigned integer with the specified tag to the Sequence.
 func (this *Sequence) AddInt8(tag uint32, number uint8) *Sequence {
-	this.elements[tag] = &ru8{rElem: rElem{typ: RPCM_RU8}, value: number}
+	this.elements[tag] = &ru8{rElem: rElem{typ: TypeRu8}, value: number}
 	return this
 }
 
 // AddInt16 adds an 16 bit unsigned integer with the specified tag to the Sequence.
 func (this *Sequence) AddInt16(tag uint32, number uint16) *Sequence {
-	this.elements[tag] = &ru16{rElem: rElem{typ: RPCM_RU16}, value: number}
+	this.elements[tag] = &ru16{rElem: rElem{typ: TypeRu16}, value: number}
 	return this
 }
 
 // AddInt32 adds an 32 bit unsigned integer with the specified tag to the Sequence.
 func (this *Sequence) AddInt32(tag uint32, number uint32) *Sequence {
-	this.elements[tag] = &ru32{rElem: rElem{typ: RPCM_RU32}, value: number}
+	this.elements[tag] = &ru32{rElem: rElem{typ: TypeRu32}, value: number}
 	return this
 }
 
 // AddInt64 adds an 64 bit unsigned integer with the specified tag to the Sequence.
 func (this *Sequence) AddInt64(tag uint32, number uint64) *Sequence {
-	this.elements[tag] = &ru64{rElem: rElem{typ: RPCM_RU64}, value: number}
+	this.elements[tag] = &ru64{rElem: rElem{typ: TypeRu64}, value: number}
 	return this
 }
 
 // AddStringA adds a ascii string with the specified tag to the Sequence.
 func (this *Sequence) AddStringA(tag uint32, str string) *Sequence {
-	this.elements[tag] = &rStringA{rElem: rElem{typ: RPCM_STRINGA}, value: str}
+	this.elements[tag] = &rStringA{rElem: rElem{typ: TypeStringA}, value: str}
 	return this
 }
 
 // AddStringW adds a wide character string with the specified tag to the Sequence.
 func (this *Sequence) AddStringW(tag uint32, str string) *Sequence {
-	this.elements[tag] = &rStringW{rElem: rElem{typ: RPCM_STRINGW}, value: str}
+	this.elements[tag] = &rStringW{rElem: rElem{typ: TypeStringW}, value: str}
 	return this
 }
 
 // AddBuffer adds a buffer with the specified tag to the Sequence.
 func (this *Sequence) AddBuffer(tag uint32, buf []byte) *Sequence {
-	this.elements[tag] = &rBuffer{rElem: rElem{typ: RPCM_BUFFER}, value: buf}
+	this.elements[tag] = &rBuffer{rElem: rElem{typ: TypeBuffer}, value: buf}
 	return this
 }
 
 // AddTimestamp adds a 64 bit timestamp with the specified tag to the Sequence.
 func (this *Sequence) AddTimestamp(tag uint32, ts uint64) *Sequence {
-	this.elements[tag] = &rTimestamp{rElem: rElem{typ: RPCM_TIMESTAMP}, value: ts}
+	this.elements[tag] = &rTimestamp{rElem: rElem{typ: TypeTimestamp}, value: ts}
 	return this
 }
 
 // AddIpv4 adds an IP v4 with the specified tag to the Sequence.
 func (this *Sequence) AddIpv4(tag uint32, ip4 uint32) *Sequence {
-	this.elements[tag] = &rIpv4{rElem: rElem{typ: RPCM_IPV4}, value: ip4}
+	this.elements[tag] = &rIpv4{rElem: rElem{typ: TypeIPv4}, value: ip4}
 	return this
 }
 
 // AddIpv6 adds an IP v6 with the specified tag to the Sequence.
 func (this *Sequence) AddIpv6(tag uint32, ip6 [16]byte) *Sequence {
-	this.elements[tag] = &rIpv6{rElem: rElem{typ: RPCM_IPV6}, value: ip6}
+	this.elements[tag] = &rIpv6{rElem: rElem{typ: TypeIPv6}, value: ip6}
 	return this
 }
 
 // AddPointer32 adds a 32 bit pointer with the specified tag to the Sequence.
 func (this *Sequence) AddPointer32(tag uint32, ptr uint32) *Sequence {
-	this.elements[tag] = &rPointer32{rElem: rElem{typ: RPCM_POINTER_32}, value: ptr}
+	this.elements[tag] = &rPointer32{rElem: rElem{typ: TypePointer32}, value: ptr}
 	return this
 }
 
 // AddPointer64 adds a 64 bit pointer with the specified tag to the Sequence.
 func (this *Sequence) AddPointer64(tag uint32, ptr uint64) *Sequence {
-	this.elements[tag] = &rPointer64{rElem: rElem{typ: RPCM_POINTER_64}, value: ptr}
+	this.elements[tag] = &rPointer64{rElem: rElem{typ: TypePointer64}, value: ptr}
 	return this
 }
 
 // AddTimedelta adds a time delta with the specified tag to the Sequence.
 func (this *Sequence) AddTimedelta(tag uint32, td uint64) *Sequence {
-	this.elements[tag] = &rTimedelta{rElem: rElem{typ: RPCM_TIMEDELTA}, value: td}
+	this.elements[tag] = &rTimedelta{rElem: rElem{typ: TypeTimedelta}, value: td}
 	return this
 }
 
 // AddSequence adds a Sequence with the specified tag to the Sequence.
 func (this *Sequence) AddSequence(tag uint32, seq *Sequence) *Sequence {
-	seq.typ = RPCM_SEQUENCE
+	seq.typ = TypeSequence
 	this.elements[tag] = seq
 	return this
 }
 
 // AddList adds a List with the specified tag to the Sequence.
 func (this *Sequence) AddList(tag uint32, list *List) *Sequence {
-	list.typ = RPCM_LIST
+	list.typ = TypeList
 	this.elements[tag] = list
 	return this
 }
@@ -772,7 +772,7 @@ func (this *Sequence) GetInt8(tag uint32) (uint8, bool) {
 	var res uint8
 	var ok bool
 
-	if elem, found := this.elements[tag]; found && elem.GetType() == RPCM_RU8 {
+	if elem, found := this.elements[tag]; found && elem.GetType() == TypeRu8 {
 		ok = true
 		res = elem.(*ru8).value
 	}
@@ -785,7 +785,7 @@ func (this *Sequence) GetInt16(tag uint32) (uint16, bool) {
 	var res uint16
 	var ok bool
 
-	if elem, found := this.elements[tag]; found && elem.GetType() == RPCM_RU16 {
+	if elem, found := this.elements[tag]; found && elem.GetType() == TypeRu16 {
 		ok = true
 		res = elem.(*ru16).value
 	}
@@ -798,7 +798,7 @@ func (this *Sequence) GetInt32(tag uint32) (uint32, bool) {
 	var res uint32
 	var ok bool
 
-	if elem, found := this.elements[tag]; found && elem.GetType() == RPCM_RU32 {
+	if elem, found := this.elements[tag]; found && elem.GetType() == TypeRu32 {
 		ok = true
 		res = elem.(*ru32).value
 	}
@@ -811,7 +811,7 @@ func (this *Sequence) GetInt64(tag uint32) (uint64, bool) {
 	var res uint64
 	var ok bool
 
-	if elem, found := this.elements[tag]; found && elem.GetType() == RPCM_RU64 {
+	if elem, found := this.elements[tag]; found && elem.GetType() == TypeRu64 {
 		ok = true
 		res = elem.(*ru64).value
 	}
@@ -824,7 +824,7 @@ func (this *Sequence) GetStringA(tag uint32) (string, bool) {
 	var res string
 	var ok bool
 
-	if elem, found := this.elements[tag]; found && elem.GetType() == RPCM_STRINGA {
+	if elem, found := this.elements[tag]; found && elem.GetType() == TypeStringA {
 		ok = true
 		res = elem.(*rStringA).value
 	}
@@ -837,7 +837,7 @@ func (this *Sequence) GetStringW(tag uint32) (string, bool) {
 	var res string
 	var ok bool
 
-	if elem, found := this.elements[tag]; found && elem.GetType() == RPCM_STRINGW {
+	if elem, found := this.elements[tag]; found && elem.GetType() == TypeStringW {
 		ok = true
 		res = elem.(*rStringW).value
 	}
@@ -850,7 +850,7 @@ func (this *Sequence) GetBuffer(tag uint32) ([]byte, bool) {
 	var res []byte
 	var ok bool
 
-	if elem, found := this.elements[tag]; found && elem.GetType() == RPCM_BUFFER {
+	if elem, found := this.elements[tag]; found && elem.GetType() == TypeBuffer {
 		ok = true
 		res = elem.(*rBuffer).value
 	}
@@ -863,7 +863,7 @@ func (this *Sequence) GetTimestamp(tag uint32) (uint64, bool) {
 	var res uint64
 	var ok bool
 
-	if elem, found := this.elements[tag]; found && elem.GetType() == RPCM_TIMESTAMP {
+	if elem, found := this.elements[tag]; found && elem.GetType() == TypeTimestamp {
 		ok = true
 		res = elem.(*rTimestamp).value
 	}
@@ -876,7 +876,7 @@ func (this *Sequence) GetIpv4(tag uint32) (uint32, bool) {
 	var res uint32
 	var ok bool
 
-	if elem, found := this.elements[tag]; found && elem.GetType() == RPCM_IPV4 {
+	if elem, found := this.elements[tag]; found && elem.GetType() == TypeIPv4 {
 		ok = true
 		res = elem.(*rIpv4).value
 	}
@@ -889,7 +889,7 @@ func (this *Sequence) GetIpv6(tag uint32) ([16]byte, bool) {
 	var res [16]byte
 	var ok bool
 
-	if elem, found := this.elements[tag]; found && elem.GetType() == RPCM_IPV6 {
+	if elem, found := this.elements[tag]; found && elem.GetType() == TypeIPv6 {
 		ok = true
 		res = elem.(*rIpv6).value
 	}
@@ -902,7 +902,7 @@ func (this *Sequence) GetPointer32(tag uint32) (uint32, bool) {
 	var res uint32
 	var ok bool
 
-	if elem, found := this.elements[tag]; found && elem.GetType() == RPCM_POINTER_32 {
+	if elem, found := this.elements[tag]; found && elem.GetType() == TypePointer32 {
 		ok = true
 		res = elem.(*rPointer32).value
 	}
@@ -915,7 +915,7 @@ func (this *Sequence) GetPointer64(tag uint32) (uint64, bool) {
 	var res uint64
 	var ok bool
 
-	if elem, found := this.elements[tag]; found && elem.GetType() == RPCM_POINTER_64 {
+	if elem, found := this.elements[tag]; found && elem.GetType() == TypePointer64 {
 		ok = true
 		res = elem.(*rPointer64).value
 	}
@@ -928,7 +928,7 @@ func (this *Sequence) GetTimedelta(tag uint32) (uint64, bool) {
 	var res uint64
 	var ok bool
 
-	if elem, found := this.elements[tag]; found && elem.GetType() == RPCM_TIMEDELTA {
+	if elem, found := this.elements[tag]; found && elem.GetType() == TypeTimedelta {
 		ok = true
 		res = elem.(*rTimedelta).value
 	}
@@ -941,7 +941,7 @@ func (this *Sequence) GetSequence(tag uint32) (*Sequence, bool) {
 	var res *Sequence
 	var ok bool
 
-	if elem, found := this.elements[tag]; found && elem.GetType() == RPCM_SEQUENCE {
+	if elem, found := this.elements[tag]; found && elem.GetType() == TypeSequence {
 		ok = true
 		res = elem.(*Sequence)
 	}
@@ -954,7 +954,7 @@ func (this *Sequence) GetList(tag uint32) (*List, bool) {
 	var res *List
 	var ok bool
 
-	if elem, found := this.elements[tag]; found && elem.GetType() == RPCM_LIST {
+	if elem, found := this.elements[tag]; found && elem.GetType() == TypeList {
 		ok = true
 		res = elem.(*List)
 	}
@@ -968,8 +968,8 @@ func (this *Sequence) GetList(tag uint32) (*List, bool) {
 
 // AddInt8 adds an 8 bit unsigned integer with the specified tag to the List.
 func (this *List) AddInt8(number uint8) *List {
-	if this.elemType == RPCM_RU8 {
-		this.elements = append(this.elements, &ru8{rElem: rElem{typ: RPCM_RU8}, value: number})
+	if this.elemType == TypeRu8 {
+		this.elements = append(this.elements, &ru8{rElem: rElem{typ: TypeRu8}, value: number})
 		return this
 	}
 	return nil
@@ -977,8 +977,8 @@ func (this *List) AddInt8(number uint8) *List {
 
 // AddInt16 adds an 16 bit unsigned integer with the specified tag to the List.
 func (this *List) AddInt16(number uint16) *List {
-	if this.elemType == RPCM_RU16 {
-		this.elements = append(this.elements, &ru16{rElem: rElem{typ: RPCM_RU16}, value: number})
+	if this.elemType == TypeRu16 {
+		this.elements = append(this.elements, &ru16{rElem: rElem{typ: TypeRu16}, value: number})
 		return this
 	}
 	return nil
@@ -986,8 +986,8 @@ func (this *List) AddInt16(number uint16) *List {
 
 // AddInt32 adds an 32 bit unsigned integer with the specified tag to the List.
 func (this *List) AddInt32(number uint32) *List {
-	if this.elemType == RPCM_RU32 {
-		this.elements = append(this.elements, &ru32{rElem: rElem{typ: RPCM_RU32}, value: number})
+	if this.elemType == TypeRu32 {
+		this.elements = append(this.elements, &ru32{rElem: rElem{typ: TypeRu32}, value: number})
 		return this
 	}
 	return nil
@@ -995,8 +995,8 @@ func (this *List) AddInt32(number uint32) *List {
 
 // AddInt64 adds an 64 bit unsigned integer with the specified tag to the List.
 func (this *List) AddInt64(number uint64) *List {
-	if this.elemType == RPCM_RU64 {
-		this.elements = append(this.elements, &ru64{rElem: rElem{typ: RPCM_RU64}, value: number})
+	if this.elemType == TypeRu64 {
+		this.elements = append(this.elements, &ru64{rElem: rElem{typ: TypeRu64}, value: number})
 		return this
 	}
 	return nil
@@ -1004,8 +1004,8 @@ func (this *List) AddInt64(number uint64) *List {
 
 // AddStringA adds an ascii string with the specified tag to the List.
 func (this *List) AddStringA(str string) *List {
-	if this.elemType == RPCM_STRINGA {
-		this.elements = append(this.elements, &rStringA{rElem: rElem{typ: RPCM_STRINGA}, value: str})
+	if this.elemType == TypeStringA {
+		this.elements = append(this.elements, &rStringA{rElem: rElem{typ: TypeStringA}, value: str})
 		return this
 	}
 	return nil
@@ -1013,8 +1013,8 @@ func (this *List) AddStringA(str string) *List {
 
 // AddStringW adds a wide character string with the specified tag to the List.
 func (this *List) AddStringW(str string) *List {
-	if this.elemType == RPCM_STRINGW {
-		this.elements = append(this.elements, &rStringW{rElem: rElem{typ: RPCM_STRINGW}, value: str})
+	if this.elemType == TypeStringW {
+		this.elements = append(this.elements, &rStringW{rElem: rElem{typ: TypeStringW}, value: str})
 		return this
 	}
 	return nil
@@ -1022,8 +1022,8 @@ func (this *List) AddStringW(str string) *List {
 
 // AddBuffer adds a buffer with the specified tag to the List.
 func (this *List) AddBuffer(buf []byte) *List {
-	if this.elemType == RPCM_BUFFER {
-		this.elements = append(this.elements, &rBuffer{rElem: rElem{typ: RPCM_BUFFER}, value: buf})
+	if this.elemType == TypeBuffer {
+		this.elements = append(this.elements, &rBuffer{rElem: rElem{typ: TypeBuffer}, value: buf})
 		return this
 	}
 	return nil
@@ -1031,8 +1031,8 @@ func (this *List) AddBuffer(buf []byte) *List {
 
 // AddTimestamp adds a timestamp with the specified tag to the List.
 func (this *List) AddTimestamp(ts uint64) *List {
-	if this.elemType == RPCM_TIMESTAMP {
-		this.elements = append(this.elements, &rTimestamp{rElem: rElem{typ: RPCM_TIMESTAMP}, value: ts})
+	if this.elemType == TypeTimestamp {
+		this.elements = append(this.elements, &rTimestamp{rElem: rElem{typ: TypeTimestamp}, value: ts})
 		return this
 	}
 	return nil
@@ -1040,8 +1040,8 @@ func (this *List) AddTimestamp(ts uint64) *List {
 
 // AddIpv4 adds an IP v4 with the specified tag to the List.
 func (this *List) AddIpv4(ip4 uint32) *List {
-	if this.elemType == RPCM_IPV4 {
-		this.elements = append(this.elements, &rIpv4{rElem: rElem{typ: RPCM_IPV4}, value: ip4})
+	if this.elemType == TypeIPv4 {
+		this.elements = append(this.elements, &rIpv4{rElem: rElem{typ: TypeIPv4}, value: ip4})
 		return this
 	}
 	return nil
@@ -1049,8 +1049,8 @@ func (this *List) AddIpv4(ip4 uint32) *List {
 
 // AddIpv6 adds an IP v6 with the specified tag to the List.
 func (this *List) AddIpv6(ip6 [16]byte) *List {
-	if this.elemType == RPCM_IPV6 {
-		this.elements = append(this.elements, &rIpv6{rElem: rElem{typ: RPCM_IPV6}, value: ip6})
+	if this.elemType == TypeIPv6 {
+		this.elements = append(this.elements, &rIpv6{rElem: rElem{typ: TypeIPv6}, value: ip6})
 		return this
 	}
 	return nil
@@ -1058,8 +1058,8 @@ func (this *List) AddIpv6(ip6 [16]byte) *List {
 
 // AddPointer32 adds a 32 bit pointer with the specified tag to the List.
 func (this *List) AddPointer32(ptr uint32) *List {
-	if this.elemType == RPCM_POINTER_32 {
-		this.elements = append(this.elements, &rPointer32{rElem: rElem{typ: RPCM_POINTER_32}, value: ptr})
+	if this.elemType == TypePointer32 {
+		this.elements = append(this.elements, &rPointer32{rElem: rElem{typ: TypePointer32}, value: ptr})
 		return this
 	}
 	return nil
@@ -1067,8 +1067,8 @@ func (this *List) AddPointer32(ptr uint32) *List {
 
 // AddPointer64 adds a 64 bit pointer with the specified tag to the List.
 func (this *List) AddPointer64(ptr uint64) *List {
-	if this.elemType == RPCM_POINTER_64 {
-		this.elements = append(this.elements, &rPointer64{rElem: rElem{typ: RPCM_POINTER_64}, value: ptr})
+	if this.elemType == TypePointer64 {
+		this.elements = append(this.elements, &rPointer64{rElem: rElem{typ: TypePointer64}, value: ptr})
 		return this
 	}
 	return nil
@@ -1076,8 +1076,8 @@ func (this *List) AddPointer64(ptr uint64) *List {
 
 // AddTimedelta adds a time delta with the specified tag to the List.
 func (this *List) AddTimedelta(td uint64) *List {
-	if this.elemType == RPCM_TIMEDELTA {
-		this.elements = append(this.elements, &rTimedelta{rElem: rElem{typ: RPCM_TIMEDELTA}, value: td})
+	if this.elemType == TypeTimedelta {
+		this.elements = append(this.elements, &rTimedelta{rElem: rElem{typ: TypeTimedelta}, value: td})
 		return this
 	}
 	return nil
@@ -1085,8 +1085,8 @@ func (this *List) AddTimedelta(td uint64) *List {
 
 // AddSequence adds a Sequence with the specified tag to the List.
 func (this *List) AddSequence(seq *Sequence) *List {
-	if this.elemType == RPCM_SEQUENCE {
-		seq.typ = RPCM_SEQUENCE
+	if this.elemType == TypeSequence {
+		seq.typ = TypeSequence
 		this.elements = append(this.elements, seq)
 		return this
 	}
@@ -1095,8 +1095,8 @@ func (this *List) AddSequence(seq *Sequence) *List {
 
 // AddList adds a List with the specified tag to the List.
 func (this *List) AddList(list *List) *List {
-	if this.elemType == RPCM_LIST {
-		list.typ = RPCM_LIST
+	if this.elemType == TypeList {
+		list.typ = TypeList
 		this.elements = append(this.elements, list)
 		return this
 	}
@@ -1107,7 +1107,7 @@ func (this *List) AddList(list *List) *List {
 func (this *List) GetInt8(tag uint32) []uint8 {
 	res := make([]uint8, 0)
 
-	if RPCM_RU8 == this.elemType && tag == this.elemTag {
+	if TypeRu8 == this.elemType && tag == this.elemTag {
 		for _, e := range this.elements {
 			res = append(res, e.(*ru8).value)
 		}
@@ -1120,7 +1120,7 @@ func (this *List) GetInt8(tag uint32) []uint8 {
 func (this *List) GetInt16(tag uint32) []uint16 {
 	res := make([]uint16, 0)
 
-	if RPCM_RU16 == this.elemType && tag == this.elemTag {
+	if TypeRu16 == this.elemType && tag == this.elemTag {
 		for _, e := range this.elements {
 			res = append(res, e.(*ru16).value)
 		}
@@ -1133,7 +1133,7 @@ func (this *List) GetInt16(tag uint32) []uint16 {
 func (this *List) GetInt32(tag uint32) []uint32 {
 	res := make([]uint32, 0)
 
-	if RPCM_RU32 == this.elemType && tag == this.elemTag {
+	if TypeRu32 == this.elemType && tag == this.elemTag {
 		for _, e := range this.elements {
 			res = append(res, e.(*ru32).value)
 		}
@@ -1146,7 +1146,7 @@ func (this *List) GetInt32(tag uint32) []uint32 {
 func (this *List) GetInt64(tag uint32) []uint64 {
 	res := make([]uint64, 0)
 
-	if RPCM_RU64 == this.elemType && tag == this.elemTag {
+	if TypeRu64 == this.elemType && tag == this.elemTag {
 		for _, e := range this.elements {
 			res = append(res, e.(*ru64).value)
 		}
@@ -1159,7 +1159,7 @@ func (this *List) GetInt64(tag uint32) []uint64 {
 func (this *List) GetStringA(tag uint32) []string {
 	res := make([]string, 0)
 
-	if RPCM_STRINGA == this.elemType && tag == this.elemTag {
+	if TypeStringA == this.elemType && tag == this.elemTag {
 		for _, e := range this.elements {
 			res = append(res, e.(*rStringA).value)
 		}
@@ -1172,7 +1172,7 @@ func (this *List) GetStringA(tag uint32) []string {
 func (this *List) GetStringW(tag uint32) []string {
 	res := make([]string, 0)
 
-	if RPCM_STRINGW == this.elemType && tag == this.elemTag {
+	if TypeStringW == this.elemType && tag == this.elemTag {
 		for _, e := range this.elements {
 			res = append(res, e.(*rStringW).value)
 		}
@@ -1185,7 +1185,7 @@ func (this *List) GetStringW(tag uint32) []string {
 func (this *List) GetBuffer(tag uint32) [][]byte {
 	res := make([][]byte, 0)
 
-	if RPCM_BUFFER == this.elemType && tag == this.elemTag {
+	if TypeBuffer == this.elemType && tag == this.elemTag {
 		for _, e := range this.elements {
 			res = append(res, e.(*rBuffer).value)
 		}
@@ -1198,7 +1198,7 @@ func (this *List) GetBuffer(tag uint32) [][]byte {
 func (this *List) GetTimestamp(tag uint32) []uint64 {
 	res := make([]uint64, 0)
 
-	if RPCM_TIMESTAMP == this.elemType && tag == this.elemTag {
+	if TypeTimestamp == this.elemType && tag == this.elemTag {
 		for _, e := range this.elements {
 			res = append(res, e.(*rTimestamp).value)
 		}
@@ -1211,7 +1211,7 @@ func (this *List) GetTimestamp(tag uint32) []uint64 {
 func (this *List) GetIpv4(tag uint32) []uint32 {
 	res := make([]uint32, 0)
 
-	if RPCM_IPV4 == this.elemType && tag == this.elemTag {
+	if TypeIPv4 == this.elemType && tag == this.elemTag {
 		for _, e := range this.elements {
 			res = append(res, e.(*rIpv4).value)
 		}
@@ -1224,7 +1224,7 @@ func (this *List) GetIpv4(tag uint32) []uint32 {
 func (this *List) GetIpv6(tag uint32) [][16]byte {
 	res := make([][16]byte, 0)
 
-	if RPCM_IPV6 == this.elemType && tag == this.elemTag {
+	if TypeIPv6 == this.elemType && tag == this.elemTag {
 		for _, e := range this.elements {
 			res = append(res, e.(*rIpv6).value)
 		}
@@ -1237,7 +1237,7 @@ func (this *List) GetIpv6(tag uint32) [][16]byte {
 func (this *List) GetPointer32(tag uint32) []uint32 {
 	res := make([]uint32, 0)
 
-	if RPCM_POINTER_32 == this.elemType && tag == this.elemTag {
+	if TypePointer32 == this.elemType && tag == this.elemTag {
 		for _, e := range this.elements {
 			res = append(res, e.(*rPointer32).value)
 		}
@@ -1250,7 +1250,7 @@ func (this *List) GetPointer32(tag uint32) []uint32 {
 func (this *List) GetPointer64(tag uint32) []uint64 {
 	res := make([]uint64, 0)
 
-	if RPCM_POINTER_64 == this.elemType && tag == this.elemTag {
+	if TypePointer64 == this.elemType && tag == this.elemTag {
 		for _, e := range this.elements {
 			res = append(res, e.(*rPointer64).value)
 		}
@@ -1263,7 +1263,7 @@ func (this *List) GetPointer64(tag uint32) []uint64 {
 func (this *List) GetTimedelta(tag uint32) []uint64 {
 	res := make([]uint64, 0)
 
-	if RPCM_TIMEDELTA == this.elemType && tag == this.elemTag {
+	if TypeTimedelta == this.elemType && tag == this.elemTag {
 		for _, e := range this.elements {
 			res = append(res, e.(*rTimedelta).value)
 		}
@@ -1276,7 +1276,7 @@ func (this *List) GetTimedelta(tag uint32) []uint64 {
 func (this *List) GetSequence(tag uint32) []*Sequence {
 	res := make([]*Sequence, 0)
 
-	if RPCM_SEQUENCE == this.elemType && tag == this.elemTag {
+	if TypeSequence == this.elemType && tag == this.elemTag {
 		for _, e := range this.elements {
 			res = append(res, e.(*Sequence))
 		}
@@ -1289,7 +1289,7 @@ func (this *List) GetSequence(tag uint32) []*Sequence {
 func (this *List) GetList(tag uint32) []*List {
 	res := make([]*List, 0)
 
-	if RPCM_LIST == this.elemType && tag == this.elemTag {
+	if TypeList == this.elemType && tag == this.elemTag {
 		for _, e := range this.elements {
 			res = append(res, e.(*List))
 		}

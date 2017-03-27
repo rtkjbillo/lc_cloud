@@ -44,8 +44,8 @@ func TestDeepSequence(t *testing.T) {
 	if err != nil {
 		t.Errorf("Deserialize failed.")
 	}
-	rawJson := outSeq.ToJson()
-	jsonString, err := json.Marshal(rawJson)
+	rawJSON := outSeq.ToJson()
+	jsonString, err := json.Marshal(rawJSON)
 	if err != nil || jsonString == nil {
 		t.Errorf(err.Error())
 	}
@@ -82,7 +82,7 @@ func TestDeepSequence(t *testing.T) {
 
 func getRandomBuffer(minSize int, maxSize int) []byte {
 	buf := make([]byte, minSize + rand.Intn(maxSize - minSize))
-	for i, _ := range buf {
+	for i := range buf {
 		buf[ i ] = byte(rand.Intn(256))
 	}
 	return buf
@@ -112,15 +112,15 @@ func TestNaming(t *testing.T) {
 		t.Error("Expected RP_TAGS_ACCESS_TIME in ToMachine output with value 99.")
 	}
 
-	asJson := outSeq.ToJson()
-	if asJson == nil {
+	asJSON := outSeq.ToJson()
+	if asJSON == nil {
 		t.Error("ToMachine failed.")
 	}
-	if val, ok := asJson["base.HOST_NAME"]; !ok || val != uint8(6) {
-		t.Error(asJson)
+	if val, ok := asJSON["base.HOST_NAME"]; !ok || val != uint8(6) {
+		t.Error(asJSON)
 		t.Error("Expected base.HOST_NAME in ToJson output with value 6.")
 	}
-	if val, ok := asJson["base.ACCESS_TIME"]; !ok || val != "99" {
+	if val, ok := asJSON["base.ACCESS_TIME"]; !ok || val != "99" {
 		t.Error("Expected base.ACCESS_TIME in ToJson output with value 99.")
 	}
 }

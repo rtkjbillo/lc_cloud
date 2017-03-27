@@ -1,7 +1,7 @@
 // Copyright 2015 refractionPOINT
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
+// you may not use a file except in compliance with the License.
 // You may obtain a copy of the License at
 //
 //    http://www.apache.org/licenses/LICENSE-2.0
@@ -13,7 +13,7 @@
 // limitations under the License.
 
 /*
-The HCP package contains definitions and helpers specific to the operation of the 
+Package hcp contains definitions and helpers specific to the operation of the 
 LimaCharlie Host Common Platform.
 */
 package hcp
@@ -27,23 +27,23 @@ import (
 
 // Module IDs of common HCP modules
 const (
-	MODULE_ID_HCP        = 1
-	MODULE_ID_HBS        = 2
-	MODULE_ID_KERNEL_ACQ = 5
+	ModuleIDHcp        = 1
+	ModuleIDHbs        = 2
+	ModuleIDKernelAcq = 5
 )
 
 // Command IDs of HCP commands
 const (
-	LOAD_MODULE     = 1
-	UNLOAD_MODULE   = 2
-	SET_HCP_ID      = 3
-	SET_GLOBAL_TIME = 4
-	QUIT            = 5
+	LoadModule     = 1
+	UnloadModule   = 2
+	SetHcpID      = 3
+	SetGlobalTime = 4
+	Quit            = 5
 )
 
-// AgentId is the logical representation of the ID components used
+// AgentID is the logical representation of the ID components used
 // to identify a specific sensor and its basic characteristics
-type AgentId struct {
+type AgentID struct {
 	Oid          uuid.UUID
 	Iid          uuid.UUID
 	Sid          uuid.UUID
@@ -51,49 +51,47 @@ type AgentId struct {
 	Architecture uint32
 }
 
-// IsAbsolute returns true if none of the components of the AgentId are wildcards (0)
-func (this AgentId) IsAbsolute() bool {
-	var emptyUuid uuid.UUID
-	if this.Oid == emptyUuid ||
-		this.Iid == emptyUuid ||
-		this.Platform == 0 ||
-		this.Architecture == 0 {
+// IsAbsolute returns true if none of the components of the AgentID are wildcards (0)
+func (a AgentID) IsAbsolute() bool {
+	var emptyUUID uuid.UUID
+	if a.Oid == emptyUUID ||
+		a.Iid == emptyUUID ||
+		a.Platform == 0 ||
+		a.Architecture == 0 {
 		return false
-	} else {
-		return true
 	}
+	return true
 }
 
-// IsSidWild returns true if the SensorId component of the AgentId is a wildcard
-func (this AgentId) IsSidWild() bool {
-	var emptyUuid uuid.UUID
-	return this.Sid == emptyUuid
+// IsSidWild returns true if the SensorId component of the AgentID is a wildcard
+func (a AgentID) IsSidWild() bool {
+	var emptyUUID uuid.UUID
+	return a.Sid == emptyUUID
 }
 
 func uuidAsWildString(id uuid.UUID) string {
-	var emptyUuid uuid.UUID
-	if id == emptyUuid {
+	var emptyUUID uuid.UUID
+	if id == emptyUUID {
 		return "0"
-	} else {
-		return id.String()
 	}
+	return id.String()
 }
 
-// ToString converts the AgentId to its standardized string representation
-func (this AgentId) ToString() string {
+// ToString converts the AgentID to its standardized string representation
+func (a AgentID) ToString() string {
 
 	return fmt.Sprintf("%s.%s.%s.%x.%x",
-		uuidAsWildString(this.Oid),
-		uuidAsWildString(this.Iid),
-		uuidAsWildString(this.Sid),
-		this.Platform,
-		this.Architecture)
+		uuidAsWildString(a.Oid),
+		uuidAsWildString(a.Iid),
+		uuidAsWildString(a.Sid),
+		a.Platform,
+		a.Architecture)
 }
 
-// FromString converts the standardized string representation of an AgentId into an AgentId
-func (this AgentId) FromString(s string) bool {
+// FromString converts the standardized string representation of an AgentID into an AgentID
+func (a AgentID) FromString(s string) bool {
 	var err error
-	var emptyUuid uuid.UUID
+	var emptyUUID uuid.UUID
 	var tmp64 uint64
 	components := strings.Split(s, ".")
 	if len(components) != 5 {
@@ -101,44 +99,44 @@ func (this AgentId) FromString(s string) bool {
 	}
 
 	if components[0] == "0" {
-		this.Oid = emptyUuid
-	} else if this.Oid, err = uuid.Parse(components[0]); err != nil {
+		a.Oid = emptyUUID
+	} else if a.Oid, err = uuid.Parse(components[0]); err != nil {
 		return false
 	}
 
 	if components[1] == "0" {
-		this.Iid = emptyUuid
-	} else if this.Iid, err = uuid.Parse(components[1]); err != nil {
+		a.Iid = emptyUUID
+	} else if a.Iid, err = uuid.Parse(components[1]); err != nil {
 		return false
 	}
 
 	if components[2] == "0" {
-		this.Sid = emptyUuid
-	} else if this.Sid, err = uuid.Parse(components[2]); err != nil {
+		a.Sid = emptyUUID
+	} else if a.Sid, err = uuid.Parse(components[2]); err != nil {
 		return false
 	}
 
 	if tmp64, err = strconv.ParseUint(components[3], 16, 32); err != nil {
 		return false
 	}
-	this.Platform = uint32(tmp64)
+	a.Platform = uint32(tmp64)
 
 	if tmp64, err = strconv.ParseUint(components[3], 16, 32); err != nil {
 		return false
 	}
-	this.Architecture = uint32(tmp64)
+	a.Architecture = uint32(tmp64)
 
 	return true
 }
 
-// Matches returns true if both AgentIds are equal (or wildcarded) in all components
-func (this AgentId) Matches(compareTo AgentId) bool {
-	var emptyUuid uuid.UUID
-	if (this.Oid == emptyUuid || compareTo.Oid == emptyUuid || this.Oid == compareTo.Oid) &&
-		(this.Iid == emptyUuid || compareTo.Iid == emptyUuid || this.Iid == compareTo.Iid) &&
-		(this.Sid == emptyUuid || compareTo.Sid == emptyUuid || this.Sid == compareTo.Sid) &&
-		(this.Platform == 0 || compareTo.Platform == 0 || this.Platform == compareTo.Platform) &&
-		(this.Architecture == 0 || compareTo.Architecture == 0 || this.Architecture == compareTo.Architecture) {
+// Matches returns true if both AgentIDs are equal (or wildcarded) in all components
+func (a AgentID) Matches(compareTo AgentID) bool {
+	var emptyUUID uuid.UUID
+	if (a.Oid == emptyUUID || compareTo.Oid == emptyUUID || a.Oid == compareTo.Oid) &&
+		(a.Iid == emptyUUID || compareTo.Iid == emptyUUID || a.Iid == compareTo.Iid) &&
+		(a.Sid == emptyUUID || compareTo.Sid == emptyUUID || a.Sid == compareTo.Sid) &&
+		(a.Platform == 0 || compareTo.Platform == 0 || a.Platform == compareTo.Platform) &&
+		(a.Architecture == 0 || compareTo.Architecture == 0 || a.Architecture == compareTo.Architecture) {
 		return true
 	}
 
