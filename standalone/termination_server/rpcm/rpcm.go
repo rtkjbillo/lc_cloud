@@ -1,7 +1,7 @@
 // Copyright 2015 refractionPOINT
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
+// you may not use e file except in compliance with the License.
 // You may obtain a copy of the License at
 //
 //    http://www.apache.org/licenses/LICENSE-2.0
@@ -154,68 +154,71 @@ type MachineSequence map[uint32]interface{}
 // MachineList is a native Go representation of a List
 type MachineList []interface{}
 
-func (this *rElem) GetType() uint8 {
-	return this.typ
+func (e *rElem) GetType() uint8 {
+	return e.typ
 }
 
-func (this *ru8) GetValue() interface{} {
-	return this.value
+func (e *ru8) GetValue() interface{} {
+	return e.value
 }
 
-func (this *ru16) GetValue() interface{} {
-	return this.value
+func (e *ru16) GetValue() interface{} {
+	return e.value
 }
 
-func (this *ru32) GetValue() interface{} {
-	return this.value
+func (e *ru32) GetValue() interface{} {
+	return e.value
 }
 
-func (this *ru64) GetValue() interface{} {
-	return this.value
+func (e *ru64) GetValue() interface{} {
+	return e.value
 }
 
-func (this *rStringA) GetValue() interface{} {
-	return this.value
+func (e *rStringA) GetValue() interface{} {
+	return e.value
 }
 
-func (this *rStringW) GetValue() interface{} {
-	return this.value
+func (e *rStringW) GetValue() interface{} {
+	return e.value
 }
 
-func (this *rBuffer) GetValue() interface{} {
-	return this.value
+func (e *rBuffer) GetValue() interface{} {
+	return e.value
 }
 
-func (this *rTimestamp) GetValue() interface{} {
-	return this.value
+func (e *rTimestamp) GetValue() interface{} {
+	return e.value
 }
 
-func (this *rIpv4) GetValue() interface{} {
-	return this.value
+func (e *rIpv4) GetValue() interface{} {
+	return e.value
 }
 
-func (this *rIpv6) GetValue() interface{} {
-	return this.value
+func (e *rIpv6) GetValue() interface{} {
+	return e.value
 }
 
-func (this *rPointer32) GetValue() interface{} {
-	return this.value
+func (e *rPointer32) GetValue() interface{} {
+	return e.value
 }
 
-func (this *rPointer64) GetValue() interface{} {
-	return this.value
+func (e *rPointer64) GetValue() interface{} {
+	return e.value
 }
 
-func (this *rTimedelta) GetValue() interface{} {
-	return this.value
+func (e *rTimedelta) GetValue() interface{} {
+	return e.value
 }
 
-func (this *Sequence) GetValue() interface{} {
-	return this.elements
+// Sequence is a set of (Tag, Type, Value) tuples where Tag is guaranteed to be unique
+func (e *Sequence) GetValue() interface{} {
+	return e.elements
 }
 
-func (this *List) GetValue() interface{} {
-	return this.elements
+// List is a list of (Tag, Type, Value) tuples where all tuples are guaranteed to have
+// the same Tag and Type
+func (e *List) GetValue() interface{} {
+	return e.elements
 }
 
 //=============================================================================
@@ -237,45 +240,28 @@ func NewList(elemTag uint32, elemType uint8) *List {
 // Serialize
 //=============================================================================
 
-func (this *ru8) serialize(toBuf *bytes.Buffer) error {
-	return toBuf.WriteByte(this.value)
+func (e *ru8) serialize(toBuf *bytes.Buffer) error {
+	return toBuf.WriteByte(e.value)
 }
 
-func (this *ru16) serialize(toBuf *bytes.Buffer) error {
-	return binary.Write(toBuf, binary.BigEndian, this.value)
+func (e *ru16) serialize(toBuf *bytes.Buffer) error {
+	return binary.Write(toBuf, binary.BigEndian, e.value)
 }
 
-func (this *ru32) serialize(toBuf *bytes.Buffer) error {
-	return binary.Write(toBuf, binary.BigEndian, this.value)
+func (e *ru32) serialize(toBuf *bytes.Buffer) error {
+	return binary.Write(toBuf, binary.BigEndian, e.value)
 }
 
-func (this *ru64) serialize(toBuf *bytes.Buffer) error {
-	return binary.Write(toBuf, binary.BigEndian, this.value)
+func (e *ru64) serialize(toBuf *bytes.Buffer) error {
+	return binary.Write(toBuf, binary.BigEndian, e.value)
 }
 
-func (this *rStringA) serialize(toBuf *bytes.Buffer) error {
-	err := binary.Write(toBuf, binary.BigEndian, uint32(len(this.value)+1))
+func (e *rStringA) serialize(toBuf *bytes.Buffer) error {
+	err := binary.Write(toBuf, binary.BigEndian, uint32(len(e.value)+1))
 	if err != nil {
 		return err
 	}
-	_, err = toBuf.Write([]byte(this.value))
-	if err != nil {
-		return err
-	}
-	err = toBuf.WriteByte(0)
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func (this *rStringW) serialize(toBuf *bytes.Buffer) error {
-	err := binary.Write(toBuf, binary.BigEndian, uint32(len(this.value)+1))
-	if err != nil {
-		return err
-	}
-	_, err = toBuf.Write([]byte(this.value))
+	_, err = toBuf.Write([]byte(e.value))
 	if err != nil {
 		return err
 	}
@@ -287,12 +273,16 @@ func (this *rStringW) serialize(toBuf *bytes.Buffer) error {
 	return nil
 }
 
-func (this *rBuffer) serialize(toBuf *bytes.Buffer) error {
-	err := binary.Write(toBuf, binary.BigEndian, uint32(len(this.value)))
+func (e *rStringW) serialize(toBuf *bytes.Buffer) error {
+	err := binary.Write(toBuf, binary.BigEndian, uint32(len(e.value)+1))
 	if err != nil {
 		return err
 	}
-	_, err = toBuf.Write(this.value)
+	_, err = toBuf.Write([]byte(e.value))
+	if err != nil {
+		return err
+	}
+	err = toBuf.WriteByte(0)
 	if err != nil {
 		return err
 	}
@@ -300,42 +290,55 @@ func (this *rBuffer) serialize(toBuf *bytes.Buffer) error {
 	return nil
 }
 
-func (this *rTimestamp) serialize(toBuf *bytes.Buffer) error {
-	return binary.Write(toBuf, binary.BigEndian, this.value)
+func (e *rBuffer) serialize(toBuf *bytes.Buffer) error {
+	err := binary.Write(toBuf, binary.BigEndian, uint32(len(e.value)))
+	if err != nil {
+		return err
+	}
+	_, err = toBuf.Write(e.value)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
-func (this *rIpv4) serialize(toBuf *bytes.Buffer) error {
-	return binary.Write(toBuf, binary.BigEndian, this.value)
+func (e *rTimestamp) serialize(toBuf *bytes.Buffer) error {
+	return binary.Write(toBuf, binary.BigEndian, e.value)
 }
 
-func (this *rIpv6) serialize(toBuf *bytes.Buffer) error {
-	return binary.Write(toBuf, binary.BigEndian, this.value)
+func (e *rIpv4) serialize(toBuf *bytes.Buffer) error {
+	return binary.Write(toBuf, binary.BigEndian, e.value)
 }
 
-func (this *rPointer32) serialize(toBuf *bytes.Buffer) error {
-	return binary.Write(toBuf, binary.BigEndian, this.value)
+func (e *rIpv6) serialize(toBuf *bytes.Buffer) error {
+	return binary.Write(toBuf, binary.BigEndian, e.value)
 }
 
-func (this *rPointer64) serialize(toBuf *bytes.Buffer) error {
-	return binary.Write(toBuf, binary.BigEndian, this.value)
+func (e *rPointer32) serialize(toBuf *bytes.Buffer) error {
+	return binary.Write(toBuf, binary.BigEndian, e.value)
 }
 
-func (this *rTimedelta) serialize(toBuf *bytes.Buffer) error {
-	return binary.Write(toBuf, binary.BigEndian, this.value)
+func (e *rPointer64) serialize(toBuf *bytes.Buffer) error {
+	return binary.Write(toBuf, binary.BigEndian, e.value)
+}
+
+func (e *rTimedelta) serialize(toBuf *bytes.Buffer) error {
+	return binary.Write(toBuf, binary.BigEndian, e.value)
 }
 
 // Serialize convertts the Sequence structure in a slice of bytes that can be used
 // to restore the original Sequence regardless of the platform.
-func (this *Sequence) Serialize(toBuf *bytes.Buffer) error {
-    return this.serialize(toBuf)
+func (e *Sequence) Serialize(toBuf *bytes.Buffer) error {
+    return e.serialize(toBuf)
 }
 
-func (this *Sequence) serialize(toBuf *bytes.Buffer) error {
-	err := binary.Write(toBuf, binary.BigEndian, uint32(len(this.elements)))
+func (e *Sequence) serialize(toBuf *bytes.Buffer) error {
+	err := binary.Write(toBuf, binary.BigEndian, uint32(len(e.elements)))
 	if err != nil {
 		return err
 	}
-	for tag, elem := range this.elements {
+	for tag, elem := range e.elements {
 		err = binary.Write(toBuf, binary.BigEndian, tag)
 		if err != nil {
 			return err
@@ -354,32 +357,32 @@ func (this *Sequence) serialize(toBuf *bytes.Buffer) error {
 
 // Serialize convertts the List structure in a slice of bytes that can be used
 // to restore the original List regardless of the platform.
-func (this *List) Serialize(toBuf *bytes.Buffer) error {
-    return this.serialize(toBuf)
+func (e *List) Serialize(toBuf *bytes.Buffer) error {
+    return e.serialize(toBuf)
 }
 
-func (this *List) serialize(toBuf *bytes.Buffer) error {
-	err := binary.Write(toBuf, binary.BigEndian, this.elemTag)
+func (e *List) serialize(toBuf *bytes.Buffer) error {
+	err := binary.Write(toBuf, binary.BigEndian, e.elemTag)
 	if err != nil {
 		return err
 	}
-	err = binary.Write(toBuf, binary.BigEndian, this.elemType)
+	err = binary.Write(toBuf, binary.BigEndian, e.elemType)
 	if err != nil {
 		return err
 	}
-	err = binary.Write(toBuf, binary.BigEndian, uint32(len(this.elements)))
+	err = binary.Write(toBuf, binary.BigEndian, uint32(len(e.elements)))
 	if err != nil {
 		return err
 	}
-	for _, elem := range this.elements {
-		if this.elemType != elem.GetType() {
-			return errors.New("Sanity failure: list contains unexpected type.")
+	for _, elem := range e.elements {
+		if e.elemType != elem.GetType() {
+			return errors.New("sanity failure: list contains unexpected type")
 		}
-		err = binary.Write(toBuf, binary.BigEndian, this.elemTag)
+		err = binary.Write(toBuf, binary.BigEndian, e.elemTag)
 		if err != nil {
 			return err
 		}
-		err = binary.Write(toBuf, binary.BigEndian, this.elemType)
+		err = binary.Write(toBuf, binary.BigEndian, e.elemType)
 		if err != nil {
 			return err
 		}
@@ -396,13 +399,13 @@ func (this *List) serialize(toBuf *bytes.Buffer) error {
 //=============================================================================
 
 // Deserialize a slice of bytes into the Sequence it represents.
-func (this *Sequence) Deserialize(fromBuf *bytes.Buffer) error {
+func (e *Sequence) Deserialize(fromBuf *bytes.Buffer) error {
 	var nElements uint32
 	var tag uint32
 	var typ uint8
 	var err error
 
-	this.typ = TypeSequence
+	e.typ = TypeSequence
 
 	err = binary.Read(fromBuf, binary.BigEndian, &nElements)
 	if err != nil {
@@ -422,30 +425,30 @@ func (this *Sequence) Deserialize(fromBuf *bytes.Buffer) error {
 		}
 		tmpElem, err = rpcmDeserializeElem(fromBuf, typ)
 		if tmpElem == nil || err != nil {
-			return errors.New("Failed to deserialize an element.")
+			return errors.New("failed to deserialize an element")
 		}
 
-		this.elements[tag] = tmpElem
+		e.elements[tag] = tmpElem
 	}
 
 	return err
 }
 
 // Deserialize a slice of bytes into the List it represents.
-func (this *List) Deserialize(fromBuf *bytes.Buffer) error {
+func (e *List) Deserialize(fromBuf *bytes.Buffer) error {
 	var nElements uint32
 	var tag uint32
 	var typ uint8
 	var err error
 
-	this.typ = TypeList
+	e.typ = TypeList
 
-	err = binary.Read(fromBuf, binary.BigEndian, &this.elemTag)
+	err = binary.Read(fromBuf, binary.BigEndian, &e.elemTag)
 	if err != nil {
 		return err
 	}
 
-	err = binary.Read(fromBuf, binary.BigEndian, &this.elemType)
+	err = binary.Read(fromBuf, binary.BigEndian, &e.elemType)
 	if err != nil {
 		return err
 	}
@@ -462,29 +465,29 @@ func (this *List) Deserialize(fromBuf *bytes.Buffer) error {
 		if err != nil {
 			return err
 		}
-		if tag != this.elemTag {
-			return errors.New("Sanity failure: element tag in list does not match.")
+		if tag != e.elemTag {
+			return errors.New("sanity failure: element tag in list does not match")
 		}
 		err = binary.Read(fromBuf, binary.BigEndian, &typ)
 		if err != nil {
 			return err
 		}
-		if typ != this.elemType {
-			return errors.New("Sanity failure: element type in list does not match.")
+		if typ != e.elemType {
+			return errors.New("sanity failure: element type in list does not match")
 		}
 		tmpElem, err = rpcmDeserializeElem(fromBuf, typ)
 		if tmpElem == nil || err != nil {
-			return errors.New("Failed to deserialize an element.")
+			return errors.New("failed to deserialize an element")
 		}
 
-		this.elements = append(this.elements, tmpElem)
+		e.elements = append(e.elements, tmpElem)
 	}
 
 	return err
 }
 
 func rpcmDeserializeElem(fromBuf *bytes.Buffer, typ uint8) (rpcmElement, error) {
-	var elem rpcmElement = nil
+	var elem rpcmElement
 	var elemLen uint32
 	var tmpBuf []byte
 	var err error
@@ -507,12 +510,12 @@ func rpcmDeserializeElem(fromBuf *bytes.Buffer, typ uint8) (rpcmElement, error) 
 		elem = &rStringA{rElem: rElem{typ: TypeStringA}}
 		err = binary.Read(fromBuf, binary.BigEndian, &elemLen)
 		if uint32(fromBuf.Len()) < elemLen || elemLen == 0 {
-			err = errors.New("Not enough data in buffer")
+			err = errors.New("not enough data in buffer")
 		} else {
 			tmpBuf = make([]byte, elemLen)
 			sizeRead, err = fromBuf.Read(tmpBuf)
 			if uint32(sizeRead) != elemLen {
-				err = errors.New("Error reading enough data from buffer")
+				err = errors.New("error reading enough data from buffer")
 			}
 		}
 		if err == nil {
@@ -597,10 +600,10 @@ func rpcmDeserializeElem(fromBuf *bytes.Buffer, typ uint8) (rpcmElement, error) 
 //=============================================================================
 
 // ToMachine takes a Sequence and turns it into a native Go structure of slices and maps.
-func (this *Sequence) ToMachine() MachineSequence {
+func (e *Sequence) ToMachine() MachineSequence {
 	j := make(map[uint32]interface{})
 
-	for tag, val := range this.elements {
+	for tag, val := range e.elements {
 		if val.GetType() == TypeSequence {
 			j[tag] = val.(*Sequence).ToMachine()
 		} else if val.GetType() == TypeList {
@@ -614,10 +617,10 @@ func (this *Sequence) ToMachine() MachineSequence {
 }
 
 // ToMachine takes a List and turns it into a native Go structure of slices and maps.
-func (this *List) ToMachine() MachineList {
+func (e *List) ToMachine() MachineList {
 	j := make([]interface{}, 0)
 
-	for _, val := range this.elements {
+	for _, val := range e.elements {
 		if val.GetType() == TypeSequence {
 			j = append(j, val.(*Sequence).ToMachine())
 		} else if val.GetType() == TypeList {
@@ -630,22 +633,22 @@ func (this *List) ToMachine() MachineList {
 	return j
 }
 
-// ToMachine takes a Sequence and turns it into the JSON compatible format.
-func (this *Sequence) ToJson() map[string]interface{} {
+// ToJSON takes a Sequence and turns it into the JSON compatible format.
+func (e *Sequence) ToJSON() map[string]interface{} {
 	var tagLabel string
 	var ok bool
 
 	j := make(map[string]interface{})
 
-	for tag, val := range this.elements {
+	for tag, val := range e.elements {
 		if tagLabel, ok = HumanReadableTags[tag]; !ok {
 			tagLabel = strconv.FormatUint(uint64(tag), 16)
 		}
 
 		if val.GetType() == TypeSequence {
-			j[tagLabel] = val.(*Sequence).ToJson()
+			j[tagLabel] = val.(*Sequence).ToJSON()
 		} else if val.GetType() == TypeList {
-			j[tagLabel] = val.(*List).ToJson()
+			j[tagLabel] = val.(*List).ToJSON()
 		} else {
 			j[tagLabel] = val.GetValue()
 		}
@@ -654,15 +657,15 @@ func (this *Sequence) ToJson() map[string]interface{} {
 	return j
 }
 
-// ToMachine takes a List and turns it into the JSON compatible format.
-func (this *List) ToJson() []interface{} {
+// ToJSON takes a List and turns it into the JSON compatible format.
+func (e *List) ToJSON() []interface{} {
 	j := make([]interface{}, 0)
 
-	for _, val := range this.elements {
+	for _, val := range e.elements {
 		if val.GetType() == TypeSequence {
-			j = append(j, val.(*Sequence).ToJson())
+			j = append(j, val.(*Sequence).ToJSON())
 		} else if val.GetType() == TypeList {
-			j = append(j, val.(*List).ToJson())
+			j = append(j, val.(*List).ToJSON())
 		} else {
 			j = append(j, val.GetValue())
 		}
@@ -676,103 +679,103 @@ func (this *List) ToJson() []interface{} {
 //=============================================================================
 
 // AddInt8 adds an 8 bit unsigned integer with the specified tag to the Sequence.
-func (this *Sequence) AddInt8(tag uint32, number uint8) *Sequence {
-	this.elements[tag] = &ru8{rElem: rElem{typ: TypeRu8}, value: number}
-	return this
+func (e *Sequence) AddInt8(tag uint32, number uint8) *Sequence {
+	e.elements[tag] = &ru8{rElem: rElem{typ: TypeRu8}, value: number}
+	return e
 }
 
 // AddInt16 adds an 16 bit unsigned integer with the specified tag to the Sequence.
-func (this *Sequence) AddInt16(tag uint32, number uint16) *Sequence {
-	this.elements[tag] = &ru16{rElem: rElem{typ: TypeRu16}, value: number}
-	return this
+func (e *Sequence) AddInt16(tag uint32, number uint16) *Sequence {
+	e.elements[tag] = &ru16{rElem: rElem{typ: TypeRu16}, value: number}
+	return e
 }
 
 // AddInt32 adds an 32 bit unsigned integer with the specified tag to the Sequence.
-func (this *Sequence) AddInt32(tag uint32, number uint32) *Sequence {
-	this.elements[tag] = &ru32{rElem: rElem{typ: TypeRu32}, value: number}
-	return this
+func (e *Sequence) AddInt32(tag uint32, number uint32) *Sequence {
+	e.elements[tag] = &ru32{rElem: rElem{typ: TypeRu32}, value: number}
+	return e
 }
 
 // AddInt64 adds an 64 bit unsigned integer with the specified tag to the Sequence.
-func (this *Sequence) AddInt64(tag uint32, number uint64) *Sequence {
-	this.elements[tag] = &ru64{rElem: rElem{typ: TypeRu64}, value: number}
-	return this
+func (e *Sequence) AddInt64(tag uint32, number uint64) *Sequence {
+	e.elements[tag] = &ru64{rElem: rElem{typ: TypeRu64}, value: number}
+	return e
 }
 
 // AddStringA adds a ascii string with the specified tag to the Sequence.
-func (this *Sequence) AddStringA(tag uint32, str string) *Sequence {
-	this.elements[tag] = &rStringA{rElem: rElem{typ: TypeStringA}, value: str}
-	return this
+func (e *Sequence) AddStringA(tag uint32, str string) *Sequence {
+	e.elements[tag] = &rStringA{rElem: rElem{typ: TypeStringA}, value: str}
+	return e
 }
 
 // AddStringW adds a wide character string with the specified tag to the Sequence.
-func (this *Sequence) AddStringW(tag uint32, str string) *Sequence {
-	this.elements[tag] = &rStringW{rElem: rElem{typ: TypeStringW}, value: str}
-	return this
+func (e *Sequence) AddStringW(tag uint32, str string) *Sequence {
+	e.elements[tag] = &rStringW{rElem: rElem{typ: TypeStringW}, value: str}
+	return e
 }
 
 // AddBuffer adds a buffer with the specified tag to the Sequence.
-func (this *Sequence) AddBuffer(tag uint32, buf []byte) *Sequence {
-	this.elements[tag] = &rBuffer{rElem: rElem{typ: TypeBuffer}, value: buf}
-	return this
+func (e *Sequence) AddBuffer(tag uint32, buf []byte) *Sequence {
+	e.elements[tag] = &rBuffer{rElem: rElem{typ: TypeBuffer}, value: buf}
+	return e
 }
 
 // AddTimestamp adds a 64 bit timestamp with the specified tag to the Sequence.
-func (this *Sequence) AddTimestamp(tag uint32, ts uint64) *Sequence {
-	this.elements[tag] = &rTimestamp{rElem: rElem{typ: TypeTimestamp}, value: ts}
-	return this
+func (e *Sequence) AddTimestamp(tag uint32, ts uint64) *Sequence {
+	e.elements[tag] = &rTimestamp{rElem: rElem{typ: TypeTimestamp}, value: ts}
+	return e
 }
 
 // AddIpv4 adds an IP v4 with the specified tag to the Sequence.
-func (this *Sequence) AddIpv4(tag uint32, ip4 uint32) *Sequence {
-	this.elements[tag] = &rIpv4{rElem: rElem{typ: TypeIPv4}, value: ip4}
-	return this
+func (e *Sequence) AddIpv4(tag uint32, ip4 uint32) *Sequence {
+	e.elements[tag] = &rIpv4{rElem: rElem{typ: TypeIPv4}, value: ip4}
+	return e
 }
 
 // AddIpv6 adds an IP v6 with the specified tag to the Sequence.
-func (this *Sequence) AddIpv6(tag uint32, ip6 [16]byte) *Sequence {
-	this.elements[tag] = &rIpv6{rElem: rElem{typ: TypeIPv6}, value: ip6}
-	return this
+func (e *Sequence) AddIpv6(tag uint32, ip6 [16]byte) *Sequence {
+	e.elements[tag] = &rIpv6{rElem: rElem{typ: TypeIPv6}, value: ip6}
+	return e
 }
 
 // AddPointer32 adds a 32 bit pointer with the specified tag to the Sequence.
-func (this *Sequence) AddPointer32(tag uint32, ptr uint32) *Sequence {
-	this.elements[tag] = &rPointer32{rElem: rElem{typ: TypePointer32}, value: ptr}
-	return this
+func (e *Sequence) AddPointer32(tag uint32, ptr uint32) *Sequence {
+	e.elements[tag] = &rPointer32{rElem: rElem{typ: TypePointer32}, value: ptr}
+	return e
 }
 
 // AddPointer64 adds a 64 bit pointer with the specified tag to the Sequence.
-func (this *Sequence) AddPointer64(tag uint32, ptr uint64) *Sequence {
-	this.elements[tag] = &rPointer64{rElem: rElem{typ: TypePointer64}, value: ptr}
-	return this
+func (e *Sequence) AddPointer64(tag uint32, ptr uint64) *Sequence {
+	e.elements[tag] = &rPointer64{rElem: rElem{typ: TypePointer64}, value: ptr}
+	return e
 }
 
 // AddTimedelta adds a time delta with the specified tag to the Sequence.
-func (this *Sequence) AddTimedelta(tag uint32, td uint64) *Sequence {
-	this.elements[tag] = &rTimedelta{rElem: rElem{typ: TypeTimedelta}, value: td}
-	return this
+func (e *Sequence) AddTimedelta(tag uint32, td uint64) *Sequence {
+	e.elements[tag] = &rTimedelta{rElem: rElem{typ: TypeTimedelta}, value: td}
+	return e
 }
 
 // AddSequence adds a Sequence with the specified tag to the Sequence.
-func (this *Sequence) AddSequence(tag uint32, seq *Sequence) *Sequence {
+func (e *Sequence) AddSequence(tag uint32, seq *Sequence) *Sequence {
 	seq.typ = TypeSequence
-	this.elements[tag] = seq
-	return this
+	e.elements[tag] = seq
+	return e
 }
 
 // AddList adds a List with the specified tag to the Sequence.
-func (this *Sequence) AddList(tag uint32, list *List) *Sequence {
+func (e *Sequence) AddList(tag uint32, list *List) *Sequence {
 	list.typ = TypeList
-	this.elements[tag] = list
-	return this
+	e.elements[tag] = list
+	return e
 }
 
 // GetInt8 returns an 8 bit unsigned integer with the specific tag, if present.
-func (this *Sequence) GetInt8(tag uint32) (uint8, bool) {
+func (e *Sequence) GetInt8(tag uint32) (uint8, bool) {
 	var res uint8
 	var ok bool
 
-	if elem, found := this.elements[tag]; found && elem.GetType() == TypeRu8 {
+	if elem, found := e.elements[tag]; found && elem.GetType() == TypeRu8 {
 		ok = true
 		res = elem.(*ru8).value
 	}
@@ -781,11 +784,11 @@ func (this *Sequence) GetInt8(tag uint32) (uint8, bool) {
 }
 
 // GetInt16 returns an 16 bit unsigned integer with the specific tag, if present.
-func (this *Sequence) GetInt16(tag uint32) (uint16, bool) {
+func (e *Sequence) GetInt16(tag uint32) (uint16, bool) {
 	var res uint16
 	var ok bool
 
-	if elem, found := this.elements[tag]; found && elem.GetType() == TypeRu16 {
+	if elem, found := e.elements[tag]; found && elem.GetType() == TypeRu16 {
 		ok = true
 		res = elem.(*ru16).value
 	}
@@ -794,11 +797,11 @@ func (this *Sequence) GetInt16(tag uint32) (uint16, bool) {
 }
 
 // GetInt32 returns an 32 bit unsigned integer with the specific tag, if present.
-func (this *Sequence) GetInt32(tag uint32) (uint32, bool) {
+func (e *Sequence) GetInt32(tag uint32) (uint32, bool) {
 	var res uint32
 	var ok bool
 
-	if elem, found := this.elements[tag]; found && elem.GetType() == TypeRu32 {
+	if elem, found := e.elements[tag]; found && elem.GetType() == TypeRu32 {
 		ok = true
 		res = elem.(*ru32).value
 	}
@@ -807,11 +810,11 @@ func (this *Sequence) GetInt32(tag uint32) (uint32, bool) {
 }
 
 // GetInt64 returns an 64 bit unsigned integer with the specific tag, if present.
-func (this *Sequence) GetInt64(tag uint32) (uint64, bool) {
+func (e *Sequence) GetInt64(tag uint32) (uint64, bool) {
 	var res uint64
 	var ok bool
 
-	if elem, found := this.elements[tag]; found && elem.GetType() == TypeRu64 {
+	if elem, found := e.elements[tag]; found && elem.GetType() == TypeRu64 {
 		ok = true
 		res = elem.(*ru64).value
 	}
@@ -820,11 +823,11 @@ func (this *Sequence) GetInt64(tag uint32) (uint64, bool) {
 }
 
 // GetStringA returns an ascii string with the specific tag, if present.
-func (this *Sequence) GetStringA(tag uint32) (string, bool) {
+func (e *Sequence) GetStringA(tag uint32) (string, bool) {
 	var res string
 	var ok bool
 
-	if elem, found := this.elements[tag]; found && elem.GetType() == TypeStringA {
+	if elem, found := e.elements[tag]; found && elem.GetType() == TypeStringA {
 		ok = true
 		res = elem.(*rStringA).value
 	}
@@ -833,11 +836,11 @@ func (this *Sequence) GetStringA(tag uint32) (string, bool) {
 }
 
 // GetStringW returns a wide character string with the specific tag, if present.
-func (this *Sequence) GetStringW(tag uint32) (string, bool) {
+func (e *Sequence) GetStringW(tag uint32) (string, bool) {
 	var res string
 	var ok bool
 
-	if elem, found := this.elements[tag]; found && elem.GetType() == TypeStringW {
+	if elem, found := e.elements[tag]; found && elem.GetType() == TypeStringW {
 		ok = true
 		res = elem.(*rStringW).value
 	}
@@ -846,11 +849,11 @@ func (this *Sequence) GetStringW(tag uint32) (string, bool) {
 }
 
 // GetBuffer returns a buffer with the specific tag, if present.
-func (this *Sequence) GetBuffer(tag uint32) ([]byte, bool) {
+func (e *Sequence) GetBuffer(tag uint32) ([]byte, bool) {
 	var res []byte
 	var ok bool
 
-	if elem, found := this.elements[tag]; found && elem.GetType() == TypeBuffer {
+	if elem, found := e.elements[tag]; found && elem.GetType() == TypeBuffer {
 		ok = true
 		res = elem.(*rBuffer).value
 	}
@@ -859,11 +862,11 @@ func (this *Sequence) GetBuffer(tag uint32) ([]byte, bool) {
 }
 
 // GetTimestamp returns a timestamp with the specific tag, if present.
-func (this *Sequence) GetTimestamp(tag uint32) (uint64, bool) {
+func (e *Sequence) GetTimestamp(tag uint32) (uint64, bool) {
 	var res uint64
 	var ok bool
 
-	if elem, found := this.elements[tag]; found && elem.GetType() == TypeTimestamp {
+	if elem, found := e.elements[tag]; found && elem.GetType() == TypeTimestamp {
 		ok = true
 		res = elem.(*rTimestamp).value
 	}
@@ -872,11 +875,11 @@ func (this *Sequence) GetTimestamp(tag uint32) (uint64, bool) {
 }
 
 // GetIpv4 returns an IP v4 with the specific tag, if present.
-func (this *Sequence) GetIpv4(tag uint32) (uint32, bool) {
+func (e *Sequence) GetIpv4(tag uint32) (uint32, bool) {
 	var res uint32
 	var ok bool
 
-	if elem, found := this.elements[tag]; found && elem.GetType() == TypeIPv4 {
+	if elem, found := e.elements[tag]; found && elem.GetType() == TypeIPv4 {
 		ok = true
 		res = elem.(*rIpv4).value
 	}
@@ -885,11 +888,11 @@ func (this *Sequence) GetIpv4(tag uint32) (uint32, bool) {
 }
 
 // GetIpv6 returns an IP v6 with the specific tag, if present.
-func (this *Sequence) GetIpv6(tag uint32) ([16]byte, bool) {
+func (e *Sequence) GetIpv6(tag uint32) ([16]byte, bool) {
 	var res [16]byte
 	var ok bool
 
-	if elem, found := this.elements[tag]; found && elem.GetType() == TypeIPv6 {
+	if elem, found := e.elements[tag]; found && elem.GetType() == TypeIPv6 {
 		ok = true
 		res = elem.(*rIpv6).value
 	}
@@ -898,11 +901,11 @@ func (this *Sequence) GetIpv6(tag uint32) ([16]byte, bool) {
 }
 
 // GetPointer32 returns a 32 bit pointer with the specific tag, if present.
-func (this *Sequence) GetPointer32(tag uint32) (uint32, bool) {
+func (e *Sequence) GetPointer32(tag uint32) (uint32, bool) {
 	var res uint32
 	var ok bool
 
-	if elem, found := this.elements[tag]; found && elem.GetType() == TypePointer32 {
+	if elem, found := e.elements[tag]; found && elem.GetType() == TypePointer32 {
 		ok = true
 		res = elem.(*rPointer32).value
 	}
@@ -911,11 +914,11 @@ func (this *Sequence) GetPointer32(tag uint32) (uint32, bool) {
 }
 
 // GetPointer64 returns a 64 bit pointer with the specific tag, if present.
-func (this *Sequence) GetPointer64(tag uint32) (uint64, bool) {
+func (e *Sequence) GetPointer64(tag uint32) (uint64, bool) {
 	var res uint64
 	var ok bool
 
-	if elem, found := this.elements[tag]; found && elem.GetType() == TypePointer64 {
+	if elem, found := e.elements[tag]; found && elem.GetType() == TypePointer64 {
 		ok = true
 		res = elem.(*rPointer64).value
 	}
@@ -924,11 +927,11 @@ func (this *Sequence) GetPointer64(tag uint32) (uint64, bool) {
 }
 
 // GetTimedelta returns a time delta with the specific tag, if present.
-func (this *Sequence) GetTimedelta(tag uint32) (uint64, bool) {
+func (e *Sequence) GetTimedelta(tag uint32) (uint64, bool) {
 	var res uint64
 	var ok bool
 
-	if elem, found := this.elements[tag]; found && elem.GetType() == TypeTimedelta {
+	if elem, found := e.elements[tag]; found && elem.GetType() == TypeTimedelta {
 		ok = true
 		res = elem.(*rTimedelta).value
 	}
@@ -937,11 +940,11 @@ func (this *Sequence) GetTimedelta(tag uint32) (uint64, bool) {
 }
 
 // GetSequence returns a Sequence with the specific tag, if present.
-func (this *Sequence) GetSequence(tag uint32) (*Sequence, bool) {
+func (e *Sequence) GetSequence(tag uint32) (*Sequence, bool) {
 	var res *Sequence
 	var ok bool
 
-	if elem, found := this.elements[tag]; found && elem.GetType() == TypeSequence {
+	if elem, found := e.elements[tag]; found && elem.GetType() == TypeSequence {
 		ok = true
 		res = elem.(*Sequence)
 	}
@@ -950,11 +953,11 @@ func (this *Sequence) GetSequence(tag uint32) (*Sequence, bool) {
 }
 
 // GetList returns a List with the specific tag, if present.
-func (this *Sequence) GetList(tag uint32) (*List, bool) {
+func (e *Sequence) GetList(tag uint32) (*List, bool) {
 	var res *List
 	var ok bool
 
-	if elem, found := this.elements[tag]; found && elem.GetType() == TypeList {
+	if elem, found := e.elements[tag]; found && elem.GetType() == TypeList {
 		ok = true
 		res = elem.(*List)
 	}
@@ -967,148 +970,148 @@ func (this *Sequence) GetList(tag uint32) (*List, bool) {
 //=============================================================================
 
 // AddInt8 adds an 8 bit unsigned integer with the specified tag to the List.
-func (this *List) AddInt8(number uint8) *List {
-	if this.elemType == TypeRu8 {
-		this.elements = append(this.elements, &ru8{rElem: rElem{typ: TypeRu8}, value: number})
-		return this
+func (e *List) AddInt8(number uint8) *List {
+	if e.elemType == TypeRu8 {
+		e.elements = append(e.elements, &ru8{rElem: rElem{typ: TypeRu8}, value: number})
+		return e
 	}
 	return nil
 }
 
 // AddInt16 adds an 16 bit unsigned integer with the specified tag to the List.
-func (this *List) AddInt16(number uint16) *List {
-	if this.elemType == TypeRu16 {
-		this.elements = append(this.elements, &ru16{rElem: rElem{typ: TypeRu16}, value: number})
-		return this
+func (e *List) AddInt16(number uint16) *List {
+	if e.elemType == TypeRu16 {
+		e.elements = append(e.elements, &ru16{rElem: rElem{typ: TypeRu16}, value: number})
+		return e
 	}
 	return nil
 }
 
 // AddInt32 adds an 32 bit unsigned integer with the specified tag to the List.
-func (this *List) AddInt32(number uint32) *List {
-	if this.elemType == TypeRu32 {
-		this.elements = append(this.elements, &ru32{rElem: rElem{typ: TypeRu32}, value: number})
-		return this
+func (e *List) AddInt32(number uint32) *List {
+	if e.elemType == TypeRu32 {
+		e.elements = append(e.elements, &ru32{rElem: rElem{typ: TypeRu32}, value: number})
+		return e
 	}
 	return nil
 }
 
 // AddInt64 adds an 64 bit unsigned integer with the specified tag to the List.
-func (this *List) AddInt64(number uint64) *List {
-	if this.elemType == TypeRu64 {
-		this.elements = append(this.elements, &ru64{rElem: rElem{typ: TypeRu64}, value: number})
-		return this
+func (e *List) AddInt64(number uint64) *List {
+	if e.elemType == TypeRu64 {
+		e.elements = append(e.elements, &ru64{rElem: rElem{typ: TypeRu64}, value: number})
+		return e
 	}
 	return nil
 }
 
 // AddStringA adds an ascii string with the specified tag to the List.
-func (this *List) AddStringA(str string) *List {
-	if this.elemType == TypeStringA {
-		this.elements = append(this.elements, &rStringA{rElem: rElem{typ: TypeStringA}, value: str})
-		return this
+func (e *List) AddStringA(str string) *List {
+	if e.elemType == TypeStringA {
+		e.elements = append(e.elements, &rStringA{rElem: rElem{typ: TypeStringA}, value: str})
+		return e
 	}
 	return nil
 }
 
 // AddStringW adds a wide character string with the specified tag to the List.
-func (this *List) AddStringW(str string) *List {
-	if this.elemType == TypeStringW {
-		this.elements = append(this.elements, &rStringW{rElem: rElem{typ: TypeStringW}, value: str})
-		return this
+func (e *List) AddStringW(str string) *List {
+	if e.elemType == TypeStringW {
+		e.elements = append(e.elements, &rStringW{rElem: rElem{typ: TypeStringW}, value: str})
+		return e
 	}
 	return nil
 }
 
 // AddBuffer adds a buffer with the specified tag to the List.
-func (this *List) AddBuffer(buf []byte) *List {
-	if this.elemType == TypeBuffer {
-		this.elements = append(this.elements, &rBuffer{rElem: rElem{typ: TypeBuffer}, value: buf})
-		return this
+func (e *List) AddBuffer(buf []byte) *List {
+	if e.elemType == TypeBuffer {
+		e.elements = append(e.elements, &rBuffer{rElem: rElem{typ: TypeBuffer}, value: buf})
+		return e
 	}
 	return nil
 }
 
 // AddTimestamp adds a timestamp with the specified tag to the List.
-func (this *List) AddTimestamp(ts uint64) *List {
-	if this.elemType == TypeTimestamp {
-		this.elements = append(this.elements, &rTimestamp{rElem: rElem{typ: TypeTimestamp}, value: ts})
-		return this
+func (e *List) AddTimestamp(ts uint64) *List {
+	if e.elemType == TypeTimestamp {
+		e.elements = append(e.elements, &rTimestamp{rElem: rElem{typ: TypeTimestamp}, value: ts})
+		return e
 	}
 	return nil
 }
 
 // AddIpv4 adds an IP v4 with the specified tag to the List.
-func (this *List) AddIpv4(ip4 uint32) *List {
-	if this.elemType == TypeIPv4 {
-		this.elements = append(this.elements, &rIpv4{rElem: rElem{typ: TypeIPv4}, value: ip4})
-		return this
+func (e *List) AddIpv4(ip4 uint32) *List {
+	if e.elemType == TypeIPv4 {
+		e.elements = append(e.elements, &rIpv4{rElem: rElem{typ: TypeIPv4}, value: ip4})
+		return e
 	}
 	return nil
 }
 
 // AddIpv6 adds an IP v6 with the specified tag to the List.
-func (this *List) AddIpv6(ip6 [16]byte) *List {
-	if this.elemType == TypeIPv6 {
-		this.elements = append(this.elements, &rIpv6{rElem: rElem{typ: TypeIPv6}, value: ip6})
-		return this
+func (e *List) AddIpv6(ip6 [16]byte) *List {
+	if e.elemType == TypeIPv6 {
+		e.elements = append(e.elements, &rIpv6{rElem: rElem{typ: TypeIPv6}, value: ip6})
+		return e
 	}
 	return nil
 }
 
 // AddPointer32 adds a 32 bit pointer with the specified tag to the List.
-func (this *List) AddPointer32(ptr uint32) *List {
-	if this.elemType == TypePointer32 {
-		this.elements = append(this.elements, &rPointer32{rElem: rElem{typ: TypePointer32}, value: ptr})
-		return this
+func (e *List) AddPointer32(ptr uint32) *List {
+	if e.elemType == TypePointer32 {
+		e.elements = append(e.elements, &rPointer32{rElem: rElem{typ: TypePointer32}, value: ptr})
+		return e
 	}
 	return nil
 }
 
 // AddPointer64 adds a 64 bit pointer with the specified tag to the List.
-func (this *List) AddPointer64(ptr uint64) *List {
-	if this.elemType == TypePointer64 {
-		this.elements = append(this.elements, &rPointer64{rElem: rElem{typ: TypePointer64}, value: ptr})
-		return this
+func (e *List) AddPointer64(ptr uint64) *List {
+	if e.elemType == TypePointer64 {
+		e.elements = append(e.elements, &rPointer64{rElem: rElem{typ: TypePointer64}, value: ptr})
+		return e
 	}
 	return nil
 }
 
 // AddTimedelta adds a time delta with the specified tag to the List.
-func (this *List) AddTimedelta(td uint64) *List {
-	if this.elemType == TypeTimedelta {
-		this.elements = append(this.elements, &rTimedelta{rElem: rElem{typ: TypeTimedelta}, value: td})
-		return this
+func (e *List) AddTimedelta(td uint64) *List {
+	if e.elemType == TypeTimedelta {
+		e.elements = append(e.elements, &rTimedelta{rElem: rElem{typ: TypeTimedelta}, value: td})
+		return e
 	}
 	return nil
 }
 
 // AddSequence adds a Sequence with the specified tag to the List.
-func (this *List) AddSequence(seq *Sequence) *List {
-	if this.elemType == TypeSequence {
+func (e *List) AddSequence(seq *Sequence) *List {
+	if e.elemType == TypeSequence {
 		seq.typ = TypeSequence
-		this.elements = append(this.elements, seq)
-		return this
+		e.elements = append(e.elements, seq)
+		return e
 	}
 	return nil
 }
 
 // AddList adds a List with the specified tag to the List.
-func (this *List) AddList(list *List) *List {
-	if this.elemType == TypeList {
+func (e *List) AddList(list *List) *List {
+	if e.elemType == TypeList {
 		list.typ = TypeList
-		this.elements = append(this.elements, list)
-		return this
+		e.elements = append(e.elements, list)
+		return e
 	}
 	return nil
 }
 
 // GetInt8 returns an 8 bit unsigned integer with the specific tag, if present.
-func (this *List) GetInt8(tag uint32) []uint8 {
+func (e *List) GetInt8(tag uint32) []uint8 {
 	res := make([]uint8, 0)
 
-	if TypeRu8 == this.elemType && tag == this.elemTag {
-		for _, e := range this.elements {
+	if TypeRu8 == e.elemType && tag == e.elemTag {
+		for _, e := range e.elements {
 			res = append(res, e.(*ru8).value)
 		}
 	}
@@ -1117,11 +1120,11 @@ func (this *List) GetInt8(tag uint32) []uint8 {
 }
 
 // GetInt16 returns an 16 bit unsigned integer with the specific tag, if present.
-func (this *List) GetInt16(tag uint32) []uint16 {
+func (e *List) GetInt16(tag uint32) []uint16 {
 	res := make([]uint16, 0)
 
-	if TypeRu16 == this.elemType && tag == this.elemTag {
-		for _, e := range this.elements {
+	if TypeRu16 == e.elemType && tag == e.elemTag {
+		for _, e := range e.elements {
 			res = append(res, e.(*ru16).value)
 		}
 	}
@@ -1130,11 +1133,11 @@ func (this *List) GetInt16(tag uint32) []uint16 {
 }
 
 // GetInt32 returns an 32 bit unsigned integer with the specific tag, if present.
-func (this *List) GetInt32(tag uint32) []uint32 {
+func (e *List) GetInt32(tag uint32) []uint32 {
 	res := make([]uint32, 0)
 
-	if TypeRu32 == this.elemType && tag == this.elemTag {
-		for _, e := range this.elements {
+	if TypeRu32 == e.elemType && tag == e.elemTag {
+		for _, e := range e.elements {
 			res = append(res, e.(*ru32).value)
 		}
 	}
@@ -1143,11 +1146,11 @@ func (this *List) GetInt32(tag uint32) []uint32 {
 }
 
 // GetInt64 returns an 64 bit unsigned integer with the specific tag, if present.
-func (this *List) GetInt64(tag uint32) []uint64 {
+func (e *List) GetInt64(tag uint32) []uint64 {
 	res := make([]uint64, 0)
 
-	if TypeRu64 == this.elemType && tag == this.elemTag {
-		for _, e := range this.elements {
+	if TypeRu64 == e.elemType && tag == e.elemTag {
+		for _, e := range e.elements {
 			res = append(res, e.(*ru64).value)
 		}
 	}
@@ -1156,11 +1159,11 @@ func (this *List) GetInt64(tag uint32) []uint64 {
 }
 
 // GetStringA returns an ascii string with the specific tag, if present.
-func (this *List) GetStringA(tag uint32) []string {
+func (e *List) GetStringA(tag uint32) []string {
 	res := make([]string, 0)
 
-	if TypeStringA == this.elemType && tag == this.elemTag {
-		for _, e := range this.elements {
+	if TypeStringA == e.elemType && tag == e.elemTag {
+		for _, e := range e.elements {
 			res = append(res, e.(*rStringA).value)
 		}
 	}
@@ -1169,11 +1172,11 @@ func (this *List) GetStringA(tag uint32) []string {
 }
 
 // GetStringW returns a wide character string with the specific tag, if present.
-func (this *List) GetStringW(tag uint32) []string {
+func (e *List) GetStringW(tag uint32) []string {
 	res := make([]string, 0)
 
-	if TypeStringW == this.elemType && tag == this.elemTag {
-		for _, e := range this.elements {
+	if TypeStringW == e.elemType && tag == e.elemTag {
+		for _, e := range e.elements {
 			res = append(res, e.(*rStringW).value)
 		}
 	}
@@ -1182,11 +1185,11 @@ func (this *List) GetStringW(tag uint32) []string {
 }
 
 // GetBuffer returns a buffer with the specific tag, if present.
-func (this *List) GetBuffer(tag uint32) [][]byte {
+func (e *List) GetBuffer(tag uint32) [][]byte {
 	res := make([][]byte, 0)
 
-	if TypeBuffer == this.elemType && tag == this.elemTag {
-		for _, e := range this.elements {
+	if TypeBuffer == e.elemType && tag == e.elemTag {
+		for _, e := range e.elements {
 			res = append(res, e.(*rBuffer).value)
 		}
 	}
@@ -1195,11 +1198,11 @@ func (this *List) GetBuffer(tag uint32) [][]byte {
 }
 
 // GetTimestamp returns a timestamp with the specific tag, if present.
-func (this *List) GetTimestamp(tag uint32) []uint64 {
+func (e *List) GetTimestamp(tag uint32) []uint64 {
 	res := make([]uint64, 0)
 
-	if TypeTimestamp == this.elemType && tag == this.elemTag {
-		for _, e := range this.elements {
+	if TypeTimestamp == e.elemType && tag == e.elemTag {
+		for _, e := range e.elements {
 			res = append(res, e.(*rTimestamp).value)
 		}
 	}
@@ -1208,11 +1211,11 @@ func (this *List) GetTimestamp(tag uint32) []uint64 {
 }
 
 // GetIpv4 returns an IP v4 with the specific tag, if present.
-func (this *List) GetIpv4(tag uint32) []uint32 {
+func (e *List) GetIpv4(tag uint32) []uint32 {
 	res := make([]uint32, 0)
 
-	if TypeIPv4 == this.elemType && tag == this.elemTag {
-		for _, e := range this.elements {
+	if TypeIPv4 == e.elemType && tag == e.elemTag {
+		for _, e := range e.elements {
 			res = append(res, e.(*rIpv4).value)
 		}
 	}
@@ -1221,11 +1224,11 @@ func (this *List) GetIpv4(tag uint32) []uint32 {
 }
 
 // GetIpv6 returns an IP v6 with the specific tag, if present.
-func (this *List) GetIpv6(tag uint32) [][16]byte {
+func (e *List) GetIpv6(tag uint32) [][16]byte {
 	res := make([][16]byte, 0)
 
-	if TypeIPv6 == this.elemType && tag == this.elemTag {
-		for _, e := range this.elements {
+	if TypeIPv6 == e.elemType && tag == e.elemTag {
+		for _, e := range e.elements {
 			res = append(res, e.(*rIpv6).value)
 		}
 	}
@@ -1234,11 +1237,11 @@ func (this *List) GetIpv6(tag uint32) [][16]byte {
 }
 
 // GetPointer32 returns a 32 bit pointer with the specific tag, if present.
-func (this *List) GetPointer32(tag uint32) []uint32 {
+func (e *List) GetPointer32(tag uint32) []uint32 {
 	res := make([]uint32, 0)
 
-	if TypePointer32 == this.elemType && tag == this.elemTag {
-		for _, e := range this.elements {
+	if TypePointer32 == e.elemType && tag == e.elemTag {
+		for _, e := range e.elements {
 			res = append(res, e.(*rPointer32).value)
 		}
 	}
@@ -1247,11 +1250,11 @@ func (this *List) GetPointer32(tag uint32) []uint32 {
 }
 
 // GetPointer64 returns a 64 bit pointer with the specific tag, if present.
-func (this *List) GetPointer64(tag uint32) []uint64 {
+func (e *List) GetPointer64(tag uint32) []uint64 {
 	res := make([]uint64, 0)
 
-	if TypePointer64 == this.elemType && tag == this.elemTag {
-		for _, e := range this.elements {
+	if TypePointer64 == e.elemType && tag == e.elemTag {
+		for _, e := range e.elements {
 			res = append(res, e.(*rPointer64).value)
 		}
 	}
@@ -1260,11 +1263,11 @@ func (this *List) GetPointer64(tag uint32) []uint64 {
 }
 
 // GetTimedelta returns a time delta with the specific tag, if present.
-func (this *List) GetTimedelta(tag uint32) []uint64 {
+func (e *List) GetTimedelta(tag uint32) []uint64 {
 	res := make([]uint64, 0)
 
-	if TypeTimedelta == this.elemType && tag == this.elemTag {
-		for _, e := range this.elements {
+	if TypeTimedelta == e.elemType && tag == e.elemTag {
+		for _, e := range e.elements {
 			res = append(res, e.(*rTimedelta).value)
 		}
 	}
@@ -1273,11 +1276,11 @@ func (this *List) GetTimedelta(tag uint32) []uint64 {
 }
 
 // GetSequence returns a Sequence with the specific tag, if present.
-func (this *List) GetSequence(tag uint32) []*Sequence {
+func (e *List) GetSequence(tag uint32) []*Sequence {
 	res := make([]*Sequence, 0)
 
-	if TypeSequence == this.elemType && tag == this.elemTag {
-		for _, e := range this.elements {
+	if TypeSequence == e.elemType && tag == e.elemTag {
+		for _, e := range e.elements {
 			res = append(res, e.(*Sequence))
 		}
 	}
@@ -1286,11 +1289,11 @@ func (this *List) GetSequence(tag uint32) []*Sequence {
 }
 
 // GetList returns a List with the specific tag, if present.
-func (this *List) GetList(tag uint32) []*List {
+func (e *List) GetList(tag uint32) []*List {
 	res := make([]*List, 0)
 
-	if TypeList == this.elemType && tag == this.elemTag {
-		for _, e := range this.elements {
+	if TypeList == e.elemType && tag == e.elemTag {
+		for _, e := range e.elements {
 			res = append(res, e.(*List))
 		}
 	}

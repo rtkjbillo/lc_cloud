@@ -96,7 +96,7 @@ type collectionData struct {
 //	Helper Functions
 //=============================================================================
 
-func AgentIDFromSequence(message rpcm.MachineSequence) hcp.AgentID {
+func agentIDFromSequence(message rpcm.MachineSequence) hcp.AgentID {
 	var aid hcp.AgentID
 
 	copy(aid.Oid[:], message[rpcm.RP_TAGS_HCP_ORG_ID].([]byte))
@@ -108,7 +108,7 @@ func AgentIDFromSequence(message rpcm.MachineSequence) hcp.AgentID {
 	return aid
 }
 
-func AgentIDToSequence(aid hcp.AgentID) *rpcm.Sequence {
+func agentIDToSequence(aid hcp.AgentID) *rpcm.Sequence {
 	seq := rpcm.NewSequence().
 		AddBuffer(rpcm.RP_TAGS_HCP_ORG_ID, aid.Oid[:]).
 		AddBuffer(rpcm.RP_TAGS_HCP_INSTALLER_ID, aid.Iid[:]).
@@ -283,7 +283,7 @@ func logCollection(outputFile string) {
 		}
 
 		wrapper := make(map[string]interface{}, 2)
-		wrapper["event"] = collection.message.ToJson()
+		wrapper["event"] = collection.message.ToJSON()
 		wrapper["routing"] = make(map[string]string, 1)
 		wrapper["routing"].(map[string]string)["aid"] = collection.aid.ToString()
 
@@ -333,7 +333,7 @@ func handleClient(conn net.Conn) {
 
 	hostName := headers[rpcm.RP_TAGS_HOST_NAME]
 	internalIP := headers[rpcm.RP_TAGS_IP_ADDRESS]
-	aid := AgentIDFromSequence(headers[rpcm.RP_TAGS_HCP_IDENT].(rpcm.MachineSequence))
+	aid := agentIDFromSequence(headers[rpcm.RP_TAGS_HCP_IDENT].(rpcm.MachineSequence))
 	glog.Infof("Initial contact: %s / %s / 0x%08x", hostName, aid.ToString(), internalIP)
 	if !aid.IsAbsolute() && !gConfigs.isDebug {
 		glog.Warningf("invalid agent id containing wildcard")
@@ -710,7 +710,7 @@ func processEnrollment(ctx *clientContext) bool {
 		var messages []*rpcm.Sequence
 		messages = append(messages, rpcm.NewSequence().
 			AddInt8(rpcm.RP_TAGS_OPERATION, hcp.SetHcpID).
-			AddSequence(rpcm.RP_TAGS_HCP_IDENT, AgentIDToSequence(ctx.aid)).
+			AddSequence(rpcm.RP_TAGS_HCP_IDENT, agentIDToSequence(ctx.aid)).
 			AddBuffer(rpcm.RP_TAGS_HCP_ENROLLMENT_TOKEN, enrollmentToken))
 		if err := sendFrame(ctx, hcp.ModuleIDHcp, messages, 10*time.Second); err == nil {
 			isEnrolled = true
