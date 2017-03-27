@@ -1,7 +1,4 @@
-listenPort: 443
-listenIface: "0.0.0.0"
 secretEnrollmentToken: "somethingsecretthiswaycomes"
-outputFile: "collection.log"
 
 # Enroll any installer for org 1
 enrollmentRules {

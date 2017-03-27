@@ -1,14 +1,11 @@
 package LcServerConfig;
 
 message Config {
-	required int32 listenPort = 1;
-	required string listenIface = 2;
-	required string secretEnrollmentToken = 3;
-	optional string outputFile = 4;
+	required string secretEnrollmentToken = 1;
 
-	required EnrollmentRules enrollmentRules = 5;
-	required ModuleRules moduleRules = 6;
-	required ProfileRules profileRules = 7;
+	required EnrollmentRules enrollmentRules = 2;
+	required ModuleRules moduleRules = 3;
+	required ProfileRules profileRules = 4;
 }
 
 message EnrollmentRules {

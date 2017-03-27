@@ -228,10 +228,9 @@ func watchForConfigChanges(configFile string) {
 	}
 }
 
-func logCollection() {
+func logCollection(outputFile string) {
 	var err error
 	defer g_configs.outputGoRoutines.Done()
-	outputFile := g_configs.config.GetOutputFile()
 	var fileHandle *os.File
 	nextFileCycle := time.Now().Add(60 * time.Minute)
 
@@ -556,7 +555,9 @@ func main() {
 
 	isDebug := flag.Bool("debug", false, "start server in debug mode")
 	isOutputToStdout := flag.Bool("stdout", false, "outputs traffic from sensors to stdout")
+	outputLogFile := flag.String("output_file", "", "file where collection from sensors should be written to")
 	configFile := flag.String("conf", "lc_config.pb.txt", "path to config file")
+	listenIface := flag.String("listen", "0.0.0.0:443", "the interface and port to listen for connections on")
 	flag.Parse()
 
 	glog.Info("starting LC Termination Server")
@@ -594,8 +595,7 @@ func main() {
 		glog.Fatalf("could not load initial configs, exiting.")
 	}
 
-	listenAddr := fmt.Sprintf("%s:%d", g_configs.config.GetListenIface(), g_configs.config.GetListenPort())
-	resolvedAddr, err := net.ResolveTCPAddr("tcp", listenAddr)
+	resolvedAddr, err := net.ResolveTCPAddr("tcp", *listenIface)
 
 	if err != nil {
 		glog.Fatalf("failed to resolve listen address: %s", err)
@@ -603,9 +603,8 @@ func main() {
 
 	listenSocket, err := net.ListenTCP("tcp", resolvedAddr)
 	if err != nil {
-		glog.Fatalf("could not open %s:%d for listening: %s",
-			g_configs.config.GetListenIface(),
-			g_configs.config.GetListenPort(),
+		glog.Fatalf("could not open %s for listening: %s",
+			listenIface,
 			err.Error())
 	}
 
@@ -614,9 +613,9 @@ func main() {
 
 	g_configs.collectionLog = make(chan collectionData, 1000)
 	g_configs.outputGoRoutines.Add(1)
-	go logCollection()
+	go logCollection( *outputLogFile )
 
-	glog.Infof("listening on %s:%d", g_configs.config.GetListenIface(), g_configs.config.GetListenPort())
+	glog.Infof("listening on %s", *listenIface)
 
 	for {
 
