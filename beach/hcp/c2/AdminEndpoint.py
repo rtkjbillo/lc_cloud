@@ -389,7 +389,8 @@ class AdminEndpoint( Actor ):
         request = msg.data
         oid = uuid.UUID( request[ 'oid' ] )
         key = request[ 'key' ]
-        self.db.execute( 'INSERT INTO hbs_keys ( oid, data ) VALUES ( %s, %s )',
-                         ( oid, bytearray( key ) ) )
+        pubKey = request.get( 'pub_key', '' )
+        self.db.execute( 'INSERT INTO hbs_keys ( oid, data, pub ) VALUES ( %s, %s, %s )',
+                         ( oid, bytearray( key ), bytearray( pubKey ) ) )
 
         return ( True, )

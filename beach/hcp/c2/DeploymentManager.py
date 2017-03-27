@@ -22,9 +22,15 @@ import base64
 import time
 import uuid
 import msgpack
+import urllib2
+from zipfile import ZipFile
+from io import BytesIO
 import random
 CassDb = Actor.importLib( 'utils/hcp_databases', 'CassDb' )
 CassPool = Actor.importLib( 'utils/hcp_databases', 'CassPool' )
+rSequence = Actor.importLib( 'utils/rpcm', 'rSequence' )
+rList = Actor.importLib( 'utils/rpcm', 'rList' )
+rpcm = Actor.importLib( 'utils/rpcm', 'rpcm' )
 
 class DeploymentManager( Actor ):
     def init( self, parameters, resources ):
@@ -41,6 +47,7 @@ class DeploymentManager( Actor ):
 
         self.audit = self.getActorHandle( resources[ 'auditing' ] )
         self.page = self.getActorHandle( resources[ 'paging' ] )
+        self.admin = self.getActorHandle( resources[ 'admin' ] )
 
         self.genDefaultsIfNotPresent()
 
@@ -115,6 +122,18 @@ class DeploymentManager( Actor ):
     def unpackKey( self, key ):
         return msgpack.unpackb( base64.b64decode( key ) )
 
+    def getSensorPackage( self ):
+        packages = {}
+        info = self.db.getOne( 'SELECT value FROM configs WHERE conf = %s', ( 'global/sensorpackage', ) )
+        if not info or info[ 0 ] is None or info[ 0 ] == '':
+            self.log( 'no sensor package defined' )
+        else:
+            with urllib2.urlopen( info[ 0 ] ) as pkgUrl:
+                zipPackage = ZipFile( BytesIO( pkgUrl.read() ) )
+                packages = { name: zipPackage.read( name ) for name in zipPackage.namelist() }
+                del( zipPackage )
+        return packages
+
     def genDefaultsIfNotPresent( self ):
         isNeedDefaults = False
 
@@ -156,6 +175,115 @@ class DeploymentManager( Actor ):
             self.db.execute( 'INSERT INTO configs ( conf, value ) VALUES ( %s, %s )', ( 'global/secondary_port', secondaryPort ) )
             self.audit.shoot( 'record', { 'oid' : self.admin_oid, 'etype' : 'conf_change', 'msg' : 'Setting secondary port: %s.' % secondaryPort } )
 
+    def setSensorConfig( self, sensor, config ):
+        # This is the key also defined in the sensor as _HCP_DEFAULT_STATIC_STORE_KEY
+        # and used with the same algorithm as obfuscationLib
+        OBFUSCATION_KEY = "\xFA\x75\x01"
+        STATIC_STORE_MAX_SIZE = 1024 * 50
+
+        def obfuscate( buffer, key ):
+            obf = BytesIO()
+            index = 0
+            for hx in buffer:
+                obf.write( chr( ( ( ord( key[ index % len( key ) ] ) ^ ( index % 255 ) ) ^ ( STATIC_STORE_MAX_SIZE % 255 ) ) ^ ord( hx ) ) )
+                index = index + 1
+            return obf.getvalue()
+
+        config = obfuscate( rpcm().serialise( config ), OBFUSCATION_KEY )
+
+        magic = "\xFA\x57\xF0\x0D" + ( "\x00" * ( len( config ) - 4 ) )
+
+        if magic not in sensor:
+            return None
+
+        sensor = sensor.replace( magic, config )
+
+        return sensor
+
+
+    def genBinariesForOrg( self, sensorPackage, oid ):
+        rootPub = None
+        rootPri = None
+        hbsPub = None
+        c2Cert = None
+
+        iid = uuid.uuid4()
+
+        info = self.db.getOne( 'SELECT value FROM configs WHERE conf = %s', ( 'key/root', ) )
+        if not info or not info[ 0 ]:
+            self.log( 'failed to get root key' )
+            return False
+
+        c2Key = self.unpackKey( info[ 0 ] )
+        rootPub = c2Key[ 'pubDer' ]
+        rootPri = c2Key[ 'priDer' ]
+        del( c2Key )
+
+        info = self.db.getOne( 'SELECT pub FROM hbs_keys WHERE oid = %s', ( oid, ) )
+        if not info or not info[ 0 ]:
+            self.log( 'failed to get hbs key' )
+            return False
+
+        hbsPub = info[ 0 ]
+
+        info = self.db.getOne( 'SELECT value FROM configs WHERE conf = %s', ( 'key/c2', ) )
+        if not info or not info[ 0 ]:
+            self.log( 'failed to get c2 cert' )
+            return False
+
+        c2Cert = self.unpackKey( info[ 0 ] )[ 'pub' ]
+
+        info = self.db.getOne( 'SELECT value FROM configs WHERE conf = %s', ( 'global/primary', ) )
+        if not info or not info[ 0 ]:
+            self.log( 'failed to get primary domain' )
+            return False
+
+        primaryDomain = info[ 0 ]
+
+        info = self.db.getOne( 'SELECT value FROM configs WHERE conf = %s', ( 'global/primary_port', ) )
+        if not info or not info[ 0 ]:
+            self.log( 'failed to get primary port' )
+            return False
+
+        primaryPort = int( info[ 0 ] )
+
+        info = self.db.getOne( 'SELECT value FROM configs WHERE conf = %s', ( 'global/secondary', ) )
+        if not info or not info[ 0 ]:
+            self.log( 'failed to get secondary domain' )
+            return False
+
+        secondaryDomain = info[ 0 ]
+
+        info = self.db.getOne( 'SELECT value FROM configs WHERE conf = %s', ( 'global/secondary_port', ) )
+        if not info or not info[ 0 ]:
+            self.log( 'failed to get secondary port' )
+            return False
+
+        secondaryPort = int( info[ 0 ] )
+
+        hcpConfig = ( rSequence().addStringA( _.hcp.PRIMARY_URL, primaryDomain )
+                                 .addInt16( _.hcp.PRIMARY_PORT, primaryPort )
+                                 .addStringA( _.hcp.SECONDARY_URL, secondaryDomain )
+                                 .addInt16( _.hcp.SECONDARY_PORT, secondaryPort )
+                                 .addSequence( _.base.HCP_IDENT, rSequence().addBuffer( _.base.HCP_ORG_ID, oid.bytes )
+                                                                            .addBuffer( _.base.HCP_INSTALLER_ID, iid.bytes )
+                                                                            .addBuffer( _.base.HCP_SENSOR_ID, uuid.UUID( '00000000-0000-0000-0000-000000000000' ).bytes )
+                                                                            .addInt32( _.base.HCP_PLATFORM, 0 )
+                                                                            .addInt32( _.base.HCP_ARCHITECTURE, 0 ) )
+                                 .addBuffer( _.hcp.C2_PUBLIC_KEY, c2Cert )
+                                 .addBuffer( _.hcp.ROOT_PUBLIC_KEY, rootPub ) )
+
+        hbsConfig = ( rSequence().addBuffer( _.hbs.ROOT_PUBLIC_KEY, hbsPub ) )
+
+        for binName, binary in sensorPackage.iteritems():
+            if binName.startswith( 'hcp_' ):
+                patched = self.setSensorConfig( binary, hcpConfig )
+                if 'osx' in binName:
+                    pass
+            elif binName.startswith( 'hbs_' ):
+                patched = self.setSensorConfig( binary, hbsConfig )
+                
+
     def get_global_config( self, msg ):
         req = msg.data
 
@@ -194,6 +322,21 @@ class DeploymentManager( Actor ):
 
     def deploy_org( self, msg ):
         req = msg.data
+
+        oid = uuid.UUID( req[ 'oid' ] )
+
+        key = self.generateKey()
+        resp = self.admin.request( 'hbs.add_key', { 'oid' : oid, 'key' : key[ 'priDer' ], 'pub_key' : key[ 'pubDer' ] } )
+        if not resp.isSuccess:
+            return ( False, resp.error )
+
+        packages = self.getSensorPackage()
+
+        if 0 == len( packages ):
+            return ( False, 'no binaries in package or no package configured' )
+
+        if not self.genBinariesForOrg( packages, oid ):
+            return ( False, 'error generating binaries for org' )
 
         return ( True, {} )
 

@@ -347,6 +347,7 @@ CREATE TABLE hbs_keys
 (
   oid uuid,
   data blob,
+  pub blob,
   
   PRIMARY KEY( oid )
 ) WITH compaction = { 'class' : 'DateTieredCompactionStrategy' } AND gc_grace_seconds = 86400;
