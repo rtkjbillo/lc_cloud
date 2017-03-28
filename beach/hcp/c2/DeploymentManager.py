@@ -31,6 +31,35 @@ CassPool = Actor.importLib( 'utils/hcp_databases', 'CassPool' )
 rSequence = Actor.importLib( 'utils/rpcm', 'rSequence' )
 rList = Actor.importLib( 'utils/rpcm', 'rList' )
 rpcm = Actor.importLib( 'utils/rpcm', 'rpcm' )
+HcpModuleId = Actor.importLib( 'utils/hcp_helpers', 'HcpModuleId' )
+AgentId = Actor.importLib( 'utils/hcp_helpers', 'AgentId' )
+Symbols = Actor.importLib( 'Symbols', 'Symbols' )()
+
+class Signing( object ):
+    
+    def __init__( self, privateKey ):
+        self.pri_key = None
+        if not privateKey.startswith( '-----BEGIN RSA PRIVATE KEY-----' ):
+            privateKey = self.der2pem( privateKey )
+            
+        self.pri_key = M2Crypto.RSA.load_key_string( privateKey )
+    
+    
+    def sign( self, buff ):
+        sig = None
+        h = hashlib.sha256( buff ).digest()
+        
+        sig = self.pri_key.private_encrypt( h, M2Crypto.RSA.pkcs1_padding )
+        
+        return sig
+    
+    def der2pem( self, der ):
+        encoded = base64.b64encode( der )
+        encoded = [ encoded[ i : i + 64 ] for i in range( 0, len( encoded ), 64 ) ]
+        encoded = '\n'.join( encoded )
+        pem = '-----BEGIN RSA PRIVATE KEY-----\n%s\n-----END RSA PRIVATE KEY-----\n' % encoded
+        
+        return pem
 
 class DeploymentManager( Actor ):
     def init( self, parameters, resources ):
@@ -122,17 +151,59 @@ class DeploymentManager( Actor ):
     def unpackKey( self, key ):
         return msgpack.unpackb( base64.b64decode( key ) )
 
+    def getMaskFor( self, oid, binName ):
+        aid = AgentId( '0.0.0.0.0' )
+        aid.org_id = oid
+        if 'x64' in binName:
+            aid.architecture = AgentId.ARCHITECTURE_X64
+        else:
+            aid.architecture = AgentId.ARCHITECTURE_X86
+
+        if 'osx' in binName:
+            aid.platform = AgentId.PLATFORM_MACOS
+        elif 'win' in binName:
+            aid.platform = AgentId.PLATFORM_WINDOWS
+        elif 'ios' in binName:
+            aid.platform = AgentId.PLATFORM_IOS
+        elif 'android' in binName:
+            aid.platform = AgentId.PLATFORM_ANDROID
+        elif 'ubuntu' in binName:
+            aid.platform = AgentId.PLATFORM_LINUX
+
+        return aid
+
     def getSensorPackage( self ):
         packages = {}
         info = self.db.getOne( 'SELECT value FROM configs WHERE conf = %s', ( 'global/sensorpackage', ) )
         if not info or info[ 0 ] is None or info[ 0 ] == '':
             self.log( 'no sensor package defined' )
         else:
-            with urllib2.urlopen( info[ 0 ] ) as pkgUrl:
-                zipPackage = ZipFile( BytesIO( pkgUrl.read() ) )
-                packages = { name: zipPackage.read( name ) for name in zipPackage.namelist() }
-                del( zipPackage )
+            pkgUrl = urllib2.urlopen( info[ 0 ] )
+            zipPackage = ZipFile( BytesIO( pkgUrl.read() ) )
+            packages = { name: zipPackage.read( name ) for name in zipPackage.namelist() }
         return packages
+
+    def generateOsxAppBundle( self, binName, binary, osxAppBundle ):
+        workingDir = tempfile.mkdtemp()
+        bundlePath = os.path.join( workingDir, 'bundle.tar.gz' )
+        appDir = os.path.join( workingDir, 'limacharlie.app' )
+        finalBundle = '%s.app.tar.gz' % os.path.join( workingDir, binName )
+        with open( bundlePath, 'wb' ) as f:
+            f.write( osxAppBundle )
+        
+        if 0 != os.system( 'tar xzf %s -C %s' % ( bundlePath, workingDir ) ):
+            raise Exception( 'error expanding osx app bundle on disk' )
+
+        with open( os.path.join( appDir, 'Contents', 'MacOS', 'rphcp' ), 'wb' ) as f:
+            f.write( binary )
+
+        if 0 != os.system( 'tar zcf %s %s' % ( finalBundle, appDir ) ):
+            raise Exception( 'error tar-ing osx app bundle on disk' )
+
+        with open( finalBundle, 'rb' ) as f:
+            binary = f.read()
+
+        return binary
 
     def genDefaultsIfNotPresent( self ):
         isNeedDefaults = False
@@ -201,7 +272,7 @@ class DeploymentManager( Actor ):
         return sensor
 
 
-    def genBinariesForOrg( self, sensorPackage, oid ):
+    def genBinariesForOrg( self, sensorPackage, oid, osxAppBundle = None ):
         rootPub = None
         rootPri = None
         hbsPub = None
@@ -214,10 +285,10 @@ class DeploymentManager( Actor ):
             self.log( 'failed to get root key' )
             return False
 
-        c2Key = self.unpackKey( info[ 0 ] )
-        rootPub = c2Key[ 'pubDer' ]
-        rootPri = c2Key[ 'priDer' ]
-        del( c2Key )
+        rootKey = self.unpackKey( info[ 0 ] )
+        rootPub = rootKey[ 'pubDer' ]
+        rootPri = rootKey[ 'priDer' ]
+        del( rootKey )
 
         info = self.db.getOne( 'SELECT pub FROM hbs_keys WHERE oid = %s', ( oid, ) )
         if not info or not info[ 0 ]:
@@ -231,7 +302,7 @@ class DeploymentManager( Actor ):
             self.log( 'failed to get c2 cert' )
             return False
 
-        c2Cert = self.unpackKey( info[ 0 ] )[ 'pub' ]
+        c2Cert = self.unpackKey( info[ 0 ] )[ 'cert' ]
 
         info = self.db.getOne( 'SELECT value FROM configs WHERE conf = %s', ( 'global/primary', ) )
         if not info or not info[ 0 ]:
@@ -261,6 +332,8 @@ class DeploymentManager( Actor ):
 
         secondaryPort = int( info[ 0 ] )
 
+        _ = Symbols
+
         hcpConfig = ( rSequence().addStringA( _.hcp.PRIMARY_URL, primaryDomain )
                                  .addInt16( _.hcp.PRIMARY_PORT, primaryPort )
                                  .addStringA( _.hcp.SECONDARY_URL, secondaryDomain )
@@ -275,14 +348,82 @@ class DeploymentManager( Actor ):
 
         hbsConfig = ( rSequence().addBuffer( _.hbs.ROOT_PUBLIC_KEY, hbsPub ) )
 
+        signing = Signing( rootPri )
+
+        installersToLoad = {}
+        hbsToLoad = {}
+        kernelToLoad = {}
+
         for binName, binary in sensorPackage.iteritems():
             if binName.startswith( 'hcp_' ):
                 patched = self.setSensorConfig( binary, hcpConfig )
-                if 'osx' in binName:
-                    pass
-            elif binName.startswith( 'hbs_' ):
+                if 'osx' in binName and osxAppBundle is not None:
+                    patched = self.generateOsxAppBundle( binName, binary, osxAppBundle )
+                installersToLoad[ binName ] = patched
+            elif binName.startswith( 'hbs_' ) and 'release' in binName:
                 patched = self.setSensorConfig( binary, hbsConfig )
-                
+                hbsToLoad[ binName ] = ( patched, signing.sign( patched ), hashlib.sha256( patched ).hexdigest() )
+            elif binName.startswith( 'kernel_' ) and 'release' in binName:
+                kernelToLoad[ binName ] = ( binary, signing.sign( binary ), hashlib.sha256( patched ).hexdigest() )
+
+        self.log( 'binaries for %s have been generated, loading them' % oid )
+
+        resp =  self.admin.request( 'hcp.remove_installer', { 'oid' : oid } )
+        if not resp.isSuccess:
+            self.log( 'error wiping previous installers: %s' % resp )
+            return False
+
+        for binName, binary in installersToLoad.iteritems():
+            resp = self.admin.request( 'hcp.add_installer', { 'oid' : oid, 
+                                                              'iid' : iid, 
+                                                              'description' : binName, 
+                                                              'installer' : binary } )
+            if not resp.isSuccess:
+                self.log( 'error loading new installer for %s' % oid )
+                return False
+
+        resp =  self.admin.request( 'hcp.remove_tasking', { 'oid' : oid } )
+        if not resp.isSuccess:
+            self.log( 'error wiping previous taskings: %s' % resp )
+            return False
+            
+        for binName, binInfo in hbsToLoad.iteritems():
+            binary, binSig, binHash = binInfo
+            aid = self.getMaskFor( oid, binName )
+            resp = self.admin.request( 'hcp.add_module', { 'module_id' : HcpModuleId.HBS,
+                                                           'hash' : binHash,
+                                                           'bin' : binary,
+                                                           'signature' : binSig } )
+            if resp.isSuccess:
+                resp = self.admin.request( 'hcp.add_tasking', { 'mask' : aid.asString(),
+                                                                'module_id' : HcpModuleId.HBS,
+                                                                'hash' : binHash } )
+                if not resp.isSuccess:
+                    self.log( 'error tasking new hbs module: %s' % resp )
+                    return False
+            else:
+                self.log( 'error adding new hbs module: %s' % resp )
+                return False
+
+        for binName, binInfo in kernelToLoad.iteritems():
+            binary, binSig, binHash = binInfo
+            aid = self.getMaskFor( oid, binName )
+            resp = self.admin.request( 'hcp.add_module', { 'module_id' : HcpModuleId.KERNEL_ACQ,
+                                                           'hash' : binHash,
+                                                           'bin' : binary,
+                                                           'signature' : binSig } )
+            if resp.isSuccess:
+                resp = self.admin.request( 'hcp.add_tasking', { 'mask' : aid.asString(),
+                                                                'module_id' : HcpModuleId.KERNEL_ACQ,
+                                                                'hash' : binHash } )
+                if not resp.isSuccess:
+                    self.log( 'error tasking new kernel module: %s' % resp )
+                    return False
+            else:
+                self.log( 'error adding new kernel module: %s' % resp )
+                return False
+
+        return True
 
     def get_global_config( self, msg ):
         req = msg.data
@@ -335,7 +476,7 @@ class DeploymentManager( Actor ):
         if 0 == len( packages ):
             return ( False, 'no binaries in package or no package configured' )
 
-        if not self.genBinariesForOrg( packages, oid ):
+        if not self.genBinariesForOrg( packages, oid, osxAppBundle = self.readRelativeFile( 'resources/osx_app_bundle.tar.gz' ) ):
             return ( False, 'error generating binaries for org' )
 
         return ( True, {} )

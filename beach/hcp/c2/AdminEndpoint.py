@@ -153,10 +153,32 @@ class AdminEndpoint( Actor ):
     @audited
     def cmd_hcp_delTasking( self, msg ):
         request = msg.data
-        mask = AgentId( request[ 'mask' ] )
-        moduleid = int( request[ 'module_id' ] )
-        self.db.execute( 'DELETE FROM hcp_module_tasking WHERE aid = %s AND mid = %s',
-                         ( mask.asString(), moduleid ) )
+        oid = request.get( 'oid', None )
+        
+        if oid is None:
+            mask = AgentId( request[ 'mask' ] )
+            moduleid = int( request[ 'module_id' ] )
+            self.db.execute( 'DELETE FROM hcp_module_tasking WHERE aid = %s AND mid = %s',
+                             ( mask.asString(), moduleid ) )
+        else:
+            oid = uuid.UUID( oid )
+            isDeleteModuleToo = request.get( 'is_delete_modules_too', False )
+
+            deleted = {}
+
+            for row in self.db.execute( 'SELECT aid, mid, mhash FROM hcp_module_tasking' ):
+                if AgentId( row[ 0 ] ).org_id == oid:
+                    deleted[ ( row[ 1 ], row[ 2 ] ) ] = True
+                    self.db.execute( 'DELETE FROM hcp_module_tasking WHERE aid = %s AND mid = %s',
+                                     ( row[ 0 ], row[ 1 ] ) )
+
+            if isDeleteModuleToo:
+                for row in self.db.execute( 'SELECT aid, mid, mhash FROM hcp_module_tasking' ):
+                    # This module is still in use...
+                    deleted.pop( ( row[ 0 ], row[ 1 ] ), None )
+                for mid, mhash in deleted.keys():
+                    self.db.execute( 'DELETE FROM hcp_modules WHERE mid = %s AND mhash = %s', ( mid, mhash ) )
+
 
         self.delay( 5, self.moduleTasking.broadcast, 'reload', {} )
         
@@ -258,11 +280,18 @@ class AdminEndpoint( Actor ):
     @audited
     def cmd_hcp_delInstaller( self, msg ):
         oid = uuid.UUID( msg.data[ 'oid' ] )
-        iid = uuid.UUID( msg.data[ 'iid' ] )
-        installerHash = msg.data[ 'hash' ]
+        iid = uuid.UUID( msg.data[ 'iid' ] ) if msg.data.get( 'iid', None ) is not None else None
+        installerHash = msg.data.get( 'hash', None )
 
-        self.db.execute( 'DELETE FROM hcp_installers WHERE oid = %s AND iid = %s AND ihash = %s',
-                         ( oid, iid, installerHash ) )
+        if iid is not None and installerHash is not None:
+            self.db.execute( 'DELETE FROM hcp_installers WHERE oid = %s AND iid = %s AND ihash = %s',
+                             ( oid, iid, installerHash ) )
+        elif iid is not None:
+            self.db.execute( 'DELETE FROM hcp_installers WHERE oid = %s AND iid = %s',
+                             ( oid, iid ) )
+        else:
+            self.db.execute( 'DELETE FROM hcp_installers WHERE oid = %s',
+                             ( oid, ) )
 
         self.delay( 5, self.enrollments.broadcast, 'reload', {} )
 
