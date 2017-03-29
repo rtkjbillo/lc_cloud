@@ -12,870 +12,571 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-/*
-Package main implements the TLS server that serves as a main backend entry point
-for the sensors. It strips encryption, deserializes and outputs events to the rest
-of the backend.
-*/
-package main
+package lcServer
+
 
 import (
 	"bytes"
-	"compress/zlib"
-	"crypto/hmac"
-	"crypto/rand"
-	"crypto/sha256"
-	"crypto/tls"
-	"encoding/binary"
-	"encoding/json"
-	"errors"
-	"flag"
 	"fmt"
-	"github.com/golang/glog"
-	"github.com/golang/protobuf/proto"
+	"sync"
+	"crypto/sha256"
 	"github.com/google/uuid"
 	"github.com/refractionPOINT/lc_cloud/standalone/termination_server/lc_server_config"
 	"github.com/refractionPOINT/lc_cloud/standalone/termination_server/rpcm"
 	"github.com/refractionPOINT/lc_cloud/standalone/termination_server/utils"
-	"io"
-	"io/ioutil"
-	"net"
-	"os"
-	"os/signal"
-	"sync"
-	"time"
 )
 
 const (
-	maxInboundFrameSize = (1024 * 1024 * 50)
+	WildcardUUID 
 )
 
-var gConfigs struct {
-	sync.RWMutex
-	isDebug          bool
-	isStdOut         bool
-	isDraining       bool
-	isDrained        bool
-	outputGoRoutines sync.WaitGroup
-	activeGoRoutines sync.WaitGroup
-	collectionLog    chan collectionData
-	config           *LcServerConfig.Config
-	clients          struct {
-		sync.RWMutex
-		context map[string]*clientContext
-	}
-	enrollmentRules map[string]map[string]bool
-	moduleRules     []moduleRule
-	hbsProfiles     []profileRule
+type SensorMessage struct {
+	Event *rpcm.Sequence
+	AID *hcp.AgentID
 }
 
-type clientContext struct {
-	conn net.Conn
-	aid  hcp.AgentID
+type EnrollmentRule struct {
+	OID uuid.UUID
+	IID uuid.UUID
 }
 
-type moduleRule struct {
-	aid      hcp.AgentID
-	moduleID uint8
-	hash     [32]byte
-	filePath string
+type ModuleRule struct {
+	AID hcp.AgentID
+	ModuleID uint8
+	ModuleFile string
+	Hash []byte
 }
 
-type profileRule struct {
-	aid      hcp.AgentID
-	hash     [32]byte
-	filePath string
+type ProfileRule struct {
+	AID hcp.AgentID
+	ProfileFile string
+	Hash []byte
 }
 
-type collectionData struct {
-	message *rpcm.Sequence
-	aid     *hcp.AgentID
+type Client interface {
+	Receive(moduleID uint8, messages []*rpcm.Sequence) error
+	AgentID() hcp.AgentID
+	Close()
 }
 
-//=============================================================================
-//	Helper Functions
-//=============================================================================
-
-func agentIDFromSequence(message rpcm.MachineSequence) hcp.AgentID {
-	var aid hcp.AgentID
-
-	copy(aid.Oid[:], message[rpcm.RP_TAGS_HCP_ORG_ID].([]byte))
-	copy(aid.Iid[:], message[rpcm.RP_TAGS_HCP_INSTALLER_ID].([]byte))
-	copy(aid.Sid[:], message[rpcm.RP_TAGS_HCP_SENSOR_ID].([]byte))
-	aid.Architecture, _ = message[rpcm.RP_TAGS_HCP_ARCHITECTURE].(uint32)
-	aid.Platform, _ = message[rpcm.RP_TAGS_HCP_PLATFORM].(uint32)
-
-	return aid
+type Server interface {
+	SetEnrollmentSecret(secret string) error
+	IsDebug() bool
+	SetDebug(enabled bool)
+	SetEnrollmentRules(rules []EnrollmentRule) error
+	EnrollmentRules() []EnrollmentRule
+	SetModuleRules(rules []ModuleRule) error
+	ModuleRules() []ModuleRule
+	SetProfileRules(rules []ProfileRule) error
+	ProfileRules() []ProfileRule
+	NewClient(sendFunc func(moduleID uint8, messages []*rpcm.Sequence) error) Client
+	GetChannels() connect chan hcp.AgentID, disconnect chan hcp.AgentID, incoming chan SensorMessage
 }
 
-func agentIDToSequence(aid hcp.AgentID) *rpcm.Sequence {
-	seq := rpcm.NewSequence().
-		AddBuffer(rpcm.RP_TAGS_HCP_ORG_ID, aid.Oid[:]).
-		AddBuffer(rpcm.RP_TAGS_HCP_INSTALLER_ID, aid.Iid[:]).
-		AddBuffer(rpcm.RP_TAGS_HCP_SENSOR_ID, aid.Sid[:]).
-		AddInt32(rpcm.RP_TAGS_HCP_ARCHITECTURE, aid.Platform).
-		AddInt32(rpcm.RP_TAGS_HCP_PLATFORM, aid.Architecture)
+type server struct {
+	mu sync.RWMutex
+	enrollmentSecret string
+	isDebug bool
+	enrollmentRules []EnrollmentRule
+	moduleRules []ModuleRule
+	profileRules []ProfileRule
 
-	return seq
+	online map[hcp.AgentID]Client
+
+	connectChannel chan hcp.AgentID
+	disconnectChannel chan hcp.AgentID
+	incomingChannel chan *rpcm.Sequence
 }
 
-func reloadConfigs(configFile string) error {
+func NewServer() Server {
+	s = new(server)
+
+	s.enrollmentRules = make([]EnrollmentRule, 0)
+	s.moduleRules = make([]ModuleRule, 0)
+	s.ProfileRules = make([]ProfileRule, 0)
+
+	return s
+}
+
+func NewServer(config *lcServerConfig.Config) Server {
 	var err error
-	var configContent []byte
+	s = NewServer().(server)
 
-	glog.Info("loading config")
-	tmpConfig := new(LcServerConfig.Config)
-	if configContent, err = ioutil.ReadFile(configFile); err == nil {
-		if err = proto.UnmarshalText(string(configContent), tmpConfig); err == nil {
-			newEnrollmentRules := make(map[string]map[string]bool, 0)
-			i := 0
-			for _, rule := range tmpConfig.GetEnrollmentRules().GetRule() {
-				if newEnrollmentRules[rule.GetOid()] == nil {
-					newEnrollmentRules[rule.GetOid()] = make(map[string]bool, 1)
-				}
-				newEnrollmentRules[rule.GetOid()][rule.GetIid()] = true
-				i++
-			}
+	s.online = make(map[hcp.AgentID]Client)
 
-			glog.Infof("enrollment Rules: %d", i)
+	for _, rule := range config.GetEnrollmentRules().GetRule() {
+		r := EnrollmentRule{}
 
-			newModuleRules := make([]moduleRule, 0)
-			for _, rule := range tmpConfig.GetModuleRules().GetRule() {
-				var moduleInfo moduleRule
-				if !moduleInfo.aid.FromString(rule.GetAid()) {
-					glog.Errorf("badly formated AID in Module Rule (%s), skipping", rule.GetAid())
-					continue
-				}
-				moduleInfo.moduleID = uint8(rule.GetModuleID())
-				moduleInfo.filePath = rule.GetModuleFile()
-
-				var fileContent []byte
-				if fileContent, err = ioutil.ReadFile(moduleInfo.filePath); err == nil {
-					moduleInfo.hash = sha256.Sum256(fileContent)
-				} else {
-					glog.Errorf("error reading Module file (%s), skipping: %s", moduleInfo.filePath, err)
-					continue
-				}
-
-				if _, err = os.Stat(fmt.Sprintf("%s.sig", moduleInfo.filePath)); err != nil {
-					glog.Errorf("error reading Module signature file (%s), skipping: %s", moduleInfo.filePath, err)
-					continue
-				}
-
-				newModuleRules = append(newModuleRules, moduleInfo)
-			}
-
-			glog.Infof("module Rules: %d", len(newModuleRules))
-
-			newProfiles := make([]profileRule, 0)
-			for _, rule := range tmpConfig.GetProfileRules().GetRule() {
-				var profileInfo profileRule
-				if !profileInfo.aid.FromString(rule.GetAid()) {
-					glog.Errorf("eadly formated AID in HBS Profile Rule (%s), skipping", rule.GetAid())
-					continue
-				}
-
-				profileInfo.filePath = rule.GetProfileFile()
-
-				var fileContent []byte
-				if fileContent, err = ioutil.ReadFile(profileInfo.filePath); err == nil {
-					profileInfo.hash = sha256.Sum256(fileContent)
-				} else {
-					glog.Errorf("error reading HBS Profile file (%s), skipping: %s", profileInfo.filePath, err)
-					continue
-				}
-
-				newProfiles = append(newProfiles, profileInfo)
-			}
-
-			glog.Infof("hbs Profiles: %d", len(newProfiles))
-
-			gConfigs.Lock()
-
-			gConfigs.config = tmpConfig
-			gConfigs.enrollmentRules = newEnrollmentRules
-			gConfigs.moduleRules = newModuleRules
-			gConfigs.hbsProfiles = newProfiles
-
-			gConfigs.Unlock()
+		if r.OID, err = uuid.Parse(rule.GetOid()); err != nil {
+			return s, err
 		}
+		if r.IID, err = uuid.Parse(rule.GetIid()); err != nil {
+			return s, err
+		}
+		s.enrollmentRules = append(s.enrollmentRules, r)
 	}
 
-	if err != nil {
-		glog.Fatalf("error loading config: %s", err)
+	for _, rule := range config.GetModuleRules().GetRule() {
+		r := ModuleRule{}
+
+		r.ModuleID = rule.GetModuleId()
+
+		if !r.AID.FromString(rule.GetAid()) {
+			return s, errors.New(fmt.Sprintf("failed to parse AID: %s", rule.GetAid()))
+		}
+
+		r.ModuleFile = rule.GetModuleFile()
+
+		if fileContent, err := ioutil.ReadFile(r.ModulePath); err == nil {
+			r.Hash = sha256.Sum256(fileContent)
+		} else  {
+			return s, err
+		}
+
+		s.moduleRules = append(s.moduleRules, r)
 	}
 
-	return err
+	for _, rule := range tmpConfig.GetProfileRules().GetRule() {
+		r := ProfileRule{}
+
+		if !r.AID.FromString(rule.GetAid()) {
+			return s, errors.New(fmt.Sprintf("failed to parse AID: %s", rule.GetAid()))
+		}
+
+		r.ProfileFile = rule.GetModuleFile()
+
+		if fileContent, err := ioutil.ReadFile(r.ProfileFile); err == nil {
+			r.Hash = sha256.Sum256(fileContent)
+		} else  {
+			return s, err
+		}
+
+		s.profileRules = append(s.profileRules, r)
+	}
+
+	srv.connectChannel = make(chan hcp.AgentID)
+	srv.disconnectChannel = make(chan hcp.AgentID)
+	srv.incomingChannel = make(chan SensorMessage)
+
+	return s, err
 }
 
-//=============================================================================
-//	GoRoutines
-//=============================================================================
-func watchForConfigChanges(configFile string) {
-	var lastFileInfo os.FileInfo
-	var err error
-
-	defer gConfigs.activeGoRoutines.Done()
-
-	if lastFileInfo, err = os.Stat(configFile); err != nil {
-		glog.Errorf("could not get initial config modification time, won't detect changes and reload automatically: %s", err)
-		return
-	}
-
-	for !gConfigs.isDraining {
-		if newFileInfo, err := os.Stat(configFile); err == nil && newFileInfo.ModTime() != lastFileInfo.ModTime() {
-			glog.Info("detected a change in configuration, reloading.")
-			lastFileInfo = newFileInfo
-			reloadConfigs(configFile)
-		}
-
-		time.Sleep(30 * time.Second)
-	}
+func (srv *server) SetEnrollmentSecret(secret string) error {
+	defer srv.my.Unlock()
+	srv.mu.Lock()
+	srv.enrollmentSecret = secret
+	return nil
 }
 
-func logCollection(outputFile string) {
-	var err error
-	defer gConfigs.outputGoRoutines.Done()
-	var fileHandle *os.File
-	nextFileCycle := time.Now().Add(60 * time.Minute)
-
-	if outputFile != "" {
-		glog.Infof("opening collection log file: %s", outputFile)
-		fileHandle, err = os.Create(outputFile)
-		if err != nil {
-			glog.Fatalf("could not open collection log file: %s", err)
-		}
-	}
-
-	for !gConfigs.isDraining {
-		var collection collectionData
-
-		timeout := make(chan bool, 1)
-		go func() {
-			time.Sleep(10 * time.Second)
-			timeout <- true
-		}()
-
-		select {
-		case collection = <-gConfigs.collectionLog:
-		case <-timeout:
-			if gConfigs.isDrained {
-				return
-			}
-		}
-
-		if collection.message == nil {
-			continue
-		}
-
-		if time.Now().After(nextFileCycle) {
-			glog.Info("cycling collection log file")
-
-			nextFileCycle = time.Now().Add(60 * time.Minute)
-
-			fileHandle.Close()
-			if err = os.Rename(outputFile, outputFile+".1"); err != nil {
-				glog.Fatalf("could not move collection file to old: %s", err)
-			}
-			if fileHandle, err = os.Create(outputFile); err != nil {
-				glog.Fatalf("could not open collection log file: %s", err)
-			}
-		}
-
-		wrapper := make(map[string]interface{}, 2)
-		wrapper["event"] = collection.message.ToJSON()
-		wrapper["routing"] = make(map[string]string, 1)
-		wrapper["routing"].(map[string]string)["aid"] = collection.aid.ToString()
-
-		if gConfigs.isStdOut {
-			if jsonMessage, err := json.MarshalIndent(wrapper, "", "    "); err != nil {
-				glog.Errorf("error displaying collection: %s", err)
-			} else {
-				fmt.Print(string(jsonMessage))
-			}
-		}
-
-		if fileHandle != nil {
-			if jsonMessage, err := json.Marshal(wrapper); err != nil {
-				glog.Errorf("error displaying collection: %s", err)
-			} else {
-				fileHandle.Write(jsonMessage)
-			}
-		}
-	}
-
-	if fileHandle != nil {
-		fileHandle.Close()
-	}
+func (srv *server) IsDebug() bool {
+	defer srv.my.Unlock()
+	srv.mu.Lock()
+	return srv.isDebug
 }
 
-func handleClient(conn net.Conn) {
-	var ctx clientContext
-	defer conn.Close()
-	defer gConfigs.activeGoRoutines.Done()
-
-	ctx.conn = conn
-	var moduleID uint8
-	var messages *rpcm.List
-	var err error
-
-	if moduleID, messages, err = recvFrame(&ctx, 30*time.Second); err != nil {
-		glog.Errorf("failed to receive headers: %s", err)
-		return
-	}
-
-	if moduleID != hcp.ModuleIDHcp {
-		glog.Warningf("received unexpected frames from module instead of headers: %d", moduleID)
-		return
-	}
-
-	headers := messages.ToMachine()[0].(rpcm.MachineSequence)
-
-	hostName := headers[rpcm.RP_TAGS_HOST_NAME]
-	internalIP := headers[rpcm.RP_TAGS_IP_ADDRESS]
-	aid := agentIDFromSequence(headers[rpcm.RP_TAGS_HCP_IDENT].(rpcm.MachineSequence))
-	glog.Infof("Initial contact: %s / %s / 0x%08x", hostName, aid.ToString(), internalIP)
-	if !aid.IsAbsolute() && !gConfigs.isDebug {
-		glog.Warningf("invalid agent id containing wildcard")
-		return
-	}
-
-	ctx.aid = aid
-
-	if aid.IsSidWild() {
-		glog.Infof("sensor requires enrollment")
-		if !processEnrollment(&ctx) {
-			return
-		}
-	} else {
-		sensorToken, ok := headers[rpcm.RP_TAGS_HCP_ENROLLMENT_TOKEN].([]byte)
-		if !ok {
-			glog.Warningf("missing enrollment token from sensor")
-			return
-		}
-
-		if validateEnrollmentToken(aid, sensorToken) {
-			glog.Infof("enrollment token OK")
-		} else {
-			glog.Warningf("invalid enrollment token")
-			return
-		}
-	}
-
-	if err = sendTimeSync(&ctx); err != nil {
-		glog.Warningf("error sending time sync message: %s", err)
-		return
-	}
-
-	gConfigs.RLock()
-	gConfigs.clients.Lock()
-
-	gConfigs.clients.context[aid.ToString()] = &ctx
-	defer func() {
-		gConfigs.RLock()
-		gConfigs.clients.Lock()
-		delete(gConfigs.clients.context, aid.ToString())
-		gConfigs.clients.Unlock()
-		gConfigs.RUnlock()
-	}()
-
-	gConfigs.clients.Unlock()
-	gConfigs.RUnlock()
-
-	glog.Infof("client %s registered, beginning to receive data", aid.ToString())
-
-	for !gConfigs.isDraining {
-		if moduleID, messages, err = recvFrame(&ctx, 30*time.Second); err != nil {
-			break
-		}
-
-		switch moduleID {
-		case hcp.ModuleIDHcp:
-			err = processHCPMessage(&ctx, messages)
-		case hcp.ModuleIDHbs:
-			err = processHBSMessage(&ctx, messages)
-		default:
-			glog.Warningf("received messages from unexpected module: %d", moduleID)
-		}
-	}
-
-	glog.Infof("client %s disconnected", ctx.aid.ToString())
+func (srv *server) SetDebug(enabled bool) {
+	defer srv.my.Unlock()
+	srv.mu.Lock()
+	srv.isDebug = enabled
 }
 
-//=============================================================================
-//	TLS Server Helper Functions
-//=============================================================================
-func sendFrame(ctx *clientContext, moduleID uint8, messages []*rpcm.Sequence, timeout time.Duration) error {
-	var err error
-	endTime := time.Now().Add(timeout)
-	frameData := bytes.Buffer{}
-	if err = binary.Write(&frameData, binary.BigEndian, moduleID); err != nil {
-		return err
-	}
-
-	messageBundle := rpcm.NewList(rpcm.RP_TAGS_MESSAGE, rpcm.TypeSequence)
-	for _, message := range messages {
-		if messageBundle = messageBundle.AddSequence(message); messageBundle == nil {
-			return errors.New("failed to bundle messages")
-		}
-	}
-
-	if err = messageBundle.Serialize(&frameData); err != nil {
-		return err
-	}
-
-	frameWrapper := bytes.Buffer{}
-	if err = binary.Write(&frameWrapper, binary.BigEndian, uint32(frameData.Len())); err != nil {
-		return err
-	}
-
-	zlibWriter := zlib.NewWriter(&frameWrapper)
-	zlibWriter.Write(frameData.Bytes())
-	zlibWriter.Close()
-
-	finalFrame := bytes.Buffer{}
-	if err = binary.Write(&finalFrame, binary.BigEndian, uint32(frameWrapper.Len())); err != nil {
-		return err
-	}
-
-	finalFrame.Write(frameWrapper.Bytes())
-
-	if err = sendData(ctx.conn, finalFrame.Bytes(), endTime); err != nil {
-		return err
-	}
-
-	return err
+func (srv *server) SetEnrollmentRules(rules []EnrollmentRule) error {
+	defer srv.my.Unlock()
+	srv.mu.Lock()
+	srv.enrollmentRules = rules
+	return nil
 }
 
-func recvFrame(ctx *clientContext, timeout time.Duration) (uint8, *rpcm.List, error) {
-	var err error
-	var endTime time.Time
-	var moduleID uint8
-	var buf []byte
-	var frameSize uint32
-
-	if timeout != 0 {
-		endTime = time.Now().Add(timeout)
-	}
-
-	received := rpcm.NewList(rpcm.RP_TAGS_MESSAGE, rpcm.TypeSequence)
-
-	if buf, err = recvData(ctx.conn, 4, endTime); buf == nil || err != nil {
-		return 0, nil, err
-	}
-
-	if err = binary.Read(bytes.NewBuffer(buf), binary.BigEndian, &frameSize); err != nil {
-		return 0, nil, err
-	}
-
-	if maxInboundFrameSize < frameSize {
-		return 0, nil, errors.New("frame size indicated too large or not a multiple of block size")
-	}
-
-	if buf, err = recvData(ctx.conn, uint(frameSize), endTime); buf == nil || err != nil || len(buf) == 0 {
-		return 0, nil, err
-	}
-
-	zlibReader, err := zlib.NewReader(bytes.NewReader(buf))
-	if err != nil {
-		return 0, nil, err
-	}
-
-	var decompressedBuf bytes.Buffer
-	if size, err := io.Copy(&decompressedBuf, zlibReader); err != nil || 0 >= size {
-		if err != nil {
-			return 0, nil, err
-		}
-		return 0, nil, errors.New("received empty frame")
-	}
-
-	if moduleID, err = decompressedBuf.ReadByte(); err != nil {
-		return 0, nil, err
-	}
-
-	if err = received.Deserialize(&decompressedBuf); err != nil {
-		return 0, nil, err
-	}
-
-	return moduleID, received, err
+func (srv *server) EnrollmentRules() []EnrollmentRule {
+	defer srv.mu.RUnlock()
+	srv.mu.RLock()
+	r := make([]EnrollmentRule, len(srv.enrollmentRules))
+	copy(r, srv.enrollmentRules)
+	return r
 }
 
-func recvData(conn net.Conn, size uint, timeout time.Time) ([]byte, error) {
-	buf := make([]byte, size)
-	var receivedLen uint
-	var err error
-
-	if !timeout.IsZero() {
-		conn.SetReadDeadline(timeout)
-	}
-
-	for receivedLen < size {
-		msgLen := 0
-		msgLen, err = conn.Read(buf[receivedLen:])
-		if msgLen > 0 {
-			receivedLen += uint(msgLen)
-		}
-		if err != nil {
-			break
-		}
-	}
-
-	if err != nil {
-		buf = nil
-	}
-
-	return buf, err
+func (srv *server) SetModuleRules(rules []ModuleRule) error {
+	defer srv.my.Unlock
+	srv.mu.Lock()
+	srv.moduleRules = rules
+	return nil
 }
 
-func sendData(conn net.Conn, buf []byte, timeout time.Time) error {
-	var err error
-
-	if !timeout.IsZero() {
-		conn.SetWriteDeadline(timeout)
-	}
-
-	var totalSent int
-
-	for totalSent < len(buf) {
-		nSent, err := conn.Write(buf)
-
-		if nSent > 0 {
-			totalSent += nSent
-		}
-
-		if err != nil {
-			return err
-		}
-	}
-
-	return err
+func (srv *server) ModuleRules() []ModuleRule {
+	defer srv.mu.RUnlock()
+	srv.mu.RLock()
+	r := make([]ModuleRule, len(srv.moduleRules))
+	copy(r, srv.moduleRules)
+	return r
 }
 
-//=============================================================================
-//	Main Entrypoint
-//=============================================================================
-func main() {
-	var err error
-
-	isDebug := flag.Bool("debug", false, "start server in debug mode")
-	isOutputToStdout := flag.Bool("stdout", false, "outputs traffic from sensors to stdout")
-	outputLogFile := flag.String("output_file", "", "file where collection from sensors should be written to")
-	configFile := flag.String("conf", "lc_config.pb.txt", "path to config file")
-	listenIface := flag.String("listen", "0.0.0.0:443", "the interface and port to listen for connections on")
-	flag.Parse()
-
-	glog.Info("starting LC Termination Server")
-
-	interruptsChannel := make(chan os.Signal, 1)
-	signal.Notify(interruptsChannel, os.Interrupt)
-	go func() {
-		<-interruptsChannel
-		glog.Info("received exiting signal")
-		gConfigs.isDraining = true
-	}()
-
-	glog.Info("loading private key")
-	cert, err := tls.LoadX509KeyPair("./c2_cert.pem", "./c2_key.pem")
-	if err != nil {
-		glog.Fatalf("failed to load cert and key: %s", err)
-	}
-
-	tlsConfig := tls.Config{Certificates: []tls.Certificate{cert}}
-	tlsConfig.Rand = rand.Reader
-
-	if *isDebug {
-		gConfigs.isDebug = true
-		glog.Infof("server is in debug mode")
-	}
-
-	if *isOutputToStdout {
-		gConfigs.isStdOut = true
-		glog.Info("outputing sensor traffic to stdout")
-	}
-
-	gConfigs.clients.context = make(map[string]*clientContext, 0)
-
-	if err = reloadConfigs(*configFile); err != nil {
-		glog.Fatalf("could not load initial configs, exiting.")
-	}
-
-	resolvedAddr, err := net.ResolveTCPAddr("tcp", *listenIface)
-
-	if err != nil {
-		glog.Fatalf("failed to resolve listen address: %s", err)
-	}
-
-	listenSocket, err := net.ListenTCP("tcp", resolvedAddr)
-	if err != nil {
-		glog.Fatalf("could not open %s for listening: %s",
-			listenIface,
-			err.Error())
-	}
-
-	gConfigs.activeGoRoutines.Add(1)
-	go watchForConfigChanges(*configFile)
-	
-	gConfigs.collectionLog = make(chan collectionData, 1000)
-	gConfigs.outputGoRoutines.Add(1)
-	go logCollection( *outputLogFile )
-
-	glog.Infof("listening on %s", *listenIface)
-
-	for {
-
-		if gConfigs.isDraining {
-			break
-		}
-
-		listenSocket.SetDeadline(time.Now().Add(5 * time.Second))
-		conn, err := listenSocket.Accept()
-
-		if gConfigs.isDraining {
-			break
-		}
-
-		if err != nil {
-			if opErr, ok := err.(*net.OpError); ok && opErr.Timeout() {
-				continue
-			}
-			glog.Fatalf("error accepting on socket: %s", err.Error())
-		}
-
-		conn = tls.Server(conn, &tlsConfig)
-
-		gConfigs.activeGoRoutines.Add(1)
-		go handleClient(conn)
-	}
-
-	glog.Info("draining, waiting on handlers to exit")
-	listenSocket.Close()
-	gConfigs.activeGoRoutines.Wait()
-	gConfigs.isDrained = true
-	gConfigs.outputGoRoutines.Wait()
-	glog.Info("drained, exiting")
+func (srv *server) SetProfileRules(rules []ProfileRule) error {
+	defer srv.mu.Unlock()
+	srv.mu.Lock()
+	srv.profileRules = rules
+	return nil
 }
 
-//=============================================================================
-//	Handlers & HCP Functionality
-//=============================================================================
-func validateEnrollmentToken(aid hcp.AgentID, token []byte) bool {
-	gConfigs.RLock()
+func (srv *server) ProfileRules() []ProfileRule {
+	defer srv.mu.RUnlock()
+	srv.mu.RLock()
+	r := make([]ProfileRule, len(srv.profileRules))
+	copy(r, stv.profileRules)
+	return r
+}
 
-	hmacToken := hmac.New(sha256.New, []byte(gConfigs.config.GetSecretEnrollmentToken()))
+func (srv *server) validateEnrollmentToken(aid hcp.AgentId, token []byte) bool {
+	defer srv.mu.RUnlock()
+	srv.mu.RLock()
 
-	gConfigs.RUnlock()
-
+	hmacToken := hmac.New(sha256.New, []byte(srv.enrollmentSecret))
 	hmacToken.Write([]byte(aid.ToString()))
 	expectedToken := hmacToken.Sum(nil)
+
 	return hmac.Equal(token, expectedToken)
 }
 
-func generateEnrollmentToken(aid hcp.AgentID) []byte {
-	gConfigs.RLock()
+func (srv *server) generateEnrollmentToken(aid hcp.AgentId) []byte {
+	defer srv.mu.RUnlock()
+	srv.mu.RLock()
 
-	hmacToken := hmac.New(sha256.New, []byte(gConfigs.config.GetSecretEnrollmentToken()))
-
-	gConfigs.RUnlock()
-
+	hmacToken := hmac.New(sha256.New, []byte(srv.enrollmentSecret))
 	hmacToken.Write([]byte(aid.ToString()))
+
 	return hmacToken.Sum(nil)
 }
 
-func sendTimeSync(ctx *clientContext) error {
-	var messages []*rpcm.Sequence
-	messages = append(messages, rpcm.NewSequence().
-		AddInt8(rpcm.RP_TAGS_OPERATION, hcp.SetGlobalTime).
-		AddTimestamp(rpcm.RP_TAGS_TIMESTAMP, uint64(time.Now().Unix())))
-	err := sendFrame(ctx, hcp.ModuleIDHcp, messages, 10*time.Second)
-	return err
-}
+func (srv *server) isWhitelistedForEnrollment(oID uuid.UUID, iID uuid.UUID) bool {
+	defer srv.mu.RUnlock()
+	srv.mu.RLock()
 
-func processEnrollment(ctx *clientContext) bool {
-	var isWhitelisted bool
-	var isEnrolled bool
-	gConfigs.RLock()
-
-	if gConfigs.enrollmentRules[ctx.aid.Oid.String()][ctx.aid.Iid.String()] {
-		isWhitelisted = true
-	} else {
-		glog.Warningf("sensor is not whitelisted for enrollment( OID:%s, IID:%s )", ctx.aid.Oid.String(), ctx.aid.Iid.String())
+	for _, rule := range srv.enrollmentRules {
+		if rule.OID == aID.OID && rule.IID == aID.IID {
+			return true
+		}
 	}
 
-	gConfigs.RUnlock()
+	return false
+}
 
-	if isWhitelisted {
-		ctx.aid.Sid = uuid.New()
-		enrollmentToken := generateEnrollmentToken(ctx.aid)
+func (srv *server) enrollClient(c *client) error {
+	srv.mu.RLock()
 
-		var messages []*rpcm.Sequence
-		messages = append(messages, rpcm.NewSequence().
-			AddInt8(rpcm.RP_TAGS_OPERATION, hcp.SetHcpID).
-			AddSequence(rpcm.RP_TAGS_HCP_IDENT, agentIDToSequence(ctx.aid)).
-			AddBuffer(rpcm.RP_TAGS_HCP_ENROLLMENT_TOKEN, enrollmentToken))
-		if err := sendFrame(ctx, hcp.ModuleIDHcp, messages, 10*time.Second); err == nil {
-			isEnrolled = true
-			glog.Infof("sensor enrolled: %s", ctx.aid.ToString())
+	aID := c.AgentID()
+
+	if !srv.isWhitelistedForEnrollment(aID.OID, aID.IID) {
+		return errors.New(fmt.Sprintf("org or installer not whitelisted: %s / %s", aID.OID, aID.IID))
+	}
+
+	aID.Sid = uuid.New()
+	c.setAgentID(aID)
+
+	enrollmentToken := srv.generateEnrollmentToken(aID)
+
+	if err := c.send(hcp.MODULE_ID_HCP, []*rpcm.Sequence{rpcm.NewSequence().
+			AddInt8(rpcm.RP_TAGS_OPERATION, hcp.SET_HCP_ID).
+			AddSequence(rpcm.RP_TAGS_HCP_IDENT, agentIdToSequence(ctx.aid)).
+			AddBuffer(rpcm.RP_TAGS_HCP_ENROLLMENT_TOKEN, enrollmentToken)}); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (srv *server) getExpectedModulesFor(aID hcp.AgentID) []ModuleRule {
+	defer srv.mu.RUnlock()
+	srv.mu.Lock()
+
+	var modules []ModuleRule
+	for _, moduleInfo := range srv.moduleRules {
+		if moduleInfo.AID.Matches(aID) {
+			modules = append(modules, moduleInfo)
+		}
+	}
+
+	return modules
+}
+
+func (srv *server) getHBSProfileFor(aID hcp.AgentID) ProfileRule , bool {
+	defer srv.mu.RUnlock()
+	srv.mu.Lock()
+
+	for _, profile := range srv.profileRules {
+		if profile.AID.Matches(aID) {
+			return profile, true
+		}
+	}
+
+	return ProfileRule{}, false
+}
+
+func (srv *server) GetChannels() connect chan hcp.AgentID, disconnect chan hcp.AgentID, incoming chan SensorMessage {
+	defer srv.mu.Unlock()
+	srv.mu.Lock()
+
+	return srv.connectChannel, srv.disconnectChannel, srv.incomingChannel
+}
+
+func (srv *server) NewClient(sendFunc func(moduleID uint8, messages []*rpcm.Sequence) error) *Client {
+	c = new(client)
+	c.srv = srv
+	c.sendCB = sendFunc
+	c.isOnline = true
+
+	return c
+}
+
+type client struct {
+	sendMu sync.Mutex
+	recvMu sync.Mutex
+	srv *server
+	isOnline bool
+	isAuthenticated bool
+	aID hcp.AgentID
+	sendCB func(moduleID uint8, messages []*rpcm.Sequence) error
+	incomingChannel chan SensorMessage
+}
+
+func (c *client) send(moduleID uint8, messages []*rpcm.Sequence) error {
+	defer c.sendMu.Unlock()
+	c.sendMu.Lock()
+
+	if c.isOnline && c.isAuthenticated {
+		return c.sendCB(moduleID, messages)
+	}
+
+	return errors.New("not connected or authenticated")
+}
+
+func (c *client) sendTimeSync() error {
+	messages := []*rpcm.Sequence{rpcm.NewSequence().
+			AddInt8(rpcm.RP_TAGS_OPERATION, hcp.SET_GLOBAL_TIME).
+			AddTimestamp(rpcm.RP_TAGS_TIMESTAMP, uint64(time.Now().Unix()))}
+	return c.send(hcp.MODULE_ID_HCP, messages)
+}
+
+func (c *client) AgentID() hcp.AgentID {
+	return c.aID
+}
+
+func (c *client) setAgentID(aID hcp.AgentID) {
+	c.aID = aID
+}
+
+func (c *client) Receive(moduleID uint8, messages []*rpcm.Sequence) error {
+	defer c.recvMu.Unlock()
+	c.recvMu.Lock()
+
+	if !c.isOnline {
+		return errors.New("not connected")
+	}
+
+	if !c.isAuthenticated {
+		// Client must authenticate first
+		if moduleId != hcp.MODULE_ID_HCP {
+			defer 
+			return errors.New("expected authentication first")
+		}
+
+		headers := messages.ToMachine()[0].(rpcm.MachineSequence)
+		hostName := headers[rpcm.RP_TAGS_HOST_NAME]
+		internalIp := headers[rpcm.RP_TAGS_IP_ADDRESS]
+		if err := c.aID.FromSequence(headers[rpcm.RP_TAGS_HCP_IDENT].(rpcm.MachineSequence)); err != nil {
+			return err
+		}
+
+		if !c.aID.IsAbsolute() && !c.srv.isDebug {
+			return errors.New("invalid AID")
+		}
+
+		if c.aID.IsSIDWild() {
+			// This sensor requires enrollment
+			if err := c.srv.enrollClient(c); err != nil {
+				return err
+			}
 		} else {
-			glog.Warningf("failed to send enrollment to sensor: %s", err)
+			// This sensor should already be enrolled with a valid token
+			sensorToken, ok := headers[rpcm.RP_TAGS_HCP_ENROLLMENT_TOKEN].([]byte)
+			if !ok {
+				return errors.New("sensor has no enrollment token")
+			}
+			if !c.srv.validateEnrollmentToken(c.aID, sensorToken) {
+				return errors.New("invalid enrollment token")
+			}
 		}
+
+		// Upon authentication we send an initial clock sync
+		if err := c.send(hcp.MODULE_ID_HCP, []*rpcm.Sequence{rpcm.NewSequence().
+				AddInt8(rpcm.RP_TAGS_OPERATION, hcp.SET_GLOBAL_TIME).
+				AddTimestamp(rpcm.RP_TAGS_TIMESTAMP, uint64(time.Now().Unix()))}); err != nil {
+			return err
+		}
+
+		// Publish the connection event and keep a reference to the incoming channel to use later
+		connectChannel, _, incomingChannel := c.srv.GetChannels()
+		connectChannel <- c.aID
+		c.incomingChannel = incomingChannel
+
+		c.isAuthenticated = true
 	}
 
-	return isEnrolled
+	// By this point we are either a valid returning client or a newly enrolled one
+
+	switch moduleID {
+	case hcp.MODULE_ID_HCP:
+		err = c.processHCPMessage(messages)
+	case hcp.MODULE_ID_HBS:
+		err = c.processHBSMessage(messages)
+	default:
+		return errors.New(fmt.Sprintf("received messages from unexpected module: %d", moduleId))
+	}
+
+	return nil
 }
 
-func processHCPMessage(ctx *clientContext, messages *rpcm.List) error {
-	var err error
-
-	var shouldBeLoaded []*moduleRule
-	gConfigs.RLock()
-	for _, moduleInfo := range gConfigs.moduleRules {
-		if moduleInfo.aid.Matches(ctx.aid) {
-			shouldBeLoaded = append(shouldBeLoaded, &moduleInfo)
-		}
-	}
-	gConfigs.RUnlock()
+func (c *client) processHCPMessage(messages []*rpcm.Sequence) error {
+	shouldBeLoaded := c.srv.getExpectedModulesFor(c.aID)
 
 	var currentlyLoaded []moduleRule
-	for _, message := range messages.GetSequence(rpcm.RP_TAGS_MESSAGE) {
+	for _, message := range messages {
 		if modules, ok := message.GetList(rpcm.RP_TAGS_HCP_MODULES); ok {
 			for _, moduleInfo := range modules.GetSequence(rpcm.RP_TAGS_HCP_MODULE) {
-				var hash []byte
-				var moduleID uint8
-				var mod moduleRule
+				var mod ModuleRule
 				var ok bool
-				if hash, ok = moduleInfo.GetBuffer(rpcm.RP_TAGS_HASH); !ok {
-					continue
+				if mod.Hash, ok = moduleInfo.GetBuffer(rpcm.RP_TAGS_HASH); !ok {
+					return errors.New("module entry missing hash")
 				}
-				if moduleID, ok = moduleInfo.GetInt8(rpcm.RP_TAGS_HCP_MODULE_ID); !ok {
-					continue
+				if mod.ModuleID, ok = moduleInfo.GetInt8(rpcm.RP_TAGS_HCP_MODULE_ID); !ok {
+					return errors.New("module entry missing module ID")
 				}
 
-				mod.moduleID = moduleID
-				copy(mod.hash[:], hash)
 				currentlyLoaded = append(currentlyLoaded, mod)
 			}
 		}
 	}
 
-	var outMessages []*rpcm.Sequence
-	nLoading := 0
-	nUnloading := 0
+	outMessages := make([]*rpcm.Sequence, 5)
 
+	// Look for modules that should be unloaded
 	for _, modIsLoaded := range currentlyLoaded {
 		var isFound bool
 		for _, modShouldBeLoaded := range shouldBeLoaded {
-			if modIsLoaded.moduleID == modShouldBeLoaded.moduleID &&
-				modIsLoaded.hash == modShouldBeLoaded.hash {
+			if modIsLoaded.ModuleID == modShouldBeLoaded.ModuleID &&
+				modIsLoaded.Hash == modShouldBeLoaded.Hash {
 				isFound = true
 				break
 			}
 		}
 
 		if !isFound {
-			nUnloading++
 			outMessages = append(outMessages, rpcm.NewSequence().
-				AddInt8(rpcm.RP_TAGS_OPERATION, hcp.UnloadModule).
-				AddInt8(rpcm.RP_TAGS_HCP_MODULE_ID, modIsLoaded.moduleID))
+					AddInt8(rpcm.RP_TAGS_OPERATION, hcp.UNLOAD_MODULE).
+					AddInt8(rpcm.RP_TAGS_HCP_MODULE_ID, modIsLoaded.ModuleID))
 		}
 	}
 
+	// Look for modules that need to be loaded
 	for _, modShouldBeLoaded := range shouldBeLoaded {
 		var isFound bool
 		for _, modIsLoaded := range currentlyLoaded {
-			if modIsLoaded.moduleID == modShouldBeLoaded.moduleID &&
-				modIsLoaded.hash == modShouldBeLoaded.hash {
+			if modIsLoaded.ModuleID == modShouldBeLoaded.ModuleID &&
+				modIsLoaded.Hash == modShouldBeLoaded.Hash {
 				isFound = true
 				break
 			}
 		}
 
 		if !isFound {
+			var err error
 			var moduleContent []byte
 			var moduleSig []byte
-			if moduleContent, err = ioutil.ReadFile(modShouldBeLoaded.filePath); err != nil {
-				glog.Errorf("failed to get module content (%s): %s", modShouldBeLoaded.filePath, err)
-				continue
+			if moduleContent, err = ioutil.ReadFile(modShouldBeLoaded.ModuleFile); err != nil {
+				return err
 			}
-			if moduleSig, err = ioutil.ReadFile(fmt.Sprintf("%s.sig", modShouldBeLoaded.filePath)); err != nil {
-				glog.Errorf("failed to get module signature (%s.sig): %s", modShouldBeLoaded.filePath, err)
-				continue
+			if moduleSig, err = ioutil.ReadFile(fmt.Sprintf("%s.sig", modShouldBeLoaded.ModuleFile)); err != nil {
+				return err
 			}
 
-			nLoading++
 			outMessages = append(outMessages, rpcm.NewSequence().
-				AddInt8(rpcm.RP_TAGS_OPERATION, hcp.LoadModule).
-				AddInt8(rpcm.RP_TAGS_HCP_MODULE_ID, modShouldBeLoaded.moduleID).
-				AddBuffer(rpcm.RP_TAGS_BINARY, moduleContent).
-				AddBuffer(rpcm.RP_TAGS_SIGNATURE, moduleSig))
+					AddInt8(rpcm.RP_TAGS_OPERATION, hcp.LOAD_MODULE).
+					AddInt8(rpcm.RP_TAGS_HCP_MODULE_ID, modShouldBeLoaded.ModuleID).
+					AddBuffer(rpcm.RP_TAGS_BINARY, moduleContent).
+					AddBuffer(rpcm.RP_TAGS_SIGNATURE, moduleSig))
 		}
 	}
 
-	glog.Infof("sync from %s, loading %d unloading %d", ctx.aid.ToString(), nLoading, nUnloading)
+	// We also take the sync opportunity to send a time sync
+	outMessages = append(outMessages, rpcm.NewSequence().
+			AddInt8(rpcm.RP_TAGS_OPERATION, hcp.SET_GLOBAL_TIME).
+			AddTimestamp(rpcm.RP_TAGS_TIMESTAMP, uint64(time.Now().Unix())))
 
-	err = sendFrame(ctx, hcp.ModuleIDHcp, outMessages, 120*time.Second)
-
-	return err
+	if err = c.send(hcp.MODULE_ID_HCP, outMessages); err != nil {
+		return err
+	}
 }
 
-func processHBSMessage(ctx *clientContext, messages *rpcm.List) error {
-	var err error
+func (c *client) processHBSMessage(messages []*rpcm.Sequence) error {
+	outMessages := make([]*rpcm.Sequence, 1)
 
-	var outMessages []*rpcm.Sequence
-
-	for _, message := range messages.GetSequence(rpcm.RP_TAGS_MESSAGE) {
+	for _, message := range messages {
 		if syncMessage, ok := message.GetSequence(rpcm.RP_TAGS_NOTIFICATION_SYNC); ok {
-			var profileToSend string
-			var expectedHash [32]byte
-			currentProfileHash, _ := syncMessage.GetBuffer(rpcm.RP_TAGS_HASH)
+			if profile, ok := c.srv.getHBSProfileFor(c.aID); !ok {
+				return errors.New("no HBS profile to load")
+			}
 
-			gConfigs.RLock()
-			for _, profile := range gConfigs.hbsProfiles {
-				if profile.aid.Matches(ctx.aid) {
-					if currentProfileHash == nil || !bytes.Equal(profile.hash[:], currentProfileHash) {
-						profileToSend = profile.filePath
-						expectedHash = profile.hash
-					}
-					break
+			if currentProfileHash, ok := syncMessage.GetBuffer(rpcm.RP_TAGS_HASH); ok {
+				if bytes.Equal(profile.Hash, currentProfileHash) {
+					// The sensor already has the latest profile
+					continue
 				}
 			}
-			gConfigs.RUnlock()
 
-			if profileToSend != "" {
-				var profileContent []byte
-				if profileContent, err = ioutil.ReadFile(profileToSend); err != nil {
-					glog.Errorf("failed to get profile content (%s): %s", profileToSend, err)
-					continue
-				}
-
-				currentHash := sha256.Sum256(profileContent)
-
-				if !bytes.Equal(currentHash[:], expectedHash[:]) {
-					glog.Errorf("profile content seems to have changed!")
-					continue
-				}
-
-				parsedProfile := rpcm.NewList(0, 0)
-				if err = parsedProfile.Deserialize(bytes.NewBuffer(profileContent)); err != nil {
-					glog.Errorf("failed to deserialize profile (%s): %s", profileToSend, err)
-					continue
-				}
-
-				outMessages = append(outMessages, rpcm.NewSequence().
-					AddSequence(rpcm.RP_TAGS_NOTIFICATION_SYNC,
-						rpcm.NewSequence().
-							AddBuffer(rpcm.RP_TAGS_HASH, expectedHash[:]).
-							AddList(rpcm.RP_TAGS_HBS_CONFIGURATIONS,
-								parsedProfile)))
+			var profileContent []byte
+			if profileContent, err = ioutil.ReadFile(profile.ProfileFile); err != nil {
+				return err
 			}
+
+			actualHash := sha256.Sum256(profileContent)
+
+			if !bytes.Equal(actualHash[:], profile.Hash) {
+				return errors.New(fmt.Sprintf("profile content seems to have changed"))
+			}
+
+			parsedProfile := rpcm.NewList(0, 0)
+			if err = parsedProfile.Deserialize(bytes.NewBuffer(profileContent)); err != nil {
+				return err
+			}
+
+			outMessages = append(outMessages, rpcm.NewSequence().
+					AddSequence(rpcm.RP_TAGS_NOTIFICATION_SYNC, rpcm.NewSequence().
+					AddBuffer(rpcm.RP_TAGS_HASH, expectedHash[:]).
+					AddList(rpcm.RP_TAGS_HBS_CONFIGURATIONS, parsedProfile)))
 		} else {
-			var data collectionData
-			data.message = message
-			data.aid = &ctx.aid
-			gConfigs.collectionLog <- data
+			var data SensorMessage
+			data.Event = message
+			data.AID = &c.aID
+			g_configs.collectionLog <- data
 		}
 	}
+}
 
-	err = sendFrame(ctx, hcp.ModuleIDHbs, outMessages, 120*time.Second)
+func (c *client) Close() {
+	// Notify consumers that this client is now offline
+	_, disconnectChannel, _ := c.srv.GetChannels()
+	disconnectChannel <- c.aID
 
-	return err
+	c.srv.mu.Lock()
+
+	if c.isAuthenticated {
+		delete(c.srv.online, c.aID)
+	}
+
+	c.srv.mu.Unlock()
+
+	defer c.sendMu.Unlock()
+	defer c.recvMu.Unlock()
+	c.sendMu.Lock()
+	c.recvMu.Lock()
+	c.isAuthenticated = false
+	c.isOnline = false
 }

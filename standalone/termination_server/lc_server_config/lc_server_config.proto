@@ -1,11 +1,9 @@
-package LcServerConfig;
+package lcServerConfig;
 
 message Config {
-	required string secretEnrollmentToken = 1;
-
-	required EnrollmentRules enrollmentRules = 2;
-	required ModuleRules moduleRules = 3;
-	required ProfileRules profileRules = 4;
+	required EnrollmentRules enrollmentRules = 1;
+	required ModuleRules moduleRules = 2;
+	required ProfileRules profileRules = 3;
 }
 
 message EnrollmentRules {
@@ -27,7 +25,7 @@ message EnrollmentRule {
 
 message ModuleRule {
 	required string aid = 1;
-	required int32 moduleID = 2;
+	required int32 moduleId = 2;
 	required string moduleFile = 3;
 }
 
