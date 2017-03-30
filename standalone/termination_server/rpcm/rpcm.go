@@ -37,6 +37,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"errors"
+	"net"
 	"strconv"
 )
 
@@ -111,14 +112,14 @@ type rTimestamp struct {
 	value uint64
 }
 
-type rIpv4 struct {
+type rIPv4 struct {
 	rElem
-	value uint32
+	value net.IP
 }
 
-type rIpv6 struct {
+type rIPv6 struct {
 	rElem
-	value [16]byte
+	value net.IP
 }
 
 type rPointer32 struct {
@@ -190,11 +191,11 @@ func (e *rTimestamp) GetValue() interface{} {
 	return e.value
 }
 
-func (e *rIpv4) GetValue() interface{} {
+func (e *rIPv4) GetValue() interface{} {
 	return e.value
 }
 
-func (e *rIpv6) GetValue() interface{} {
+func (e *rIPv6) GetValue() interface{} {
 	return e.value
 }
 
@@ -307,12 +308,14 @@ func (e *rTimestamp) serialize(toBuf *bytes.Buffer) error {
 	return binary.Write(toBuf, binary.BigEndian, e.value)
 }
 
-func (e *rIpv4) serialize(toBuf *bytes.Buffer) error {
-	return binary.Write(toBuf, binary.BigEndian, e.value)
+func (e *rIPv4) serialize(toBuf *bytes.Buffer) error {
+	_, err := toBuf.Write(e.value.To4())
+	return err
 }
 
-func (e *rIpv6) serialize(toBuf *bytes.Buffer) error {
-	return binary.Write(toBuf, binary.BigEndian, e.value)
+func (e *rIPv6) serialize(toBuf *bytes.Buffer) error {
+	_, err := toBuf.Write(e.value.To16())
+	return err
 }
 
 func (e *rPointer32) serialize(toBuf *bytes.Buffer) error {
@@ -561,14 +564,18 @@ func rpcmDeserializeElem(fromBuf *bytes.Buffer, typ uint8) (rpcmElement, error) 
 		elem = &rTimestamp{rElem: rElem{typ: typ}}
 		err = binary.Read(fromBuf, binary.BigEndian, &elem.(*rTimestamp).value)
 	case TypeIPv4:
-		elem = &rIpv4{rElem: rElem{typ: typ}}
-		err = binary.Read(fromBuf, binary.BigEndian, &elem.(*rIpv4).value)
+		elem = &rIPv4{rElem: rElem{typ: typ}}
+		var tmpVal uint32
+		if err = binary.Read(fromBuf, binary.BigEndian, &tmpVal); err == nil {
+			binary.BigEndian.PutUint32(elem.(*rIPv4).value, tmpVal)
+		}
 	case TypeIPv6:
-		elem = &rIpv6{rElem: rElem{typ: typ}}
-		sizeRead, err = fromBuf.Read(elem.(*rIpv6).value[:])
-		if uint32(sizeRead) != 16 {
+		elem = &rIPv6{rElem: rElem{typ: typ}}
+		tmpVal := make([]byte, 16)
+		if sizeRead, err = fromBuf.Read(tmpVal); err != nil || uint32(sizeRead) != 16 {
 			err = errors.New("Error reading enough data from buffer")
 		}
+		copy(elem.(*rIPv6).value, tmpVal)
 	case TypePointer32:
 		elem = &rPointer32{rElem: rElem{typ: typ}}
 		err = binary.Read(fromBuf, binary.BigEndian, &elem.(*rPointer32).value)
@@ -726,15 +733,15 @@ func (e *Sequence) AddTimestamp(tag uint32, ts uint64) *Sequence {
 	return e
 }
 
-// AddIpv4 adds an IP v4 with the specified tag to the Sequence.
-func (e *Sequence) AddIpv4(tag uint32, ip4 uint32) *Sequence {
-	e.elements[tag] = &rIpv4{rElem: rElem{typ: TypeIPv4}, value: ip4}
+// AddIPv4 adds an IP v4 with the specified tag to the Sequence.
+func (e *Sequence) AddIPv4(tag uint32, ip4 net.IP) *Sequence {
+	e.elements[tag] = &rIPv4{rElem: rElem{typ: TypeIPv4}, value: ip4.To4()}
 	return e
 }
 
-// AddIpv6 adds an IP v6 with the specified tag to the Sequence.
-func (e *Sequence) AddIpv6(tag uint32, ip6 [16]byte) *Sequence {
-	e.elements[tag] = &rIpv6{rElem: rElem{typ: TypeIPv6}, value: ip6}
+// AddIPv6 adds an IP v6 with the specified tag to the Sequence.
+func (e *Sequence) AddIPv6(tag uint32, ip6 net.IP) *Sequence {
+	e.elements[tag] = &rIPv6{rElem: rElem{typ: TypeIPv6}, value: ip6.To16()}
 	return e
 }
 
@@ -772,197 +779,137 @@ func (e *Sequence) AddList(tag uint32, list *List) *Sequence {
 
 // GetInt8 returns an 8 bit unsigned integer with the specific tag, if present.
 func (e *Sequence) GetInt8(tag uint32) (uint8, bool) {
-	var res uint8
-	var ok bool
-
 	if elem, found := e.elements[tag]; found && elem.GetType() == TypeRu8 {
-		ok = true
-		res = elem.(*ru8).value
+		return  elem.(*ru8).value, true
 	}
 
-	return res, ok
+	return 0, false
 }
 
 // GetInt16 returns an 16 bit unsigned integer with the specific tag, if present.
 func (e *Sequence) GetInt16(tag uint32) (uint16, bool) {
-	var res uint16
-	var ok bool
-
 	if elem, found := e.elements[tag]; found && elem.GetType() == TypeRu16 {
-		ok = true
-		res = elem.(*ru16).value
+		return elem.(*ru16).value, true
 	}
 
-	return res, ok
+	return 0, false
 }
 
 // GetInt32 returns an 32 bit unsigned integer with the specific tag, if present.
 func (e *Sequence) GetInt32(tag uint32) (uint32, bool) {
-	var res uint32
-	var ok bool
-
 	if elem, found := e.elements[tag]; found && elem.GetType() == TypeRu32 {
-		ok = true
-		res = elem.(*ru32).value
+		return elem.(*ru32).value, true
 	}
 
-	return res, ok
+	return 0, false
 }
 
 // GetInt64 returns an 64 bit unsigned integer with the specific tag, if present.
 func (e *Sequence) GetInt64(tag uint32) (uint64, bool) {
-	var res uint64
-	var ok bool
-
 	if elem, found := e.elements[tag]; found && elem.GetType() == TypeRu64 {
-		ok = true
-		res = elem.(*ru64).value
+		return elem.(*ru64).value, true
 	}
 
-	return res, ok
+	return 0, false
 }
 
 // GetStringA returns an ascii string with the specific tag, if present.
 func (e *Sequence) GetStringA(tag uint32) (string, bool) {
-	var res string
-	var ok bool
-
 	if elem, found := e.elements[tag]; found && elem.GetType() == TypeStringA {
-		ok = true
-		res = elem.(*rStringA).value
+		return elem.(*rStringA).value, true
 	}
 
-	return res, ok
+	return "", false
 }
 
 // GetStringW returns a wide character string with the specific tag, if present.
 func (e *Sequence) GetStringW(tag uint32) (string, bool) {
-	var res string
-	var ok bool
-
 	if elem, found := e.elements[tag]; found && elem.GetType() == TypeStringW {
-		ok = true
-		res = elem.(*rStringW).value
+		return elem.(*rStringW).value, true
 	}
 
-	return res, ok
+	return "", false
 }
 
 // GetBuffer returns a buffer with the specific tag, if present.
 func (e *Sequence) GetBuffer(tag uint32) ([]byte, bool) {
-	var res []byte
-	var ok bool
-
 	if elem, found := e.elements[tag]; found && elem.GetType() == TypeBuffer {
-		ok = true
-		res = elem.(*rBuffer).value
+		return elem.(*rBuffer).value, true
 	}
 
-	return res, ok
+	return []byte{}, false
 }
 
 // GetTimestamp returns a timestamp with the specific tag, if present.
 func (e *Sequence) GetTimestamp(tag uint32) (uint64, bool) {
-	var res uint64
-	var ok bool
-
 	if elem, found := e.elements[tag]; found && elem.GetType() == TypeTimestamp {
-		ok = true
-		res = elem.(*rTimestamp).value
+		return elem.(*rTimestamp).value, true
 	}
 
-	return res, ok
+	return 0, false
 }
 
-// GetIpv4 returns an IP v4 with the specific tag, if present.
-func (e *Sequence) GetIpv4(tag uint32) (uint32, bool) {
-	var res uint32
-	var ok bool
-
+// GetIPv4 returns an IP v4 with the specific tag, if present.
+func (e *Sequence) GetIPv4(tag uint32) (net.IP, bool) {
 	if elem, found := e.elements[tag]; found && elem.GetType() == TypeIPv4 {
-		ok = true
-		res = elem.(*rIpv4).value
+		return elem.(*rIPv4).value.To4(), true
 	}
 
-	return res, ok
+	return net.IP{}, false
 }
 
-// GetIpv6 returns an IP v6 with the specific tag, if present.
-func (e *Sequence) GetIpv6(tag uint32) ([16]byte, bool) {
-	var res [16]byte
-	var ok bool
-
+// GetIPv6 returns an IP v6 with the specific tag, if present.
+func (e *Sequence) GetIPv6(tag uint32) (net.IP, bool) {
 	if elem, found := e.elements[tag]; found && elem.GetType() == TypeIPv6 {
-		ok = true
-		res = elem.(*rIpv6).value
+		return elem.(*rIPv6).value.To16(), true
 	}
 
-	return res, ok
+	return net.IP{}, false
 }
 
 // GetPointer32 returns a 32 bit pointer with the specific tag, if present.
 func (e *Sequence) GetPointer32(tag uint32) (uint32, bool) {
-	var res uint32
-	var ok bool
-
 	if elem, found := e.elements[tag]; found && elem.GetType() == TypePointer32 {
-		ok = true
-		res = elem.(*rPointer32).value
+		return elem.(*rPointer32).value, true
 	}
 
-	return res, ok
+	return 0, false
 }
 
 // GetPointer64 returns a 64 bit pointer with the specific tag, if present.
 func (e *Sequence) GetPointer64(tag uint32) (uint64, bool) {
-	var res uint64
-	var ok bool
-
 	if elem, found := e.elements[tag]; found && elem.GetType() == TypePointer64 {
-		ok = true
-		res = elem.(*rPointer64).value
+		return elem.(*rPointer64).value, true
 	}
 
-	return res, ok
+	return 0, false
 }
 
 // GetTimedelta returns a time delta with the specific tag, if present.
 func (e *Sequence) GetTimedelta(tag uint32) (uint64, bool) {
-	var res uint64
-	var ok bool
-
 	if elem, found := e.elements[tag]; found && elem.GetType() == TypeTimedelta {
-		ok = true
-		res = elem.(*rTimedelta).value
+		return elem.(*rTimedelta).value, true
 	}
 
-	return res, ok
+	return 0, false
 }
 
 // GetSequence returns a Sequence with the specific tag, if present.
 func (e *Sequence) GetSequence(tag uint32) (*Sequence, bool) {
-	var res *Sequence
-	var ok bool
-
 	if elem, found := e.elements[tag]; found && elem.GetType() == TypeSequence {
-		ok = true
-		res = elem.(*Sequence)
+		return elem.(*Sequence), true
 	}
 
-	return res, ok
+	return nil, false
 }
 
 // GetList returns a List with the specific tag, if present.
 func (e *Sequence) GetList(tag uint32) (*List, bool) {
-	var res *List
-	var ok bool
-
 	if elem, found := e.elements[tag]; found && elem.GetType() == TypeList {
-		ok = true
-		res = elem.(*List)
+		return elem.(*List), true
 	}
 
-	return res, ok
+	return nil, false
 }
 
 //=============================================================================
@@ -1041,19 +988,19 @@ func (e *List) AddTimestamp(ts uint64) *List {
 	return nil
 }
 
-// AddIpv4 adds an IP v4 with the specified tag to the List.
-func (e *List) AddIpv4(ip4 uint32) *List {
+// AddIPv4 adds an IP v4 with the specified tag to the List.
+func (e *List) AddIPv4(ip4 net.IP) *List {
 	if e.elemType == TypeIPv4 {
-		e.elements = append(e.elements, &rIpv4{rElem: rElem{typ: TypeIPv4}, value: ip4})
+		e.elements = append(e.elements, &rIPv4{rElem: rElem{typ: TypeIPv4}, value: ip4.To4()})
 		return e
 	}
 	return nil
 }
 
-// AddIpv6 adds an IP v6 with the specified tag to the List.
-func (e *List) AddIpv6(ip6 [16]byte) *List {
+// AddIPv6 adds an IP v6 with the specified tag to the List.
+func (e *List) AddIPv6(ip6 net.IP) *List {
 	if e.elemType == TypeIPv6 {
-		e.elements = append(e.elements, &rIpv6{rElem: rElem{typ: TypeIPv6}, value: ip6})
+		e.elements = append(e.elements, &rIPv6{rElem: rElem{typ: TypeIPv6}, value: ip6.To16()})
 		return e
 	}
 	return nil
@@ -1210,26 +1157,26 @@ func (e *List) GetTimestamp(tag uint32) []uint64 {
 	return res
 }
 
-// GetIpv4 returns an IP v4 with the specific tag, if present.
-func (e *List) GetIpv4(tag uint32) []uint32 {
-	res := make([]uint32, 0)
+// GetIPv4 returns an IP v4 with the specific tag, if present.
+func (e *List) GetIPv4(tag uint32) []net.IP {
+	res := make([]net.IP, 0)
 
 	if TypeIPv4 == e.elemType && tag == e.elemTag {
 		for _, e := range e.elements {
-			res = append(res, e.(*rIpv4).value)
+			res = append(res, e.(*rIPv4).value.To4())
 		}
 	}
 
 	return res
 }
 
-// GetIpv6 returns an IP v6 with the specific tag, if present.
-func (e *List) GetIpv6(tag uint32) [][16]byte {
-	res := make([][16]byte, 0)
+// GetIPv6 returns an IP v6 with the specific tag, if present.
+func (e *List) GetIPv6(tag uint32) []net.IP {
+	res := make([]net.IP, 0)
 
 	if TypeIPv6 == e.elemType && tag == e.elemTag {
 		for _, e := range e.elements {
-			res = append(res, e.(*rIpv6).value)
+			res = append(res, e.(*rIPv6).value.To16())
 		}
 	}
 

@@ -48,7 +48,8 @@ type tlsClient struct {
 }
 
 func (srv *TLSLCServer) Start() error {
-	srv.lcServerCtx = lcServer.NewServer()
+	var err error
+	srv.lcServerCtx, err = lcServer.NewServer(nil)
 	fullAddrStr := fmt.Sprintf("%s:%d", srv.IFace, srv.Port)
 
 	glog.Info("starting LC Termination Server on %s with %s/%s", fullAddrStr, srv.CertFile, srv.KeyFile)

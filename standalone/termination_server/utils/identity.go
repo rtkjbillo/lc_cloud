@@ -19,6 +19,7 @@ LimaCharlie Host Common Platform.
 package hcp
 
 import (
+	"errors"
 	"fmt"
 	"github.com/google/uuid"
 	"github.com/refractionPOINT/lc_cloud/standalone/termination_server/rpcm"
@@ -86,8 +87,8 @@ func uuidAsWildString(id uuid.UUID) string {
 	}
 }
 
-// ToString converts the AgentID to its standardized string representation
-func (aid AgentID) ToString() string {
+// String converts the AgentID to its standardized string representation
+func (aid AgentID) String() string {
 
 	return fmt.Sprintf("%s.%s.%s.%x.%x",
 		uuidAsWildString(aid.OID),
@@ -150,12 +151,31 @@ func (aid AgentID) Matches(compareTo AgentID) bool {
 	return false
 }
 
-func (aid *AgentID) FromSequence(message rpcm.MachineSequence) error {
-	copy(aid.OID[:], message[rpcm.RP_TAGS_HCP_ORG_ID].([]byte))
-	copy(aid.IID[:], message[rpcm.RP_TAGS_HCP_INSTALLER_ID].([]byte))
-	copy(aid.SID[:], message[rpcm.RP_TAGS_HCP_SENSOR_ID].([]byte))
-	aid.Architecture, _ = message[rpcm.RP_TAGS_HCP_ARCHITECTURE].(uint32)
-	aid.Platform, _ = message[rpcm.RP_TAGS_HCP_PLATFORM].(uint32)
+func (aid *AgentID) FromSequence(message *rpcm.Sequence) error {
+	var buf []byte
+	var ok bool
+	if buf, ok = message.GetBuffer(rpcm.RP_TAGS_HCP_ORG_ID); !ok || len(aid.OID) != len(buf) {
+		return errors.New("invalid oid")
+	}
+	copy(aid.OID[:], buf)
+
+	if buf, ok = message.GetBuffer(rpcm.RP_TAGS_HCP_INSTALLER_ID); !ok || len(aid.IID) != len(buf) {
+		return errors.New("invalid iid")
+	}
+	copy(aid.IID[:], buf)
+
+	if buf, ok = message.GetBuffer(rpcm.RP_TAGS_HCP_SENSOR_ID); !ok || len(aid.SID) != len(buf) {
+		return errors.New("invalid sid")
+	}
+	copy(aid.SID[:], buf)
+
+	if aid.Architecture, ok = message.GetInt32(rpcm.RP_TAGS_HCP_ARCHITECTURE); !ok {
+		return errors.New("missing architecture")
+	}
+
+	if aid.Platform, ok = message.GetInt32(rpcm.RP_TAGS_HCP_PLATFORM); !ok {
+		return errors.New("missing platform")
+	}
 
 	return nil
 }
