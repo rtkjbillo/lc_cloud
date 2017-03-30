@@ -63,9 +63,6 @@ class Signing( object ):
 
 class DeploymentManager( Actor ):
     def init( self, parameters, resources ):
-        self.admin_oid = parameters.get( 'admin_oid', None )
-        if self.admin_oid is None: raise Exception( 'Admin OID must be specified.' )
-
         self._db = CassDb( parameters[ 'db' ], 'hcp_analytics', consistencyOne = True )
         self.db = CassPool( self._db,
                             rate_limit_per_sec = parameters[ 'rate_limit_per_sec' ],
@@ -77,6 +74,12 @@ class DeploymentManager( Actor ):
         self.audit = self.getActorHandle( resources[ 'auditing' ] )
         self.page = self.getActorHandle( resources[ 'paging' ] )
         self.admin = self.getActorHandle( resources[ 'admin' ] )
+
+        isSuccess, _oid = self.get_global_config( None )
+        if isSuccess:
+            self.admin_oid = uuid.UUID( str( _oid[ 'global/admin_oid' ] ) )
+        else:
+            self.admin_oid = None
 
         self.genDefaultsIfNotPresent()
 
@@ -222,6 +225,17 @@ class DeploymentManager( Actor ):
             primaryPort = '443'
             secondaryDomain = '127.0.0.1'
             secondaryPort = '443'
+            adminOid = uuid.uuid4()
+            uiDomain = 'limacharlie'
+            self.admin_oid = adminOid
+            self.log( 'loading admin oid' )
+            self.db.execute( 'INSERT INTO configs ( conf, value ) VALUES ( %s, %s )', ( 'global/admin_oid', str( adminOid ) ) )
+            self.audit.shoot( 'record', { 'oid' : self.admin_oid, 'etype' : 'conf_change', 'msg' : 'New admin oid generated.' } )
+
+            self.log( 'loading ui domain' )
+            self.db.execute( 'INSERT INTO configs ( conf, value ) VALUES ( %s, %s )', ( 'global/uidomain', uiDomain ) )
+            self.audit.shoot( 'record', { 'oid' : self.admin_oid, 'etype' : 'conf_change', 'msg' : 'Setting ui domain.' } )
+            
             self.log( 'loading root ket' )
             self.db.execute( 'INSERT INTO configs ( conf, value ) VALUES ( %s, %s )', ( 'key/root', rootKey ) )
             self.audit.shoot( 'record', { 'oid' : self.admin_oid, 'etype' : 'conf_change', 'msg' : 'New root key pair generated.' } )
@@ -426,8 +440,6 @@ class DeploymentManager( Actor ):
         return True
 
     def get_global_config( self, msg ):
-        req = msg.data
-
         globalConf = {
             'global/primary' : '',
             'global/secondary' : '',
@@ -439,6 +451,8 @@ class DeploymentManager( Actor ):
             'global/paging_from' : '',
             'global/paging_password' : '',
             'global/virustotalkey' : '',
+            'global/uidomain' : '',
+            'global/admin_oid' : '',
         }
 
         info = self.db.execute( 'SELECT conf, value FROM configs WHERE conf IN %s', ( globalConf.keys(), ) )

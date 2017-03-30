@@ -81,9 +81,8 @@ urls = (
     '/provision_sensors', 'ProvisionSensors',
 )
 
-ADMIN_OID = uuid.UUID( 'a4cf1d41-eca9-4d6f-93cd-f429e7dfd501' )
-DOMAIN_NAME = 'limacharlie'
-ADMIN_EMAIL = 'admin@%s' % DOMAIN_NAME
+ADMIN_OID = None
+DOMAIN_NAME = None
 
 ROOT_DIRECTORY = os.path.dirname( os.path.abspath( __file__ ) )
 os.chdir( ROOT_DIRECTORY )
@@ -190,6 +189,15 @@ page = beach.getActorHandle( 'paging', nRetries = 3, timeout = 30, ident = IDENT
 audit = beach.getActorHandle( 'c2/audit', nRetries = 3, timeout = 10, ident = IDENT )
 reporting = beach.getActorHandle( 'analytics/reporting/', nRetries = 3, timeout = 30, ident = IDENT )
 blink = beach.getActorHandle( 'analytics/blinkmodel/', nRetries = 3, timeout = 60, ident = IDENT )
+
+print( "Fetching deployment global configurations..." )
+_ = deployment.request( 'get_global_config', {} )
+print( "configurations retrieved." )
+if _.isSuccess:
+    ADMIN_OID = uuid.UUID( _.data[ 'global/admin_oid' ] )
+    DOMAIN_NAME = _.data[ 'global/uidomain' ]
+else:
+    raise Exception( 'could not fetch admin oid' )
 
 #==============================================================================
 #   HELPERS
@@ -520,10 +528,7 @@ class Profile ( AuthenticatedPage ):
                 if not res.isSuccess: 
                     session.notice = 'Error adding user %s to %s by %s (%s).' % ( session.email, oid, session.email, str( res ) )
                     redirectTo( 'profile' )
-                page.shoot( 'page', 
-                            { 'to' : ADMIN_EMAIL, 
-                              'msg' : 'The user %s has been ADMIN added to the organization %s by %s.' % ( session.email, oid, session.email ), 
-                              'subject' : 'User added to org' } )
+                audit.shoot( 'record', { 'oid' : ADMIN_OID, 'etype' : 'admin_join_org', 'msg' : 'Admin %s admin-joined oid %s.' % ( session.email, oid ) } )
             session.notice = 'Success joining %s' % oid
         elif 'join' == params.action:
             if params.email is None:

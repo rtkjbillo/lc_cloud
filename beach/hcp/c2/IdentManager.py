@@ -25,14 +25,8 @@ import hmac
 CassDb = Actor.importLib( 'utils/hcp_databases', 'CassDb' )
 CassPool = Actor.importLib( 'utils/hcp_databases', 'CassPool' )
 
-ADMIN_OID = uuid.UUID( 'a4cf1d41-eca9-4d6f-93cd-f429e7dfd501' )
-ADMIN_EMAIL = 'admin@limacharlie'
-
 class IdentManager( Actor ):
     def init( self, parameters, resources ):
-        self.admin_oid = parameters.get( 'admin_oid', None )
-        if self.admin_oid is None: raise Exception( 'Admin OID must be specified.' )
-
         self._db = CassDb( parameters[ 'db' ], 'hcp_analytics', consistencyOne = True )
         self.db = CassPool( self._db,
                             rate_limit_per_sec = parameters[ 'rate_limit_per_sec' ],
@@ -43,6 +37,13 @@ class IdentManager( Actor ):
 
         self.audit = self.getActorHandle( resources[ 'auditing' ] )
         self.page = self.getActorHandle( resources[ 'paging' ] )
+        self.deployment = self.getActorHandle( resources[ 'deployment' ] )
+
+        resp = self.deployment.request( 'get_global_config', {} )
+        if resp.isSuccess:
+            self.admin_oid = uuid.UUID( resp.data[ 'global/admin_oid' ] )
+        else:
+            raise Exception( 'could not get admin oid' )
 
         self.genDefaultsIfNotPresent()
 
@@ -71,9 +72,11 @@ class IdentManager( Actor ):
                 def __init__( self, data ):
                     self.data = data
 
-            self.createUser( _dummyRequest( { 'email' : ADMIN_EMAIL, 'password' : 'letmein', 'by' : 'limacharlie', 'no_confirm' : True } ) )
-            self.createOrg( _dummyRequest( { 'name' : 'ADMIN_ORG', 'by' : 'limacharlie', 'existing_oid' : ADMIN_OID } ) )
-            self.addUserToOrg( _dummyRequest( { 'email' : ADMIN_EMAIL, 'oid' : ADMIN_OID, 'by' : 'limacharlie' } ) )
+            defaultAdminEmail = 'admin@limacharlie'
+
+            self.createUser( _dummyRequest( { 'email' : defaultAdminEmail, 'password' : 'letmein', 'by' : 'limacharlie', 'no_confirm' : True } ) )
+            self.createOrg( _dummyRequest( { 'name' : 'ADMIN_ORG', 'by' : 'limacharlie', 'existing_oid' : self.admin_oid } ) )
+            self.addUserToOrg( _dummyRequest( { 'email' : defaultAdminEmail, 'oid' : self.admin_oid, 'by' : 'limacharlie' } ) )
 
     def asUuidList( self, elem ):
         if type( elem ) not in ( list, tuple ):

@@ -155,6 +155,27 @@ $var title = 'Configurations'
   </div>
 </div>
 
+<div class="mdl-card mdl-cell mdl-cell--3-col mdl-shadow--4dp std_height">
+  <div class="mdl-card__title">
+    <h2 class="mdl-card__title-text">UI Domain</h2>
+  </div>
+  <div class="mdl-card__supporting-text">
+    <form method="POST" id="form_uidomain">
+      This is the domain name used in automated emails and certain externalized links, set it to whatever domain you want your LC web ui to be accessible at.
+      <br/><br/>
+      <div class="mdl-textfield mdl-js-textfield" style="width: 100%;">
+        <input class="mdl-textfield__input" type="text" id="uidomain" name="uidomain" value="$configs['global/uidomain']"/>
+        <label class="mdl-textfield__label" for="uidomain">Domain</label>
+      </div>
+    </form>
+  </div>
+  <div class="mdl-card__actions mdl-card--border">
+    <center>
+      <button class="mdl-button mdl-button--colored mdl-js-button mdl-js-ripple-effect mdl-button--raised" type="submit" form="form_uidomain" name="action" value="leave" onclick="return confirm('Are you sure you want to update the ui domain?');">Update</button>
+    </center>
+  </div>
+</div>
+
 
 <script type="text/javascript">
   jQuery(document).ready(function () {
