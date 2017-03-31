@@ -38,18 +38,18 @@ const (
 
 // Module IDs of common HCP modules
 const (
-	MODULE_ID_HCP        = 1
-	MODULE_ID_HBS        = 2
-	MODULE_ID_KERNEL_ACQ = 5
+	ModuleIDHCP        = 1
+	ModuleIDHBS        = 2
+	ModuleIDKernelAcq  = 5
 )
 
 // Command IDs of HCP commands
 const (
-	LOAD_MODULE     = 1
-	UNLOAD_MODULE   = 2
-	SET_HCP_ID      = 3
-	SET_GLOBAL_TIME = 4
-	QUIT            = 5
+	CmdLoadModule     = 1
+	CmdUnloadModule  = 2
+	CmdSetHCPID      = 3
+	CmdSetGlobalTime = 4
+	CmdQuit            = 5
 )
 
 // AgentID is the logical representation of the ID components used
@@ -69,9 +69,8 @@ func (aid AgentID) IsAbsolute() bool {
 		aid.Platform == WildcardPlatform ||
 		aid.Architecture == WildcardArchitecture {
 		return false
-	} else {
-		return true
 	}
+	return true
 }
 
 // IsSidWild returns true if the SensorId component of the AgentID is a wildcard
@@ -82,9 +81,8 @@ func (aid AgentID) IsSIDWild() bool {
 func uuidAsWildString(id uuid.UUID) string {
 	if id == WildcardUUID {
 		return "0"
-	} else {
-		return id.String()
 	}
+	return id.String()
 }
 
 // String converts the AgentID to its standardized string representation
@@ -100,8 +98,10 @@ func (aid AgentID) String() string {
 
 // FromString converts the standardized string representation of an AgentID into an AgentID
 func (aid AgentID) FromString(s string) bool {
-	var err error
-	var tmp64 uint64
+	var (
+		err error
+		tmp64 uint64
+	)
 	components := strings.Split(s, ".")
 	if len(components) != 5 {
 		return false
@@ -152,8 +152,10 @@ func (aid AgentID) Matches(compareTo AgentID) bool {
 }
 
 func (aid *AgentID) FromSequence(message *rpcm.Sequence) error {
-	var buf []byte
-	var ok bool
+	var (
+		buf []byte
+		ok bool
+	)
 	if buf, ok = message.GetBuffer(rpcm.RP_TAGS_HCP_ORG_ID); !ok || len(aid.OID) != len(buf) {
 		return errors.New("invalid oid")
 	}

@@ -134,11 +134,11 @@ func NewServer(config *lcServerConfig.Config) (Server, error) {
 
 		r.ModuleFile = rule.GetModuleFile()
 
-		if fileContent, err := ioutil.ReadFile(r.ModuleFile); err == nil {
+		if fileContent, err := ioutil.ReadFile(r.ModuleFile); err != nil {
+			return s, err
+		} else {
 			hash := sha256.Sum256(fileContent)
 			r.Hash = hash[:]
-		} else  {
-			return s, err
 		}
 
 		s.moduleRules = append(s.moduleRules, r)
@@ -153,11 +153,11 @@ func NewServer(config *lcServerConfig.Config) (Server, error) {
 
 		r.ProfileFile = rule.GetProfileFile()
 
-		if fileContent, err := ioutil.ReadFile(r.ProfileFile); err == nil {
+		if fileContent, err := ioutil.ReadFile(r.ProfileFile); err != nil {
+			return s, err
+		} else {
 			hash := sha256.Sum256(fileContent)
 			r.Hash = hash[:]
-		} else  {
-			return s, err
 		}
 
 		s.profileRules = append(s.profileRules, r)
@@ -267,7 +267,7 @@ func (srv *server) enrollClient(c *client) ([]*rpcm.Sequence, error) {
 	enrollmentToken := srv.generateEnrollmentToken(aID)
 
 	return []*rpcm.Sequence{rpcm.NewSequence().
-			AddInt8(rpcm.RP_TAGS_OPERATION, hcp.SET_HCP_ID).
+			AddInt8(rpcm.RP_TAGS_OPERATION, hcp.CmdSetHCPID).
 			AddSequence(rpcm.RP_TAGS_HCP_IDENT, c.aID.ToSequence()).
 			AddBuffer(rpcm.RP_TAGS_HCP_ENROLLMENT_TOKEN, enrollmentToken)}, nil
 }

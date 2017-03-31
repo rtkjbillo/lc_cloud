@@ -259,16 +259,13 @@ func (e *ru64) serialize(toBuf *bytes.Buffer) error {
 }
 
 func (e *rStringA) serialize(toBuf *bytes.Buffer) error {
-	err := binary.Write(toBuf, binary.BigEndian, uint32(len(e.value)+1))
-	if err != nil {
+	if err := binary.Write(toBuf, binary.BigEndian, uint32(len(e.value)+1)); err != nil {
 		return err
 	}
-	_, err = toBuf.Write([]byte(e.value))
-	if err != nil {
+	if _, err := toBuf.Write([]byte(e.value)); err != nil {
 		return err
 	}
-	err = toBuf.WriteByte(0)
-	if err != nil {
+	if err := toBuf.WriteByte(0); err != nil {
 		return err
 	}
 
@@ -276,16 +273,13 @@ func (e *rStringA) serialize(toBuf *bytes.Buffer) error {
 }
 
 func (e *rStringW) serialize(toBuf *bytes.Buffer) error {
-	err := binary.Write(toBuf, binary.BigEndian, uint32(len(e.value)+1))
-	if err != nil {
+	if err := binary.Write(toBuf, binary.BigEndian, uint32(len(e.value)+1)); err != nil {
 		return err
 	}
-	_, err = toBuf.Write([]byte(e.value))
-	if err != nil {
+	if _, err := toBuf.Write([]byte(e.value)); err != nil {
 		return err
 	}
-	err = toBuf.WriteByte(0)
-	if err != nil {
+	if err := toBuf.WriteByte(0); err != nil {
 		return err
 	}
 
@@ -293,12 +287,10 @@ func (e *rStringW) serialize(toBuf *bytes.Buffer) error {
 }
 
 func (e *rBuffer) serialize(toBuf *bytes.Buffer) error {
-	err := binary.Write(toBuf, binary.BigEndian, uint32(len(e.value)))
-	if err != nil {
+	if err := binary.Write(toBuf, binary.BigEndian, uint32(len(e.value))); err != nil {
 		return err
 	}
-	_, err = toBuf.Write(e.value)
-	if err != nil {
+	if _, err := toBuf.Write(e.value); err != nil {
 		return err
 	}
 
@@ -338,21 +330,17 @@ func (e *Sequence) Serialize(toBuf *bytes.Buffer) error {
 }
 
 func (e *Sequence) serialize(toBuf *bytes.Buffer) error {
-	err := binary.Write(toBuf, binary.BigEndian, uint32(len(e.elements)))
-	if err != nil {
+	if err := binary.Write(toBuf, binary.BigEndian, uint32(len(e.elements))); err != nil {
 		return err
 	}
 	for tag, elem := range e.elements {
-		err = binary.Write(toBuf, binary.BigEndian, tag)
-		if err != nil {
+		if err := binary.Write(toBuf, binary.BigEndian, tag); err != nil {
 			return err
 		}
-		err = binary.Write(toBuf, binary.BigEndian, elem.GetType())
-		if err != nil {
+		if err := binary.Write(toBuf, binary.BigEndian, elem.GetType()); err != nil {
 			return err
 		}
-		err = elem.serialize(toBuf)
-		if err != nil {
+		if err := elem.serialize(toBuf); err != nil {
 			return err
 		}
 	}
@@ -366,32 +354,26 @@ func (e *List) Serialize(toBuf *bytes.Buffer) error {
 }
 
 func (e *List) serialize(toBuf *bytes.Buffer) error {
-	err := binary.Write(toBuf, binary.BigEndian, e.elemTag)
-	if err != nil {
+	if err := binary.Write(toBuf, binary.BigEndian, e.elemTag); err != nil {
 		return err
 	}
-	err = binary.Write(toBuf, binary.BigEndian, e.elemType)
-	if err != nil {
+	if err := binary.Write(toBuf, binary.BigEndian, e.elemType); err != nil {
 		return err
 	}
-	err = binary.Write(toBuf, binary.BigEndian, uint32(len(e.elements)))
-	if err != nil {
+	if err := binary.Write(toBuf, binary.BigEndian, uint32(len(e.elements))); err != nil {
 		return err
 	}
 	for _, elem := range e.elements {
 		if e.elemType != elem.GetType() {
 			return errors.New("sanity failure: list contains unexpected type")
 		}
-		err = binary.Write(toBuf, binary.BigEndian, e.elemTag)
-		if err != nil {
+		if err := binary.Write(toBuf, binary.BigEndian, e.elemTag); err != nil {
 			return err
 		}
-		err = binary.Write(toBuf, binary.BigEndian, e.elemType)
-		if err != nil {
+		if err := binary.Write(toBuf, binary.BigEndian, e.elemType); err != nil {
 			return err
 		}
-		err = elem.serialize(toBuf)
-		if err != nil {
+		if err := elem.serialize(toBuf); err != nil {
 			return err
 		}
 	}
@@ -404,31 +386,29 @@ func (e *List) serialize(toBuf *bytes.Buffer) error {
 
 // Deserialize a slice of bytes into the Sequence it represents.
 func (e *Sequence) Deserialize(fromBuf *bytes.Buffer) error {
-	var nElements uint32
-	var tag uint32
-	var typ uint8
-	var err error
+	var (
+		nElements uint32
+		tag uint32
+		typ uint8
+	)
 
 	e.typ = TypeSequence
 
-	err = binary.Read(fromBuf, binary.BigEndian, &nElements)
-	if err != nil {
+	if err := binary.Read(fromBuf, binary.BigEndian, &nElements); err != nil {
 		return err
 	}
 
 	for i := uint32(0); i < nElements; i++ {
 		var tmpElem rpcmElement
 
-		err = binary.Read(fromBuf, binary.BigEndian, &tag)
-		if err != nil {
+		if err := binary.Read(fromBuf, binary.BigEndian, &tag); err != nil {
 			return err
 		}
-		err = binary.Read(fromBuf, binary.BigEndian, &typ)
-		if err != nil {
+		if err := binary.Read(fromBuf, binary.BigEndian, &typ); err != nil {
 			return err
 		}
 		
-		tmpElem, err = rpcmDeserializeElem(fromBuf, typ)
+		tmpElem, err := rpcmDeserializeElem(fromBuf, typ)
 		if tmpElem == nil || err != nil {
 			return errors.New(fmt.Sprintf("failed to deserialize an element (%s)", err))
 		}
@@ -436,52 +416,46 @@ func (e *Sequence) Deserialize(fromBuf *bytes.Buffer) error {
 		e.elements[tag] = tmpElem
 	}
 
-	return err
+	return nil
 }
 
 // Deserialize a slice of bytes into the List it represents.
 func (e *List) Deserialize(fromBuf *bytes.Buffer) error {
-	var nElements uint32
-	var tag uint32
-	var typ uint8
-	var err error
+	var (
+		nElements uint32
+		tag uint32
+		typ uint8
+	)
 
 	e.typ = TypeList
 
-	err = binary.Read(fromBuf, binary.BigEndian, &e.elemTag)
-	if err != nil {
+	if err := binary.Read(fromBuf, binary.BigEndian, &e.elemTag); err != nil {
 		return err
 	}
 
-	err = binary.Read(fromBuf, binary.BigEndian, &e.elemType)
-	if err != nil {
+	if err := binary.Read(fromBuf, binary.BigEndian, &e.elemType); err != nil {
 		return err
 	}
 
-	err = binary.Read(fromBuf, binary.BigEndian, &nElements)
-	if err != nil {
+	if err := binary.Read(fromBuf, binary.BigEndian, &nElements); err != nil {
 		return err
 	}
 
 	for i := uint32(0); i < nElements; i++ {
-		var tmpElem rpcmElement
-
-		err = binary.Read(fromBuf, binary.BigEndian, &tag)
-		if err != nil {
+		if err := binary.Read(fromBuf, binary.BigEndian, &tag); err != nil {
 			return err
 		}
 		if tag != e.elemTag {
 			return errors.New("sanity failure: element tag in list does not match")
 		}
-		err = binary.Read(fromBuf, binary.BigEndian, &typ)
-		if err != nil {
+		if err := binary.Read(fromBuf, binary.BigEndian, &typ); err != nil {
 			return err
 		}
 		if typ != e.elemType {
 			return errors.New("sanity failure: element type in list does not match")
 		}
 		
-		tmpElem, err = rpcmDeserializeElem(fromBuf, typ)
+		tmpElem, err := rpcmDeserializeElem(fromBuf, typ)
 		if tmpElem == nil || err != nil {
 			return errors.New(fmt.Sprintf("failed to deserialize an element (%s)", err))
 		}
@@ -489,15 +463,17 @@ func (e *List) Deserialize(fromBuf *bytes.Buffer) error {
 		e.elements = append(e.elements, tmpElem)
 	}
 
-	return err
+	return nil
 }
 
 func rpcmDeserializeElem(fromBuf *bytes.Buffer, typ uint8) (rpcmElement, error) {
-	var elem rpcmElement
-	var elemLen uint32
-	var tmpBuf []byte
-	var err error
-	var sizeRead int
+	var (
+		elem rpcmElement
+		elemLen uint32
+		tmpBuf []byte
+		err error
+		sizeRead int
+	)
 
 	switch typ {
 	case TypeInt8:
@@ -514,55 +490,58 @@ func rpcmDeserializeElem(fromBuf *bytes.Buffer, typ uint8) (rpcmElement, error) 
 		err = binary.Read(fromBuf, binary.BigEndian, &elem.(*ru64).value)
 	case TypeStringA:
 		elem = &rStringA{rElem: rElem{typ: TypeStringA}}
-		err = binary.Read(fromBuf, binary.BigEndian, &elemLen)
-		if uint32(fromBuf.Len()) < elemLen || elemLen == 0 {
-			err = errors.New("not enough data in buffer")
-		} else {
-			tmpBuf = make([]byte, elemLen)
-			sizeRead, err = fromBuf.Read(tmpBuf)
-			if uint32(sizeRead) != elemLen {
-				err = errors.New(fmt.Sprintf("Error reading enough data from buffer for string a, read %d", sizeRead))
-			}
+		if err = binary.Read(fromBuf, binary.BigEndian, &elemLen); err != nil {
+			return nil, err
 		}
-		if err == nil {
-			elem.(*rStringA).value = string(tmpBuf)
-			if elem.(*rStringA).value[len(elem.(*rStringA).value)-1] == 0 {
-				elem.(*rStringA).value = elem.(*rStringA).value[0 : len(elem.(*rStringA).value)-1]
-			}
+		if uint32(fromBuf.Len()) < elemLen || elemLen == 0 {
+			return nil, errors.New("not enough data in buffer")
+		}
+
+		tmpBuf = make([]byte, elemLen)
+		sizeRead, err = fromBuf.Read(tmpBuf)
+		if uint32(sizeRead) != elemLen {
+			return nil, errors.New(fmt.Sprintf("Error reading enough data from buffer for string a, read %d", sizeRead))
+		}
+
+		elem.(*rStringA).value = string(tmpBuf)
+		if elem.(*rStringA).value[len(elem.(*rStringA).value)-1] == 0 {
+			elem.(*rStringA).value = elem.(*rStringA).value[0 : len(elem.(*rStringA).value)-1]
 		}
 	case TypeStringW:
 		elem = &rStringW{rElem: rElem{typ: typ}}
-		err = binary.Read(fromBuf, binary.BigEndian, &elemLen)
-		if uint32(fromBuf.Len()) < elemLen || elemLen == 0 {
-			err = errors.New("Not enough data in buffer")
-		} else {
-			tmpBuf = make([]byte, elemLen)
-			sizeRead, err = fromBuf.Read(tmpBuf)
-			if uint32(sizeRead) != elemLen {
-				err = errors.New(fmt.Sprintf("Error reading enough data from buffer for string w, read %d", sizeRead))
-			}
+		if err = binary.Read(fromBuf, binary.BigEndian, &elemLen); err != nil {
+			return nil, err
 		}
-		if err == nil {
-			elem.(*rStringW).value = string(tmpBuf)
-			if elem.(*rStringW).value[len(elem.(*rStringW).value)-1] == 0 {
-				elem.(*rStringW).value = elem.(*rStringW).value[0 : len(elem.(*rStringW).value)-1]
-			}
+		if uint32(fromBuf.Len()) < elemLen || elemLen == 0 {
+			return nil, errors.New("Not enough data in buffer")
+		}
+
+		tmpBuf = make([]byte, elemLen)
+		sizeRead, err = fromBuf.Read(tmpBuf)
+		if uint32(sizeRead) != elemLen {
+			return nil, errors.New(fmt.Sprintf("Error reading enough data from buffer for string w, read %d", sizeRead))
+		}
+
+		elem.(*rStringW).value = string(tmpBuf)
+		if elem.(*rStringW).value[len(elem.(*rStringW).value)-1] == 0 {
+			elem.(*rStringW).value = elem.(*rStringW).value[0 : len(elem.(*rStringW).value)-1]
 		}
 	case TypeBuffer:
 		elem = &rBuffer{rElem: rElem{typ: typ}}
-		err = binary.Read(fromBuf, binary.BigEndian, &elemLen)
+		if err = binary.Read(fromBuf, binary.BigEndian, &elemLen); err != nil {
+			return nil, err
+		}
 		if uint32(fromBuf.Len()) < elemLen || elemLen == 0 {
-			err = errors.New("Not enough data in buffer")
-		} else {
-			tmpBuf = make([]byte, elemLen)
-			sizeRead, err = fromBuf.Read(tmpBuf)
-			if uint32(sizeRead) != elemLen {
-				err = errors.New(fmt.Sprintf("Error reading enough data from buffer for buffer, read %d", sizeRead))
-			}
+			return nil, errors.New("Not enough data in buffer")
 		}
-		if err == nil {
-			elem.(*rBuffer).value = tmpBuf
+
+		tmpBuf = make([]byte, elemLen)
+		sizeRead, err = fromBuf.Read(tmpBuf)
+		if uint32(sizeRead) != elemLen {
+			return nil, errors.New(fmt.Sprintf("Error reading enough data from buffer for buffer, read %d", sizeRead))
 		}
+
+		elem.(*rBuffer).value = tmpBuf
 	case TypeTimestamp:
 		elem = &rTimestamp{rElem: rElem{typ: typ}}
 		err = binary.Read(fromBuf, binary.BigEndian, &elem.(*rTimestamp).value)
@@ -570,13 +549,13 @@ func rpcmDeserializeElem(fromBuf *bytes.Buffer, typ uint8) (rpcmElement, error) 
 		elem = &rIPv4{rElem: rElem{typ: typ}}
 		elem.(*rIPv4).value = make([]byte, net.IPv4len)
 		if sizeRead, err = fromBuf.Read(elem.(*rIPv4).value); err != nil || uint32(sizeRead) != net.IPv4len {
-			err = errors.New(fmt.Sprintf("Error reading enough data from buffer for IPv4, read %d", sizeRead))
+			return nil, errors.New(fmt.Sprintf("Error reading enough data from buffer for IPv4, read %d", sizeRead))
 		}
 	case TypeIPv6:
 		elem = &rIPv6{rElem: rElem{typ: typ}}
 		elem.(*rIPv6).value = make([]byte, net.IPv6len)
 		if sizeRead, err = fromBuf.Read(elem.(*rIPv6).value); err != nil || uint32(sizeRead) != net.IPv6len {
-			err = errors.New(fmt.Sprintf("Error reading enough data from buffer for IPv6, read %d", sizeRead))
+			return nil, errors.New(fmt.Sprintf("Error reading enough data from buffer for IPv6, read %d", sizeRead))
 		}
 	case TypePointer32:
 		elem = &rPointer32{rElem: rElem{typ: typ}}
@@ -595,14 +574,14 @@ func rpcmDeserializeElem(fromBuf *bytes.Buffer, typ uint8) (rpcmElement, error) 
 		err = elem.(*List).Deserialize(fromBuf)
 	default:
 		elem = nil
-		err = errors.New(fmt.Sprintf("unexpected type: %d", typ))
+		return nil, errors.New(fmt.Sprintf("unexpected type: %d", typ))
 	}
 
 	if err != nil {
-		elem = nil
+		return nil, err
 	}
 
-	return elem, err
+	return elem, nil
 }
 
 //=============================================================================
@@ -645,8 +624,10 @@ func (e *List) ToMachine() MachineList {
 
 // ToJSON takes a Sequence and turns it into the JSON compatible format.
 func (e *Sequence) ToJSON() map[string]interface{} {
-	var tagLabel string
-	var ok bool
+	var (
+		tagLabel string
+		ok bool
+	)
 
 	j := make(map[string]interface{})
 

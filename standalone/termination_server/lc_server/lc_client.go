@@ -56,9 +56,9 @@ func (c *client) send(moduleID uint8, messages []*rpcm.Sequence) error {
 
 func (c *client) sendTimeSync() error {
 	messages := []*rpcm.Sequence{rpcm.NewSequence().
-			AddInt8(rpcm.RP_TAGS_OPERATION, hcp.SET_GLOBAL_TIME).
+			AddInt8(rpcm.RP_TAGS_OPERATION, hcp.CmdSetGlobalTime).
 			AddTimestamp(rpcm.RP_TAGS_TIMESTAMP, uint64(time.Now().Unix()))}
-	return c.send(hcp.MODULE_ID_HCP, messages)
+	return c.send(hcp.ModuleIDHCP, messages)
 }
 
 func (c *client) AgentID() hcp.AgentID {
@@ -83,7 +83,7 @@ func (c *client) ProcessIncoming(moduleID uint8, messages []*rpcm.Sequence) erro
 
 	if !c.isAuthenticated {
 		// Client must authenticate first
-		if moduleID != hcp.MODULE_ID_HCP {
+		if moduleID != hcp.ModuleIDHCP {
 			return errors.New("expected authentication first")
 		}
 
@@ -110,7 +110,7 @@ func (c *client) ProcessIncoming(moduleID uint8, messages []*rpcm.Sequence) erro
 			// we send them directly via the CB since we know the sensor is not authenticated yet
 			if enrollmentMessages, err := c.srv.enrollClient(c); err != nil {
 				return err
-			} else if err := c.sendCB(hcp.MODULE_ID_HCP, enrollmentMessages); err != nil {
+			} else if err := c.sendCB(hcp.ModuleIDHCP, enrollmentMessages); err != nil {
 				return err
 			}
 		} else {
@@ -139,9 +139,9 @@ func (c *client) ProcessIncoming(moduleID uint8, messages []*rpcm.Sequence) erro
 	// By this point we are either a valid returning client or a newly enrolled one
 
 	switch moduleID {
-	case hcp.MODULE_ID_HCP:
+	case hcp.ModuleIDHCP:
 		return c.processHCPMessage(messages)
-	case hcp.MODULE_ID_HBS:
+	case hcp.ModuleIDHBS:
 		return c.processHBSMessage(messages)
 	default:
 		return errors.New(fmt.Sprintf("received messages from unexpected module: %d", moduleID))
@@ -153,12 +153,15 @@ func (c *client) ProcessIncoming(moduleID uint8, messages []*rpcm.Sequence) erro
 func (c *client) processHCPMessage(messages []*rpcm.Sequence) error {
 	shouldBeLoaded := c.srv.getExpectedModulesFor(c.aID)
 
+	// The number of modules is always very low so n^2 isn't a big deal
 	var currentlyLoaded []ModuleRule
 	for _, message := range messages {
 		if modules, ok := message.GetList(rpcm.RP_TAGS_HCP_MODULES); ok {
 			for _, moduleInfo := range modules.GetSequence(rpcm.RP_TAGS_HCP_MODULE) {
-				var mod ModuleRule
-				var ok bool
+				var (
+					mod ModuleRule
+					ok bool
+				)
 				if mod.Hash, ok = moduleInfo.GetBuffer(rpcm.RP_TAGS_HASH); !ok {
 					return errors.New("module entry missing hash")
 				}
@@ -186,7 +189,7 @@ func (c *client) processHCPMessage(messages []*rpcm.Sequence) error {
 
 		if !isFound {
 			outMessages = append(outMessages, rpcm.NewSequence().
-					AddInt8(rpcm.RP_TAGS_OPERATION, hcp.UNLOAD_MODULE).
+					AddInt8(rpcm.RP_TAGS_OPERATION, hcp.CmdUnloadModule).
 					AddInt8(rpcm.RP_TAGS_HCP_MODULE_ID, modIsLoaded.ModuleID))
 		}
 	}
@@ -203,9 +206,11 @@ func (c *client) processHCPMessage(messages []*rpcm.Sequence) error {
 		}
 
 		if !isFound {
-			var err error
-			var moduleContent []byte
-			var moduleSig []byte
+			var (
+				err error
+				moduleContent []byte
+				moduleSig []byte
+			)
 			if moduleContent, err = ioutil.ReadFile(modShouldBeLoaded.ModuleFile); err != nil {
 				return err
 			}
@@ -214,7 +219,7 @@ func (c *client) processHCPMessage(messages []*rpcm.Sequence) error {
 			}
 
 			outMessages = append(outMessages, rpcm.NewSequence().
-					AddInt8(rpcm.RP_TAGS_OPERATION, hcp.LOAD_MODULE).
+					AddInt8(rpcm.RP_TAGS_OPERATION, hcp.CmdLoadModule).
 					AddInt8(rpcm.RP_TAGS_HCP_MODULE_ID, modShouldBeLoaded.ModuleID).
 					AddBuffer(rpcm.RP_TAGS_BINARY, moduleContent).
 					AddBuffer(rpcm.RP_TAGS_SIGNATURE, moduleSig))
@@ -223,10 +228,10 @@ func (c *client) processHCPMessage(messages []*rpcm.Sequence) error {
 
 	// We also take the sync opportunity to send a time sync
 	outMessages = append(outMessages, rpcm.NewSequence().
-			AddInt8(rpcm.RP_TAGS_OPERATION, hcp.SET_GLOBAL_TIME).
+			AddInt8(rpcm.RP_TAGS_OPERATION, hcp.CmdSetGlobalTime).
 			AddTimestamp(rpcm.RP_TAGS_TIMESTAMP, uint64(time.Now().Unix())))
 	
-	return c.send(hcp.MODULE_ID_HCP, outMessages)
+	return c.send(hcp.ModuleIDHCP, outMessages)
 }
 
 func (c *client) processHBSMessage(messages []*rpcm.Sequence) error {
@@ -234,21 +239,23 @@ func (c *client) processHBSMessage(messages []*rpcm.Sequence) error {
 
 	for _, message := range messages {
 		if syncMessage, ok := message.GetSequence(rpcm.RP_TAGS_NOTIFICATION_SYNC); ok {
-			var profile ProfileRule
-			var ok bool
+			var (
+				profile ProfileRule
+				ok bool
+			)
 			if profile, ok = c.srv.getHBSProfileFor(c.aID); !ok {
 				return errors.New("no HBS profile to load")
 			}
 
-			if currentProfileHash, ok := syncMessage.GetBuffer(rpcm.RP_TAGS_HASH); ok {
-				if bytes.Equal(profile.Hash, currentProfileHash) {
-					// The sensor already has the latest profile
-					continue
-				}
+			if currentProfileHash, ok := syncMessage.GetBuffer(rpcm.RP_TAGS_HASH); ok && bytes.Equal(profile.Hash, currentProfileHash){
+				// The sensor already has the latest profile
+				continue
 			}
 
-			var profileContent []byte
-			var err error
+			var (
+				profileContent []byte
+				err error
+			)
 			if profileContent, err = ioutil.ReadFile(profile.ProfileFile); err != nil {
 				return err
 			}

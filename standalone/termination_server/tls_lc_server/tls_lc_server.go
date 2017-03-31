@@ -71,8 +71,10 @@ func main() {
 	flag.Parse()
 
 	server := TLSLCServer{}
-	var configContent []byte
-	var err error
+	var (
+		configContent []byte
+		err error
+	)
 	if configContent, err = ioutil.ReadFile(*configFile); err != nil {
 		glog.Fatalf("failed to load config file: %s", err)
 	}
@@ -183,6 +185,7 @@ func (srv *TLSLCServer) handleClient(conn net.Conn) {
 	ctx := new(tlsClient)
 	ctx.conn = conn
 
+	// Create a closed function that avoids passing a context around
 	sendFunc := func(moduleID uint8, messages []*rpcm.Sequence) error {
 		if !srv.isDraining {
 			return ctx.sendFrame(moduleID, messages, idleClientTTL)
@@ -211,11 +214,13 @@ func (srv *TLSLCServer) handleClient(conn net.Conn) {
 }
 
 func (c *tlsClient) recvFrame(timeout time.Duration) (uint8, *rpcm.List, error) {
-	var err error
-	var endTime time.Time
-	var moduleId uint8
-	var buf []byte
-	var frameSize uint32
+	var (
+		err error
+		endTime time.Time
+		moduleId uint8
+		buf []byte
+		frameSize uint32
+	)
 
 	if timeout != 0 {
 		endTime = time.Now().Add(timeout)
@@ -248,9 +253,9 @@ func (c *tlsClient) recvFrame(timeout time.Duration) (uint8, *rpcm.List, error) 
 	if size, err := io.Copy(&decompressedBuf, zlibReader); err != nil || 0 >= size {
 		if err != nil {
 			return 0, nil, err
-		} else {
-			return 0, nil, errors.New("received empty frame")
 		}
+		
+		return 0, nil, errors.New("received empty frame")
 	}
 
 	if moduleId, err = decompressedBuf.ReadByte(); err != nil {
@@ -303,39 +308,29 @@ func (c *tlsClient) sendFrame(moduleId uint8, messages []*rpcm.Sequence, timeout
 		return err
 	}
 
-	return err
+	return nil
 }
 
 func (c *tlsClient) recvData(size uint, timeout time.Time) ([]byte, error) {
 	buf := make([]byte, size)
 	var receivedLen uint
-	var err error
 
 	if !timeout.IsZero() {
 		c.conn.SetReadDeadline(timeout)
 	}
 
 	for receivedLen < size {
-		msgLen := 0
-		msgLen, err = c.conn.Read(buf[receivedLen:])
-		if msgLen > 0 {
+		if msgLen, err := c.conn.Read(buf[receivedLen:]); err != nil {
+			return nil, err
+		} else if msgLen > 0 {
 			receivedLen += uint(msgLen)
 		}
-		if err != nil {
-			break
-		}
 	}
 
-	if err != nil {
-		buf = nil
-	}
-
-	return buf, err
+	return buf, nil
 }
 
 func (c *tlsClient) sendData(buf []byte, timeout time.Time) error {
-	var err error
-
 	if !timeout.IsZero() {
 		c.conn.SetWriteDeadline(timeout)
 	}
@@ -343,16 +338,12 @@ func (c *tlsClient) sendData(buf []byte, timeout time.Time) error {
 	var totalSent int
 
 	for totalSent < len(buf) {
-		nSent, err := c.conn.Write(buf)
-
-		if nSent > 0 {
-			totalSent += nSent
-		}
-
-		if err != nil {
+		if nSent, err := c.conn.Write(buf); err != nil {
 			return err
+		} else if nSent > 0 {
+			totalSent += nSent
 		}
 	}
 
-	return err
+	return nil
 }
