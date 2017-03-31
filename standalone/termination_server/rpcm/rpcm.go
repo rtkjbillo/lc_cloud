@@ -565,10 +565,11 @@ func rpcmDeserializeElem(fromBuf *bytes.Buffer, typ uint8) (rpcmElement, error) 
 		err = binary.Read(fromBuf, binary.BigEndian, &elem.(*rTimestamp).value)
 	case TypeIPv4:
 		elem = &rIPv4{rElem: rElem{typ: typ}}
-		var tmpVal uint32
-		if err = binary.Read(fromBuf, binary.BigEndian, &tmpVal); err == nil {
-			binary.BigEndian.PutUint32(elem.(*rIPv4).value, tmpVal)
+		tmpVal := make([]byte, 4)
+		if sizeRead, err = fromBuf.Read(tmpVal); err != nil || uint32(sizeRead) != 4 {
+			err = errors.New("Error reading enough data from buffer")
 		}
+		copy(elem.(*rIPv4).value, tmpVal)
 	case TypeIPv6:
 		elem = &rIPv6{rElem: rElem{typ: typ}}
 		tmpVal := make([]byte, 16)

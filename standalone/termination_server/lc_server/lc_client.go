@@ -27,9 +27,9 @@ import (
 )
 
 type Client interface {
-	Receive(moduleID uint8, messages []*rpcm.Sequence) error
+	ProcessIncoming(moduleID uint8, messages []*rpcm.Sequence) error
 	AgentID() hcp.AgentID
-	Close()
+	Close() error
 }
 
 type client struct {
@@ -69,9 +69,13 @@ func (c *client) setAgentID(aID hcp.AgentID) {
 	c.aID = aID
 }
 
-func (c *client) Receive(moduleID uint8, messages []*rpcm.Sequence) error {
+func (c *client) ProcessIncoming(moduleID uint8, messages []*rpcm.Sequence) error {
 	defer c.recvMu.Unlock()
 	c.recvMu.Lock()
+
+	if c.srv.isClosing {
+		return errors.New("server closing")
+	}
 
 	if !c.isOnline {
 		return errors.New("not connected")
@@ -97,7 +101,7 @@ func (c *client) Receive(moduleID uint8, messages []*rpcm.Sequence) error {
 		}
 
 		if !c.aID.IsAbsolute() && !c.srv.isDebug {
-			return errors.New("invalid AID")
+			return errors.New(fmt.Sprintf("invalid AID: %s", c.aID))
 		}
 
 		if c.aID.IsSIDWild() {
@@ -123,10 +127,9 @@ func (c *client) Receive(moduleID uint8, messages []*rpcm.Sequence) error {
 			return err
 		}
 
-		// Publish the connection event and keep a reference to the incoming channel to use later
-		connectChannel, _, incomingChannel := c.srv.GetChannels()
-		connectChannel <- ConnectMessage{AID: &c.aID, Hostname: hostName, InternalIP: internalIP}
-		c.incomingChannel = incomingChannel
+		if err := c.srv.setOnline(c, ConnectMessage{AID: &c.aID, Hostname: hostName, InternalIP: internalIP}); err != nil  {
+			return err
+		}
 
 		c.isAuthenticated = true
 	}
@@ -267,30 +270,32 @@ func (c *client) processHBSMessage(messages []*rpcm.Sequence) error {
 			var data TelemetryMessage
 			data.Event = message
 			data.AID = &c.aID
-			c.incomingChannel <- data
+			c.srv.incomingChannel <- data
 		}
 	}
 
 	return nil
 }
 
-func (c *client) Close() {
-	// Notify consumers that this client is now offline
-	_, disconnectChannel, _ := c.srv.GetChannels()
-	disconnectChannel <- DisconnectMessage{AID: &c.aID}
-
-	c.srv.mu.Lock()
-
-	if c.isAuthenticated {
-		delete(c.srv.online, c.aID)
-	}
-
-	c.srv.mu.Unlock()
-
+func (c *client) Close() error {
 	defer c.sendMu.Unlock()
 	defer c.recvMu.Unlock()
 	c.sendMu.Lock()
 	c.recvMu.Lock()
+
+	if !c.isOnline {
+		// Double close, ignore
+		return nil
+	}
+
+	c.srv.disconnectChannel <- DisconnectMessage{AID: &c.aID}
+
+	if c.isAuthenticated {
+		c.srv.setOffline(c)
+	}
+
 	c.isAuthenticated = false
 	c.isOnline = false
+
+	return nil
 }

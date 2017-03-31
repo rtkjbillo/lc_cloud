@@ -72,8 +72,10 @@ type Server interface {
 	ModuleRules() []ModuleRule
 	SetProfileRules(rules []ProfileRule) error
 	ProfileRules() []ProfileRule
-	NewClient(sendFunc func(moduleID uint8, messages []*rpcm.Sequence) error) Client
+	NewClient(sendFunc func(moduleID uint8, messages []*rpcm.Sequence) error) (Client, error)
 	GetChannels() (connect chan ConnectMessage, disconnect chan DisconnectMessage, incoming chan TelemetryMessage)
+	Stop() error
+	IsClosed() bool
 }
 
 type server struct {
@@ -89,6 +91,8 @@ type server struct {
 	connectChannel chan ConnectMessage
 	disconnectChannel chan DisconnectMessage
 	incomingChannel chan TelemetryMessage
+
+	isClosing bool
 }
 
 func NewServer(config *lcServerConfig.Config) (Server, error) {
@@ -161,6 +165,8 @@ func NewServer(config *lcServerConfig.Config) (Server, error) {
 
 		s.profileRules = append(s.profileRules, r)
 	}
+
+	s.enrollmentSecret = config.GetSecretEnrollmentToken()
 
 	return s, err
 }
@@ -321,11 +327,59 @@ func (srv *server) GetChannels() (connect chan ConnectMessage, disconnect chan D
 	return srv.connectChannel, srv.disconnectChannel, srv.incomingChannel
 }
 
-func (srv *server) NewClient(sendFunc func(moduleID uint8, messages []*rpcm.Sequence) error) Client {
+func (srv *server) NewClient(sendFunc func(moduleID uint8, messages []*rpcm.Sequence) error) (Client, error) {
+	defer srv.mu.RUnlock()
+	srv.mu.RLock()
+
+	if srv.isClosing {
+		return nil, errors.New("server closing")
+	}
+
 	c := new(client)
 	c.srv = srv
 	c.sendCB = sendFunc
 	c.isOnline = true
 
-	return c
+	// The client is not added immediately to the list of online clients since
+	// this will be done by the client itself once it has authenticated.
+
+	return c, nil
+}
+
+func (srv *server) Stop() error {
+	defer srv.mu.Unlock()
+	srv.mu.Lock()
+
+	srv.isClosing = true
+	return nil
+}
+
+func (srv *server) IsClosed() bool {
+	defer srv.mu.RUnlock()
+	srv.mu.RLock()
+
+	if srv.isClosing && 0 == len(srv.online) {
+		return true
+	}
+
+	return false
+}
+
+func (srv *server) setOnline(c *client, msg ConnectMessage) error {
+	defer srv.mu.Unlock()
+	srv.mu.Lock()
+
+	if !srv.isClosing {
+		srv.connectChannel <- msg
+		srv.online[c.aID] = c
+		return nil
+	}
+
+	return errors.New("server closing")
+}
+
+func (srv *server) setOffline(c *client) {
+	defer srv.mu.Unlock()
+	srv.mu.Lock()
+	delete(srv.online, c.aID)
 }

@@ -15,19 +15,32 @@
 package main
 
 import (
-	"os/signal"
 	"flag"
 	"crypto/tls"
 	"crypto/rand"
+	"github.com/golang/glog"
+	"github.com/refractionPOINT/lc_cloud/standalone/termination_server/lc_server_config"
 	"github.com/refractionPOINT/lc_cloud/standalone/termination_server/lc_server"
+	"github.com/refractionPOINT/lc_cloud/standalone/termination_server/lc_collector"
 	"github.com/refractionPOINT/lc_cloud/standalone/termination_server/rpcm"
-	"github.com/refractionPOINT/lc_cloud/standalone/termination_server/utils"
 	"sync"
+	"fmt"
 	"net"
 	"io"
 	"io/ioutil"
 	"bytes"
+	"github.com/golang/protobuf/proto"
+	"encoding/binary"
 	"compress/zlib"
+	"errors"
+	"strconv"
+	"os/signal"
+	"os"
+	"time"
+)
+
+const (
+	maxInboundFrameSize = 1024*1024*50
 )
 
 type TLSLCServer struct {
@@ -36,29 +49,88 @@ type TLSLCServer struct {
 	CertFile string
 	KeyFile string
 	IsDebug bool
-	LCConfig LcServerConfig
-	activeClients sync.WaitGroup
+	LCConfig *lcServerConfig.Config
+	clientsWG sync.WaitGroup
 	isDraining bool
-	lcServerCtx *lcServer.Server
+	lcServerCtx lcServer.Server
+	lcCollectorCtx lcCollector.Collector
 }
 
 type tlsClient struct {
 	conn net.Conn
-	lcClient *lcServer.Client
+	lcClient lcServer.Client
 }
 
-func (srv *TLSLCServer) Start() error {
+func main() {
+	port := flag.String("port", "443", "port to listen on")
+	iface := flag.String("iface", "0.0.0.0", "interface to listen on")
+	configFile := flag.String("conf", "lc_config.pb.txt", "path to config file")
+	certFile := flag.String("cert", "c2_cert.pem", "path to the tls cert file in pem format")
+	keyFile := flag.String("key", "c2_key.pem", "path to the tls key file in pem format")
+	isDebug := flag.Bool("debug", false, "set to enable debug functionality of the server")
+	flag.Parse()
+
+	server := TLSLCServer{}
+	var configContent []byte
 	var err error
-	srv.lcServerCtx, err = lcServer.NewServer(nil)
+	if configContent, err = ioutil.ReadFile(*configFile); err != nil {
+		glog.Fatalf("failed to load config file: %s", err)
+	}
+
+	server.LCConfig = new(lcServerConfig.Config)
+	if err = proto.UnmarshalText(string(configContent), server.LCConfig); err != nil {
+		glog.Fatalf("failed to parse config file: %s", err)
+	}
+
+	server.IFace = *iface
+	var num uint64
+	if num, err = strconv.ParseUint(*port, 10, 16); err != nil {
+		glog.Fatalf("invalid port specified: %s", err)
+	}
+	server.Port = uint16(num)
+
+	server.CertFile = *certFile
+	server.KeyFile = *keyFile
+	server.IsDebug = *isDebug
+
+	interruptsChannel := make(chan os.Signal, 1)
+	signal.Notify(interruptsChannel, os.Interrupt)
+	go func() {
+		<-interruptsChannel
+		glog.Info("received exiting signal, draining")
+		server.isDraining = true
+	}()
+
+	if err = server.Run(); err != nil {
+		glog.Errorf("server exited with an error: %s", err)
+	}
+
+	glog.Info("server exited")
+}
+
+func (srv *TLSLCServer) Run() error {
+	var err error
+	if srv.lcServerCtx, err = lcServer.NewServer(nil); err != nil {
+		return err
+	}
+
+	if srv.IsDebug {
+		srv.lcServerCtx.SetDebug(true)
+	}
+
+	srv.lcCollectorCtx = lcCollector.NewStdoutJSON(1)
+	srv.lcCollectorCtx.SetChannels(srv.lcServerCtx.GetChannels())
+	defer srv.lcCollectorCtx.Stop()
+	if err := srv.lcCollectorCtx.Start(); err != nil {
+		return err
+	}
+
 	fullAddrStr := fmt.Sprintf("%s:%d", srv.IFace, srv.Port)
 
-	glog.Info("starting LC Termination Server on %s with %s/%s", fullAddrStr, srv.CertFile, srv.KeyFile)
+	glog.Infof("starting LC Termination Server on %s with %s/%s", fullAddrStr, srv.CertFile, srv.KeyFile)
 
-	srv.lcServerCtx = new(lcServer.Server)
-
-	cert, err := tls.LoadX509KeyPair(srv.certFile, srv.keyFile)
+	cert, err := tls.LoadX509KeyPair(srv.CertFile, srv.KeyFile)
 	if err != nil {
-		glog.Errorf("failed to load cert and key: %s", err)
 		return err
 	}
 
@@ -68,13 +140,11 @@ func (srv *TLSLCServer) Start() error {
 	resolvedAddr, err := net.ResolveTCPAddr("tcp", fullAddrStr)
 
 	if err != nil {
-		glog.Errorf("failed to resolve listen address: %s", err)
 		return err
 	}
 
 	listenSocket, err := net.ListenTCP("tcp", resolvedAddr)
 	if err != nil {
-		glog.Errorf("could not open %s for listening: %s", fullAddrStr, err)
 		return err
 	}
 
@@ -89,47 +159,55 @@ func (srv *TLSLCServer) Start() error {
 			if opErr, ok := err.(*net.OpError); ok && opErr.Timeout() {
 				continue
 			}
-			glog.Errorf("error accepting on socket: %s", err)
 			return err
 		}
 
 		conn = tls.Server(conn, &tlsConfig)
 
-		srv.activeClients.Add(1)
+		srv.clientsWG.Add(1)
 		go srv.handleClient(conn)
 	}
 
 	glog.Info("draining, waiting for clients to exit")
 	listenSocket.Close()
-	srv.activeClients.Wait()
+	srv.clientsWG.Wait()
 	glog.Info("server exiting")
+
+	return nil
 }
 
 func (srv *TLSLCServer) Stop() error {
-
+	srv.isDraining = true
+	return nil
 }
 
 func (srv *TLSLCServer) handleClient(conn net.Conn) {
 	defer conn.Close()
-	defer srv.activeClients.Done()
+	defer srv.clientsWG.Done()
 
 	ctx := new(tlsClient)
 	ctx.conn = conn
 
 	sendFunc := func(moduleID uint8, messages []*rpcm.Sequence) error {
-		if !ctx.srv.isDraining {
+		if !srv.isDraining {
 			return ctx.sendFrame(moduleID, messages, 120*time.Second)
 		}
 		return errors.New("draining")
 	}
 
-	ctx.lcClient = srv.lcServerCtx.NewClient(sendFunc)
+	var err error
+	if ctx.lcClient, err = srv.lcServerCtx.NewClient(sendFunc); err != nil {
+		return
+	}
+
 	defer ctx.lcClient.Close()
 
 	for !srv.isDraining {
 		if moduleID, messages, err := ctx.recvFrame(120*time.Second); err != nil {
+			glog.Warning(err)
 			break
-		} else if err := ctx.lcClient.Receive(moduleID, messages.GetSequence(rpcm.RP_TAGS_MESSAGE)); err != nil {
+		} else if err := ctx.lcClient.ProcessIncoming(moduleID, messages.GetSequence(rpcm.RP_TAGS_MESSAGE)); err != nil {
+			glog.Error(err)
 			break
 		}
 	}
@@ -146,9 +224,9 @@ func (c *tlsClient) recvFrame(timeout time.Duration) (uint8, *rpcm.List, error) 
 		endTime = time.Now().Add(timeout)
 	}
 
-	received := rpcm.NewList(rpcm.RP_TAGS_MESSAGE, rpcm.RPCM_SEQUENCE)
+	received := rpcm.NewList(rpcm.RP_TAGS_MESSAGE, rpcm.TypeSequence)
 
-	if buf, err = recvData(c.conn, 4, endTime); buf == nil || err != nil {
+	if buf, err = c.recvData(4, endTime); buf == nil || err != nil {
 		return 0, nil, err
 	}
 
@@ -156,11 +234,11 @@ func (c *tlsClient) recvFrame(timeout time.Duration) (uint8, *rpcm.List, error) 
 		return 0, nil, err
 	}
 
-	if MAX_INBOUND_FRAME_SIZE < frameSize {
+	if maxInboundFrameSize < frameSize {
 		return 0, nil, errors.New("frame size indicated too large or not a multiple of block size")
 	}
 
-	if buf, err = recvData(c.conn, uint(frameSize), endTime); buf == nil || err != nil || len(buf) == 0 {
+	if buf, err = c.recvData(uint(frameSize), endTime); buf == nil || err != nil || len(buf) == 0 {
 		return 0, nil, err
 	}
 
@@ -197,7 +275,7 @@ func (c *tlsClient) sendFrame(moduleId uint8, messages []*rpcm.Sequence, timeout
 		return err
 	}
 
-	messageBundle := rpcm.NewList(rpcm.RP_TAGS_MESSAGE, rpcm.RPCM_SEQUENCE)
+	messageBundle := rpcm.NewList(rpcm.RP_TAGS_MESSAGE, rpcm.TypeSequence)
 	for _, message := range messages {
 		if messageBundle = messageBundle.AddSequence(message); messageBundle == nil {
 			return errors.New("failed to bundle messages")
@@ -224,7 +302,7 @@ func (c *tlsClient) sendFrame(moduleId uint8, messages []*rpcm.Sequence, timeout
 
 	finalFrame.Write(frameWrapper.Bytes())
 
-	if err = sendData(c.conn, finalFrame.Bytes(), endTime); err != nil {
+	if err = c.sendData(finalFrame.Bytes(), endTime); err != nil {
 		return err
 	}
 
