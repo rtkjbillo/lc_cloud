@@ -41,6 +41,8 @@ import (
 
 const (
 	maxInboundFrameSize = 1024*1024*50
+	newConnTimeout = 5*time.Second
+	idleClientTTL = 120*time.Second
 )
 
 type TLSLCServer struct {
@@ -153,7 +155,7 @@ func (srv *TLSLCServer) Run() error {
 
 	for !srv.isDraining {
 
-		listenSocket.SetDeadline(time.Now().Add(5 * time.Second))
+		listenSocket.SetDeadline(time.Now().Add(newConnTimeout))
 		conn, err := listenSocket.Accept()
 
 		if err != nil {
@@ -191,7 +193,7 @@ func (srv *TLSLCServer) handleClient(conn net.Conn) {
 
 	sendFunc := func(moduleID uint8, messages []*rpcm.Sequence) error {
 		if !srv.isDraining {
-			return ctx.sendFrame(moduleID, messages, 120*time.Second)
+			return ctx.sendFrame(moduleID, messages, idleClientTTL)
 		}
 		return errors.New("draining")
 	}
@@ -204,7 +206,7 @@ func (srv *TLSLCServer) handleClient(conn net.Conn) {
 	defer ctx.lcClient.Stop()
 
 	for !srv.isDraining {
-		if moduleID, messages, err := ctx.recvFrame(120*time.Second); err != nil {
+		if moduleID, messages, err := ctx.recvFrame(idleClientTTL); err != nil {
 			if err != io.EOF {
 				glog.Warningf("%s",err)
 			}
