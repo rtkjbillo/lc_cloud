@@ -100,7 +100,7 @@ func (c *client) ProcessIncoming(moduleID uint8, messages []*rpcm.Sequence) erro
 			}
 		}
 
-		if !c.aID.IsAbsolute() && !c.srv.isDebug {
+		if !c.aID.IsAbsolute() {
 			return errors.New(fmt.Sprintf("invalid AID: %s", c.aID))
 		}
 

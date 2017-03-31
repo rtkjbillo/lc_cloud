@@ -50,7 +50,6 @@ type TLSLCServer struct {
 	Port uint16
 	CertFile string
 	KeyFile string
-	IsDebug bool
 	LCConfig *lcServerConfig.Config
 	clientsWG sync.WaitGroup
 	isDraining bool
@@ -69,7 +68,6 @@ func main() {
 	configFile := flag.String("conf", "lc_config.pb.txt", "path to config file")
 	certFile := flag.String("cert", "c2_cert.pem", "path to the tls cert file in pem format")
 	keyFile := flag.String("key", "c2_key.pem", "path to the tls key file in pem format")
-	isDebug := flag.Bool("debug", false, "set to enable debug functionality of the server")
 	flag.Parse()
 
 	server := TLSLCServer{}
@@ -93,7 +91,6 @@ func main() {
 
 	server.CertFile = *certFile
 	server.KeyFile = *keyFile
-	server.IsDebug = *isDebug
 
 	interruptsChannel := make(chan os.Signal, 1)
 	signal.Notify(interruptsChannel, os.Interrupt)
@@ -114,11 +111,6 @@ func (srv *TLSLCServer) Run() error {
 	var err error
 	if srv.lcServerCtx, err = lcServer.NewServer(srv.LCConfig); err != nil {
 		return err
-	}
-
-	if srv.IsDebug {
-		glog.Info("enabling debug mode")
-		srv.lcServerCtx.SetDebug(true)
 	}
 
 	srv.lcCollectorCtx = lcCollector.NewStdoutJSON(1, false)

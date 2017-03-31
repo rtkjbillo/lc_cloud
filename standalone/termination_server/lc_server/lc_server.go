@@ -64,8 +64,6 @@ type ProfileRule struct {
 
 type Server interface {
 	SetEnrollmentSecret(secret string) error
-	IsDebug() bool
-	SetDebug(enabled bool)
 	SetEnrollmentRules(rules []EnrollmentRule) error
 	EnrollmentRules() []EnrollmentRule
 	SetModuleRules(rules []ModuleRule) error
@@ -81,7 +79,6 @@ type Server interface {
 type server struct {
 	mu sync.RWMutex
 	enrollmentSecret string
-	isDebug bool
 	enrollmentRules []EnrollmentRule
 	moduleRules []ModuleRule
 	profileRules []ProfileRule
@@ -176,18 +173,6 @@ func (srv *server) SetEnrollmentSecret(secret string) error {
 	srv.mu.Lock()
 	srv.enrollmentSecret = secret
 	return nil
-}
-
-func (srv *server) IsDebug() bool {
-	defer srv.mu.Unlock()
-	srv.mu.Lock()
-	return srv.isDebug
-}
-
-func (srv *server) SetDebug(enabled bool) {
-	defer srv.mu.Unlock()
-	srv.mu.Lock()
-	srv.isDebug = enabled
 }
 
 func (srv *server) SetEnrollmentRules(rules []EnrollmentRule) error {
