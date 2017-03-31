@@ -247,9 +247,6 @@ func (srv *server) validateEnrollmentToken(aid hcp.AgentID, token []byte) bool {
 }
 
 func (srv *server) generateEnrollmentToken(aid hcp.AgentID) []byte {
-	defer srv.mu.RUnlock()
-	srv.mu.RLock()
-
 	hmacToken := hmac.New(sha256.New, []byte(srv.enrollmentSecret))
 	hmacToken.Write([]byte(aid.String()))
 
@@ -269,13 +266,14 @@ func (srv *server) isWhitelistedForEnrollment(oID uuid.UUID, iID uuid.UUID) bool
 	return false
 }
 
-func (srv *server) enrollClient(c *client) error {
+func (srv *server) enrollClient(c *client) ([]*rpcm.Sequence, error) {
+	defer srv.mu.RUnlock()
 	srv.mu.RLock()
 
 	aID := c.AgentID()
 
 	if !srv.isWhitelistedForEnrollment(aID.OID, aID.IID) {
-		return errors.New(fmt.Sprintf("org or installer not whitelisted: %s / %s", aID.OID, aID.IID))
+		return nil, errors.New(fmt.Sprintf("org or installer not whitelisted: %s / %s", aID.OID, aID.IID))
 	}
 
 	aID.SID = uuid.New()
@@ -283,19 +281,15 @@ func (srv *server) enrollClient(c *client) error {
 
 	enrollmentToken := srv.generateEnrollmentToken(aID)
 
-	if err := c.send(hcp.MODULE_ID_HCP, []*rpcm.Sequence{rpcm.NewSequence().
+	return []*rpcm.Sequence{rpcm.NewSequence().
 			AddInt8(rpcm.RP_TAGS_OPERATION, hcp.SET_HCP_ID).
 			AddSequence(rpcm.RP_TAGS_HCP_IDENT, c.aID.ToSequence()).
-			AddBuffer(rpcm.RP_TAGS_HCP_ENROLLMENT_TOKEN, enrollmentToken)}); err != nil {
-		return err
-	}
-
-	return nil
+			AddBuffer(rpcm.RP_TAGS_HCP_ENROLLMENT_TOKEN, enrollmentToken)}, nil
 }
 
 func (srv *server) getExpectedModulesFor(aID hcp.AgentID) []ModuleRule {
 	defer srv.mu.RUnlock()
-	srv.mu.Lock()
+	srv.mu.RLock()
 
 	var modules []ModuleRule
 	for _, moduleInfo := range srv.moduleRules {
@@ -309,7 +303,7 @@ func (srv *server) getExpectedModulesFor(aID hcp.AgentID) []ModuleRule {
 
 func (srv *server) getHBSProfileFor(aID hcp.AgentID) (ProfileRule , bool) {
 	defer srv.mu.RUnlock()
-	srv.mu.Lock()
+	srv.mu.RLock()
 
 	for _, profile := range srv.profileRules {
 		if profile.AID.Matches(aID) {

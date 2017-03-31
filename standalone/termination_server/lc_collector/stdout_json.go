@@ -19,7 +19,6 @@ import (
 	"fmt"
 	"sync"
 	"encoding/json"
-	"github.com/golang/glog"
 	"github.com/refractionPOINT/lc_cloud/standalone/termination_server/lc_server"
 )
 
@@ -29,13 +28,15 @@ type stdOutJSONCollector struct {
 	incoming <- chan lcServer.TelemetryMessage
 	stop chan bool
 	nHandlers int
+	isHumanReadable bool
 	ouputWG sync.WaitGroup
 	mu sync.Mutex
 }
 
-func NewStdoutJSON(nHandlers int) Collector {
+func NewStdoutJSON(nHandlers int, isHumanReadable bool) Collector {
 	c  := new(stdOutJSONCollector)
 	c.nHandlers = nHandlers
+	c.isHumanReadable = isHumanReadable
 	c.stop = make(chan bool)
 	return c
 }
@@ -58,13 +59,10 @@ func (c *stdOutJSONCollector) Start() error {
 }
 
 func (c *stdOutJSONCollector) Stop() {
-	glog.Info("Stopping")
 	for i := 0; i < c.nHandlers; i++ {
 		c.stop <- true
 	}
-	glog.Info("Signaled")
 	c.ouputWG.Wait()
-	glog.Info("Exiting")
 }
 
 func (c *stdOutJSONCollector) handler() {
@@ -72,9 +70,11 @@ func (c *stdOutJSONCollector) handler() {
 
 	for {
 		var o string
+		var isExit bool
 
 		select {
 		case <- c.stop:
+			isExit = true
 			break
 		case msg := <- c.connect:
 			o = fmt.Sprintf("CONNECT: %s (%s @ %s)", msg.AID, msg.Hostname, msg.InternalIP)
@@ -85,11 +85,23 @@ func (c *stdOutJSONCollector) handler() {
 			wrapper["event"] = msg.Event.ToJSON()
 			wrapper["routing"] = make(map[string]interface{}, 1)
 			wrapper["routing"].(map[string]interface{})["aid"] = msg.AID
-			if JSONMessage, err := json.MarshalIndent(wrapper, "", "    "); err != nil {
+			var JSONMessage []byte
+			var err error
+			if c.isHumanReadable {
+				JSONMessage, err = json.MarshalIndent(wrapper, "", "    ")
+			} else {
+				JSONMessage, err = json.Marshal(wrapper)
+			}
+
+			if err != nil {
 				o = fmt.Sprintf("ERROR: %s = %s", msg.AID, err)
 			} else {
 				o = string(JSONMessage)
 			}
+		}
+
+		if isExit {
+			break
 		}
 
 		c.mu.Lock()

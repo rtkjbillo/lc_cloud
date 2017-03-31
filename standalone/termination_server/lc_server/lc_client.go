@@ -29,7 +29,7 @@ import (
 type Client interface {
 	ProcessIncoming(moduleID uint8, messages []*rpcm.Sequence) error
 	AgentID() hcp.AgentID
-	Close() error
+	Stop() error
 }
 
 type client struct {
@@ -106,32 +106,34 @@ func (c *client) ProcessIncoming(moduleID uint8, messages []*rpcm.Sequence) erro
 
 		if c.aID.IsSIDWild() {
 			// This sensor requires enrollment
-			if err := c.srv.enrollClient(c); err != nil {
+			// We get the relevant enrollment messages (if elligible) from the server and
+			// we send them directly via the CB since we know the sensor is not authenticated yet
+			if enrollmentMessages, err := c.srv.enrollClient(c); err != nil {
+				return err
+			} else if err := c.sendCB(hcp.MODULE_ID_HCP, enrollmentMessages); err != nil {
 				return err
 			}
 		} else {
 			// This sensor should already be enrolled with a valid token
 			sensorToken, ok := headers.GetBuffer(rpcm.RP_TAGS_HCP_ENROLLMENT_TOKEN)
 			if !ok {
-				return errors.New("sensor has no enrollment token")
+				return errors.New("client has no enrollment token")
 			}
 			if !c.srv.validateEnrollmentToken(c.aID, sensorToken) {
 				return errors.New("invalid enrollment token")
 			}
 		}
 
+		c.isAuthenticated = true
+
 		// Upon authentication we send an initial clock sync
-		if err := c.send(hcp.MODULE_ID_HCP, []*rpcm.Sequence{rpcm.NewSequence().
-				AddInt8(rpcm.RP_TAGS_OPERATION, hcp.SET_GLOBAL_TIME).
-				AddTimestamp(rpcm.RP_TAGS_TIMESTAMP, uint64(time.Now().Unix()))}); err != nil {
+		if err := c.sendTimeSync(); err != nil {
 			return err
 		}
 
 		if err := c.srv.setOnline(c, ConnectMessage{AID: &c.aID, Hostname: hostName, InternalIP: internalIP}); err != nil  {
 			return err
 		}
-
-		c.isAuthenticated = true
 	}
 
 	// By this point we are either a valid returning client or a newly enrolled one
@@ -169,7 +171,7 @@ func (c *client) processHCPMessage(messages []*rpcm.Sequence) error {
 		}
 	}
 
-	outMessages := make([]*rpcm.Sequence, 5)
+	outMessages := make([]*rpcm.Sequence, 0, 5)
 
 	// Look for modules that should be unloaded
 	for _, modIsLoaded := range currentlyLoaded {
@@ -223,7 +225,7 @@ func (c *client) processHCPMessage(messages []*rpcm.Sequence) error {
 	outMessages = append(outMessages, rpcm.NewSequence().
 			AddInt8(rpcm.RP_TAGS_OPERATION, hcp.SET_GLOBAL_TIME).
 			AddTimestamp(rpcm.RP_TAGS_TIMESTAMP, uint64(time.Now().Unix())))
-
+	
 	return c.send(hcp.MODULE_ID_HCP, outMessages)
 }
 
@@ -277,7 +279,7 @@ func (c *client) processHBSMessage(messages []*rpcm.Sequence) error {
 	return nil
 }
 
-func (c *client) Close() error {
+func (c *client) Stop() error {
 	defer c.sendMu.Unlock()
 	defer c.recvMu.Unlock()
 	c.sendMu.Lock()

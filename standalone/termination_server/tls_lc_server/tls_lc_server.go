@@ -110,15 +110,16 @@ func main() {
 
 func (srv *TLSLCServer) Run() error {
 	var err error
-	if srv.lcServerCtx, err = lcServer.NewServer(nil); err != nil {
+	if srv.lcServerCtx, err = lcServer.NewServer(srv.LCConfig); err != nil {
 		return err
 	}
 
 	if srv.IsDebug {
+		glog.Info("enabling debug mode")
 		srv.lcServerCtx.SetDebug(true)
 	}
 
-	srv.lcCollectorCtx = lcCollector.NewStdoutJSON(1)
+	srv.lcCollectorCtx = lcCollector.NewStdoutJSON(1, false)
 	srv.lcCollectorCtx.SetChannels(srv.lcServerCtx.GetChannels())
 	defer srv.lcCollectorCtx.Stop()
 	if err := srv.lcCollectorCtx.Start(); err != nil {
@@ -200,14 +201,16 @@ func (srv *TLSLCServer) handleClient(conn net.Conn) {
 		return
 	}
 
-	defer ctx.lcClient.Close()
+	defer ctx.lcClient.Stop()
 
 	for !srv.isDraining {
 		if moduleID, messages, err := ctx.recvFrame(120*time.Second); err != nil {
-			glog.Warning(err)
+			if err != io.EOF {
+				glog.Warningf("%s",err)
+			}
 			break
 		} else if err := ctx.lcClient.ProcessIncoming(moduleID, messages.GetSequence(rpcm.RP_TAGS_MESSAGE)); err != nil {
-			glog.Error(err)
+			glog.Errorf("%s", err)
 			break
 		}
 	}
