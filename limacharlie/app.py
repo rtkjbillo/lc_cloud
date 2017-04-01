@@ -604,6 +604,7 @@ class Profile ( AuthenticatedPage ):
                 if res.isSuccess:
                     session.notice = 'Org created with oid: %s' % oid
                 else:
+                    identmanager.request( 'remove_org', { 'by' : session.email, 'oid' : oid } )
                     session.notice = 'Error deploying org: %s' % res
         else:
             session.notice = 'Action not supported.'

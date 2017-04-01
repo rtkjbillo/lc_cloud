@@ -52,6 +52,7 @@ class IdentManager( Actor ):
         self.handle( 'delete_user', self.deleteUser )
         self.handle( 'change_password', self.changePassword )
         self.handle( 'create_org', self.createOrg )
+        self.handle( 'remove_org', self.removeOrg )
         self.handle( 'add_user_to_org', self.addUserToOrg )
         self.handle( 'remove_user_from_org', self.removeUserFromOrg )
         self.handle( 'get_org_info', self.getOrgInfo )
@@ -216,6 +217,18 @@ class IdentManager( Actor ):
                          ( oid, name, ttl_events, ttl_long_obj, ttl_short_obj, ttl_atoms, ttl_detections ) )
 
         self.audit.shoot( 'record', { 'oid' : self.admin_oid, 'etype' : 'org_create', 'msg' : 'Org %s ( %s ) created by %s.' % ( name, oid, byUser ) } )
+
+        return ( True, { 'is_created' : True, 'oid' : oid } )
+
+    def removeOrg( self, msg ):
+        req = msg.data
+
+        byUser = req[ 'by' ]
+        oid = uuid.UUID( req[ 'oid' ] )
+
+        self.db.execute( 'DELETE FROM org_info WHERE oid = %s', ( oid, ) )
+
+        self.audit.shoot( 'record', { 'oid' : self.admin_oid, 'etype' : 'org_remove', 'msg' : 'Org %s removed by %s.' % ( oid, byUser ) } )
 
         return ( True, { 'is_created' : True, 'oid' : oid } )
 
