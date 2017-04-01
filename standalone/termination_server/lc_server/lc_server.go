@@ -12,6 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// Package lcServer implements the core logic to "keep the lights on" for LimaCharlie clients.
+// It takes care of enrollment and loading/unloading of the approproate modules. It does not
+// implement any specific transport or output as these are modular.
 package lcServer
 
 
@@ -29,50 +32,82 @@ import (
 	"io/ioutil"
 )
 
+// ConnectMessage is a struct holding the information a Collector will get when a new client connects.
 type ConnectMessage struct {
+	// AID of the client that is connecting.
 	AID *hcp.AgentID
+	// Hostname of the client at the time the connection was established.
 	Hostname string
+	// Internal IP the client had at the time the connection was established.
 	InternalIP net.IP
 }
 
+// DisconnectMessage is a struct holding the information a Collector will get when a client disconnects.
 type DisconnectMessage struct {
+	// AID of the client disconnecting.
 	AID *hcp.AgentID
 }
 
+// TelemetryMessage is a struct holding a telemetry event from a sensor, the real payloads.
 type TelemetryMessage struct {
+	// Event payload from the client.
 	Event *rpcm.Sequence
+	// AID of the client sending the payload.
 	AID *hcp.AgentID
 }
 
+// EnrollmentRule represents one pair of OrgID and InstallerID that are whitelisted to be enrolled.
 type EnrollmentRule struct {
 	OID uuid.UUID
 	IID uuid.UUID
 }
 
+// ModuleRule represents a module to be loaded on all clients with an AgentID matching the mask.
 type ModuleRule struct {
+	// AID is a wildcarded AgentID that represents which clients this rule applies to.
 	AID hcp.AgentID
+	// ModuleID is the type of module represented (HBS, Kernel Acquisition etc).
 	ModuleID uint8
+	// ModuleFile is the path where the module is on disk.
 	ModuleFile string
+	// Hash of the module on disk.
 	Hash []byte
 }
 
+// ProfileRule represents the profile that should be applied to clients with AgentID matching the mask.
 type ProfileRule struct {
+	// AID is a wildcarded AgentID that represents which client this rule applies to.
 	AID hcp.AgentID
+	// ProfileFile is the path where the profile is on disk.
 	ProfileFile string
+	// Hash of the profile on disk.
 	Hash []byte
 }
 
+// Server interface represents a core LimaCharlie server and provides an API to modify its behavior dynamically.
 type Server interface {
+	// SentEnrollmentSecret sets the secret value used when generating the HMAC (Enrollment Token) given to clients.
+	// to prove their legitimate enrollment.
 	SetEnrollmentSecret(secret string) error
+	// SetEnrollmentRules sets the list of rules to apply for enrollment.
 	SetEnrollmentRules(rules []EnrollmentRule) error
+	// EnrollmentRules gets the list of rules that currently apply for enrollment.
 	EnrollmentRules() []EnrollmentRule
+	// SetModuleRules sets the rules determine which modules are loaded on which client.
 	SetModuleRules(rules []ModuleRule) error
+	// ModuleRules gets the list of rules that currently apply to loading modules on clients.
 	ModuleRules() []ModuleRule
+	// SetProfileRules sets the rules specifying which client gets whichs profile.
 	SetProfileRules(rules []ProfileRule) error
+	// ProfileRules gets the list of rules that currently apply to specify profiles.
 	ProfileRules() []ProfileRule
+	// NewClient creates a new context for a client connecting to the server.
 	NewClient(sendFunc func(moduleID uint8, messages []*rpcm.Sequence) error) (Client, error)
+	// GetChannels retrieves the channels a collector can receive on for sythesized activity of the server.
 	GetChannels() (connect chan ConnectMessage, disconnect chan DisconnectMessage, incoming chan TelemetryMessage)
+	// Stop tells the server to start draining.
 	Stop() error
+	// Determines if the server is done draining.
 	IsClosed() bool
 }
 
@@ -85,32 +120,38 @@ type server struct {
 
 	online map[hcp.AgentID]Client
 
-	connectChannel chan ConnectMessage
-	disconnectChannel chan DisconnectMessage
-	incomingChannel chan TelemetryMessage
+	connectChan chan ConnectMessage
+	disconnectChan chan DisconnectMessage
+	incomingChan chan TelemetryMessage
 
 	isClosing bool
 }
 
+// NewServer creates a new Server instance with the configurations specified in the protobuf.
 func NewServer(config *lcServerConfig.Config) (Server, error) {
 	var err error
 	
 	s := new(server)
 
+	// List of rules that are currently active.
 	s.enrollmentRules = make([]EnrollmentRule, 0)
 	s.moduleRules = make([]ModuleRule, 0)
 	s.profileRules = make([]ProfileRule, 0)
+
+	// A map representing which clients are currently online and available.
 	s.online = make(map[hcp.AgentID]Client)
 
-	s.connectChannel = make(chan ConnectMessage)
-	s.disconnectChannel = make(chan DisconnectMessage)
-	s.incomingChannel = make(chan TelemetryMessage)
+	// Channels used to send the server activity and telemetry to Collectors.
+	s.connectChan = make(chan ConnectMessage)
+	s.disconnectChan = make(chan DisconnectMessage)
+	s.incomingChan = make(chan TelemetryMessage)
 
 	if config == nil {
-		// If no config is provided we just return a blank server
+		// If no config is provided we just return a blank server.
 		return s, err
 	}
 
+	// Loading the rules from the proto into the internal format.
 	for _, rule := range config.GetEnrollmentRules().GetRule() {
 		r := EnrollmentRule{}
 
@@ -168,6 +209,8 @@ func NewServer(config *lcServerConfig.Config) (Server, error) {
 	return s, err
 }
 
+// SentEnrollmentSecret sets the secret value used when generating the HMAC (Enrollment Token) given to clients.
+// to prove their legitimate enrollment.
 func (srv *server) SetEnrollmentSecret(secret string) error {
 	defer srv.mu.Unlock()
 	srv.mu.Lock()
@@ -175,6 +218,7 @@ func (srv *server) SetEnrollmentSecret(secret string) error {
 	return nil
 }
 
+// SetEnrollmentRules sets the list of rules to apply for enrollment.
 func (srv *server) SetEnrollmentRules(rules []EnrollmentRule) error {
 	defer srv.mu.Unlock()
 	srv.mu.Lock()
@@ -182,6 +226,7 @@ func (srv *server) SetEnrollmentRules(rules []EnrollmentRule) error {
 	return nil
 }
 
+// EnrollmentRules gets the list of rules that currently apply for enrollment.
 func (srv *server) EnrollmentRules() []EnrollmentRule {
 	defer srv.mu.RUnlock()
 	srv.mu.RLock()
@@ -190,6 +235,7 @@ func (srv *server) EnrollmentRules() []EnrollmentRule {
 	return r
 }
 
+// SetModuleRules sets the rules determine which modules are loaded on which client.
 func (srv *server) SetModuleRules(rules []ModuleRule) error {
 	defer srv.mu.Unlock()
 	srv.mu.Lock()
@@ -197,6 +243,7 @@ func (srv *server) SetModuleRules(rules []ModuleRule) error {
 	return nil
 }
 
+// ModuleRules gets the list of rules that currently apply to loading modules on clients.
 func (srv *server) ModuleRules() []ModuleRule {
 	defer srv.mu.RUnlock()
 	srv.mu.RLock()
@@ -205,6 +252,7 @@ func (srv *server) ModuleRules() []ModuleRule {
 	return r
 }
 
+// SetProfileRules sets the rules specifying which client gets whichs profile.
 func (srv *server) SetProfileRules(rules []ProfileRule) error {
 	defer srv.mu.Unlock()
 	srv.mu.Lock()
@@ -212,6 +260,7 @@ func (srv *server) SetProfileRules(rules []ProfileRule) error {
 	return nil
 }
 
+// ProfileRules gets the list of rules that currently apply to specify profiles.
 func (srv *server) ProfileRules() []ProfileRule {
 	defer srv.mu.RUnlock()
 	srv.mu.RLock()
@@ -266,12 +315,14 @@ func (srv *server) enrollClient(c *client) ([]*rpcm.Sequence, error) {
 
 	enrollmentToken := srv.generateEnrollmentToken(aID)
 
+	// The message to the enrolling client specifies its new SID and the token proving legitimate enrollment.
 	return []*rpcm.Sequence{rpcm.NewSequence().
 			AddInt8(rpcm.RP_TAGS_OPERATION, hcp.CmdSetHCPID).
 			AddSequence(rpcm.RP_TAGS_HCP_IDENT, c.aID.ToSequence()).
 			AddBuffer(rpcm.RP_TAGS_HCP_ENROLLMENT_TOKEN, enrollmentToken)}, nil
 }
 
+// Get the list of modules the client should have loaded.
 func (srv *server) getExpectedModulesFor(aID hcp.AgentID) []ModuleRule {
 	defer srv.mu.RUnlock()
 	srv.mu.RLock()
@@ -286,6 +337,7 @@ func (srv *server) getExpectedModulesFor(aID hcp.AgentID) []ModuleRule {
 	return modules
 }
 
+// Get the first matching HBS profile for this sensor.
 func (srv *server) getHBSProfileFor(aID hcp.AgentID) (ProfileRule , bool) {
 	defer srv.mu.RUnlock()
 	srv.mu.RLock()
@@ -299,13 +351,15 @@ func (srv *server) getHBSProfileFor(aID hcp.AgentID) (ProfileRule , bool) {
 	return ProfileRule{}, false
 }
 
+// GetChannels retrieves the channels a collector can receive on for sythesized activity of the server.
 func (srv *server) GetChannels() (connect chan ConnectMessage, disconnect chan DisconnectMessage, incoming chan TelemetryMessage) {
 	defer srv.mu.Unlock()
 	srv.mu.Lock()
 
-	return srv.connectChannel, srv.disconnectChannel, srv.incomingChannel
+	return srv.connectChan, srv.disconnectChan, srv.incomingChan
 }
 
+// NewClient creates a new context for a client connecting to the server.
 func (srv *server) NewClient(sendFunc func(moduleID uint8, messages []*rpcm.Sequence) error) (Client, error) {
 	defer srv.mu.RUnlock()
 	srv.mu.RLock()
@@ -325,6 +379,7 @@ func (srv *server) NewClient(sendFunc func(moduleID uint8, messages []*rpcm.Sequ
 	return c, nil
 }
 
+// Stop tells the server to start draining.
 func (srv *server) Stop() error {
 	defer srv.mu.Unlock()
 	srv.mu.Lock()
@@ -333,6 +388,7 @@ func (srv *server) Stop() error {
 	return nil
 }
 
+// Determines if the server is done draining.
 func (srv *server) IsClosed() bool {
 	defer srv.mu.RUnlock()
 	srv.mu.RLock()
@@ -349,7 +405,7 @@ func (srv *server) setOnline(c *client, msg ConnectMessage) error {
 	srv.mu.Lock()
 
 	if !srv.isClosing {
-		srv.connectChannel <- msg
+		srv.connectChan <- msg
 		srv.online[c.aID] = c
 		return nil
 	}

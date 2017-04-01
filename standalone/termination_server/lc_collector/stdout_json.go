@@ -33,6 +33,9 @@ type stdOutJSONCollector struct {
 	mu sync.Mutex
 }
 
+// NewStdoutJSON creates a new collector that will output the events to the stdout as json.
+// nHandlers specifies the number of Go Routines handling output while isHumanReadable will
+// pretty print the JSON.
 func NewStdoutJSON(nHandlers int, isHumanReadable bool) Collector {
 	c  := new(stdOutJSONCollector)
 	c.nHandlers = nHandlers
@@ -41,6 +44,7 @@ func NewStdoutJSON(nHandlers int, isHumanReadable bool) Collector {
 	return c
 }
 
+// Set the channels used to collect output.
 func (c *stdOutJSONCollector) SetChannels(connect <- chan lcServer.ConnectMessage, 
 										  disconnect <- chan lcServer.DisconnectMessage, 
 										  incoming <- chan lcServer.TelemetryMessage) {
@@ -48,7 +52,8 @@ func (c *stdOutJSONCollector) SetChannels(connect <- chan lcServer.ConnectMessag
 	c.disconnect = disconnect
 	c.incoming = incoming
 }
-	
+
+// Start the collector and begin outputting.	
 func (c *stdOutJSONCollector) Start() error {
 	c.ouputWG.Add(c.nHandlers)
 	for i := 0; i < c.nHandlers; i++ {
@@ -58,6 +63,7 @@ func (c *stdOutJSONCollector) Start() error {
 	return nil
 }
 
+// Stop the collector and output.
 func (c *stdOutJSONCollector) Stop() {
 	for i := 0; i < c.nHandlers; i++ {
 		c.stop <- true

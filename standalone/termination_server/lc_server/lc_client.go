@@ -26,9 +26,13 @@ import (
 	"time"
 )
 
+// Client interface represents a client currently connected to a LimaCharlie server.
 type Client interface {
+	// ProcessIncoming feeds a client a message that was just received for it.
 	ProcessIncoming(moduleID uint8, messages []*rpcm.Sequence) error
+	// AgentID is the AgentID of the client.
 	AgentID() hcp.AgentID
+	// Stop tells the client it has disconnected from the server.
 	Stop() error
 }
 
@@ -61,6 +65,7 @@ func (c *client) sendTimeSync() error {
 	return c.send(hcp.ModuleIDHCP, messages)
 }
 
+// AgentID is the AgentID of the client.
 func (c *client) AgentID() hcp.AgentID {
 	return c.aID
 }
@@ -69,6 +74,7 @@ func (c *client) setAgentID(aID hcp.AgentID) {
 	c.aID = aID
 }
 
+// ProcessIncoming feeds a client a message that was just received for it.
 func (c *client) ProcessIncoming(moduleID uint8, messages []*rpcm.Sequence) error {
 	defer c.recvMu.Unlock()
 	c.recvMu.Lock()
@@ -151,9 +157,13 @@ func (c *client) ProcessIncoming(moduleID uint8, messages []*rpcm.Sequence) erro
 }
 
 func (c *client) processHCPMessage(messages []*rpcm.Sequence) error {
+	// Get the list of modules that should be loaded on the client.
 	shouldBeLoaded := c.srv.getExpectedModulesFor(c.aID)
 
-	// The number of modules is always very low so n^2 isn't a big deal
+	// The number of modules is always very low so the fact that we determine which modules
+	// should be in n^2 isn't a big deal.
+
+	// Make a list of all the modules currently loaded on the client.
 	var currentlyLoaded []ModuleRule
 	for _, message := range messages {
 		if modules, ok := message.GetList(rpcm.RP_TAGS_HCP_MODULES); ok {
@@ -176,7 +186,7 @@ func (c *client) processHCPMessage(messages []*rpcm.Sequence) error {
 
 	outMessages := make([]*rpcm.Sequence, 0, 5)
 
-	// Look for modules that should be unloaded
+	// Create the list of modules we need to tell the client to unload.
 	for _, modIsLoaded := range currentlyLoaded {
 		var isFound bool
 		for _, modShouldBeLoaded := range shouldBeLoaded {
@@ -194,7 +204,7 @@ func (c *client) processHCPMessage(messages []*rpcm.Sequence) error {
 		}
 	}
 
-	// Look for modules that need to be loaded
+	// Create the list of modules we need to tell the client to load.
 	for _, modShouldBeLoaded := range shouldBeLoaded {
 		var isFound bool
 		for _, modIsLoaded := range currentlyLoaded {
@@ -214,6 +224,8 @@ func (c *client) processHCPMessage(messages []*rpcm.Sequence) error {
 			if moduleContent, err = ioutil.ReadFile(modShouldBeLoaded.ModuleFile); err != nil {
 				return err
 			}
+
+			// Module files must always be accompanied by their signature file on disk as %name%.sig.
 			if moduleSig, err = ioutil.ReadFile(fmt.Sprintf("%s.sig", modShouldBeLoaded.ModuleFile)); err != nil {
 				return err
 			}
@@ -226,7 +238,7 @@ func (c *client) processHCPMessage(messages []*rpcm.Sequence) error {
 		}
 	}
 
-	// We also take the sync opportunity to send a time sync
+	// We also take the sync opportunity to send a time sync.
 	outMessages = append(outMessages, rpcm.NewSequence().
 			AddInt8(rpcm.RP_TAGS_OPERATION, hcp.CmdSetGlobalTime).
 			AddTimestamp(rpcm.RP_TAGS_TIMESTAMP, uint64(time.Now().Unix())))
@@ -238,20 +250,26 @@ func (c *client) processHBSMessage(messages []*rpcm.Sequence) error {
 	outMessages := make([]*rpcm.Sequence, 1)
 
 	for _, message := range messages {
+
+		// HBS messages are either SYNC messages which are special and used to sync current
+		// setting with the backend, or are generic messages we need to output.
 		if syncMessage, ok := message.GetSequence(rpcm.RP_TAGS_NOTIFICATION_SYNC); ok {
 			var (
 				profile ProfileRule
 				ok bool
 			)
+
+			// Get the profile that should be loaded on the client.
 			if profile, ok = c.srv.getHBSProfileFor(c.aID); !ok {
 				return errors.New("no HBS profile to load")
 			}
 
 			if currentProfileHash, ok := syncMessage.GetBuffer(rpcm.RP_TAGS_HASH); ok && bytes.Equal(profile.Hash, currentProfileHash){
-				// The sensor already has the latest profile
+				// The sensor already has the latest profile, no need to check anything else.
 				continue
 			}
 
+			// We need to load the relevant profile from disk and send it to the client.
 			var (
 				profileContent []byte
 				err error
@@ -266,6 +284,7 @@ func (c *client) processHBSMessage(messages []*rpcm.Sequence) error {
 				return errors.New(fmt.Sprintf("profile content seems to have changed"))
 			}
 
+			// The profile is really a List of Sequences to make it more flexible.
 			parsedProfile := rpcm.NewList(0, 0)
 			if err = parsedProfile.Deserialize(bytes.NewBuffer(profileContent)); err != nil {
 				return err
@@ -286,6 +305,7 @@ func (c *client) processHBSMessage(messages []*rpcm.Sequence) error {
 	return nil
 }
 
+// Stop tells the client it has disconnected from the server.
 func (c *client) Stop() error {
 	defer c.sendMu.Unlock()
 	defer c.recvMu.Unlock()

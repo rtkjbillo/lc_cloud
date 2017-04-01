@@ -45,6 +45,7 @@ const (
 	idleClientTTL = 120*time.Second
 )
 
+// TLSLCServer is an implementation of the LimaCharlie server that uses TLS as a transport.
 type TLSLCServer struct {
 	IFace string
 	Port uint16
