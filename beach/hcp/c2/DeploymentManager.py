@@ -20,6 +20,7 @@ import os
 import hashlib
 import base64
 import time
+import json
 import uuid
 import msgpack
 import urllib2
@@ -75,13 +76,13 @@ class DeploymentManager( Actor ):
         self.page = self.getActorHandle( resources[ 'paging' ] )
         self.admin = self.getActorHandle( resources[ 'admin' ] )
 
+        self.genDefaultsIfNotPresent()
+
         isSuccess, _oid = self.get_global_config( None )
         if isSuccess:
             self.admin_oid = uuid.UUID( str( _oid[ 'global/admin_oid' ] ) )
         else:
             self.admin_oid = None
-
-        self.genDefaultsIfNotPresent()
 
         self.handle( 'get_global_config', self.get_global_config )
         self.handle( 'set_config', self.set_config )
@@ -227,6 +228,11 @@ class DeploymentManager( Actor ):
             secondaryPort = '443'
             adminOid = uuid.uuid4()
             uiDomain = 'limacharlie'
+            try:
+                resp = json.loads( urllib2.urlopen( 'https://api.github.com/repos/refractionPOINT/limacharlie/releases/latest' ).read() )
+                sensorPackage = resp[ 'assets' ][ 0 ][ 'browser_download_url' ]
+            except:
+                sensorpackage = ''
             self.admin_oid = adminOid
             self.log( 'loading admin oid' )
             self.db.execute( 'INSERT INTO configs ( conf, value ) VALUES ( %s, %s )', ( 'global/admin_oid', str( adminOid ) ) )
@@ -235,8 +241,12 @@ class DeploymentManager( Actor ):
             self.log( 'loading ui domain' )
             self.db.execute( 'INSERT INTO configs ( conf, value ) VALUES ( %s, %s )', ( 'global/uidomain', uiDomain ) )
             self.audit.shoot( 'record', { 'oid' : self.admin_oid, 'etype' : 'conf_change', 'msg' : 'Setting ui domain.' } )
+
+            self.log( 'loading current latest sensor package version' )
+            self.db.execute( 'INSERT INTO configs ( conf, value ) VALUES ( %s, %s )', ( 'global/sensorpackage', sensorPackage ) )
+            self.audit.shoot( 'record', { 'oid' : self.admin_oid, 'etype' : 'conf_change', 'msg' : 'Setting sensor package.' } )
             
-            self.log( 'loading root ket' )
+            self.log( 'loading root key' )
             self.db.execute( 'INSERT INTO configs ( conf, value ) VALUES ( %s, %s )', ( 'key/root', rootKey ) )
             self.audit.shoot( 'record', { 'oid' : self.admin_oid, 'etype' : 'conf_change', 'msg' : 'New root key pair generated.' } )
 
@@ -478,12 +488,15 @@ class DeploymentManager( Actor ):
     def deploy_org( self, msg ):
         req = msg.data
 
+        isGenerateKey = req.get( 'is_generate_key', True )
+
         oid = uuid.UUID( req[ 'oid' ] )
 
-        key = self.generateKey()
-        resp = self.admin.request( 'hbs.add_key', { 'oid' : oid, 'key' : key[ 'priDer' ], 'pub_key' : key[ 'pubDer' ] } )
-        if not resp.isSuccess:
-            return ( False, resp.error )
+        if isGenerateKey:
+            key = self.generateKey()
+            resp = self.admin.request( 'hbs.add_key', { 'oid' : oid, 'key' : key[ 'priDer' ], 'pub_key' : key[ 'pubDer' ] } )
+            if not resp.isSuccess:
+                return ( False, resp.error )
 
         packages = self.getSensorPackage()
 

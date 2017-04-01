@@ -606,6 +606,20 @@ class Profile ( AuthenticatedPage ):
                 else:
                     identmanager.request( 'remove_org', { 'by' : session.email, 'oid' : oid } )
                     session.notice = 'Error deploying org: %s' % res
+        elif 'org_deploy' == params.action:
+            for oid in params.orgs:
+                res = deployment.request( 'deploy_org', { 'is_generate_key' : False, 'oid' : oid } )
+                notice = []
+                if not res.isSuccess: 
+                    notice.append( 'Error generating sensors for %s.' % ( oid, ) )
+                else:
+                    audit.shoot( 'record', { 'oid' : ADMIN_OID, 'etype' : 'org_deploy', 'msg' : 'Admin %s re-generated sensors for %s.' % ( session.email, oid ) } )
+                    audit.shoot( 'record', { 'oid' : oid, 'etype' : 'org_deploy', 'msg' : 'Admin %s re-generated sensors for %s.' % ( session.email, oid ) } )
+
+                if 0 != len( notice ):
+                    session.notice = '\n'.join( notice )
+                    redirectTo( 'profile' )
+            session.notice = 'Success generating sensors.'
         else:
             session.notice = 'Action not supported.'
             redirectTo( 'profile' )
