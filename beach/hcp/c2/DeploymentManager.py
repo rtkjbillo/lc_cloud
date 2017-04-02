@@ -91,6 +91,8 @@ class DeploymentManager( Actor ):
         self.handle( 'deploy_org', self.deploy_org )
         self.handle( 'get_c2_cert', self.get_c2_cert )
         self.handle( 'update_profile', self.update_profile )
+        self.handle( 'get_profiles', self.get_profiles )
+        self.handle( 'get_supported_events', self.get_supported_events )
         
     def deinit( self ):
         pass
@@ -179,15 +181,17 @@ class DeploymentManager( Actor ):
 
         return aid
 
-    def getProfileFor( self, oid, platform ):
+    def getProfileFor( self, oid, platform, isHumanReadable = False ):
         aid = AgentId( ( oid, '0', '0', platform, None ) )
         resp = self.admin.request( 'hbs.get_profiles', { 'oid' : oid, 'is_compiled' : True } )
         realProfile = None
         if resp.isSuccess:
             for profile in resp.data[ 'profiles' ]:
                 if aid.asString() == AgentId( profile[ 'mask' ] ).asString():
-                    r = rpcm( isHumanReadable = False, isDebug = False, isDetailedDeserialize = False )
-                    r.setBuffer( profile[ 'original_configs '] )
+                    r = rpcm( isHumanReadable = isHumanReadable, isDebug = False, isDetailedDeserialize = False )
+                    if isHumanReadable:
+                        r.loadSymbols( Symbols.lookups )
+                    r.setBuffer( profile[ 'original_configs' ] )
                     return r.deserialise( isList = True )
                     
         return None
@@ -559,5 +563,48 @@ class DeploymentManager( Actor ):
     def update_profile( self, msg ):
         req = msg.data
 
+        oid = uuid.UUID( req[ 'oid' ] )
+        platform = req[ 'platform' ].lower()
+        if 'win' in platform:
+            platform = AgentId.PLATFORM_WINDOWS
+        elif 'osx' in platform or 'mac' in platform:
+            platform = AgentId.PLATFORM_MACOS
+        elif 'lin' in platform:
+            platform = AgentId.PLATFORM_LINUX
+        else:
+            return ( False, 'unknown platform: %s' % platform )
+
+        profile = SensorConfig()
+
+        for colId, status in req[ 'collectors' ].iteritems():
+            if status is True:
+                profile.collectors[ colId ].enable()
+            else:
+                profile.collectors[ colId ].disable()
+
+        resp = self.setProfileFor( oid, platform, profile.toProfile() )
+        if not resp.isSuccess:
+            return ( False, 'error setting default linux profile: %s' % resp )
 
         return ( True, )
+
+    def get_profiles( self, msg ):
+        req = msg.data
+
+        oid = req[ 'oid' ]
+        isHumanReadable = req.get( 'is_human_readable', False )
+
+        profiles = {}
+
+        profiles[ 'win' if not isHumanReadable else 'Windows' ] = self.getProfileFor( oid, AgentId.PLATFORM_WINDOWS, isHumanReadable = isHumanReadable )
+        profiles[ 'osx' if not isHumanReadable else 'MacOS' ] = self.getProfileFor( oid, AgentId.PLATFORM_MACOS, isHumanReadable = isHumanReadable )
+        profiles[ 'lin' if not isHumanReadable else 'Linux' ] = self.getProfileFor( oid, AgentId.PLATFORM_LINUX, isHumanReadable = isHumanReadable )
+
+        return ( True, profiles )
+
+    def get_supported_events( self, msg ):
+        allEvents = {}
+        for attrName, attrVal in Symbols.notification.__dict__.iteritems():
+            if attrName == 'lookups': continue
+            allEvents[ attrName ] = int( attrVal )
+        return ( True, allEvents )

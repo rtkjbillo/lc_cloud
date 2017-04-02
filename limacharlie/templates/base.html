@@ -57,11 +57,12 @@ $def with (content)
 	    <nav class="mdl-navigation" style="padding:0px">
 	      <a class="mdl-navigation__link" href="/profile"><strong>$session.email</strong></a>
 	      $if session.is_admin:
-	        <a class="mdl-navigation__link" href="/configs">Configurations</a>
+	        <a class="mdl-navigation__link" href="/configs">Cloud Configurations</a>
+          <a class="mdl-navigation__link" href="/sensor_configs">Sensor Configuration</a>
+          <a class="mdl-navigation__link" href="/manage">Installers & Logs</a>
 	      <a class="mdl-navigation__link" href="/sensors">Sensors</a>
 	      <a class="mdl-navigation__link" href="/detects">Detections</a>
 	      <a class="mdl-navigation__link" href="/capabilities">Capabilities</a>
-	      <a class="mdl-navigation__link" href="/manage">Installers & Logs</a>
 	      <a class="mdl-navigation__link" href="/policy">Data Policy</a>
 	      <a class="mdl-navigation__link" href="/logout">Logout</a>
 	    </nav>
@@ -76,7 +77,7 @@ $def with (content)
 				<script>
 					function checkAndShowSnackbar() {
 						var snackbarContainer = document.querySelector('#page-toast');
-						snackbarContainer.MaterialSnackbar.showSnackbar({ message: "$session.notice", timeout: 30000 });
+						snackbarContainer.MaterialSnackbar.showSnackbar({ message: `$session.notice`, timeout: 30000 });
 					}
 					setTimeout( checkAndShowSnackbar, 1000 );
 				</script>

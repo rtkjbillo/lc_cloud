@@ -36,6 +36,7 @@ from hcp_helpers import _xm_
 from hcp_helpers import normalAtom
 from hcp_helpers import InvestigationNature
 from hcp_helpers import InvestigationConclusion
+from hcp_helpers import HbsCollectorId
 from EventInterpreter import EventInterpreter
 import markdown
 import markdown.extensions.tables
@@ -75,10 +76,7 @@ urls = (
     '/blink', 'Blink',
     '/blink_data', 'BlinkData',
     '/configs', 'Configs',
-    '/provision', 'Provision',
-    '/provision_keys', 'ProvisionKeys',
-    '/provision_installers', 'ProvisionInstallers',
-    '/provision_sensors', 'ProvisionSensors',
+    '/sensor_configs', 'SensorConfigs',
 )
 
 ADMIN_OID = None
@@ -1250,34 +1248,6 @@ class BlinkData ( AuthenticatedPage ):
 
         return info.data
 
-class Provision ( AuthenticatedAdminPage ):
-    def doGET( self ):
-        params = web.input( oid = None )
-
-        try:
-            oid = uuid.UUID( params.oid )
-        except:
-            oid = None
-
-        if oid is None:
-            return renderAlone.error( 'Missing or bad oid.' )
-
-        return render.provision( oid )
-
-class ProvisionKeys ( AuthenticatedAdminPage ):
-    def doPOST( self ):
-        params = web.input( oid = None )
-
-        try:
-            oid = uuid.UUID( params.oid )
-        except:
-            oid = None
-
-        if oid is None:
-            return renderAlone.error( 'Missing or bad oid.' )
-
-        return renderAlone.card_provision_keys( oid )
-
 class Configs ( AuthenticatedAdminPage ):
     def doGET( self ):
         params = web.input()
@@ -1343,7 +1313,65 @@ class Configs ( AuthenticatedAdminPage ):
             else:
                 session.notice = 'Error setting sensor package.'
 
-        redirectTo( 'configs' )
+        redirectTo( 'sensor_configs' )
+
+class SensorConfigs ( AuthenticatedPage ):
+    def doGET( self ):
+        params = web.input()
+
+        profiles = {}
+
+        info = deployment.request( 'get_supported_events', {} )
+        if not info.isSuccess:
+            return renderAlone.error( 'error fetching supported events' )
+        supportedEvents = info.data
+
+        for oid in session.orgs:
+            info = deployment.request( 'get_profiles', { 'oid' : oid, 'is_human_readable' : True } )
+
+            if not info.isSuccess:
+                return renderAlone.error( 'Could not get profiles: %s' % str( info ) )
+            profiles[ oid ] = info.data
+
+        cards = []
+        for oid, p in profiles.iteritems():
+            for pName, pContent in p.iteritems():
+                parsedProfile = {}
+                if pContent is None: continue
+                for conf in pContent:
+                    parsedProfile[ conf[ 'hbs.CONFIGURATION_ID' ] ] = conf
+                cards.append( renderAlone.card_sensor_profile( pName, oid, getOrgName( oid )[ str( oid ) ], parsedProfile, supportedEvents ) )
+
+        return render.sensor_profiles( cards )
+
+    def doPOST( self ):
+        params = web.input( oid = None, 
+                            platform = None,
+                            col_0_enabled = False,
+                            col_1_enabled = False )
+
+        oid = uuid.UUID( params.oid )
+        if not isOrgAllowed( oid ):
+            return renderAlone.error( 'Unauthorized.' )
+
+        if params.platform is None:
+            return renderAlone.error( 'Missing platform.' )
+
+        onOrOff = {}
+        for colId in HbsCollectorId.lookup.iterkeys():
+            attrId = 'col_%d_enabled' % colId
+            if hasattr( params, attrId ) and getattr( params, attrId ) is False:
+                onOrOff[ colId ] = False
+            else:
+                onOrOff[ colId ] = True
+
+        info = deployment.request( 'update_profile', { 'oid' : oid, 'platform' : params.platform, 'collectors' : onOrOff } )
+        if not info.isSuccess:
+            session.notice = 'Error updating profile: %s' % info
+        else:
+            session.notice = 'Success updating profile'
+
+        redirectTo( 'sensor_configs' )
 
 #==============================================================================
 #   CARDS

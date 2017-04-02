@@ -302,13 +302,16 @@ class AdminEndpoint( Actor ):
     def cmd_hbs_getProfiles( self, msg ):
         data = { 'profiles' : [] }
         oids = msg.data.get( 'oid', [] )
+        if type( oids ) in ( str, unicode ):
+            oids = [ oids ]
+        oids = map( uuid.UUID, oids )
         if msg.data.get( 'is_compiled', False ):
             rows = self.db.execute( 'SELECT aid, cprofile FROM hbs_profiles' )
         else:
             rows = self.db.execute( 'SELECT aid, oprofile FROM hbs_profiles' )
         for row in rows:
             aid = AgentId( row[ 0 ] )
-            if oids is not None and 0 != len( oids ):
+            if 0 != len( oids ):
                 isFound = False
                 for oid in oids:
                     if oid == aid.org_id:
