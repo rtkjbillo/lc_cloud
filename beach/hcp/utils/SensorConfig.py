@@ -58,12 +58,12 @@ class _collector( object ):
             self.putProfile( profile )
 
 class _collector_0( _collector ):
-    self.colId = HbsCollectorId.EXFIL
+    colId = HbsCollectorId.EXFIL
     
     def init( self ):
         self.exfil = Set()
 
-    def addExfil( self, eventId )
+    def addExfil( self, eventId ):
         self.exfil.add( int( eventId ) )
 
     def removeExfil( self, eventId ):
@@ -84,25 +84,25 @@ class _collector_0( _collector ):
             self.addExfil( event )
 
 class _collector_1( _collector ):
-    self.colId = HbsCollectorId.PROCESS_TRACKER
+    colId = HbsCollectorId.PROCESS_TRACKER
 
 class _collector_2( _collector ):
-    self.colId = HbsCollectorId.DNS_TRACKER
+    colId = HbsCollectorId.DNS_TRACKER
 
 class _collector_3( _collector ):
-    self.colId = HbsCollectorId.CODE_IDENT
+    colId = HbsCollectorId.CODE_IDENT
 
 class _collector_4( _collector ):
-    self.colId = HbsCollectorId.NETWORK_TRACKER
+    colId = HbsCollectorId.NETWORK_TRACKER
 
 class _collector_5( _collector ):
-    self.colId = HbsCollectorId.HIDDEL_MODULE
+    colId = HbsCollectorId.HIDDEN_MODULE
 
 class _collector_6( _collector ):
-    self.colId = HbsCollectorId.MODULE_TRACKER
+    colId = HbsCollectorId.MODULE_TRACKER
 
 class _collector_7( _collector ):
-    self.colId = HbsCollectorId.FILE_TRACKER
+    colId = HbsCollectorId.FILE_TRACKER
 
     def init( self ):
         self.enabledCreate = True
@@ -165,23 +165,21 @@ class _collector_7( _collector ):
                 self.enabledModified = False
 
 class _collector_8( _collector ):
-    self.colId = HbsCollectorId.NETWORK_SUMMARY
+    colId = HbsCollectorId.NETWORK_SUMMARY
 
 class _collector_9( _collector ):
-    self.colId = HbsCollectorId.FILE_FORENSIC
+    colId = HbsCollectorId.FILE_FORENSIC
 
 class _collector_10( _collector ):
-    self.colId = HbsCollectorId.MEMORY_FORENSIC
+    colId = HbsCollectorId.MEMORY_FORENSIC
 
 class _collector_11( _collector ):
-    self.colId = HbsCollectorId.OS_FORENSIC
+    colId = HbsCollectorId.OS_FORENSIC
 
     def init( self ):
-        super(self.__class__, self).__init__()
-
         self.freq = 0
 
-    def setFrequency( self, freq )
+    def setFrequency( self, freq ):
         self.freq = int( freq )
 
     def getProfile( self, root ):
@@ -194,25 +192,25 @@ class _collector_11( _collector ):
         self.freq = root.get( _.base.TIMEDELTA, 0 )
 
 class _collector_12( _collector ):
-    self.colId = HbsCollectorId._AVAILABLE
+    colId = HbsCollectorId._AVAILABLE
 
 class _collector_13( _collector ):
-    self.colId = HbsCollectorId.EXEC_OOB
+    colId = HbsCollectorId.EXEC_OOB
 
 class _collector_14( _collector ):
-    self.colId = HbsCollectorId._AVAILABLE2
+    colId = HbsCollectorId._AVAILABLE2
 
 class _collector_15( _collector ):
-    self.colId = HbsCollectorId.PROCESS_HOLLOWING
+    colId = HbsCollectorId.PROCESS_HOLLOWING
 
 class _collector_16( _collector ):
-    self.colId = HbsCollectorId.YARA
+    colId = HbsCollectorId.YARA
 
 class _collector_17( _collector ):
-    self.colId = HbsCollectorId.OS_TRACKER
+    colId = HbsCollectorId.OS_TRACKER
 
 class _collector_18( _collector ):
-    self.colId = HbsCollectorId.DOC_COLLECTOR
+    colId = HbsCollectorId.DOC_COLLECTOR
 
     def init( self ):
         self.extensions = Set()
@@ -255,16 +253,16 @@ class _collector_18( _collector ):
 
 
 class _collector_19( _collector ):
-    self.colId = HbsCollectorId.VOLUME_TRACKER
+    colId = HbsCollectorId.VOLUME_TRACKER
 
 class _collector_20( _collector ):
-    self.colId = HbsCollectorId.STATEFUL_TRACKING
+    colId = HbsCollectorId.STATEFUL_TRACKING
 
 class _collector_21( _collector ):
-    self.colId = HbsCollectorId.USER_TRACKER
+    colId = HbsCollectorId.USER_TRACKER
 
 class _collector_22( _collector ):
-    self.colId = HbsCollectorId.FILE_TYPE_TRACKER
+    colId = HbsCollectorId.FILE_TYPE_TRACKER
 
     def init( self ):
         self.extensions = Set()

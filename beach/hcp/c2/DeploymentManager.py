@@ -194,8 +194,15 @@ class DeploymentManager( Actor ):
 
     def setProfileFor( self, oid, platform, profile ):
         aid = AgentId( ( oid, '0', '0', platform, None ) )
-        resp = self.admin.request( 'hbs.set_profile', { 'module_configs' : profile, 'mask' : aid } )
-        return resp.isSuccess
+        r = rpcm( isHumanReadable = True, isDebug = False, isDetailedDeserialize = False )
+        r.loadSymbols( Symbols.lookups )
+        humanProfile = r.serialise( profile )
+        if humanProfile is not None:
+            r.setBuffer( humanProfile )
+            humanProfile = r.deserialise( isList = True )
+            resp = self.admin.request( 'hbs.set_profile', { 'module_configs' : profile, 'mask' : aid, 'original' : humanProfile } )
+            return resp
+        return False
 
     def getSensorPackage( self ):
         packages = {}
@@ -527,12 +534,15 @@ class DeploymentManager( Actor ):
         if not self.genBinariesForOrg( packages, oid, osxAppBundle = self.readRelativeFile( 'resources/osx_app_bundle.tar.gz' ) ):
             return ( False, 'error generating binaries for org' )
 
-        if not self.setProfileFor( oid, AgentId.PLATFORM_WINDOWS, SensorConfig.getDefaultWindowsProfile() ):
-            return ( False, 'error setting default windows profile' )
-        if not self.setProfileFor( oid, AgentId.PLATFORM_MACOS, SensorConfig.getDefaultOsxProfile() ):
-            return ( False, 'error setting default osx profile' )
-        if not self.setProfileFor( oid, AgentId.PLATFORM_LINUX, SensorConfig.getDefaultLinuxProfile() ):
-            return ( False, 'error setting default linux profile' )
+        resp = self.setProfileFor( oid, AgentId.PLATFORM_WINDOWS, SensorConfig.getDefaultWindowsProfile().toProfile() )
+        if not resp.isSuccess:
+            return ( False, 'error setting default windows profile: %s' % resp )
+        resp = self.setProfileFor( oid, AgentId.PLATFORM_MACOS, SensorConfig.getDefaultOsxProfile().toProfile() )
+        if not resp.isSuccess:
+            return ( False, 'error setting default osx profile: %s' % resp )
+        resp = self.setProfileFor( oid, AgentId.PLATFORM_LINUX, SensorConfig.getDefaultLinuxProfile().toProfile() )
+        if not resp.isSuccess:
+            return ( False, 'error setting default linux profile: %s' % resp )
 
         return ( True, {} )
 

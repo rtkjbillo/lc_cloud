@@ -329,9 +329,11 @@ class AdminEndpoint( Actor ):
         request = msg.data
         mask = AgentId( request[ 'mask' ] ).asString()
         c = request[ 'module_configs' ]
+        oc = request.get( 'original', None )
         isValidConfig = False
         profileError = ''
-        oc = c
+        if oc is None:
+            oc = c
         configHash = None
 
         if c is not None and '' != c:
@@ -348,6 +350,7 @@ class AdminEndpoint( Actor ):
                     profileError = traceback.format_exc()
             else:
                 profile = rList(c)
+                oc = str( oc )
 
             if profile is not None:
                 if type( profile ) is rList:
