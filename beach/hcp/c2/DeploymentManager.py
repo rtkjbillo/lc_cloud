@@ -33,6 +33,8 @@ rSequence = Actor.importLib( 'utils/rpcm', 'rSequence' )
 rList = Actor.importLib( 'utils/rpcm', 'rList' )
 rpcm = Actor.importLib( 'utils/rpcm', 'rpcm' )
 HcpModuleId = Actor.importLib( 'utils/hcp_helpers', 'HcpModuleId' )
+HbsCollectorId = Actor.importLib( 'utils/hcp_helpers', 'HbsCollectorId' )
+SensorConfig = Actor.importLib( 'utils/SensorConfig', 'SensorConfig' )
 AgentId = Actor.importLib( 'utils/hcp_helpers', 'AgentId' )
 Symbols = Actor.importLib( 'Symbols', 'Symbols' )()
 
@@ -88,6 +90,7 @@ class DeploymentManager( Actor ):
         self.handle( 'set_config', self.set_config )
         self.handle( 'deploy_org', self.deploy_org )
         self.handle( 'get_c2_cert', self.get_c2_cert )
+        self.handle( 'update_profile', self.update_profile )
         
     def deinit( self ):
         pass
@@ -175,6 +178,24 @@ class DeploymentManager( Actor ):
             aid.platform = AgentId.PLATFORM_LINUX
 
         return aid
+
+    def getProfileFor( self, oid, platform ):
+        aid = AgentId( ( oid, '0', '0', platform, None ) )
+        resp = self.admin.request( 'hbs.get_profiles', { 'oid' : oid, 'is_compiled' : True } )
+        realProfile = None
+        if resp.isSuccess:
+            for profile in resp.data[ 'profiles' ]:
+                if aid.asString() == AgentId( profile[ 'mask' ] ).asString():
+                    r = rpcm( isHumanReadable = False, isDebug = False, isDetailedDeserialize = False )
+                    r.setBuffer( profile[ 'original_configs '] )
+                    return r.deserialise( isList = True )
+                    
+        return None
+
+    def setProfileFor( self, oid, platform, profile ):
+        aid = AgentId( ( oid, '0', '0', platform, None ) )
+        resp = self.admin.request( 'hbs.set_profile', { 'module_configs' : profile, 'mask' : aid } )
+        return resp.isSuccess
 
     def getSensorPackage( self ):
         packages = {}
@@ -506,6 +527,13 @@ class DeploymentManager( Actor ):
         if not self.genBinariesForOrg( packages, oid, osxAppBundle = self.readRelativeFile( 'resources/osx_app_bundle.tar.gz' ) ):
             return ( False, 'error generating binaries for org' )
 
+        if not self.setProfileFor( oid, AgentId.PLATFORM_WINDOWS, SensorConfig.getDefaultWindowsProfile() ):
+            return ( False, 'error setting default windows profile' )
+        if not self.setProfileFor( oid, AgentId.PLATFORM_MACOS, SensorConfig.getDefaultOsxProfile() ):
+            return ( False, 'error setting default osx profile' )
+        if not self.setProfileFor( oid, AgentId.PLATFORM_LINUX, SensorConfig.getDefaultLinuxProfile() ):
+            return ( False, 'error setting default linux profile' )
+
         return ( True, {} )
 
     def get_c2_cert( self, msg ):
@@ -517,3 +545,9 @@ class DeploymentManager( Actor ):
             return ( True, self.unpackKey( info[ 1 ] ) )
 
         return ( False, 'not found' )
+
+    def update_profile( self, msg ):
+        req = msg.data
+
+
+        return ( True, )

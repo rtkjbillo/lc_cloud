@@ -169,7 +169,7 @@ class HbsCollectorId ( object ):
     OS_FORENSIC = 11
     _AVAILABLE = 12
     EXEC_OOB = 13
-    TODO_CHANGEME = 14
+    _AVAILABLE2 = 14
     PROCESS_HOLLOWING = 15
     YARA = 16
     OS_TRACKER = 17

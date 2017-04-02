@@ -302,7 +302,11 @@ class AdminEndpoint( Actor ):
     def cmd_hbs_getProfiles( self, msg ):
         data = { 'profiles' : [] }
         oids = msg.data.get( 'oid', [] )
-        for row in self.db.execute( 'SELECT aid, oprofile FROM hbs_profiles' ):
+        if msg.data.get( 'is_compiled', False ):
+            rows = self.db.execute( 'SELECT aid, cprofile FROM hbs_profiles' )
+        else:
+            rows = self.db.execute( 'SELECT aid, oprofile FROM hbs_profiles' )
+        for row in rows:
             aid = AgentId( row[ 0 ] )
             if oids is not None and 0 != len( oids ):
                 isFound = False
@@ -336,11 +340,14 @@ class AdminEndpoint( Actor ):
                                  'rList' : rList,
                                  'rSequence' : rSequence,
                                  'HbsCollectorId' : HbsCollectorId }
-            try:
-                profile = eval( c.replace( '\n', '' ), rpcm_environment )
-            except:
-                profile = None
-                profileError = traceback.format_exc()
+            if type( c ) in ( str, unicode ):
+                try:
+                    profile = eval( c.replace( '\n', '' ), rpcm_environment )
+                except:
+                    profile = None
+                    profileError = traceback.format_exc()
+            else:
+                profile = rList(c)
 
             if profile is not None:
                 if type( profile ) is rList:
@@ -354,9 +361,6 @@ class AdminEndpoint( Actor ):
                         profileError = 'config could not be serialised'
                 else:
                     profileError = 'config did not evaluate as an rList: %s' % type( profile )
-
-        else:
-            isValidConfig = True
 
         if isValidConfig:
             self.db.execute( 'INSERT INTO hbs_profiles ( aid, cprofile, oprofile, hprofile ) VALUES ( %s, %s, %s, %s )',
