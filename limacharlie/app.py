@@ -1347,8 +1347,8 @@ class SensorConfigs ( AuthenticatedPage ):
     def doPOST( self ):
         params = web.input( oid = None, 
                             platform = None,
-                            col_0_enabled = False,
-                            col_1_enabled = False )
+                            col = [],
+                            exfil = [] )
 
         oid = uuid.UUID( params.oid )
         if not isOrgAllowed( oid ):
@@ -1359,13 +1359,17 @@ class SensorConfigs ( AuthenticatedPage ):
 
         onOrOff = {}
         for colId in HbsCollectorId.lookup.iterkeys():
-            attrId = 'col_%d_enabled' % colId
-            if hasattr( params, attrId ) and getattr( params, attrId ) is False:
+            if colId not in map( int, params.col ):
                 onOrOff[ colId ] = False
-            else:
-                onOrOff[ colId ] = True
 
-        info = deployment.request( 'update_profile', { 'oid' : oid, 'platform' : params.platform, 'collectors' : onOrOff } )
+        exfil = {}
+        for eventId in map( int, params.exfil ):
+            exfil[ eventId ] = True
+
+        info = deployment.request( 'update_profile', { 'oid' : oid, 
+                                                       'platform' : params.platform, 
+                                                       'collectors' : onOrOff,
+                                                       'exfil' : exfil } )
         if not info.isSuccess:
             session.notice = 'Error updating profile: %s' % info
         else:

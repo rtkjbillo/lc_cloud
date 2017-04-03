@@ -11,7 +11,7 @@
   overflow: scroll;
 }
 .checkbox-col {
-	max-width: 0px;
+	width: 1em;
 }
 .update_status {
 	text-shadow: -1px 0 black, 0 1px black, 1px 0 black, 0 -1px black;
@@ -26,3 +26,9 @@
 
 }
 .mdl-data-table{ position: static; }
+.table-scrollable {
+	overflow-y: scroll;
+}
+.table-scrollable table {
+    width: 100%;
+}

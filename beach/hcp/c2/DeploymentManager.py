@@ -577,10 +577,12 @@ class DeploymentManager( Actor ):
         profile = SensorConfig()
 
         for colId, status in req[ 'collectors' ].iteritems():
-            if status is True:
-                profile.collectors[ colId ].enable()
-            else:
+            if status is False:
                 profile.collectors[ colId ].disable()
+
+        for eventId, status in req[ 'exfil' ].iteritems():
+            if status is True:
+                profile.collectors[ 0 ].addExfil( eventId )
 
         resp = self.setProfileFor( oid, platform, profile.toProfile() )
         if not resp.isSuccess:

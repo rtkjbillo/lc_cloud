@@ -1,0 +1,61 @@
+$def with (platform, oid, orgname, profile, supportedEvents)
+
+<div class="mdl-card mdl-cell mdl-cell--4-col mdl-shadow--4dp">
+	<div class="mdl-card__title">
+		<h4 class="mdl-card__title-text">Sensor Profile: $platform @ $orgname</h4>
+	</div>
+	<div class="mdl-card__supporting-text">
+		<form method="POST" id="form-$oid-$platform">
+			<input type="hidden" name="oid" value="$oid"/>
+			<input type="hidden" name="platform" value="$platform"/>
+			<pre>$str( profile )</pre>
+			<pre>$str( supportedEvents )</pre>
+			<h5 style="display: inline;">Exfil</h5>
+			<label style="position: absolute;" class="mdl-switch mdl-js-switch mdl-js-ripple-effect" for="col_0_enabled-$oid-$platform">
+				<input type="checkbox" value="0" name="col" id="col_0_enabled-$oid-$platform" class="mdl-switch__input" $('' if profile[ 0 ].get( 'base.IS_DISABLED', None ) == 1 else 'checked')>
+				<span class="mdl-switch__label">Enabled</span>
+			</label>
+			<br/><br/>
+			Filters which events are sent back to the cloud, you really do not want to turn this off.
+			<h6>Events Always Sent to Cloud</h6>
+			<div class="table-scrollable" style="height:500px;">
+				<table class="mdl-data-table mdl-js-data-table mdl-shadow--2dp">
+					<thead>
+						<th class="mdl-data-table__cell--non-numeric">Event Name</th>
+						<th>Enabled</th>
+					</thead>
+					<tbody>
+					$for eventName, eventId in supportedEvents.iteritems():
+						$if not eventName.endswith( '_REQ' ) and 'TODO' not in eventName:
+							<tr>
+								<td class="mdl-data-table__cell--non-numeric">$eventName</td>
+								<td class="checkbox-col">
+									<label class="mdl-switch mdl-js-switch mdl-js-ripple-effect" for="exfil-$eventId-$oid-$platform">
+										<input type="checkbox" value="$eventId" name="exfil" id="exfil-$eventId-$oid-$platform" class="mdl-switch__input" $('' if eventId not in profile[ 0 ].get( 'hbs.LIST_NOTIFICATIONS', [] ) else 'checked')>
+									</label>
+								</td>
+							</tr>
+					</tbody>
+				</table>
+			</div>
+			<br/><br/>
+			<hr/>
+
+			<h5 style="display: inline;">Process Tracker</h5>
+			<label style="position: absolute;" class="mdl-switch mdl-js-switch mdl-js-ripple-effect" for="col_1_enabled-$oid-$platform">
+				<input type="checkbox" value="1" name="col" id="col_1_enabled-$oid-$platform" class="mdl-switch__input" $('' if profile[ 1 ].get( 'base.IS_DISABLED', None ) == 1 else 'checked')>
+				<span class="mdl-switch__label">Enabled</span>
+			</label>
+			<br/><br/>
+			Tracks process creation and termination, many other events rely on this, you likely want this on.
+
+			<br/><br/>
+			<hr/>
+		</form>
+	</div>
+	<div class="mdl-card__actions mdl-card--border">
+	<center>
+	<button class="mdl-button mdl-button--colored mdl-js-button mdl-js-ripple-effect mdl-button--raised" type="submit" form="form-$oid-$platform" name="action" value="update" onclick="return confirm('Are you sure you want to update this profile?');">Update</button>
+	</center>
+	</div>
+</div>
