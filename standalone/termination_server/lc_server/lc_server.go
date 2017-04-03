@@ -175,6 +175,8 @@ func NewServer(config *lcServerConfig.Config) (Server, error) {
 
 		r.ModuleFile = rule.GetModuleFile()
 
+		// We calculate the hash now and we'll use it to ensure the file
+		// has not changed by the time we serve it to a client.
 		if fileContent, err := ioutil.ReadFile(r.ModuleFile); err != nil {
 			return s, err
 		} else {
@@ -194,6 +196,8 @@ func NewServer(config *lcServerConfig.Config) (Server, error) {
 
 		r.ProfileFile = rule.GetProfileFile()
 
+		// We calculate the hash now and we'll use it to ensure the file
+		// has not changed by the time we serve it to a client.
 		if fileContent, err := ioutil.ReadFile(r.ProfileFile); err != nil {
 			return s, err
 		} else {

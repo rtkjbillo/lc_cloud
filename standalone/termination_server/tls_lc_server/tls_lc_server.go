@@ -110,6 +110,7 @@ func main() {
 	glog.Info("server exited")
 }
 
+// Run is the function implementing the main TLS LC server loop.
 func (srv *TLSLCServer) Run() error {
 	var err error
 	if srv.lcServerCtx, err = lcServer.NewServer(srv.LCConfig); err != nil {
@@ -174,6 +175,7 @@ func (srv *TLSLCServer) Run() error {
 	return nil
 }
 
+// Stop tells the TLS LC server to stop its main server loop and begin draining clients.
 func (srv *TLSLCServer) Stop() error {
 	srv.isDraining = true
 	return nil
@@ -186,7 +188,7 @@ func (srv *TLSLCServer) handleClient(conn net.Conn) {
 	ctx := new(tlsClient)
 	ctx.conn = conn
 
-	// Create a closed function that avoids passing a context around
+	// Create a closed function that avoids passing a context around.
 	sendFunc := func(moduleID uint8, messages []*rpcm.Sequence) error {
 		if !srv.isDraining {
 			return ctx.sendFrame(moduleID, messages, idleClientTTL)
@@ -204,6 +206,7 @@ func (srv *TLSLCServer) handleClient(conn net.Conn) {
 	for !srv.isDraining {
 		if moduleID, messages, err := ctx.recvFrame(idleClientTTL); err != nil {
 			if err != io.EOF {
+				// Only log a warning if it's not a standard disconnect.
 				glog.Warningf("%s",err)
 			}
 			break

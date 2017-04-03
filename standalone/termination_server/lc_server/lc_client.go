@@ -97,6 +97,8 @@ func (c *client) ProcessIncoming(moduleID uint8, messages []*rpcm.Sequence) erro
 			return errors.New("no authentication message in frame")
 		}
 
+		// Headers for a new connection are expected to be a single message
+		// in a frame with at least the AID of the client.
 		headers := messages[0]
 		hostName, _ := headers.GetStringA(rpcm.RP_TAGS_HOST_NAME)
 		internalIP, _ := headers.GetIPv4(rpcm.RP_TAGS_IP_ADDRESS)
@@ -106,26 +108,29 @@ func (c *client) ProcessIncoming(moduleID uint8, messages []*rpcm.Sequence) erro
 			}
 		}
 
+		// Clients connecting cannot have wilcards (other than SID during enrollment) as the
+		// wilcards would make masks apply where they shouldn't. A client always has a specific
+		// identity.
 		if !c.aID.IsAbsolute() {
 			return errors.New(fmt.Sprintf("invalid AID: %s", c.aID))
 		}
 
 		if c.aID.IsSIDWild() {
-			// This sensor requires enrollment
+			// This sensor requires enrollment.
 			// We get the relevant enrollment messages (if elligible) from the server and
 			// we send them directly via the CB since we know the sensor is not authenticated yet
+			// and the officiel "send" function does an authentication check to make sure we don't
+			// send messages to unauthenticated clients.
 			if enrollmentMessages, err := c.srv.enrollClient(c); err != nil {
 				return err
 			} else if err := c.sendCB(hcp.ModuleIDHCP, enrollmentMessages); err != nil {
 				return err
 			}
 		} else {
-			// This sensor should already be enrolled with a valid token
-			sensorToken, ok := headers.GetBuffer(rpcm.RP_TAGS_HCP_ENROLLMENT_TOKEN)
-			if !ok {
+			// This sensor should already be enrolled with a valid token since it has a SID.
+			if sensorToken, ok := headers.GetBuffer(rpcm.RP_TAGS_HCP_ENROLLMENT_TOKEN); !ok {
 				return errors.New("client has no enrollment token")
-			}
-			if !c.srv.validateEnrollmentToken(c.aID, sensorToken) {
+			} else if !c.srv.validateEnrollmentToken(c.aID, sensorToken) {
 				return errors.New("invalid enrollment token")
 			}
 		}
@@ -252,7 +257,7 @@ func (c *client) processHBSMessage(messages []*rpcm.Sequence) error {
 	for _, message := range messages {
 
 		// HBS messages are either SYNC messages which are special and used to sync current
-		// setting with the backend, or are generic messages we need to output.
+		// settings with the backend, or are generic messages we need to output.
 		if syncMessage, ok := message.GetSequence(rpcm.RP_TAGS_NOTIFICATION_SYNC); ok {
 			var (
 				profile ProfileRule
@@ -298,7 +303,7 @@ func (c *client) processHBSMessage(messages []*rpcm.Sequence) error {
 			var data TelemetryMessage
 			data.Event = message
 			data.AID = &c.aID
-			c.srv.incomingChannel <- data
+			c.srv.incomingChan <- data
 		}
 	}
 
@@ -317,7 +322,7 @@ func (c *client) Stop() error {
 		return nil
 	}
 
-	c.srv.disconnectChannel <- DisconnectMessage{AID: &c.aID}
+	c.srv.disconnectChan <- DisconnectMessage{AID: &c.aID}
 
 	if c.isAuthenticated {
 		c.srv.setOffline(c)

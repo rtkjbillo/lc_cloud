@@ -27,23 +27,23 @@ import (
 	"strings"
 )
 
-// WIlcardUUID is the value used to indicate a wildcard for org, installer or sensor ID of AgentID
+// WIlcardUUID is the value used to indicate a wildcard for org, installer or sensor ID of AgentID.
 var WildcardUUID uuid.UUID
 
-// Wildcard values for platform and architecture of AgentID
+// Wildcard values for platform and architecture of AgentID.
 const (
 	WildcardPlatform = 0
 	WildcardArchitecture = 0
 )
 
-// Module IDs of common HCP modules
+// Module IDs of common HCP modules.
 const (
 	ModuleIDHCP        = 1
 	ModuleIDHBS        = 2
 	ModuleIDKernelAcq  = 5
 )
 
-// Command IDs of HCP commands
+// Command IDs of HCP commands.
 const (
 	CmdLoadModule     = 1
 	CmdUnloadModule  = 2
@@ -53,7 +53,7 @@ const (
 )
 
 // AgentID is the logical representation of the ID components used
-// to identify a specific sensor and its basic characteristics
+// to identify a specific sensor and its basic characteristics.
 type AgentID struct {
 	OID          uuid.UUID
 	IID          uuid.UUID
@@ -62,7 +62,7 @@ type AgentID struct {
 	Architecture uint32
 }
 
-// IsAbsolute returns true if none of the components of the AgentID are wildcards (0)
+// IsAbsolute returns true if none of the components of the AgentID are wildcards (0).
 func (aid AgentID) IsAbsolute() bool {
 	if aid.OID == WildcardUUID ||
 		aid.IID == WildcardUUID ||
@@ -73,7 +73,7 @@ func (aid AgentID) IsAbsolute() bool {
 	return true
 }
 
-// IsSidWild returns true if the SensorId component of the AgentID is a wildcard
+// IsSidWild returns true if the SensorId component of the AgentID is a wildcard.
 func (aid AgentID) IsSIDWild() bool {
 	return aid.SID == WildcardUUID
 }
@@ -85,7 +85,7 @@ func uuidAsWildString(id uuid.UUID) string {
 	return id.String()
 }
 
-// String converts the AgentID to its standardized string representation
+// String converts the AgentID to its standardized string representation.
 func (aid AgentID) String() string {
 
 	return fmt.Sprintf("%s.%s.%s.%x.%x",
@@ -96,7 +96,7 @@ func (aid AgentID) String() string {
 		aid.Architecture)
 }
 
-// FromString converts the standardized string representation of an AgentID into an AgentID
+// FromString converts the standardized string representation of an AgentID into an AgentID.
 func (aid AgentID) FromString(s string) bool {
 	var (
 		err error
@@ -138,7 +138,7 @@ func (aid AgentID) FromString(s string) bool {
 	return true
 }
 
-// Matches returns true if both AgentIDs are equal (or wildcarded) in all components
+// Matches returns true if both AgentIDs are equal (or wildcarded) in all components.
 func (aid AgentID) Matches(compareTo AgentID) bool {
 	if (aid.OID == WildcardUUID || compareTo.OID == WildcardUUID || aid.OID == compareTo.OID) &&
 		(aid.IID == WildcardUUID || compareTo.IID == WildcardUUID || aid.IID == compareTo.IID) &&
@@ -151,6 +151,7 @@ func (aid AgentID) Matches(compareTo AgentID) bool {
 	return false
 }
 
+// FromSequence loads an AgentID from an rpcm Sequence in the standard format.
 func (aid *AgentID) FromSequence(message *rpcm.Sequence) error {
 	var (
 		buf []byte
@@ -182,6 +183,7 @@ func (aid *AgentID) FromSequence(message *rpcm.Sequence) error {
 	return nil
 }
 
+// ToSequence stores the AgentID in the standard rpcm Sequence format.
 func (aid AgentID) ToSequence() *rpcm.Sequence {
 	seq := rpcm.NewSequence().
 		AddBuffer(rpcm.RP_TAGS_HCP_ORG_ID, aid.OID[:]).

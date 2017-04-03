@@ -42,7 +42,7 @@ import (
 	"strconv"
 )
 
-// Data type values supported in RPCM
+// Data type values supported in RPCM.
 const (
 	TypeInvalid  = 0
 	TypeInt8           = 1
@@ -66,7 +66,6 @@ const (
 type rpcmElement interface {
 	GetType() byte
 	GetValue() interface{}
-	serialize(toBuf *bytes.Buffer) error
 }
 
 type rElem struct {
@@ -223,10 +222,6 @@ func (e *List) GetValue() interface{} {
 	return e.elements
 }
 
-//=============================================================================
-// Constructors
-//=============================================================================
-
 // NewSequence creates a new blank Sequence
 func NewSequence() *Sequence {
 	return &Sequence{rElem: rElem{TypeSequence}, elements: make(map[uint32]rpcmElement)}
@@ -238,98 +233,9 @@ func NewList(elemTag uint32, elemType uint8) *List {
 	return &List{rElem: rElem{TypeList}, elemTag: elemTag, elemType: elemType}
 }
 
-//=============================================================================
-// Serialize
-//=============================================================================
-
-func (e *ru8) serialize(toBuf *bytes.Buffer) error {
-	return toBuf.WriteByte(e.value)
-}
-
-func (e *ru16) serialize(toBuf *bytes.Buffer) error {
-	return binary.Write(toBuf, binary.BigEndian, e.value)
-}
-
-func (e *ru32) serialize(toBuf *bytes.Buffer) error {
-	return binary.Write(toBuf, binary.BigEndian, e.value)
-}
-
-func (e *ru64) serialize(toBuf *bytes.Buffer) error {
-	return binary.Write(toBuf, binary.BigEndian, e.value)
-}
-
-func (e *rStringA) serialize(toBuf *bytes.Buffer) error {
-	if err := binary.Write(toBuf, binary.BigEndian, uint32(len(e.value)+1)); err != nil {
-		return err
-	}
-	if _, err := toBuf.Write([]byte(e.value)); err != nil {
-		return err
-	}
-	if err := toBuf.WriteByte(0); err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func (e *rStringW) serialize(toBuf *bytes.Buffer) error {
-	if err := binary.Write(toBuf, binary.BigEndian, uint32(len(e.value)+1)); err != nil {
-		return err
-	}
-	if _, err := toBuf.Write([]byte(e.value)); err != nil {
-		return err
-	}
-	if err := toBuf.WriteByte(0); err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func (e *rBuffer) serialize(toBuf *bytes.Buffer) error {
-	if err := binary.Write(toBuf, binary.BigEndian, uint32(len(e.value))); err != nil {
-		return err
-	}
-	if _, err := toBuf.Write(e.value); err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func (e *rTimestamp) serialize(toBuf *bytes.Buffer) error {
-	return binary.Write(toBuf, binary.BigEndian, e.value)
-}
-
-func (e *rIPv4) serialize(toBuf *bytes.Buffer) error {
-	_, err := toBuf.Write(e.value.To4()[:4])
-	return err
-}
-
-func (e *rIPv6) serialize(toBuf *bytes.Buffer) error {
-	_, err := toBuf.Write(e.value.To16()[:16])
-	return err
-}
-
-func (e *rPointer32) serialize(toBuf *bytes.Buffer) error {
-	return binary.Write(toBuf, binary.BigEndian, e.value)
-}
-
-func (e *rPointer64) serialize(toBuf *bytes.Buffer) error {
-	return binary.Write(toBuf, binary.BigEndian, e.value)
-}
-
-func (e *rTimedelta) serialize(toBuf *bytes.Buffer) error {
-	return binary.Write(toBuf, binary.BigEndian, e.value)
-}
-
 // Serialize convertts the Sequence structure in a slice of bytes that can be used
 // to restore the original Sequence regardless of the platform.
 func (e *Sequence) Serialize(toBuf *bytes.Buffer) error {
-    return e.serialize(toBuf)
-}
-
-func (e *Sequence) serialize(toBuf *bytes.Buffer) error {
 	if err := binary.Write(toBuf, binary.BigEndian, uint32(len(e.elements))); err != nil {
 		return err
 	}
@@ -340,7 +246,7 @@ func (e *Sequence) serialize(toBuf *bytes.Buffer) error {
 		if err := binary.Write(toBuf, binary.BigEndian, elem.GetType()); err != nil {
 			return err
 		}
-		if err := elem.serialize(toBuf); err != nil {
+		if err := serializeElem(toBuf, elem); err != nil {
 			return err
 		}
 	}
@@ -350,10 +256,6 @@ func (e *Sequence) serialize(toBuf *bytes.Buffer) error {
 // Serialize convertts the List structure in a slice of bytes that can be used
 // to restore the original List regardless of the platform.
 func (e *List) Serialize(toBuf *bytes.Buffer) error {
-    return e.serialize(toBuf)
-}
-
-func (e *List) serialize(toBuf *bytes.Buffer) error {
 	if err := binary.Write(toBuf, binary.BigEndian, e.elemTag); err != nil {
 		return err
 	}
@@ -373,16 +275,76 @@ func (e *List) serialize(toBuf *bytes.Buffer) error {
 		if err := binary.Write(toBuf, binary.BigEndian, e.elemType); err != nil {
 			return err
 		}
-		if err := elem.serialize(toBuf); err != nil {
+		if err := serializeElem(toBuf, elem); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-//=============================================================================
-// Deserialize
-//=============================================================================
+func serializeElem(toBuf *bytes.Buffer, e rpcmElement) error {
+	typ := e.GetType()
+	switch typ {
+	case TypeInt8:
+		return toBuf.WriteByte(e.(*ru8).value)
+	case TypeInt16:
+		return binary.Write(toBuf, binary.BigEndian, e.(*ru16).value)
+	case TypeInt32:
+		return binary.Write(toBuf, binary.BigEndian, e.(*ru32).value)
+	case TypeInt64:
+		return binary.Write(toBuf, binary.BigEndian, e.(*ru64).value)
+	case TypeStringA:
+		if err := binary.Write(toBuf, binary.BigEndian, uint32(len(e.(*rStringA).value)+1)); err != nil {
+			return err
+		}
+		if _, err := toBuf.Write([]byte(e.(*rStringA).value)); err != nil {
+			return err
+		}
+		if err := toBuf.WriteByte(0); err != nil {
+			return err
+		}
+	case TypeStringW:
+		if err := binary.Write(toBuf, binary.BigEndian, uint32(len(e.(*rStringW).value)+1)); err != nil {
+			return err
+		}
+		if _, err := toBuf.Write([]byte(e.(*rStringW).value)); err != nil {
+			return err
+		}
+		if err := toBuf.WriteByte(0); err != nil {
+			return err
+		}
+	case TypeBuffer:
+		if err := binary.Write(toBuf, binary.BigEndian, uint32(len(e.(*rBuffer).value))); err != nil {
+			return err
+		}
+		if _, err := toBuf.Write(e.(*rBuffer).value); err != nil {
+			return err
+		}
+	case TypeTimestamp:
+		return binary.Write(toBuf, binary.BigEndian, e.(*rTimestamp).value)
+	case TypeIPv4:
+		if _, err := toBuf.Write(e.(*rIPv4).value.To4()[:4]); err != nil {
+			return err
+		}
+	case TypeIPv6:
+		if _, err := toBuf.Write(e.(*rIPv6).value.To16()[:16]); err != nil {
+			return err
+		}
+	case TypePointer32:
+		return binary.Write(toBuf, binary.BigEndian, e.(*rPointer32).value)
+	case TypePointer64:
+		return binary.Write(toBuf, binary.BigEndian, e.(*rPointer64).value)
+	case TypeTimedelta:
+		return binary.Write(toBuf, binary.BigEndian, e.(*rTimedelta).value)
+	case TypeSequence:
+		return e.(*Sequence).Serialize(toBuf)
+	case TypeList:
+		return e.(*List).Serialize(toBuf)
+	default:
+		return errors.New(fmt.Sprintf("unexpected type: %d", typ))
+	}
+	return nil
+}
 
 // Deserialize a slice of bytes into the Sequence it represents.
 func (e *Sequence) Deserialize(fromBuf *bytes.Buffer) error {
@@ -408,7 +370,7 @@ func (e *Sequence) Deserialize(fromBuf *bytes.Buffer) error {
 			return err
 		}
 		
-		tmpElem, err := rpcmDeserializeElem(fromBuf, typ)
+		tmpElem, err := deserializeElem(fromBuf, typ)
 		if tmpElem == nil || err != nil {
 			return errors.New(fmt.Sprintf("failed to deserialize an element (%s)", err))
 		}
@@ -455,7 +417,7 @@ func (e *List) Deserialize(fromBuf *bytes.Buffer) error {
 			return errors.New("sanity failure: element type in list does not match")
 		}
 		
-		tmpElem, err := rpcmDeserializeElem(fromBuf, typ)
+		tmpElem, err := deserializeElem(fromBuf, typ)
 		if tmpElem == nil || err != nil {
 			return errors.New(fmt.Sprintf("failed to deserialize an element (%s)", err))
 		}
@@ -466,7 +428,7 @@ func (e *List) Deserialize(fromBuf *bytes.Buffer) error {
 	return nil
 }
 
-func rpcmDeserializeElem(fromBuf *bytes.Buffer, typ uint8) (rpcmElement, error) {
+func deserializeElem(fromBuf *bytes.Buffer, typ uint8) (rpcmElement, error) {
 	var (
 		elem rpcmElement
 		elemLen uint32
@@ -584,10 +546,6 @@ func rpcmDeserializeElem(fromBuf *bytes.Buffer, typ uint8) (rpcmElement, error) 
 	return elem, nil
 }
 
-//=============================================================================
-// Format Change
-//=============================================================================
-
 // ToMachine takes a Sequence and turns it into a native Go structure of slices and maps.
 func (e *Sequence) ToMachine() MachineSequence {
 	j := make(map[uint32]interface{})
@@ -632,6 +590,8 @@ func (e *Sequence) ToJSON() map[string]interface{} {
 	j := make(map[string]interface{})
 
 	for tag, val := range e.elements {
+
+		// If we don't have the human tag, we use the integer tag value.
 		if tagLabel, ok = HumanReadableTags[tag]; !ok {
 			tagLabel = strconv.FormatUint(uint64(tag), 16)
 		}
@@ -664,10 +624,6 @@ func (e *List) ToJSON() []interface{} {
 
 	return j
 }
-
-//=============================================================================
-// Sequence
-//=============================================================================
 
 // AddInt8 adds an 8 bit unsigned integer with the specified tag to the Sequence.
 func (e *Sequence) AddInt8(tag uint32, number uint8) *Sequence {
@@ -749,14 +705,12 @@ func (e *Sequence) AddTimedelta(tag uint32, td uint64) *Sequence {
 
 // AddSequence adds a Sequence with the specified tag to the Sequence.
 func (e *Sequence) AddSequence(tag uint32, seq *Sequence) *Sequence {
-	seq.typ = TypeSequence
 	e.elements[tag] = seq
 	return e
 }
 
 // AddList adds a List with the specified tag to the Sequence.
 func (e *Sequence) AddList(tag uint32, list *List) *Sequence {
-	list.typ = TypeList
 	e.elements[tag] = list
 	return e
 }
@@ -896,10 +850,6 @@ func (e *Sequence) GetList(tag uint32) (*List, bool) {
 	return nil, false
 }
 
-//=============================================================================
-// List
-//=============================================================================
-
 // AddInt8 adds an 8 bit unsigned integer with the specified tag to the List.
 func (e *List) AddInt8(number uint8) *List {
 	if e.elemType == TypeInt8 {
@@ -1020,7 +970,6 @@ func (e *List) AddTimedelta(td uint64) *List {
 // AddSequence adds a Sequence with the specified tag to the List.
 func (e *List) AddSequence(seq *Sequence) *List {
 	if e.elemType == TypeSequence {
-		seq.typ = TypeSequence
 		e.elements = append(e.elements, seq)
 		return e
 	}
@@ -1030,7 +979,6 @@ func (e *List) AddSequence(seq *Sequence) *List {
 // AddList adds a List with the specified tag to the List.
 func (e *List) AddList(list *List) *List {
 	if e.elemType == TypeList {
-		list.typ = TypeList
 		e.elements = append(e.elements, list)
 		return e
 	}
