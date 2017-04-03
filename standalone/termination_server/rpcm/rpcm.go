@@ -340,7 +340,7 @@ func serializeElem(toBuf *bytes.Buffer, e rpcmElement) error {
 	case TypeList:
 		return e.(*List).Serialize(toBuf)
 	default:
-		return errors.New(fmt.Sprintf("unexpected type: %d", typ))
+		return fmt.Errorf("unexpected type: %d", typ)
 	}
 	return nil
 }
@@ -371,7 +371,7 @@ func (e *Sequence) Deserialize(fromBuf *bytes.Buffer) error {
 
 		tmpElem, err := deserializeElem(fromBuf, typ)
 		if tmpElem == nil || err != nil {
-			return errors.New(fmt.Sprintf("failed to deserialize an element (%s)", err))
+			return fmt.Errorf("failed to deserialize an element (%s)", err)
 		}
 
 		e.elements[tag] = tmpElem
@@ -418,7 +418,7 @@ func (e *List) Deserialize(fromBuf *bytes.Buffer) error {
 
 		tmpElem, err := deserializeElem(fromBuf, typ)
 		if tmpElem == nil || err != nil {
-			return errors.New(fmt.Sprintf("failed to deserialize an element (%s)", err))
+			return fmt.Errorf("failed to deserialize an element (%s)", err)
 		}
 
 		e.elements = append(e.elements, tmpElem)
@@ -461,7 +461,7 @@ func deserializeElem(fromBuf *bytes.Buffer, typ uint8) (rpcmElement, error) {
 		tmpBuf = make([]byte, elemLen)
 		sizeRead, err = fromBuf.Read(tmpBuf)
 		if uint32(sizeRead) != elemLen {
-			return nil, errors.New(fmt.Sprintf("Error reading enough data from buffer for string a, read %d", sizeRead))
+			return nil, fmt.Errorf("Error reading enough data from buffer for string a, read %d", sizeRead)
 		}
 
 		elem.(*rStringA).value = string(tmpBuf)
@@ -480,7 +480,7 @@ func deserializeElem(fromBuf *bytes.Buffer, typ uint8) (rpcmElement, error) {
 		tmpBuf = make([]byte, elemLen)
 		sizeRead, err = fromBuf.Read(tmpBuf)
 		if uint32(sizeRead) != elemLen {
-			return nil, errors.New(fmt.Sprintf("Error reading enough data from buffer for string w, read %d", sizeRead))
+			return nil, fmt.Errorf("Error reading enough data from buffer for string w, read %d", sizeRead)
 		}
 
 		elem.(*rStringW).value = string(tmpBuf)
@@ -499,7 +499,7 @@ func deserializeElem(fromBuf *bytes.Buffer, typ uint8) (rpcmElement, error) {
 		tmpBuf = make([]byte, elemLen)
 		sizeRead, err = fromBuf.Read(tmpBuf)
 		if uint32(sizeRead) != elemLen {
-			return nil, errors.New(fmt.Sprintf("Error reading enough data from buffer for buffer, read %d", sizeRead))
+			return nil, fmt.Errorf("Error reading enough data from buffer for buffer, read %d", sizeRead)
 		}
 
 		elem.(*rBuffer).value = tmpBuf
@@ -510,13 +510,13 @@ func deserializeElem(fromBuf *bytes.Buffer, typ uint8) (rpcmElement, error) {
 		elem = &rIPv4{rElem: rElem{typ: typ}}
 		elem.(*rIPv4).value = make([]byte, net.IPv4len)
 		if sizeRead, err = fromBuf.Read(elem.(*rIPv4).value); err != nil || uint32(sizeRead) != net.IPv4len {
-			return nil, errors.New(fmt.Sprintf("Error reading enough data from buffer for IPv4, read %d", sizeRead))
+			return nil, fmt.Errorf("Error reading enough data from buffer for IPv4, read %d", sizeRead)
 		}
 	case TypeIPv6:
 		elem = &rIPv6{rElem: rElem{typ: typ}}
 		elem.(*rIPv6).value = make([]byte, net.IPv6len)
 		if sizeRead, err = fromBuf.Read(elem.(*rIPv6).value); err != nil || uint32(sizeRead) != net.IPv6len {
-			return nil, errors.New(fmt.Sprintf("Error reading enough data from buffer for IPv6, read %d", sizeRead))
+			return nil, fmt.Errorf("Error reading enough data from buffer for IPv6, read %d", sizeRead)
 		}
 	case TypePointer32:
 		elem = &rPointer32{rElem: rElem{typ: typ}}
@@ -535,7 +535,7 @@ func deserializeElem(fromBuf *bytes.Buffer, typ uint8) (rpcmElement, error) {
 		err = elem.(*List).Deserialize(fromBuf)
 	default:
 		elem = nil
-		return nil, errors.New(fmt.Sprintf("unexpected type: %d", typ))
+		return nil, fmt.Errorf("unexpected type: %d", typ)
 	}
 
 	if err != nil {

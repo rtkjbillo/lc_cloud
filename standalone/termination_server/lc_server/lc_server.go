@@ -169,19 +169,20 @@ func NewServer(config *lcServerConfig.Config) (Server, error) {
 		r.ModuleID = uint8(rule.GetModuleId())
 
 		if !r.AID.FromString(rule.GetAid()) {
-			return s, errors.New(fmt.Sprintf("failed to parse AID: %s", rule.GetAid()))
+			return s, fmt.Errorf("failed to parse AID: %s", rule.GetAid())
 		}
 
 		r.ModuleFile = rule.GetModuleFile()
 
 		// We calculate the hash now and we'll use it to ensure the file
 		// has not changed by the time we serve it to a client.
-		if fileContent, err := ioutil.ReadFile(r.ModuleFile); err != nil {
+		fileContent, err := ioutil.ReadFile(r.ModuleFile)
+		if err != nil {
 			return s, err
-		} else {
-			hash := sha256.Sum256(fileContent)
-			r.Hash = hash[:]
 		}
+
+		hash := sha256.Sum256(fileContent)
+		r.Hash = hash[:]
 
 		s.moduleRules = append(s.moduleRules, r)
 	}
@@ -190,19 +191,20 @@ func NewServer(config *lcServerConfig.Config) (Server, error) {
 		r := ProfileRule{}
 
 		if !r.AID.FromString(rule.GetAid()) {
-			return s, errors.New(fmt.Sprintf("failed to parse AID: %s", rule.GetAid()))
+			return s, fmt.Errorf("failed to parse AID: %s", rule.GetAid())
 		}
 
 		r.ProfileFile = rule.GetProfileFile()
 
 		// We calculate the hash now and we'll use it to ensure the file
 		// has not changed by the time we serve it to a client.
-		if fileContent, err := ioutil.ReadFile(r.ProfileFile); err != nil {
+		fileContent, err := ioutil.ReadFile(r.ProfileFile)
+		if err != nil {
 			return s, err
-		} else {
-			hash := sha256.Sum256(fileContent)
-			r.Hash = hash[:]
 		}
+		
+		hash := sha256.Sum256(fileContent)
+		r.Hash = hash[:]
 
 		s.profileRules = append(s.profileRules, r)
 	}
@@ -310,7 +312,7 @@ func (srv *server) enrollClient(c *client) ([]*rpcm.Sequence, error) {
 	aID := c.AgentID()
 
 	if !srv.isWhitelistedForEnrollment(aID.OID, aID.IID) {
-		return nil, errors.New(fmt.Sprintf("org or installer not whitelisted: %s / %s", aID.OID, aID.IID))
+		return nil, fmt.Errorf("org or installer not whitelisted: %s / %s", aID.OID, aID.IID)
 	}
 
 	aID.SID = uuid.New()

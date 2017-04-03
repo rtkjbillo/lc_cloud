@@ -13,7 +13,7 @@
 // limitations under the License.
 
 /*
-The HCP package contains definitions and helpers specific to the operation of the
+Package hcp contains definitions and helpers specific to the operation of the
 LimaCharlie Host Common Platform.
 */
 package hcp
@@ -27,7 +27,7 @@ import (
 	"strings"
 )
 
-// WIlcardUUID is the value used to indicate a wildcard for org, installer or sensor ID of AgentID.
+// WildcardUUID is the value used to indicate a wildcard for org, installer or sensor ID of AgentID.
 var WildcardUUID uuid.UUID
 
 // Wildcard values for platform and architecture of AgentID.
@@ -73,7 +73,7 @@ func (aid AgentID) IsAbsolute() bool {
 	return true
 }
 
-// IsSidWild returns true if the SensorId component of the AgentID is a wildcard.
+// IsSIDWild returns true if the SensorId component of the AgentID is a wildcard.
 func (aid AgentID) IsSIDWild() bool {
 	return aid.SID == WildcardUUID
 }
