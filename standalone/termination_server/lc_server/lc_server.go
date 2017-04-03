@@ -202,7 +202,7 @@ func NewServer(config *lcServerConfig.Config) (Server, error) {
 		if err != nil {
 			return s, err
 		}
-		
+
 		hash := sha256.Sum256(fileContent)
 		r.Hash = hash[:]
 
