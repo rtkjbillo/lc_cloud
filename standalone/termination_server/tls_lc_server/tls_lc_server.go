@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// Package main implements a LC server that uses TLS as a transport to clients.
 package main
 
 import (
@@ -221,7 +222,7 @@ func (c *tlsClient) recvFrame(timeout time.Duration) (uint8, *rpcm.List, error) 
 	var (
 		err       error
 		endTime   time.Time
-		moduleId  uint8
+		moduleID  uint8
 		buf       []byte
 		frameSize uint32
 	)
@@ -262,7 +263,7 @@ func (c *tlsClient) recvFrame(timeout time.Duration) (uint8, *rpcm.List, error) 
 		return 0, nil, errors.New("received empty frame")
 	}
 
-	if moduleId, err = decompressedBuf.ReadByte(); err != nil {
+	if moduleID, err = decompressedBuf.ReadByte(); err != nil {
 		return 0, nil, err
 	}
 
@@ -270,14 +271,14 @@ func (c *tlsClient) recvFrame(timeout time.Duration) (uint8, *rpcm.List, error) 
 		return 0, nil, err
 	}
 
-	return moduleId, received, err
+	return moduleID, received, err
 }
 
-func (c *tlsClient) sendFrame(moduleId uint8, messages []*rpcm.Sequence, timeout time.Duration) error {
+func (c *tlsClient) sendFrame(moduleID uint8, messages []*rpcm.Sequence, timeout time.Duration) error {
 	var err error
 	endTime := time.Now().Add(timeout)
 	frameData := bytes.Buffer{}
-	if err = binary.Write(&frameData, binary.BigEndian, moduleId); err != nil {
+	if err = binary.Write(&frameData, binary.BigEndian, moduleID); err != nil {
 		return err
 	}
 

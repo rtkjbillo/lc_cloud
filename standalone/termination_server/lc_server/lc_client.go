@@ -112,7 +112,7 @@ func (c *client) ProcessIncoming(moduleID uint8, messages []*rpcm.Sequence) erro
 		// wilcards would make masks apply where they shouldn't. A client always has a specific
 		// identity.
 		if !c.aID.IsAbsolute() {
-			return errors.New(fmt.Sprintf("invalid AID: %s", c.aID))
+			return fmt.Errorf("invalid AID: %s", c.aID)
 		}
 
 		if c.aID.IsSIDWild() {
@@ -155,7 +155,7 @@ func (c *client) ProcessIncoming(moduleID uint8, messages []*rpcm.Sequence) erro
 	case hcp.ModuleIDHBS:
 		return c.processHBSMessage(messages)
 	default:
-		return errors.New(fmt.Sprintf("received messages from unexpected module: %d", moduleID))
+		return fmt.Errorf("received messages from unexpected module: %d", moduleID)
 	}
 
 	return nil
@@ -286,7 +286,7 @@ func (c *client) processHBSMessage(messages []*rpcm.Sequence) error {
 			actualHash := sha256.Sum256(profileContent)
 
 			if !bytes.Equal(actualHash[:], profile.Hash) {
-				return errors.New(fmt.Sprintf("profile content seems to have changed"))
+				return fmt.Errorf("profile content seems to have changed")
 			}
 
 			// The profile is really a List of Sequences to make it more flexible.
