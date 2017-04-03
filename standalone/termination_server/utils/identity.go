@@ -13,7 +13,7 @@
 // limitations under the License.
 
 /*
-The HCP package contains definitions and helpers specific to the operation of the 
+The HCP package contains definitions and helpers specific to the operation of the
 LimaCharlie Host Common Platform.
 */
 package hcp
@@ -32,24 +32,24 @@ var WildcardUUID uuid.UUID
 
 // Wildcard values for platform and architecture of AgentID.
 const (
-	WildcardPlatform = 0
+	WildcardPlatform     = 0
 	WildcardArchitecture = 0
 )
 
 // Module IDs of common HCP modules.
 const (
-	ModuleIDHCP        = 1
-	ModuleIDHBS        = 2
-	ModuleIDKernelAcq  = 5
+	ModuleIDHCP       = 1
+	ModuleIDHBS       = 2
+	ModuleIDKernelAcq = 5
 )
 
 // Command IDs of HCP commands.
 const (
-	CmdLoadModule     = 1
+	CmdLoadModule    = 1
 	CmdUnloadModule  = 2
 	CmdSetHCPID      = 3
 	CmdSetGlobalTime = 4
-	CmdQuit            = 5
+	CmdQuit          = 5
 )
 
 // AgentID is the logical representation of the ID components used
@@ -99,7 +99,7 @@ func (aid AgentID) String() string {
 // FromString converts the standardized string representation of an AgentID into an AgentID.
 func (aid AgentID) FromString(s string) bool {
 	var (
-		err error
+		err   error
 		tmp64 uint64
 	)
 	components := strings.Split(s, ".")
@@ -155,7 +155,7 @@ func (aid AgentID) Matches(compareTo AgentID) bool {
 func (aid *AgentID) FromSequence(message *rpcm.Sequence) error {
 	var (
 		buf []byte
-		ok bool
+		ok  bool
 	)
 	if buf, ok = message.GetBuffer(rpcm.RP_TAGS_HCP_ORG_ID); !ok || len(aid.OID) != len(buf) {
 		return errors.New("invalid oid")

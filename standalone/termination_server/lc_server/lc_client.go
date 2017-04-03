@@ -37,13 +37,13 @@ type Client interface {
 }
 
 type client struct {
-	sendMu sync.Mutex
-	recvMu sync.Mutex
-	srv *server
-	isOnline bool
+	sendMu          sync.Mutex
+	recvMu          sync.Mutex
+	srv             *server
+	isOnline        bool
 	isAuthenticated bool
-	aID hcp.AgentID
-	sendCB func(moduleID uint8, messages []*rpcm.Sequence) error
+	aID             hcp.AgentID
+	sendCB          func(moduleID uint8, messages []*rpcm.Sequence) error
 	incomingChannel chan TelemetryMessage
 }
 
@@ -60,8 +60,8 @@ func (c *client) send(moduleID uint8, messages []*rpcm.Sequence) error {
 
 func (c *client) sendTimeSync() error {
 	messages := []*rpcm.Sequence{rpcm.NewSequence().
-			AddInt8(rpcm.RP_TAGS_OPERATION, hcp.CmdSetGlobalTime).
-			AddTimestamp(rpcm.RP_TAGS_TIMESTAMP, uint64(time.Now().Unix()))}
+		AddInt8(rpcm.RP_TAGS_OPERATION, hcp.CmdSetGlobalTime).
+		AddTimestamp(rpcm.RP_TAGS_TIMESTAMP, uint64(time.Now().Unix()))}
 	return c.send(hcp.ModuleIDHCP, messages)
 }
 
@@ -142,7 +142,7 @@ func (c *client) ProcessIncoming(moduleID uint8, messages []*rpcm.Sequence) erro
 			return err
 		}
 
-		if err := c.srv.setOnline(c, ConnectMessage{AID: &c.aID, Hostname: hostName, InternalIP: internalIP}); err != nil  {
+		if err := c.srv.setOnline(c, ConnectMessage{AID: &c.aID, Hostname: hostName, InternalIP: internalIP}); err != nil {
 			return err
 		}
 	}
@@ -175,7 +175,7 @@ func (c *client) processHCPMessage(messages []*rpcm.Sequence) error {
 			for _, moduleInfo := range modules.GetSequence(rpcm.RP_TAGS_HCP_MODULE) {
 				var (
 					mod ModuleRule
-					ok bool
+					ok  bool
 				)
 				if mod.Hash, ok = moduleInfo.GetBuffer(rpcm.RP_TAGS_HASH); !ok {
 					return errors.New("module entry missing hash")
@@ -204,8 +204,8 @@ func (c *client) processHCPMessage(messages []*rpcm.Sequence) error {
 
 		if !isFound {
 			outMessages = append(outMessages, rpcm.NewSequence().
-					AddInt8(rpcm.RP_TAGS_OPERATION, hcp.CmdUnloadModule).
-					AddInt8(rpcm.RP_TAGS_HCP_MODULE_ID, modIsLoaded.ModuleID))
+				AddInt8(rpcm.RP_TAGS_OPERATION, hcp.CmdUnloadModule).
+				AddInt8(rpcm.RP_TAGS_HCP_MODULE_ID, modIsLoaded.ModuleID))
 		}
 	}
 
@@ -222,9 +222,9 @@ func (c *client) processHCPMessage(messages []*rpcm.Sequence) error {
 
 		if !isFound {
 			var (
-				err error
+				err           error
 				moduleContent []byte
-				moduleSig []byte
+				moduleSig     []byte
 			)
 			if moduleContent, err = ioutil.ReadFile(modShouldBeLoaded.ModuleFile); err != nil {
 				return err
@@ -236,18 +236,18 @@ func (c *client) processHCPMessage(messages []*rpcm.Sequence) error {
 			}
 
 			outMessages = append(outMessages, rpcm.NewSequence().
-					AddInt8(rpcm.RP_TAGS_OPERATION, hcp.CmdLoadModule).
-					AddInt8(rpcm.RP_TAGS_HCP_MODULE_ID, modShouldBeLoaded.ModuleID).
-					AddBuffer(rpcm.RP_TAGS_BINARY, moduleContent).
-					AddBuffer(rpcm.RP_TAGS_SIGNATURE, moduleSig))
+				AddInt8(rpcm.RP_TAGS_OPERATION, hcp.CmdLoadModule).
+				AddInt8(rpcm.RP_TAGS_HCP_MODULE_ID, modShouldBeLoaded.ModuleID).
+				AddBuffer(rpcm.RP_TAGS_BINARY, moduleContent).
+				AddBuffer(rpcm.RP_TAGS_SIGNATURE, moduleSig))
 		}
 	}
 
 	// We also take the sync opportunity to send a time sync.
 	outMessages = append(outMessages, rpcm.NewSequence().
-			AddInt8(rpcm.RP_TAGS_OPERATION, hcp.CmdSetGlobalTime).
-			AddTimestamp(rpcm.RP_TAGS_TIMESTAMP, uint64(time.Now().Unix())))
-	
+		AddInt8(rpcm.RP_TAGS_OPERATION, hcp.CmdSetGlobalTime).
+		AddTimestamp(rpcm.RP_TAGS_TIMESTAMP, uint64(time.Now().Unix())))
+
 	return c.send(hcp.ModuleIDHCP, outMessages)
 }
 
@@ -261,7 +261,7 @@ func (c *client) processHBSMessage(messages []*rpcm.Sequence) error {
 		if syncMessage, ok := message.GetSequence(rpcm.RP_TAGS_NOTIFICATION_SYNC); ok {
 			var (
 				profile ProfileRule
-				ok bool
+				ok      bool
 			)
 
 			// Get the profile that should be loaded on the client.
@@ -269,7 +269,7 @@ func (c *client) processHBSMessage(messages []*rpcm.Sequence) error {
 				return errors.New("no HBS profile to load")
 			}
 
-			if currentProfileHash, ok := syncMessage.GetBuffer(rpcm.RP_TAGS_HASH); ok && bytes.Equal(profile.Hash, currentProfileHash){
+			if currentProfileHash, ok := syncMessage.GetBuffer(rpcm.RP_TAGS_HASH); ok && bytes.Equal(profile.Hash, currentProfileHash) {
 				// The sensor already has the latest profile, no need to check anything else.
 				continue
 			}
@@ -277,7 +277,7 @@ func (c *client) processHBSMessage(messages []*rpcm.Sequence) error {
 			// We need to load the relevant profile from disk and send it to the client.
 			var (
 				profileContent []byte
-				err error
+				err            error
 			)
 			if profileContent, err = ioutil.ReadFile(profile.ProfileFile); err != nil {
 				return err
@@ -296,7 +296,7 @@ func (c *client) processHBSMessage(messages []*rpcm.Sequence) error {
 			}
 
 			outMessages = append(outMessages, rpcm.NewSequence().
-					AddSequence(rpcm.RP_TAGS_NOTIFICATION_SYNC, rpcm.NewSequence().
+				AddSequence(rpcm.RP_TAGS_NOTIFICATION_SYNC, rpcm.NewSequence().
 					AddBuffer(rpcm.RP_TAGS_HASH, profile.Hash).
 					AddList(rpcm.RP_TAGS_HBS_CONFIGURATIONS, parsedProfile)))
 		} else {

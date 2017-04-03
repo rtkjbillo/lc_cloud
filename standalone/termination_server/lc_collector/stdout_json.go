@@ -14,30 +14,29 @@
 
 package lcCollector
 
-
 import (
-	"fmt"
-	"sync"
 	"encoding/json"
+	"fmt"
 	"github.com/refractionPOINT/lc_cloud/standalone/termination_server/lc_server"
+	"sync"
 )
 
 type stdOutJSONCollector struct {
-	connect <- chan lcServer.ConnectMessage
-	disconnect <- chan lcServer.DisconnectMessage
-	incoming <- chan lcServer.TelemetryMessage
-	stop chan bool
-	nHandlers int
+	connect         <-chan lcServer.ConnectMessage
+	disconnect      <-chan lcServer.DisconnectMessage
+	incoming        <-chan lcServer.TelemetryMessage
+	stop            chan bool
+	nHandlers       int
 	isHumanReadable bool
-	ouputWG sync.WaitGroup
-	mu sync.Mutex
+	ouputWG         sync.WaitGroup
+	mu              sync.Mutex
 }
 
 // NewStdoutJSON creates a new collector that will output the events to the stdout as json.
 // nHandlers specifies the number of Go Routines handling output while isHumanReadable will
 // pretty print the JSON.
 func NewStdoutJSON(nHandlers int, isHumanReadable bool) Collector {
-	c  := new(stdOutJSONCollector)
+	c := new(stdOutJSONCollector)
 	c.nHandlers = nHandlers
 	c.isHumanReadable = isHumanReadable
 	c.stop = make(chan bool)
@@ -45,15 +44,15 @@ func NewStdoutJSON(nHandlers int, isHumanReadable bool) Collector {
 }
 
 // Set the channels used to collect output.
-func (c *stdOutJSONCollector) SetChannels(connect <- chan lcServer.ConnectMessage, 
-										  disconnect <- chan lcServer.DisconnectMessage, 
-										  incoming <- chan lcServer.TelemetryMessage) {
+func (c *stdOutJSONCollector) SetChannels(connect <-chan lcServer.ConnectMessage,
+	disconnect <-chan lcServer.DisconnectMessage,
+	incoming <-chan lcServer.TelemetryMessage) {
 	c.connect = connect
 	c.disconnect = disconnect
 	c.incoming = incoming
 }
 
-// Start the collector and begin outputting.	
+// Start the collector and begin outputting.
 func (c *stdOutJSONCollector) Start() error {
 	c.ouputWG.Add(c.nHandlers)
 	for i := 0; i < c.nHandlers; i++ {
@@ -79,14 +78,14 @@ func (c *stdOutJSONCollector) handler() {
 		var isExit bool
 
 		select {
-		case <- c.stop:
+		case <-c.stop:
 			isExit = true
 			break
-		case msg := <- c.connect:
+		case msg := <-c.connect:
 			o = fmt.Sprintf("CONNECT: %s (%s @ %s)", msg.AID, msg.Hostname, msg.InternalIP)
-		case msg := <- c.disconnect:
+		case msg := <-c.disconnect:
 			o = fmt.Sprintf("DISCONNECT: %s", msg.AID)
-		case msg := <- c.incoming:
+		case msg := <-c.incoming:
 			wrapper := make(map[string]interface{}, 2)
 			wrapper["event"] = msg.Event.ToJSON()
 			wrapper["routing"] = make(map[string]interface{}, 1)

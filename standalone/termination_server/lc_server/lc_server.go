@@ -17,19 +17,18 @@
 // implement any specific transport or output as these are modular.
 package lcServer
 
-
 import (
+	"crypto/hmac"
+	"crypto/sha256"
 	"errors"
 	"fmt"
-	"net"
-	"sync"
-	"crypto/sha256"
-	"crypto/hmac"
 	"github.com/google/uuid"
 	"github.com/refractionPOINT/lc_cloud/standalone/termination_server/lc_server_config"
 	"github.com/refractionPOINT/lc_cloud/standalone/termination_server/rpcm"
 	"github.com/refractionPOINT/lc_cloud/standalone/termination_server/utils"
 	"io/ioutil"
+	"net"
+	"sync"
 )
 
 // ConnectMessage is a struct holding the information a Collector will get when a new client connects.
@@ -112,17 +111,17 @@ type Server interface {
 }
 
 type server struct {
-	mu sync.RWMutex
+	mu               sync.RWMutex
 	enrollmentSecret string
-	enrollmentRules []EnrollmentRule
-	moduleRules []ModuleRule
-	profileRules []ProfileRule
+	enrollmentRules  []EnrollmentRule
+	moduleRules      []ModuleRule
+	profileRules     []ProfileRule
 
 	online map[hcp.AgentID]Client
 
-	connectChan chan ConnectMessage
+	connectChan    chan ConnectMessage
 	disconnectChan chan DisconnectMessage
-	incomingChan chan TelemetryMessage
+	incomingChan   chan TelemetryMessage
 
 	isClosing bool
 }
@@ -130,7 +129,7 @@ type server struct {
 // NewServer creates a new Server instance with the configurations specified in the protobuf.
 func NewServer(config *lcServerConfig.Config) (Server, error) {
 	var err error
-	
+
 	s := new(server)
 
 	// List of rules that are currently active.
@@ -321,9 +320,9 @@ func (srv *server) enrollClient(c *client) ([]*rpcm.Sequence, error) {
 
 	// The message to the enrolling client specifies its new SID and the token proving legitimate enrollment.
 	return []*rpcm.Sequence{rpcm.NewSequence().
-			AddInt8(rpcm.RP_TAGS_OPERATION, hcp.CmdSetHCPID).
-			AddSequence(rpcm.RP_TAGS_HCP_IDENT, c.aID.ToSequence()).
-			AddBuffer(rpcm.RP_TAGS_HCP_ENROLLMENT_TOKEN, enrollmentToken)}, nil
+		AddInt8(rpcm.RP_TAGS_OPERATION, hcp.CmdSetHCPID).
+		AddSequence(rpcm.RP_TAGS_HCP_IDENT, c.aID.ToSequence()).
+		AddBuffer(rpcm.RP_TAGS_HCP_ENROLLMENT_TOKEN, enrollmentToken)}, nil
 }
 
 // Get the list of modules the client should have loaded.
@@ -342,7 +341,7 @@ func (srv *server) getExpectedModulesFor(aID hcp.AgentID) []ModuleRule {
 }
 
 // Get the first matching HBS profile for this sensor.
-func (srv *server) getHBSProfileFor(aID hcp.AgentID) (ProfileRule , bool) {
+func (srv *server) getHBSProfileFor(aID hcp.AgentID) (ProfileRule, bool) {
 	defer srv.mu.RUnlock()
 	srv.mu.RLock()
 

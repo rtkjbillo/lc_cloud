@@ -22,9 +22,9 @@ import (
 // for the logical events relating to a LimaCharlie server.
 type Collector interface {
 	// Set the channels used to collect output.
-	SetChannels(connect <- chan lcServer.ConnectMessage, 
-				disconnect <- chan lcServer.DisconnectMessage, 
-				incoming <- chan lcServer.TelemetryMessage)
+	SetChannels(connect <-chan lcServer.ConnectMessage,
+		disconnect <-chan lcServer.DisconnectMessage,
+		incoming <-chan lcServer.TelemetryMessage)
 	// Start the collector and begin outputting.
 	Start() error
 	// Stop the collector and output.

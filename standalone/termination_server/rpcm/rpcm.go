@@ -44,23 +44,23 @@ import (
 
 // Data type values supported in RPCM.
 const (
-	TypeInvalid  = 0
-	TypeInt8           = 1
-	TypeInt16          = 2
-	TypeInt32          = 3
-	TypeInt64          = 4
-	TypeStringA       = 5
-	TypeStringW       = 6
-	TypeBuffer        = 7
-	TypeTimestamp     = 8
-	TypeIPv4          = 9
-	TypeIPv6          = 10
+	TypeInvalid      = 0
+	TypeInt8         = 1
+	TypeInt16        = 2
+	TypeInt32        = 3
+	TypeInt64        = 4
+	TypeStringA      = 5
+	TypeStringW      = 6
+	TypeBuffer       = 7
+	TypeTimestamp    = 8
+	TypeIPv4         = 9
+	TypeIPv6         = 10
 	TypePointer32    = 11
 	TypePointer64    = 12
-	TypeTimedelta     = 13
+	TypeTimedelta    = 13
 	TypeComplexTypes = 0x80
-	TypeSequence      = 0x81
-	TypeList          = 0x82
+	TypeSequence     = 0x81
+	TypeList         = 0x82
 )
 
 type rpcmElement interface {
@@ -227,7 +227,6 @@ func NewSequence() *Sequence {
 	return &Sequence{rElem: rElem{TypeSequence}, elements: make(map[uint32]rpcmElement)}
 }
 
-
 // NewList creates a new blank list of elemTag and elemType items
 func NewList(elemTag uint32, elemType uint8) *List {
 	return &List{rElem: rElem{TypeList}, elemTag: elemTag, elemType: elemType}
@@ -350,8 +349,8 @@ func serializeElem(toBuf *bytes.Buffer, e rpcmElement) error {
 func (e *Sequence) Deserialize(fromBuf *bytes.Buffer) error {
 	var (
 		nElements uint32
-		tag uint32
-		typ uint8
+		tag       uint32
+		typ       uint8
 	)
 
 	e.typ = TypeSequence
@@ -369,7 +368,7 @@ func (e *Sequence) Deserialize(fromBuf *bytes.Buffer) error {
 		if err := binary.Read(fromBuf, binary.BigEndian, &typ); err != nil {
 			return err
 		}
-		
+
 		tmpElem, err := deserializeElem(fromBuf, typ)
 		if tmpElem == nil || err != nil {
 			return errors.New(fmt.Sprintf("failed to deserialize an element (%s)", err))
@@ -385,8 +384,8 @@ func (e *Sequence) Deserialize(fromBuf *bytes.Buffer) error {
 func (e *List) Deserialize(fromBuf *bytes.Buffer) error {
 	var (
 		nElements uint32
-		tag uint32
-		typ uint8
+		tag       uint32
+		typ       uint8
 	)
 
 	e.typ = TypeList
@@ -416,7 +415,7 @@ func (e *List) Deserialize(fromBuf *bytes.Buffer) error {
 		if typ != e.elemType {
 			return errors.New("sanity failure: element type in list does not match")
 		}
-		
+
 		tmpElem, err := deserializeElem(fromBuf, typ)
 		if tmpElem == nil || err != nil {
 			return errors.New(fmt.Sprintf("failed to deserialize an element (%s)", err))
@@ -430,10 +429,10 @@ func (e *List) Deserialize(fromBuf *bytes.Buffer) error {
 
 func deserializeElem(fromBuf *bytes.Buffer, typ uint8) (rpcmElement, error) {
 	var (
-		elem rpcmElement
-		elemLen uint32
-		tmpBuf []byte
-		err error
+		elem     rpcmElement
+		elemLen  uint32
+		tmpBuf   []byte
+		err      error
 		sizeRead int
 	)
 
@@ -584,7 +583,7 @@ func (e *List) ToMachine() MachineList {
 func (e *Sequence) ToJSON() map[string]interface{} {
 	var (
 		tagLabel string
-		ok bool
+		ok       bool
 	)
 
 	j := make(map[string]interface{})
@@ -718,7 +717,7 @@ func (e *Sequence) AddList(tag uint32, list *List) *Sequence {
 // GetInt8 returns an 8 bit unsigned integer with the specific tag, if present.
 func (e *Sequence) GetInt8(tag uint32) (uint8, bool) {
 	if elem, found := e.elements[tag]; found && elem.GetType() == TypeInt8 {
-		return  elem.(*ru8).value, true
+		return elem.(*ru8).value, true
 	}
 
 	return 0, false

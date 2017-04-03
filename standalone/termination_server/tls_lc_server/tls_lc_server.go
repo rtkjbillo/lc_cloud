@@ -15,51 +15,51 @@
 package main
 
 import (
-	"flag"
-	"crypto/tls"
+	"bytes"
+	"compress/zlib"
 	"crypto/rand"
-	"github.com/golang/glog"
-	"github.com/refractionPOINT/lc_cloud/standalone/termination_server/lc_server_config"
-	"github.com/refractionPOINT/lc_cloud/standalone/termination_server/lc_server"
-	"github.com/refractionPOINT/lc_cloud/standalone/termination_server/lc_collector"
-	"github.com/refractionPOINT/lc_cloud/standalone/termination_server/rpcm"
-	"sync"
+	"crypto/tls"
+	"encoding/binary"
+	"errors"
+	"flag"
 	"fmt"
-	"net"
+	"github.com/golang/glog"
+	"github.com/golang/protobuf/proto"
+	"github.com/refractionPOINT/lc_cloud/standalone/termination_server/lc_collector"
+	"github.com/refractionPOINT/lc_cloud/standalone/termination_server/lc_server"
+	"github.com/refractionPOINT/lc_cloud/standalone/termination_server/lc_server_config"
+	"github.com/refractionPOINT/lc_cloud/standalone/termination_server/rpcm"
 	"io"
 	"io/ioutil"
-	"bytes"
-	"github.com/golang/protobuf/proto"
-	"encoding/binary"
-	"compress/zlib"
-	"errors"
-	"strconv"
-	"os/signal"
+	"net"
 	"os"
+	"os/signal"
+	"strconv"
+	"sync"
 	"time"
 )
 
 const (
-	maxInboundFrameSize = 1024*1024*50
-	newConnTimeout = 5*time.Second
-	idleClientTTL = 120*time.Second
+	maxInboundFrameSize = 1024 * 1024 * 50
+	newConnTimeout      = 5 * time.Second
+	idleClientTTL       = 120 * time.Second
 )
 
 // TLSLCServer is an implementation of the LimaCharlie server that uses TLS as a transport.
 type TLSLCServer struct {
-	IFace string
-	Port uint16
-	CertFile string
-	KeyFile string
-	LCConfig *lcServerConfig.Config
-	clientsWG sync.WaitGroup
-	isDraining bool
-	lcServerCtx lcServer.Server
+	IFace          string
+	Port           uint16
+	CertFile       string
+	KeyFile        string
+	LCConfig       *lcServerConfig.Config
+	clientsWG      sync.WaitGroup
+	isDraining     bool
+	lcServerCtx    lcServer.Server
 	lcCollectorCtx lcCollector.Collector
 }
 
 type tlsClient struct {
-	conn net.Conn
+	conn     net.Conn
 	lcClient lcServer.Client
 }
 
@@ -74,7 +74,7 @@ func main() {
 	server := TLSLCServer{}
 	var (
 		configContent []byte
-		err error
+		err           error
 	)
 	if configContent, err = ioutil.ReadFile(*configFile); err != nil {
 		glog.Fatalf("failed to load config file: %s", err)
@@ -207,7 +207,7 @@ func (srv *TLSLCServer) handleClient(conn net.Conn) {
 		if moduleID, messages, err := ctx.recvFrame(idleClientTTL); err != nil {
 			if err != io.EOF {
 				// Only log a warning if it's not a standard disconnect.
-				glog.Warningf("%s",err)
+				glog.Warningf("%s", err)
 			}
 			break
 		} else if err := ctx.lcClient.ProcessIncoming(moduleID, messages.GetSequence(rpcm.RP_TAGS_MESSAGE)); err != nil {
@@ -219,10 +219,10 @@ func (srv *TLSLCServer) handleClient(conn net.Conn) {
 
 func (c *tlsClient) recvFrame(timeout time.Duration) (uint8, *rpcm.List, error) {
 	var (
-		err error
-		endTime time.Time
-		moduleId uint8
-		buf []byte
+		err       error
+		endTime   time.Time
+		moduleId  uint8
+		buf       []byte
 		frameSize uint32
 	)
 
@@ -258,7 +258,7 @@ func (c *tlsClient) recvFrame(timeout time.Duration) (uint8, *rpcm.List, error) 
 		if err != nil {
 			return 0, nil, err
 		}
-		
+
 		return 0, nil, errors.New("received empty frame")
 	}
 
