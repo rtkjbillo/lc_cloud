@@ -8,8 +8,6 @@ $def with (platform, oid, orgname, profile, supportedEvents)
 		<form method="POST" id="form-$oid-$platform">
 			<input type="hidden" name="oid" value="$oid"/>
 			<input type="hidden" name="platform" value="$platform"/>
-			<pre>$str( profile )</pre>
-			<pre>$str( supportedEvents )</pre>
 			<h5 style="display: inline;">Exfil</h5>
 			<label style="position: absolute;" class="mdl-switch mdl-js-switch mdl-js-ripple-effect" for="col_0_enabled-$oid-$platform">
 				<input type="checkbox" value="0" name="col" id="col_0_enabled-$oid-$platform" class="mdl-switch__input" $('' if profile[ 0 ].get( 'base.IS_DISABLED', None ) == 1 else 'checked')>
@@ -42,6 +40,7 @@ $def with (platform, oid, orgname, profile, supportedEvents)
 			<hr/>
 
 			<h5 style="display: inline;">Process Tracker</h5>
+			<br/>
 			<label style="position: absolute;" class="mdl-switch mdl-js-switch mdl-js-ripple-effect" for="col_1_enabled-$oid-$platform">
 				<input type="checkbox" value="1" name="col" id="col_1_enabled-$oid-$platform" class="mdl-switch__input" $('' if profile[ 1 ].get( 'base.IS_DISABLED', None ) == 1 else 'checked')>
 				<span class="mdl-switch__label">Enabled</span>
@@ -52,233 +51,230 @@ $def with (platform, oid, orgname, profile, supportedEvents)
 			<br/><br/>
 			<hr/>
 
-			<h5 style="display: inline;">Process Tracker</h5>
-			<label style="position: absolute;" class="mdl-switch mdl-js-switch mdl-js-ripple-effect" for="col_1_enabled-$oid-$platform">
-				<input type="checkbox" value="2" name="col" id="col_1_enabled-$oid-$platform" class="mdl-switch__input" $('' if profile[ 1 ].get( 'base.IS_DISABLED', None ) == 1 else 'checked')>
+			<h5 style="display: inline;">DNS Tracker</h5>
+			<br/>
+			<label style="position: absolute;" class="mdl-switch mdl-js-switch mdl-js-ripple-effect" for="col_2_enabled-$oid-$platform">
+				<input type="checkbox" value="2" name="col" id="col_2_enabled-$oid-$platform" class="mdl-switch__input" $('' if profile[ 2 ].get( 'base.IS_DISABLED', None ) == 1 else 'checked')>
 				<span class="mdl-switch__label">Enabled</span>
 			</label>
 			<br/><br/>
-			Tracks process creation and termination, many other events rely on this, you likely want this on.
+			Tracks DNS requests.
 
 			<br/><br/>
 			<hr/>
 
-			<h5 style="display: inline;">Process Tracker</h5>
-			<label style="position: absolute;" class="mdl-switch mdl-js-switch mdl-js-ripple-effect" for="col_1_enabled-$oid-$platform">
-				<input type="checkbox" value="3" name="col" id="col_1_enabled-$oid-$platform" class="mdl-switch__input" $('' if profile[ 1 ].get( 'base.IS_DISABLED', None ) == 1 else 'checked')>
+			<h5 style="display: inline;">Code Identity</h5>
+			<br/>
+			<label style="position: absolute;" class="mdl-switch mdl-js-switch mdl-js-ripple-effect" for="col_3_enabled-$oid-$platform">
+				<input type="checkbox" value="3" name="col" id="col_3_enabled-$oid-$platform" class="mdl-switch__input" $('' if profile[ 3 ].get( 'base.IS_DISABLED', None ) == 1 else 'checked')>
 				<span class="mdl-switch__label">Enabled</span>
 			</label>
 			<br/><br/>
-			Tracks process creation and termination, many other events rely on this, you likely want this on.
+			Reports hashes and digital signatures of any new piece of code loaded on the host.
 
 			<br/><br/>
 			<hr/>
 
-			<h5 style="display: inline;">Process Tracker</h5>
-			<label style="position: absolute;" class="mdl-switch mdl-js-switch mdl-js-ripple-effect" for="col_1_enabled-$oid-$platform">
-				<input type="checkbox" value="4" name="col" id="col_1_enabled-$oid-$platform" class="mdl-switch__input" $('' if profile[ 1 ].get( 'base.IS_DISABLED', None ) == 1 else 'checked')>
+			<h5 style="display: inline;">Network Tracker</h5>
+			<br/>
+			<label style="position: absolute;" class="mdl-switch mdl-js-switch mdl-js-ripple-effect" for="col_4_enabled-$oid-$platform">
+				<input type="checkbox" value="4" name="col" id="col_4_enabled-$oid-$platform" class="mdl-switch__input" $('' if profile[ 4 ].get( 'base.IS_DISABLED', None ) == 1 else 'checked')>
 				<span class="mdl-switch__label">Enabled</span>
 			</label>
 			<br/><br/>
-			Tracks process creation and termination, many other events rely on this, you likely want this on.
+			Tracks TCP and UDP "connections".
 
 			<br/><br/>
 			<hr/>
 
-			<h5 style="display: inline;">Process Tracker</h5>
-			<label style="position: absolute;" class="mdl-switch mdl-js-switch mdl-js-ripple-effect" for="col_1_enabled-$oid-$platform">
-				<input type="checkbox" value="5" name="col" id="col_1_enabled-$oid-$platform" class="mdl-switch__input" $('' if profile[ 1 ].get( 'base.IS_DISABLED', None ) == 1 else 'checked')>
+			<h5 style="display: inline;">Hidden Module</h5>
+			<br/>
+			<label style="position: absolute;" class="mdl-switch mdl-js-switch mdl-js-ripple-effect" for="col_5_enabled-$oid-$platform">
+				<input type="checkbox" value="5" name="col" id="col_5_enabled-$oid-$platform" class="mdl-switch__input" $('' if profile[ 5 ].get( 'base.IS_DISABLED', None ) == 1 else 'checked')>
 				<span class="mdl-switch__label">Enabled</span>
 			</label>
 			<br/><br/>
-			Tracks process creation and termination, many other events rely on this, you likely want this on.
+			Constantly (and on demand) scans the memory space of all processes looking for modules loaded manually and hidden from the OS.
 
 			<br/><br/>
 			<hr/>
 
-			<h5 style="display: inline;">Process Tracker</h5>
+			<h5 style="display: inline;">Module Tracker</h5>
+			<br/>
 			<label style="position: absolute;" class="mdl-switch mdl-js-switch mdl-js-ripple-effect" for="col_1_enabled-$oid-$platform">
-				<input type="checkbox" value="6" name="col" id="col_1_enabled-$oid-$platform" class="mdl-switch__input" $('' if profile[ 1 ].get( 'base.IS_DISABLED', None ) == 1 else 'checked')>
+				<input type="checkbox" value="6" name="col" id="col_6_enabled-$oid-$platform" class="mdl-switch__input" $('' if profile[ 6 ].get( 'base.IS_DISABLED', None ) == 1 else 'checked')>
 				<span class="mdl-switch__label">Enabled</span>
 			</label>
 			<br/><br/>
-			Tracks process creation and termination, many other events rely on this, you likely want this on.
+			Tracks loading of modules in all processes.
 
 			<br/><br/>
 			<hr/>
 
-			<h5 style="display: inline;">Process Tracker</h5>
-			<label style="position: absolute;" class="mdl-switch mdl-js-switch mdl-js-ripple-effect" for="col_1_enabled-$oid-$platform">
-				<input type="checkbox" value="7" name="col" id="col_1_enabled-$oid-$platform" class="mdl-switch__input" $('' if profile[ 1 ].get( 'base.IS_DISABLED', None ) == 1 else 'checked')>
+			<h5 style="display: inline;">File Tracker</h5>
+			<br/>
+			<label style="position: absolute;" class="mdl-switch mdl-js-switch mdl-js-ripple-effect" for="col_7_enabled-$oid-$platform">
+				<input type="checkbox" value="7" name="col" id="col_7_enabled-$oid-$platform" class="mdl-switch__input" $('' if profile[ 7 ].get( 'base.IS_DISABLED', None ) == 1 else 'checked')>
 				<span class="mdl-switch__label">Enabled</span>
 			</label>
 			<br/><br/>
-			Tracks process creation and termination, many other events rely on this, you likely want this on.
+			Tracks file operations (Create, Delete, Rename, Read, Write).
 
 			<br/><br/>
 			<hr/>
 
-			<h5 style="display: inline;">Process Tracker</h5>
+			<h5 style="display: inline;">Network Summary</h5>
+			<br/>
 			<label style="position: absolute;" class="mdl-switch mdl-js-switch mdl-js-ripple-effect" for="col_1_enabled-$oid-$platform">
-				<input type="checkbox" value="8" name="col" id="col_1_enabled-$oid-$platform" class="mdl-switch__input" $('' if profile[ 1 ].get( 'base.IS_DISABLED', None ) == 1 else 'checked')>
+				<input type="checkbox" value="8" name="col" id="col_8_enabled-$oid-$platform" class="mdl-switch__input" $('' if profile[ 8 ].get( 'base.IS_DISABLED', None ) == 1 else 'checked')>
 				<span class="mdl-switch__label">Enabled</span>
 			</label>
 			<br/><br/>
-			Tracks process creation and termination, many other events rely on this, you likely want this on.
+			Generates summaries of the first 10 network connections generated per process.
 
 			<br/><br/>
 			<hr/>
 
-			<h5 style="display: inline;">Process Tracker</h5>
-			<label style="position: absolute;" class="mdl-switch mdl-js-switch mdl-js-ripple-effect" for="col_1_enabled-$oid-$platform">
-				<input type="checkbox" value="9" name="col" id="col_1_enabled-$oid-$platform" class="mdl-switch__input" $('' if profile[ 1 ].get( 'base.IS_DISABLED', None ) == 1 else 'checked')>
+			<h5 style="display: inline;">File Forensics</h5>
+			<br/>
+			<label style="position: absolute;" class="mdl-switch mdl-js-switch mdl-js-ripple-effect" for="col_9_enabled-$oid-$platform">
+				<input type="checkbox" value="9" name="col" id="col_9_enabled-$oid-$platform" class="mdl-switch__input" $('' if profile[ 9 ].get( 'base.IS_DISABLED', None ) == 1 else 'checked')>
 				<span class="mdl-switch__label">Enabled</span>
 			</label>
 			<br/><br/>
-			Tracks process creation and termination, many other events rely on this, you likely want this on.
+			Various generic and forensic file operations mostly available on demand.
 
 			<br/><br/>
 			<hr/>
 
-			<h5 style="display: inline;">Process Tracker</h5>
-			<label style="position: absolute;" class="mdl-switch mdl-js-switch mdl-js-ripple-effect" for="col_1_enabled-$oid-$platform">
-				<input type="checkbox" value="10" name="col" id="col_1_enabled-$oid-$platform" class="mdl-switch__input" $('' if profile[ 1 ].get( 'base.IS_DISABLED', None ) == 1 else 'checked')>
+			<h5 style="display: inline;">Memory Forensics</h5>
+			<br/>
+			<label style="position: absolute;" class="mdl-switch mdl-js-switch mdl-js-ripple-effect" for="col_10_enabled-$oid-$platform">
+				<input type="checkbox" value="10" name="col" id="col_10_enabled-$oid-$platform" class="mdl-switch__input" $('' if profile[ 10 ].get( 'base.IS_DISABLED', None ) == 1 else 'checked')>
 				<span class="mdl-switch__label">Enabled</span>
 			</label>
 			<br/><br/>
-			Tracks process creation and termination, many other events rely on this, you likely want this on.
+			Various memory forensic operations mostly available on demand.
 
 			<br/><br/>
 			<hr/>
 
-			<h5 style="display: inline;">Process Tracker</h5>
-			<label style="position: absolute;" class="mdl-switch mdl-js-switch mdl-js-ripple-effect" for="col_1_enabled-$oid-$platform">
-				<input type="checkbox" value="11" name="col" id="col_1_enabled-$oid-$platform" class="mdl-switch__input" $('' if profile[ 1 ].get( 'base.IS_DISABLED', None ) == 1 else 'checked')>
+			<h5 style="display: inline;">OS Forensics</h5>
+			<br/>
+			<label style="position: absolute;" class="mdl-switch mdl-js-switch mdl-js-ripple-effect" for="col_11_enabled-$oid-$platform">
+				<input type="checkbox" value="11" name="col" id="col_11_enabled-$oid-$platform" class="mdl-switch__input" $('' if profile[ 11 ].get( 'base.IS_DISABLED', None ) == 1 else 'checked')>
 				<span class="mdl-switch__label">Enabled</span>
 			</label>
 			<br/><br/>
-			Tracks process creation and termination, many other events rely on this, you likely want this on.
+			Various OS forensic operations mostly available on demand.
 
 			<br/><br/>
 			<hr/>
 
-			<h5 style="display: inline;">Process Tracker</h5>
-			<label style="position: absolute;" class="mdl-switch mdl-js-switch mdl-js-ripple-effect" for="col_1_enabled-$oid-$platform">
-				<input type="checkbox" value="12" name="col" id="col_1_enabled-$oid-$platform" class="mdl-switch__input" $('' if profile[ 1 ].get( 'base.IS_DISABLED', None ) == 1 else 'checked')>
+			<h5 style="display: inline;">Execution Out of Bounds</h5>
+			<br/>
+			<label style="position: absolute;" class="mdl-switch mdl-js-switch mdl-js-ripple-effect" for="col_13_enabled-$oid-$platform">
+				<input type="checkbox" value="13" name="col" id="col_13_enabled-$oid-$platform" class="mdl-switch__input" $('' if profile[ 13 ].get( 'base.IS_DISABLED', None ) == 1 else 'checked')>
 				<span class="mdl-switch__label">Enabled</span>
 			</label>
 			<br/><br/>
-			Tracks process creation and termination, many other events rely on this, you likely want this on.
+			Continuously (or on demand) scans the memory space of all processes looking for threads executing outside of known module memory.
 
 			<br/><br/>
 			<hr/>
 
-			<h5 style="display: inline;">Process Tracker</h5>
-			<label style="position: absolute;" class="mdl-switch mdl-js-switch mdl-js-ripple-effect" for="col_1_enabled-$oid-$platform">
-				<input type="checkbox" value="13" name="col" id="col_1_enabled-$oid-$platform" class="mdl-switch__input" $('' if profile[ 1 ].get( 'base.IS_DISABLED', None ) == 1 else 'checked')>
+			<h5 style="display: inline;">Process Hollowing</h5>
+			<br/>
+			<label style="position: absolute;" class="mdl-switch mdl-js-switch mdl-js-ripple-effect" for="col_15_enabled-$oid-$platform">
+				<input type="checkbox" value="15" name="col" id="col_15_enabled-$oid-$platform" class="mdl-switch__input" $('' if profile[ 15 ].get( 'base.IS_DISABLED', None ) == 1 else 'checked')>
 				<span class="mdl-switch__label">Enabled</span>
 			</label>
 			<br/><br/>
-			Tracks process creation and termination, many other events rely on this, you likely want this on.
+			Continuously (or on demand) scans the memory space of all processes looking for signs of module memory being replaced with malicious payloads.
 
 			<br/><br/>
 			<hr/>
 
-			<h5 style="display: inline;">Process Tracker</h5>
-			<label style="position: absolute;" class="mdl-switch mdl-js-switch mdl-js-ripple-effect" for="col_1_enabled-$oid-$platform">
-				<input type="checkbox" value="14" name="col" id="col_1_enabled-$oid-$platform" class="mdl-switch__input" $('' if profile[ 1 ].get( 'base.IS_DISABLED', None ) == 1 else 'checked')>
+			<h5 style="display: inline;">Yara</h5>
+			<br/>
+			<label style="position: absolute;" class="mdl-switch mdl-js-switch mdl-js-ripple-effect" for="col_16_enabled-$oid-$platform">
+				<input type="checkbox" value="16" name="col" id="col_16_enabled-$oid-$platform" class="mdl-switch__input" $('' if profile[ 16 ].get( 'base.IS_DISABLED', None ) == 1 else 'checked')>
 				<span class="mdl-switch__label">Enabled</span>
 			</label>
 			<br/><br/>
-			Tracks process creation and termination, many other events rely on this, you likely want this on.
+			Continuously (or on demand) scans the memory space and files of all processes using a globally set Yara signature set. Continuous scanning is throttled to not impact system performance.
 
 			<br/><br/>
 			<hr/>
 
-			<h5 style="display: inline;">Process Tracker</h5>
-			<label style="position: absolute;" class="mdl-switch mdl-js-switch mdl-js-ripple-effect" for="col_1_enabled-$oid-$platform">
-				<input type="checkbox" value="15" name="col" id="col_1_enabled-$oid-$platform" class="mdl-switch__input" $('' if profile[ 1 ].get( 'base.IS_DISABLED', None ) == 1 else 'checked')>
+			<h5 style="display: inline;">OS Tracker</h5>
+			<br/>
+			<label style="position: absolute;" class="mdl-switch mdl-js-switch mdl-js-ripple-effect" for="col_17_enabled-$oid-$platform">
+				<input type="checkbox" value="17" name="col" id="col_17_enabled-$oid-$platform" class="mdl-switch__input" $('' if profile[ 17 ].get( 'base.IS_DISABLED', None ) == 1 else 'checked')>
 				<span class="mdl-switch__label">Enabled</span>
 			</label>
 			<br/><br/>
-			Tracks process creation and termination, many other events rely on this, you likely want this on.
+			Tracks various OS lists (services, drivers, autoruns) and reports changes.
 
 			<br/><br/>
 			<hr/>
 
-			<h5 style="display: inline;">Process Tracker</h5>
-			<label style="position: absolute;" class="mdl-switch mdl-js-switch mdl-js-ripple-effect" for="col_1_enabled-$oid-$platform">
-				<input type="checkbox" value="16" name="col" id="col_1_enabled-$oid-$platform" class="mdl-switch__input" $('' if profile[ 1 ].get( 'base.IS_DISABLED', None ) == 1 else 'checked')>
+			<h5 style="display: inline;">Doc Collector</h5>
+			<br/>
+			<label style="position: absolute;" class="mdl-switch mdl-js-switch mdl-js-ripple-effect" for="col_18_enabled-$oid-$platform">
+				<input type="checkbox" value="18" name="col" id="col_18_enabled-$oid-$platform" class="mdl-switch__input" $('' if profile[ 18 ].get( 'base.IS_DISABLED', None ) == 1 else 'checked')>
 				<span class="mdl-switch__label">Enabled</span>
 			</label>
 			<br/><br/>
-			Tracks process creation and termination, many other events rely on this, you likely want this on.
+			Caches the file content of files with various name extensions or path substrings. Generates a stub event containing the hash of the cached files. Content is in a ring buffer and available on demand.
 
 			<br/><br/>
 			<hr/>
 
-			<h5 style="display: inline;">Process Tracker</h5>
-			<label style="position: absolute;" class="mdl-switch mdl-js-switch mdl-js-ripple-effect" for="col_1_enabled-$oid-$platform">
-				<input type="checkbox" value="17" name="col" id="col_1_enabled-$oid-$platform" class="mdl-switch__input" $('' if profile[ 1 ].get( 'base.IS_DISABLED', None ) == 1 else 'checked')>
+			<h5 style="display: inline;">Volume Tracker</h5>
+			<br/>
+			<label style="position: absolute;" class="mdl-switch mdl-js-switch mdl-js-ripple-effect" for="col_19_enabled-$oid-$platform">
+				<input type="checkbox" value="19" name="col" id="col_19_enabled-$oid-$platform" class="mdl-switch__input" $('' if profile[ 19 ].get( 'base.IS_DISABLED', None ) == 1 else 'checked')>
 				<span class="mdl-switch__label">Enabled</span>
 			</label>
 			<br/><br/>
-			Tracks process creation and termination, many other events rely on this, you likely want this on.
+			Tracks volumes mounting and unmounting like USB drives.
 
 			<br/><br/>
 			<hr/>
 
-			<h5 style="display: inline;">Process Tracker</h5>
-			<label style="position: absolute;" class="mdl-switch mdl-js-switch mdl-js-ripple-effect" for="col_1_enabled-$oid-$platform">
-				<input type="checkbox" value="18" name="col" id="col_1_enabled-$oid-$platform" class="mdl-switch__input" $('' if profile[ 1 ].get( 'base.IS_DISABLED', None ) == 1 else 'checked')>
+			<h5 style="display: inline;">Stateful Tracking</h5>
+			<br/>
+			<label style="position: absolute;" class="mdl-switch mdl-js-switch mdl-js-ripple-effect" for="col_20_enabled-$oid-$platform">
+				<input type="checkbox" value="20" name="col" id="col_20_enabled-$oid-$platform" class="mdl-switch__input" $('' if profile[ 20 ].get( 'base.IS_DISABLED', None ) == 1 else 'checked')>
 				<span class="mdl-switch__label">Enabled</span>
 			</label>
 			<br/><br/>
-			Tracks process creation and termination, many other events rely on this, you likely want this on.
+			Framework enabling stateful detections on the host.
 
 			<br/><br/>
 			<hr/>
 
-			<h5 style="display: inline;">Process Tracker</h5>
-			<label style="position: absolute;" class="mdl-switch mdl-js-switch mdl-js-ripple-effect" for="col_1_enabled-$oid-$platform">
-				<input type="checkbox" value="19" name="col" id="col_1_enabled-$oid-$platform" class="mdl-switch__input" $('' if profile[ 1 ].get( 'base.IS_DISABLED', None ) == 1 else 'checked')>
+			<h5 style="display: inline;">User Tracker</h5>
+			<br/>
+			<label style="position: absolute;" class="mdl-switch mdl-js-switch mdl-js-ripple-effect" for="col_21_enabled-$oid-$platform">
+				<input type="checkbox" value="21" name="col" id="col_21_enabled-$oid-$platform" class="mdl-switch__input" $('' if profile[ 21 ].get( 'base.IS_DISABLED', None ) == 1 else 'checked')>
 				<span class="mdl-switch__label">Enabled</span>
 			</label>
 			<br/><br/>
-			Tracks process creation and termination, many other events rely on this, you likely want this on.
+			Tracks when new users log in on the host.
 
 			<br/><br/>
 			<hr/>
 
-			<h5 style="display: inline;">Process Tracker</h5>
-			<label style="position: absolute;" class="mdl-switch mdl-js-switch mdl-js-ripple-effect" for="col_1_enabled-$oid-$platform">
-				<input type="checkbox" value="20" name="col" id="col_1_enabled-$oid-$platform" class="mdl-switch__input" $('' if profile[ 1 ].get( 'base.IS_DISABLED', None ) == 1 else 'checked')>
+			<h5 style="display: inline;">File Type Tracker</h5>
+			<br/>
+			<label style="position: absolute;" class="mdl-switch mdl-js-switch mdl-js-ripple-effect" for="col_22_enabled-$oid-$platform">
+				<input type="checkbox" value="22" name="col" id="col_22_enabled-$oid-$platform" class="mdl-switch__input" $('' if profile[ 22 ].get( 'base.IS_DISABLED', None ) == 1 else 'checked')>
 				<span class="mdl-switch__label">Enabled</span>
 			</label>
 			<br/><br/>
-			Tracks process creation and termination, many other events rely on this, you likely want this on.
-
-			<br/><br/>
-			<hr/>
-
-			<h5 style="display: inline;">Process Tracker</h5>
-			<label style="position: absolute;" class="mdl-switch mdl-js-switch mdl-js-ripple-effect" for="col_1_enabled-$oid-$platform">
-				<input type="checkbox" value="21" name="col" id="col_1_enabled-$oid-$platform" class="mdl-switch__input" $('' if profile[ 1 ].get( 'base.IS_DISABLED', None ) == 1 else 'checked')>
-				<span class="mdl-switch__label">Enabled</span>
-			</label>
-			<br/><br/>
-			Tracks process creation and termination, many other events rely on this, you likely want this on.
-
-			<br/><br/>
-			<hr/>
-
-			<h5 style="display: inline;">Process Tracker</h5>
-			<label style="position: absolute;" class="mdl-switch mdl-js-switch mdl-js-ripple-effect" for="col_1_enabled-$oid-$platform">
-				<input type="checkbox" value="22" name="col" id="col_1_enabled-$oid-$platform" class="mdl-switch__input" $('' if profile[ 1 ].get( 'base.IS_DISABLED', None ) == 1 else 'checked')>
-				<span class="mdl-switch__label">Enabled</span>
-			</label>
-			<br/><br/>
-			Tracks process creation and termination, many other events rely on this, you likely want this on.
+			Tracks processes accessing (read or write) of various file extensions. Can highlight unusual processes accessing Word documents for example.
 
 			<br/><br/>
 			<hr/>
