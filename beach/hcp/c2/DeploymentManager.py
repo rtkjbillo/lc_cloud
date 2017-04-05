@@ -584,6 +584,8 @@ class DeploymentManager( Actor ):
             if status is True:
                 profile.collectors[ 0 ].addExfil( eventId )
 
+        profile.collectors[ 11 ].setFrequency( req[ 'os_delta' ] )
+
         resp = self.setProfileFor( oid, platform, profile.toProfile() )
         if not resp.isSuccess:
             return ( False, 'error setting default linux profile: %s' % resp )

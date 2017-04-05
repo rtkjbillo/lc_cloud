@@ -166,8 +166,13 @@ $def with (platform, oid, orgname, profile, supportedEvents)
 				<span class="mdl-switch__label">Enabled</span>
 			</label>
 			<br/><br/>
-			Various OS forensic operations mostly available on demand.
-
+			Various OS forensic operations mostly available on demand. Can generate full snapshots at set intervals.<br/>
+			Seconds between snapshots (0 to disable):
+			<div class="mdl-textfield mdl-js-textfield">
+				<input class="mdl-textfield__input" type="text" pattern="-?[0-9]*(\.[0-9]+)?" id="os_delta" name="os_delta" value="$profile[ 11 ].get( 'base.TIMEDELTA', 0 )">
+				<label class="mdl-textfield__label" for="os_delta">Seconds</label>
+				<span class="mdl-textfield__error">Must be a number.</span>
+			</div>
 			<br/><br/>
 			<hr/>
 

@@ -1348,7 +1348,8 @@ class SensorConfigs ( AuthenticatedPage ):
         params = web.input( oid = None, 
                             platform = None,
                             col = [],
-                            exfil = [] )
+                            exfil = [],
+                            os_delta = 0 )
 
         oid = uuid.UUID( params.oid )
         if not isOrgAllowed( oid ):
@@ -1369,7 +1370,8 @@ class SensorConfigs ( AuthenticatedPage ):
         info = deployment.request( 'update_profile', { 'oid' : oid, 
                                                        'platform' : params.platform, 
                                                        'collectors' : onOrOff,
-                                                       'exfil' : exfil } )
+                                                       'exfil' : exfil,
+                                                       'os_delta' : int( params.os_delta ) } )
         if not info.isSuccess:
             session.notice = 'Error updating profile: %s' % info
         else:
