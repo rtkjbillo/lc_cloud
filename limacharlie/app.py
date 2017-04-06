@@ -1313,7 +1313,7 @@ class Configs ( AuthenticatedAdminPage ):
             else:
                 session.notice = 'Error setting sensor package.'
 
-        redirectTo( 'sensor_configs' )
+        redirectTo( 'configs' )
 
 class SensorConfigs ( AuthenticatedPage ):
     def doGET( self ):
