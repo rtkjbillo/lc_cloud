@@ -41,6 +41,9 @@ class _collector( object ):
     def disable( self ):
         self._isEnabled = False
 
+    def isEnabled( self ):
+        return self._isEnabled
+
     def toProfile( self ):
         profile = rSequence().addInt32( _.hbs.CONFIGURATION_ID, self.colId )
         if not self._isEnabled:
@@ -135,6 +138,8 @@ class _collector_7( _collector ):
         self.enabledRead = False
 
     def getProfile( self, root ):
+        if not self.isEnabled(): return root
+        
         disableList = rList()
 
         if not self.enabledCreate:

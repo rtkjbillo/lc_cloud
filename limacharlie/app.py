@@ -1362,6 +1362,8 @@ class SensorConfigs ( AuthenticatedPage ):
         for colId in HbsCollectorId.lookup.iterkeys():
             if colId not in map( int, params.col ):
                 onOrOff[ colId ] = False
+            else:
+                onOrOff[ colId ] = True
 
         exfil = {}
         for eventId in map( int, params.exfil ):

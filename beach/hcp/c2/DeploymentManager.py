@@ -579,6 +579,8 @@ class DeploymentManager( Actor ):
         for colId, status in req[ 'collectors' ].iteritems():
             if status is False:
                 profile.collectors[ colId ].disable()
+            else:
+                profile.collectors[ colId ].enable()
 
         for eventId, status in req[ 'exfil' ].iteritems():
             if status is True:
