@@ -280,7 +280,35 @@ $def with (platform, oid, orgname, profile, supportedEvents)
 			</label>
 			<br/><br/>
 			Tracks processes accessing (read or write) of various file extensions. Can highlight unusual processes accessing Word documents for example.
-
+			<!--
+			<table id="file_tracker_extensions">
+				<tr>
+					<td>
+						<div class="mdl-selectfield mdl-js-selectfield" style="width: 50%;">
+							<select class="mdl-selectfield__select" id="f_t_r_1" name="f_t_r">
+								$for i in xrange( 1, 256 ):
+									<option value="$i">$i</option>
+							</select>
+							<label class="mdl-selectfield__label" for="f_t_r_1">RuleId</label>
+						</div>
+					</td>
+					<td>
+						<div class="mdl-textfield mdl-js-textfield">
+							<input class="mdl-textfield__input" type="text" id="f_t_e_1" name="f_t_e" value="">
+							<label class="mdl-textfield__label" for="f_t_e_1">Extension</label>
+						</div>
+					</td>
+					<td>
+						<button class="mdl-button mdl-js-button mdl-js-ripple-effect" onclick="removeExtension(this)">
+							<i class="material-icons">remove</i>
+						</button>
+					</td>
+				</tr>
+			</table>
+			<button class="mdl-button mdl-js-button mdl-button--fab mdl-button--mini-fab mdl-button--colored" onclick="addExtension();">
+				<i class="material-icons">add</i>
+			</button>
+			-->
 			<br/><br/>
 			<hr/>
 		</form>
