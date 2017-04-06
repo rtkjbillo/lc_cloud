@@ -19,8 +19,8 @@ import (
 	"crypto/sha256"
 	"errors"
 	"fmt"
-	"github.com/refractionPOINT/lc_cloud/standalone/termination_server/rpcm"
 	"github.com/refractionPOINT/lc_cloud/standalone/termination_server/hcp"
+	"github.com/refractionPOINT/lc_cloud/standalone/termination_server/rpcm"
 	"io/ioutil"
 	"sync"
 	"time"
@@ -132,7 +132,7 @@ func (c *client) ProcessIncoming(moduleID uint8, messages []*rpcm.Sequence) erro
 			// This sensor should already be enrolled with a valid token since it has a SID.
 			var (
 				sensorToken []byte
-				ok bool
+				ok          bool
 			)
 
 			if sensorToken, ok = headers.GetBuffer(rpcm.RP_TAGS_HCP_ENROLLMENT_TOKEN); !ok {

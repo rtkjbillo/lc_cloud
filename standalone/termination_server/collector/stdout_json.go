@@ -22,14 +22,14 @@ import (
 )
 
 type stdOutJSONCollector struct {
-	connect         <-chan server.ConnectMessage
-	disconnect      <-chan server.DisconnectMessage
-	incoming        <-chan server.TelemetryMessage
-	stop            chan bool
-	numHandlers       int
+	connect       <-chan server.ConnectMessage
+	disconnect    <-chan server.DisconnectMessage
+	incoming      <-chan server.TelemetryMessage
+	stop          chan bool
+	numHandlers   int
 	isPrettyPrint bool
-	ouputWG         sync.WaitGroup
-	mu              sync.Mutex
+	ouputWG       sync.WaitGroup
+	mu            sync.Mutex
 }
 
 // NewStdoutJSON creates a new collector that will output the events to the stdout as JSON.

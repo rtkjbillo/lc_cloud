@@ -1,35 +1,35 @@
 package rpcm
 
 import (
-	"testing"
 	"bytes"
 	"encoding/json"
 	"net"
+	"testing"
 	//"math/rand"
 )
 
 func TestDeepSequence(t *testing.T) {
 	tmpBuff := []byte{0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0A}
 	seq := NewSequence().AddInt8(66, 42).
- 					     AddInt16(67, 43).
-					     AddInt32(68, 44).
-					     AddInt64(69, 45).
-					     AddStringA(400, "cool").
-					     AddStringW(401, "story").
-					     AddBuffer(402, tmpBuff).
-					     AddTimestamp(403, 999).
-					     AddIPv4(404, net.ParseIP("127.0.0.1")).
-					     AddIPv6(405, net.ParseIP("8000:7000:6000:5000:4000:3000:2000:1000")).
-					     AddPointer32(406, 0xAABBCCDD).
-					     AddPointer64(407, 0xAABBCCDD01020304).
-					     AddTimestamp(403, 666)
+		AddInt16(67, 43).
+		AddInt32(68, 44).
+		AddInt64(69, 45).
+		AddStringA(400, "cool").
+		AddStringW(401, "story").
+		AddBuffer(402, tmpBuff).
+		AddTimestamp(403, 999).
+		AddIPv4(404, net.ParseIP("127.0.0.1")).
+		AddIPv6(405, net.ParseIP("8000:7000:6000:5000:4000:3000:2000:1000")).
+		AddPointer32(406, 0xAABBCCDD).
+		AddPointer64(407, 0xAABBCCDD01020304).
+		AddTimestamp(403, 666)
 	seq2 := NewSequence().AddInt8(70, 46).
-				  	      AddInt16(71, 47).
-					      AddPointer32(406, 0xAABBCCDD).
-					      AddPointer64(407, 0xAABBCCDD01020304).
-					      AddTimestamp(403, 666).
-					      AddStringA(400, "another").
-					      AddStringW(401, "bro")
+		AddInt16(71, 47).
+		AddPointer32(406, 0xAABBCCDD).
+		AddPointer64(407, 0xAABBCCDD01020304).
+		AddTimestamp(403, 666).
+		AddStringA(400, "another").
+		AddStringW(401, "bro")
 	list1 := NewList(73, TypeInt64)
 
 	seq.AddSequence(72, seq2)
@@ -80,6 +80,7 @@ func TestDeepSequence(t *testing.T) {
 		t.Errorf("Failed to Get value.")
 	}
 }
+
 /*
 func getRandomBuffer(minSize int, maxSize int) []byte {
 	buf := make([]byte, minSize + rand.Intn(maxSize - minSize))
