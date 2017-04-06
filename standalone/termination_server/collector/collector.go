@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package lcCollector defines the interface to collectors that consume events from an
+// Package collector defines the interface to collectors that consume events from an
 // LC server and outputs them.
 package collector
 

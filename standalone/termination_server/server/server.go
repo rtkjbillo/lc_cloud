@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package lcServer implements the core logic to "keep the lights on" for LimaCharlie clients.
+// Package server implements the core logic to "keep the lights on" for LimaCharlie clients.
 // It takes care of enrollment and loading/unloading of the approproate modules. It does not
 // implement any specific transport or output as these are modular.
 package server
