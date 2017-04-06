@@ -13,6 +13,7 @@
 # limitations under the License.
 
 from gevent import monkey
+import gevent
 monkey.patch_all()
 
 from beach.beach_api import Beach
@@ -81,6 +82,7 @@ urls = (
 
 ADMIN_OID = None
 DOMAIN_NAME = None
+IS_BACKEND_AVAILABLE = False
 
 ROOT_DIRECTORY = os.path.dirname( os.path.abspath( __file__ ) )
 os.chdir( ROOT_DIRECTORY )
@@ -197,6 +199,24 @@ if _.isSuccess:
 else:
     raise Exception( 'could not fetch admin oid' )
 
+def pollBackendAvailability( isOneOff = True ):
+    global IS_BACKEND_AVAILABLE
+    aid = AgentId( '0.0.0.0.0' )
+    aid.org_id = ADMIN_OID
+    res = model.request( 'list_sensors', { 'aid' : aid }, timeout = 2 )
+    if res.isSuccess:
+        IS_BACKEND_AVAILABLE = True
+        print( 'Backend available' )
+        if not isOneOff:
+            gevent.spawn_later( 10, pollBackendAvailability, isOneOff = False )
+    else:
+        IS_BACKEND_AVAILABLE = False
+        print( 'Backend unavailable' )
+        if not isOneOff:
+            gevent.spawn_later( 5, pollBackendAvailability, isOneOff = False )
+
+gevent.spawn( pollBackendAvailability, isOneOff = False )
+
 #==============================================================================
 #   HELPERS
 #==============================================================================
@@ -210,12 +230,16 @@ def reportError( f ):
         try:
             return f( *args, **kwargs )
         except:
+            gevent.spawn( pollBackendAvailability, isOneOff = True )
             return renderAlone.error( traceback.format_exc() )
     return wrapped
 
 def authenticated( f ):
     @wraps( f )
     def wrapped( *args, **kwargs ):
+        global IS_BACKEND_AVAILABLE
+        if not IS_BACKEND_AVAILABLE:
+            return renderAlone.unavailable()
         if session.is_logged_in is not True:
             redirectTo( 'login' )
         elif session.must_change_password is True:
@@ -323,9 +347,6 @@ def getAllSensors( isAllOrgs = False ):
             for sid, sensor in res.data.iteritems():
                 info.setdefault( AgentId( sensor[ 'aid' ] ).org_id, {} )[ sid ] = sensor
     return info
-
-def isSensorAllowed( sid ):
-    pas
 
 def setDownloadFileName( name ):
     web.header( 'Content-Disposition', 'attachment;filename="%s"' % name )
