@@ -14,19 +14,19 @@
 
 // Package lcCollector defines the interface to collectors that consume events from an
 // LC server and outputs them.
-package lcCollector
+package collector
 
 import (
-	"github.com/refractionPOINT/lc_cloud/standalone/termination_server/lc_server"
+	"github.com/refractionPOINT/lc_cloud/standalone/termination_server/server"
 )
 
 // Collector interface provides a generic way of plugging in various types of output
 // for the logical events relating to a LimaCharlie server.
 type Collector interface {
 	// Set the channels used to collect output.
-	SetChannels(connect <-chan lcServer.ConnectMessage,
-		disconnect <-chan lcServer.DisconnectMessage,
-		incoming <-chan lcServer.TelemetryMessage)
+	SetChannels(connect <-chan server.ConnectMessage,
+		disconnect <-chan server.DisconnectMessage,
+		incoming <-chan server.TelemetryMessage)
 	// Start the collector and begin outputting.
 	Start() error
 	// Stop the collector and output.

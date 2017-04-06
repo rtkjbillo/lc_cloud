@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package lcServer
+package server
 
 import (
 	"bytes"
@@ -20,7 +20,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/refractionPOINT/lc_cloud/standalone/termination_server/rpcm"
-	"github.com/refractionPOINT/lc_cloud/standalone/termination_server/utils"
+	"github.com/refractionPOINT/lc_cloud/standalone/termination_server/hcp"
 	"io/ioutil"
 	"sync"
 	"time"
@@ -48,14 +48,14 @@ type client struct {
 }
 
 func (c *client) send(moduleID uint8, messages []*rpcm.Sequence) error {
-	defer c.sendMu.Unlock()
 	c.sendMu.Lock()
+	defer c.sendMu.Unlock()
 
 	if c.isOnline && c.isAuthenticated {
 		return c.sendCB(moduleID, messages)
 	}
 
-	return errors.New("not connected or authenticated")
+	return errors.New("server: not connected or authenticated")
 }
 
 func (c *client) sendTimeSync() error {
@@ -70,38 +70,38 @@ func (c *client) AgentID() hcp.AgentID {
 	return c.aID
 }
 
-func (c *client) setAgentID(aID hcp.AgentID) {
-	c.aID = aID
-}
-
 // ProcessIncoming feeds a client a message that was just received for it.
 func (c *client) ProcessIncoming(moduleID uint8, messages []*rpcm.Sequence) error {
-	defer c.recvMu.Unlock()
 	c.recvMu.Lock()
+	defer c.recvMu.Unlock()
 
 	if c.srv.isClosing {
-		return errors.New("server closing")
+		return errors.New("server: closing")
 	}
 
 	if !c.isOnline {
-		return errors.New("not connected")
+		return errors.New("server: not connected")
 	}
 
 	if !c.isAuthenticated {
 		// Client must authenticate first
 		if moduleID != hcp.ModuleIDHCP {
-			return errors.New("expected authentication first")
+			return errors.New("server: expected authentication first")
 		}
 
 		if len(messages) == 0 {
-			return errors.New("no authentication message in frame")
+			return errors.New("server: no authentication message in frame")
 		}
 
 		// Headers for a new connection are expected to be a single message
 		// in a frame with at least the AID of the client.
 		headers := messages[0]
+		// Fields other than HCP_IDENT are not required in the protocol so we ignore it
+		// if they're missing.
 		hostName, _ := headers.GetStringA(rpcm.RP_TAGS_HOST_NAME)
 		internalIP, _ := headers.GetIPv4(rpcm.RP_TAGS_IP_ADDRESS)
+
+		// HCP Ident is an absolute requirement.
 		if tmpSeq, ok := headers.GetSequence(rpcm.RP_TAGS_HCP_IDENT); ok {
 			if err := c.aID.FromSequence(tmpSeq); err != nil {
 				return err
@@ -112,26 +112,34 @@ func (c *client) ProcessIncoming(moduleID uint8, messages []*rpcm.Sequence) erro
 		// wilcards would make masks apply where they shouldn't. A client always has a specific
 		// identity.
 		if !c.aID.IsAbsolute() {
-			return fmt.Errorf("invalid AID: %s", c.aID)
+			return fmt.Errorf("server: invalid AID %s", c.aID)
 		}
 
 		if c.aID.IsSIDWild() {
 			// This sensor requires enrollment.
-			// We get the relevant enrollment messages (if elligible) from the server and
+			// We get the relevant enrollment messages (if eligible) from the server and
 			// we send them directly via the CB since we know the sensor is not authenticated yet
-			// and the officiel "send" function does an authentication check to make sure we don't
+			// and the official "send" function does an authentication check to make sure we don't
 			// send messages to unauthenticated clients.
-			if enrollmentMessages, err := c.srv.enrollClient(c); err != nil {
+			enrollmentMessages, err := c.srv.enrollClient(c)
+			if err != nil {
 				return err
-			} else if err := c.sendCB(hcp.ModuleIDHCP, enrollmentMessages); err != nil {
+			}
+			if err := c.sendCB(hcp.ModuleIDHCP, enrollmentMessages); err != nil {
 				return err
 			}
 		} else {
 			// This sensor should already be enrolled with a valid token since it has a SID.
-			if sensorToken, ok := headers.GetBuffer(rpcm.RP_TAGS_HCP_ENROLLMENT_TOKEN); !ok {
-				return errors.New("client has no enrollment token")
-			} else if !c.srv.validateEnrollmentToken(c.aID, sensorToken) {
-				return errors.New("invalid enrollment token")
+			var (
+				sensorToken []byte
+				ok bool
+			)
+
+			if sensorToken, ok = headers.GetBuffer(rpcm.RP_TAGS_HCP_ENROLLMENT_TOKEN); !ok {
+				return errors.New("server: client has no enrollment token")
+			}
+			if !c.srv.validateEnrollmentToken(c.aID, sensorToken) {
+				return errors.New("server: invalid enrollment token")
 			}
 		}
 
@@ -155,10 +163,8 @@ func (c *client) ProcessIncoming(moduleID uint8, messages []*rpcm.Sequence) erro
 	case hcp.ModuleIDHBS:
 		return c.processHBSMessage(messages)
 	default:
-		return fmt.Errorf("received messages from unexpected module: %d", moduleID)
+		return fmt.Errorf("server: received messages from unexpected module: %d", moduleID)
 	}
-
-	return nil
 }
 
 func (c *client) processHCPMessage(messages []*rpcm.Sequence) error {
@@ -169,7 +175,7 @@ func (c *client) processHCPMessage(messages []*rpcm.Sequence) error {
 	// should be in n^2 isn't a big deal.
 
 	// Make a list of all the modules currently loaded on the client.
-	var currentlyLoaded []ModuleRule
+	currentlyLoaded := make([]ModuleRule, 0, 2)
 	for _, message := range messages {
 		if modules, ok := message.GetList(rpcm.RP_TAGS_HCP_MODULES); ok {
 			for _, moduleInfo := range modules.GetSequence(rpcm.RP_TAGS_HCP_MODULE) {
@@ -178,10 +184,10 @@ func (c *client) processHCPMessage(messages []*rpcm.Sequence) error {
 					ok  bool
 				)
 				if mod.Hash, ok = moduleInfo.GetBuffer(rpcm.RP_TAGS_HASH); !ok {
-					return errors.New("module entry missing hash")
+					return errors.New("server: module entry missing hash")
 				}
 				if mod.ModuleID, ok = moduleInfo.GetInt8(rpcm.RP_TAGS_HCP_MODULE_ID); !ok {
-					return errors.New("module entry missing module ID")
+					return errors.New("server: module entry missing module ID")
 				}
 
 				currentlyLoaded = append(currentlyLoaded, mod)
@@ -252,7 +258,7 @@ func (c *client) processHCPMessage(messages []*rpcm.Sequence) error {
 }
 
 func (c *client) processHBSMessage(messages []*rpcm.Sequence) error {
-	outMessages := make([]*rpcm.Sequence, 1)
+	outMessages := make([]*rpcm.Sequence, 0, 1)
 
 	for _, message := range messages {
 
@@ -266,7 +272,7 @@ func (c *client) processHBSMessage(messages []*rpcm.Sequence) error {
 
 			// Get the profile that should be loaded on the client.
 			if profile, ok = c.srv.getHBSProfileFor(c.aID); !ok {
-				return errors.New("no HBS profile to load")
+				return errors.New("server: no HBS profile to load")
 			}
 
 			if currentProfileHash, ok := syncMessage.GetBuffer(rpcm.RP_TAGS_HASH); ok && bytes.Equal(profile.Hash, currentProfileHash) {
@@ -284,14 +290,13 @@ func (c *client) processHBSMessage(messages []*rpcm.Sequence) error {
 			}
 
 			actualHash := sha256.Sum256(profileContent)
-
 			if !bytes.Equal(actualHash[:], profile.Hash) {
-				return fmt.Errorf("profile content seems to have changed")
+				return fmt.Errorf("server: profile content seems to have changed")
 			}
 
 			// The profile is really a List of Sequences to make it more flexible.
 			parsedProfile := rpcm.NewList(0, 0)
-			if err = parsedProfile.Deserialize(bytes.NewBuffer(profileContent)); err != nil {
+			if err := parsedProfile.Deserialize(bytes.NewBuffer(profileContent)); err != nil {
 				return err
 			}
 
@@ -299,12 +304,13 @@ func (c *client) processHBSMessage(messages []*rpcm.Sequence) error {
 				AddSequence(rpcm.RP_TAGS_NOTIFICATION_SYNC, rpcm.NewSequence().
 					AddBuffer(rpcm.RP_TAGS_HASH, profile.Hash).
 					AddList(rpcm.RP_TAGS_HBS_CONFIGURATIONS, parsedProfile)))
-		} else {
-			var data TelemetryMessage
-			data.Event = message
-			data.AID = &c.aID
-			c.srv.incomingChan <- data
+			continue
 		}
+
+		var data TelemetryMessage
+		data.Event = message
+		data.AID = &c.aID
+		c.srv.incomingChan <- data
 	}
 
 	return nil
@@ -312,14 +318,14 @@ func (c *client) processHBSMessage(messages []*rpcm.Sequence) error {
 
 // Stop tells the client it has disconnected from the server.
 func (c *client) Stop() error {
-	defer c.sendMu.Unlock()
-	defer c.recvMu.Unlock()
 	c.sendMu.Lock()
+	defer c.sendMu.Unlock()
 	c.recvMu.Lock()
+	defer c.recvMu.Unlock()
 
 	if !c.isOnline {
-		// Double close, ignore
-		return nil
+		// Double close.
+		return errors.New("server: client connection already closed")
 	}
 
 	c.srv.disconnectChan <- DisconnectMessage{AID: &c.aID}

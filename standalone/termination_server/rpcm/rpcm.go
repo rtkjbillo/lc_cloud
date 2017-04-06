@@ -266,7 +266,7 @@ func (e *List) Serialize(toBuf *bytes.Buffer) error {
 	}
 	for _, elem := range e.elements {
 		if e.elemType != elem.getType() {
-			return errors.New("sanity failure: list contains unexpected type")
+			return errors.New("rpcm: sanity failure: list contains unexpected type")
 		}
 		if err := binary.Write(toBuf, binary.BigEndian, e.elemTag); err != nil {
 			return err
@@ -407,18 +407,18 @@ func (e *List) Deserialize(fromBuf *bytes.Buffer) error {
 			return err
 		}
 		if tag != e.elemTag {
-			return errors.New("sanity failure: element tag in list does not match")
+			return errors.New("rpcm: sanity failure: element tag in list does not match")
 		}
 		if err := binary.Read(fromBuf, binary.BigEndian, &typ); err != nil {
 			return err
 		}
 		if typ != e.elemType {
-			return errors.New("sanity failure: element type in list does not match")
+			return errors.New("rpcm: sanity failure: element type in list does not match")
 		}
 
 		tmpElem, err := deserializeElem(fromBuf, typ)
 		if tmpElem == nil || err != nil {
-			return fmt.Errorf("failed to deserialize an element (%s)", err)
+			return fmt.Errorf("rpcm: failed to deserialize an element (%s)", err)
 		}
 
 		e.elements = append(e.elements, tmpElem)
@@ -455,13 +455,13 @@ func deserializeElem(fromBuf *bytes.Buffer, typ uint8) (rpcmElement, error) {
 			return nil, err
 		}
 		if uint32(fromBuf.Len()) < elemLen || elemLen == 0 {
-			return nil, errors.New("not enough data in buffer")
+			return nil, errors.New("rpcm: not enough data in buffer")
 		}
 
 		tmpBuf = make([]byte, elemLen)
 		sizeRead, err = fromBuf.Read(tmpBuf)
 		if uint32(sizeRead) != elemLen {
-			return nil, fmt.Errorf("Error reading enough data from buffer for string a, read %d", sizeRead)
+			return nil, fmt.Errorf("rpcm: error reading enough data from buffer for string a, read %d", sizeRead)
 		}
 
 		elem.(*rStringA).value = string(tmpBuf)
@@ -474,13 +474,13 @@ func deserializeElem(fromBuf *bytes.Buffer, typ uint8) (rpcmElement, error) {
 			return nil, err
 		}
 		if uint32(fromBuf.Len()) < elemLen || elemLen == 0 {
-			return nil, errors.New("Not enough data in buffer")
+			return nil, errors.New("rpcm: not enough data in buffer")
 		}
 
 		tmpBuf = make([]byte, elemLen)
 		sizeRead, err = fromBuf.Read(tmpBuf)
 		if uint32(sizeRead) != elemLen {
-			return nil, fmt.Errorf("Error reading enough data from buffer for string w, read %d", sizeRead)
+			return nil, fmt.Errorf("rpcm: error reading enough data from buffer for string w, read %d", sizeRead)
 		}
 
 		elem.(*rStringW).value = string(tmpBuf)
@@ -493,13 +493,13 @@ func deserializeElem(fromBuf *bytes.Buffer, typ uint8) (rpcmElement, error) {
 			return nil, err
 		}
 		if uint32(fromBuf.Len()) < elemLen || elemLen == 0 {
-			return nil, errors.New("Not enough data in buffer")
+			return nil, errors.New("rpcm: not enough data in buffer")
 		}
 
 		tmpBuf = make([]byte, elemLen)
 		sizeRead, err = fromBuf.Read(tmpBuf)
 		if uint32(sizeRead) != elemLen {
-			return nil, fmt.Errorf("Error reading enough data from buffer for buffer, read %d", sizeRead)
+			return nil, fmt.Errorf("rpcm: error reading enough data from buffer for buffer, read %d", sizeRead)
 		}
 
 		elem.(*rBuffer).value = tmpBuf
@@ -510,13 +510,13 @@ func deserializeElem(fromBuf *bytes.Buffer, typ uint8) (rpcmElement, error) {
 		elem = &rIPv4{rElem: rElem{typ: typ}}
 		elem.(*rIPv4).value = make([]byte, net.IPv4len)
 		if sizeRead, err = fromBuf.Read(elem.(*rIPv4).value); err != nil || uint32(sizeRead) != net.IPv4len {
-			return nil, fmt.Errorf("Error reading enough data from buffer for IPv4, read %d", sizeRead)
+			return nil, fmt.Errorf("rpcm: error reading enough data from buffer for IPv4, read %d", sizeRead)
 		}
 	case TypeIPv6:
 		elem = &rIPv6{rElem: rElem{typ: typ}}
 		elem.(*rIPv6).value = make([]byte, net.IPv6len)
 		if sizeRead, err = fromBuf.Read(elem.(*rIPv6).value); err != nil || uint32(sizeRead) != net.IPv6len {
-			return nil, fmt.Errorf("Error reading enough data from buffer for IPv6, read %d", sizeRead)
+			return nil, fmt.Errorf("rpcm: error reading enough data from buffer for IPv6, read %d", sizeRead)
 		}
 	case TypePointer32:
 		elem = &rPointer32{rElem: rElem{typ: typ}}
@@ -535,7 +535,7 @@ func deserializeElem(fromBuf *bytes.Buffer, typ uint8) (rpcmElement, error) {
 		err = elem.(*List).Deserialize(fromBuf)
 	default:
 		elem = nil
-		return nil, fmt.Errorf("unexpected type: %d", typ)
+		return nil, fmt.Errorf("rpcm: unexpected type %d", typ)
 	}
 
 	if err != nil {

@@ -15,7 +15,7 @@
 // Package lcServer implements the core logic to "keep the lights on" for LimaCharlie clients.
 // It takes care of enrollment and loading/unloading of the approproate modules. It does not
 // implement any specific transport or output as these are modular.
-package lcServer
+package server
 
 import (
 	"crypto/hmac"
@@ -25,7 +25,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/refractionPOINT/lc_cloud/standalone/termination_server/lc_server_config"
 	"github.com/refractionPOINT/lc_cloud/standalone/termination_server/rpcm"
-	"github.com/refractionPOINT/lc_cloud/standalone/termination_server/utils"
+	"github.com/refractionPOINT/lc_cloud/standalone/termination_server/hcp"
 	"io/ioutil"
 	"net"
 	"sync"
@@ -169,7 +169,7 @@ func NewServer(config *lcServerConfig.Config) (Server, error) {
 		r.ModuleID = uint8(rule.GetModuleId())
 
 		if !r.AID.FromString(rule.GetAid()) {
-			return s, fmt.Errorf("failed to parse AID: %s", rule.GetAid())
+			return s, fmt.Errorf("server: failed to parse AID: %s", rule.GetAid())
 		}
 
 		r.ModuleFile = rule.GetModuleFile()
@@ -191,7 +191,7 @@ func NewServer(config *lcServerConfig.Config) (Server, error) {
 		r := ProfileRule{}
 
 		if !r.AID.FromString(rule.GetAid()) {
-			return s, fmt.Errorf("failed to parse AID: %s", rule.GetAid())
+			return s, fmt.Errorf("server: failed to parse AID: %s", rule.GetAid())
 		}
 
 		r.ProfileFile = rule.GetProfileFile()
@@ -312,11 +312,11 @@ func (srv *server) enrollClient(c *client) ([]*rpcm.Sequence, error) {
 	aID := c.AgentID()
 
 	if !srv.isWhitelistedForEnrollment(aID.OID, aID.IID) {
-		return nil, fmt.Errorf("org or installer not whitelisted: %s / %s", aID.OID, aID.IID)
+		return nil, fmt.Errorf("server: org or installer not whitelisted: %s / %s", aID.OID, aID.IID)
 	}
 
 	aID.SID = uuid.New()
-	c.setAgentID(aID)
+	c.aID = aID
 
 	enrollmentToken := srv.generateEnrollmentToken(aID)
 
@@ -370,7 +370,7 @@ func (srv *server) NewClient(sendFunc func(moduleID uint8, messages []*rpcm.Sequ
 	srv.mu.RLock()
 
 	if srv.isClosing {
-		return nil, errors.New("server closing")
+		return nil, errors.New("server: closing")
 	}
 
 	c := new(client)
@@ -415,7 +415,7 @@ func (srv *server) setOnline(c *client, msg ConnectMessage) error {
 		return nil
 	}
 
-	return errors.New("server closing")
+	return errors.New("server: closing")
 }
 
 func (srv *server) setOffline(c *client) {

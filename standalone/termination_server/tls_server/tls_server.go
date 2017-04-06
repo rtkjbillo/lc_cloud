@@ -26,8 +26,8 @@ import (
 	"fmt"
 	"github.com/golang/glog"
 	"github.com/golang/protobuf/proto"
-	"github.com/refractionPOINT/lc_cloud/standalone/termination_server/lc_collector"
-	"github.com/refractionPOINT/lc_cloud/standalone/termination_server/lc_server"
+	"github.com/refractionPOINT/lc_cloud/standalone/termination_server/collector"
+	"github.com/refractionPOINT/lc_cloud/standalone/termination_server/server"
 	"github.com/refractionPOINT/lc_cloud/standalone/termination_server/lc_server_config"
 	"github.com/refractionPOINT/lc_cloud/standalone/termination_server/rpcm"
 	"io"
@@ -55,13 +55,13 @@ type TLSLCServer struct {
 	LCConfig       *lcServerConfig.Config
 	clientsWG      sync.WaitGroup
 	isDraining     bool
-	lcServerCtx    lcServer.Server
-	lcCollectorCtx lcCollector.Collector
+	lcServerCtx    server.Server
+	lcCollectorCtx collector.Collector
 }
 
 type tlsClient struct {
 	conn     net.Conn
-	lcClient lcServer.Client
+	lcClient server.Client
 }
 
 func main() {
@@ -114,11 +114,11 @@ func main() {
 // Run is the function implementing the main TLS LC server loop.
 func (srv *TLSLCServer) Run() error {
 	var err error
-	if srv.lcServerCtx, err = lcServer.NewServer(srv.LCConfig); err != nil {
+	if srv.lcServerCtx, err = server.NewServer(srv.LCConfig); err != nil {
 		return err
 	}
 
-	srv.lcCollectorCtx = lcCollector.NewStdoutJSON(1, false)
+	srv.lcCollectorCtx = collector.NewStdoutJSON(1, false)
 	srv.lcCollectorCtx.SetChannels(srv.lcServerCtx.GetChannels())
 	defer srv.lcCollectorCtx.Stop()
 	if err := srv.lcCollectorCtx.Start(); err != nil {

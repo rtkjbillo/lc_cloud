@@ -158,26 +158,26 @@ func (aid *AgentID) FromSequence(message *rpcm.Sequence) error {
 		ok  bool
 	)
 	if buf, ok = message.GetBuffer(rpcm.RP_TAGS_HCP_ORG_ID); !ok || len(aid.OID) != len(buf) {
-		return errors.New("invalid oid")
+		return errors.New("hcp: invalid oid")
 	}
 	copy(aid.OID[:], buf)
 
 	if buf, ok = message.GetBuffer(rpcm.RP_TAGS_HCP_INSTALLER_ID); !ok || len(aid.IID) != len(buf) {
-		return errors.New("invalid iid")
+		return errors.New("hcp: invalid iid")
 	}
 	copy(aid.IID[:], buf)
 
 	if buf, ok = message.GetBuffer(rpcm.RP_TAGS_HCP_SENSOR_ID); !ok || len(aid.SID) != len(buf) {
-		return errors.New("invalid sid")
+		return errors.New("hcp: invalid sid")
 	}
 	copy(aid.SID[:], buf)
 
 	if aid.Architecture, ok = message.GetInt32(rpcm.RP_TAGS_HCP_ARCHITECTURE); !ok {
-		return errors.New("missing architecture")
+		return errors.New("hcp: missing architecture")
 	}
 
 	if aid.Platform, ok = message.GetInt32(rpcm.RP_TAGS_HCP_PLATFORM); !ok {
-		return errors.New("missing platform")
+		return errors.New("hcp: missing platform")
 	}
 
 	return nil
