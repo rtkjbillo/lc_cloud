@@ -1287,7 +1287,11 @@ class Configs ( AuthenticatedAdminPage ):
                             enrollmentsecret = None, 
                             paging_user = None, paging_from = None, paging_password = None,
                             virustotalkey = None, 
-                            sensorpackage = None )
+                            sensorpackage = None,
+                            uidomain = None,
+                            whatsnew = None,
+                            outagetext = None,
+                            outagestate = None )
 
         if params.primary_domain is not None and params.primary_port is not None:
             if ( deployment.request( 'set_config', 
@@ -1333,6 +1337,30 @@ class Configs ( AuthenticatedAdminPage ):
                 session.notice = 'Success setting sensor package.'
             else:
                 session.notice = 'Error setting sensor package.'
+        elif params.uidomain is not None:
+            if deployment.request( 'set_config', 
+                                   { 'conf' : 'global/uidomain', 'value' : params.uidomain, 'by' : session.email } ).isSuccess:
+                session.notice = 'Success setting ui domain.'
+            else:
+                session.notice = 'Error setting ui domain.'
+        elif params.whatsnew is not None:
+            if deployment.request( 'set_config', 
+                                   { 'conf' : 'global/whatsnew', 'value' : params.whatsnew, 'by' : session.email } ).isSuccess:
+                session.notice = 'Success setting whatsnew.'
+            else:
+                session.notice = 'Error setting whatsnew.'
+        elif params.outagetext is not None:
+            if deployment.request( 'set_config', 
+                                   { 'conf' : 'global/outagetext', 'value' : params.outagetext, 'by' : session.email } ).isSuccess:
+                session.notice = 'Success setting outagetext.'
+                outageState = '1' if params.outagestate is not None else '0'
+                if deployment.request( 'set_config', 
+                                       { 'conf' : 'global/outagestate', 'value' : outageState, 'by' : session.email } ).isSuccess:
+                    session.notice = 'Success setting outagestate.'
+                else:
+                    session.notice = 'Error setting outagestate.'
+            else:
+                session.notice = 'Error setting outagetext.'
 
         redirectTo( 'configs' )
 

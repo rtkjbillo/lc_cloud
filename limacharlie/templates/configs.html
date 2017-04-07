@@ -176,6 +176,54 @@ $var title = 'Configurations'
   </div>
 </div>
 
+<div class="mdl-card mdl-cell mdl-cell--4-col mdl-shadow--4dp">
+  <div class="mdl-card__title">
+    <h4 class="mdl-card__title-text">What's New</h4>
+  </div>
+  <div class="mdl-card__supporting-text"">
+    <form method="POST" id="form_uidomain">
+      The markdown-formated text you enter here will be displayed in the "What's New" section of the dashboard for all users.
+      <br/><br/>
+      <div class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label">
+          <textarea class="mdl-textfield__input" type="text" rows= "3" id="whatsnew" name="whatsnew" value="$configs['global/whatsnew']"></textarea>
+          <label class="mdl-textfield__label" for="whatsnew">What's New</label>
+      </div>
+    </form>
+  </div>
+  <div class="mdl-card__actions mdl-card--border">
+    <center>
+      <button class="mdl-button mdl-button--colored mdl-js-button mdl-js-ripple-effect mdl-button--raised" type="submit" form="form_uidomain" name="action" value="leave" onclick="return confirm('Are you sure you want to update the whats new text?');">Update</button>
+    </center>
+  </div>
+</div>
+
+<div class="mdl-card mdl-cell mdl-cell--4-col mdl-shadow--4dp">
+  <div class="mdl-card__title">
+    <h4 class="mdl-card__title-text">Outage Info</h4>
+  </div>
+  <div class="mdl-card__supporting-text"">
+    <form method="POST" id="form_uidomain">
+      The markdown-formated text that will be displayed to all non-Admin users when you toggle the outage to "on". 
+      While the outage is "on", all non-admin users will not be granted access to the web ui and will have the warning displayed to them.
+      This is useful for performing maintenance to the cloud and warning users it is happenning.
+      <br/><br/>
+      <div class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label">
+          <textarea class="mdl-textfield__input" type="text" rows= "3" id="outagetext" name="outagetext" value="$configs['global/outagetext']"></textarea>
+          <label class="mdl-textfield__label" for="outagetext">Outage Text</label>
+      </div>
+      <label class="mdl-switch mdl-js-switch mdl-js-ripple-effect" for="outagestate">
+        <input type="checkbox" value="4" name="col" id="outagestate" class="mdl-switch__input" $('' if configs['global/outagestate'] == '0' else 'checked')>
+        <span class="mdl-switch__label">Turn on outage</span>
+      </label>
+    </form>
+  </div>
+  <div class="mdl-card__actions mdl-card--border">
+    <center>
+      <button class="mdl-button mdl-button--colored mdl-js-button mdl-js-ripple-effect mdl-button--raised" type="submit" form="form_uidomain" name="action" value="leave" onclick="return confirm('Are you sure you want to update the outage information?');">Update</button>
+    </center>
+  </div>
+</div>
+
 
 <script type="text/javascript">
   jQuery(document).ready(function () {

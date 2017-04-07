@@ -274,6 +274,15 @@ class DeploymentManager( Actor ):
             self.db.execute( 'INSERT INTO configs ( conf, value ) VALUES ( %s, %s )', ( 'global/uidomain', uiDomain ) )
             self.audit.shoot( 'record', { 'oid' : self.admin_oid, 'etype' : 'conf_change', 'msg' : 'Setting ui domain.' } )
 
+            self.log( 'loading whatsnew' )
+            self.db.execute( 'INSERT INTO configs ( conf, value ) VALUES ( %s, %s )', ( 'global/whatsnew', '' ) )
+            self.audit.shoot( 'record', { 'oid' : self.admin_oid, 'etype' : 'conf_change', 'msg' : 'Setting whatsnew text.' } )
+
+            self.log( 'loading outage display' )
+            self.db.execute( 'INSERT INTO configs ( conf, value ) VALUES ( %s, %s )', ( 'global/outagetext', '' ) )
+            self.db.execute( 'INSERT INTO configs ( conf, value ) VALUES ( %s, %s )', ( 'global/outagestate', '0' ) )
+            self.audit.shoot( 'record', { 'oid' : self.admin_oid, 'etype' : 'conf_change', 'msg' : 'Setting outagetext info.' } )
+
             self.log( 'loading current latest sensor package version' )
             self.db.execute( 'INSERT INTO configs ( conf, value ) VALUES ( %s, %s )', ( 'global/sensorpackage', sensorPackage ) )
             self.audit.shoot( 'record', { 'oid' : self.admin_oid, 'etype' : 'conf_change', 'msg' : 'Setting sensor package.' } )
@@ -495,6 +504,9 @@ class DeploymentManager( Actor ):
             'global/virustotalkey' : '',
             'global/uidomain' : '',
             'global/admin_oid' : '',
+            'global/whatsnew' : '',
+            'global/outagetext' : '',
+            'global/outagestate' : '1'
         }
 
         info = self.db.execute( 'SELECT conf, value FROM configs WHERE conf IN %s', ( globalConf.keys(), ) )
