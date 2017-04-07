@@ -23,8 +23,10 @@ $def with (content)
 
     <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/font-awesome/4.7.0/css/font-awesome.min.css">
     <link rel="stylesheet" href="/static/css/selectfield.css">
+    <link rel="stylesheet" href="/static/css/mdl-jquery-modal-dialog.css">
     <script src="/static/js/selectfield.js"></script>
     <script src="/static/js/lc.js"></script>
+    <script src="/static/js/mdl-jquery-modal-dialog.js"></script>
   </head>
   <body>
   	<!-- Always shows a header, even in smaller screens. -->
@@ -91,6 +93,13 @@ $def with (content)
 </html>
 <script>
 	jQuery(".code").each(function(i, e) {hljs.highlightBlock(e)});
+	jQuery('.help-dialog').children('div').css('display', 'none');
+	jQuery('.help-dialog').click(function () {
+	    showDialog({
+	        title: 'Help',
+	        text: jQuery(this).children('div').html()
+    });
+});
 </script>
 <script>
   (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){

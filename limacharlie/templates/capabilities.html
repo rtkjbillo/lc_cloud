@@ -6,6 +6,21 @@ $if is_admin:
     <div class="mdl-card mdl-cell mdl-cell--4-col mdl-shadow--4dp">
       <div class="mdl-card__title">
         <h4 class="mdl-card__title-text">Load Capability</h4>
+        <button class="mdl-button mdl-js-button mdl-js-ripple-effect help-dialog" style="position: absolute; right: 0;">
+          <div>
+            <p>
+              Load Capability allows you to load detections, hunters or patrols dynamically. 
+            </p>
+            <p>
+              Specify one of URL or Patrol Content. If you specify URL, the capability stored there, whether a detection, hunter or patrol will be loaded and listed below.
+              If you specify Patrol Content, you can copy and paste a patrol inline without having it available at a URL, it's ideal for testing.
+            </p>
+            <p>
+              The name specified will be used to uniquely identify the capability. Use it in the Unload panel.
+            </p>
+          </div>
+          <i class="material-icons">help</i>
+        </button>
       </div>
       <div class="mdl-card__supporting-text" style="position: relative; ">
         <form method="POST" id="form_add_cap">
@@ -37,6 +52,14 @@ $if is_admin:
     <div class="mdl-card mdl-cell mdl-cell--4-col mdl-shadow--4dp">
       <div class="mdl-card__title">
         <h4 class="mdl-card__title-text">Unload Capability</h4>
+        <button class="mdl-button mdl-js-button mdl-js-ripple-effect help-dialog" style="position: absolute; right: 0;">
+          <div>
+            <p>
+              Unload a previously loaded capability by name.
+            </p>
+          </div>
+          <i class="material-icons">help</i>
+        </button>
       </div>
       <div class="mdl-card__supporting-text" style="position: relative; ">
         <form method="POST" id="form_del_cap">
@@ -65,58 +88,3 @@ $for capName, capInfo in capabilities.iteritems():
       <div class="mdl-card__actions mdl-card--border">
       </div>
     </div>
-
-
-
-
-
-
-<!--
-<div class="row">
-    <div class="col-lg-6">
-        Add from URL:
-        <form action="/capabilities" method="POST">
-            <div class="form-group">
-                <label for="urlToAdd">Capability URL:</label>
-                <input type="url" class="form-control" id="urlToAdd" name="urlToAdd">
-                <small class="form-text text-muted">Example: https://github.com/hunter.py or file:///tmp/hunter.py</small>
-            </div>
-            <div class="form-group">
-                <label for="nameToAdd">Unique Name:</label>
-                <input type="text" class="form-control" id="nameToAdd" name="nameToAdd">
-            </div>
-            <div class="form-group">
-                <label for="argsToAdd">Arguments (JSON):</label>
-                <textarea class="form-control" id="argsToAdd" rows="3" name="argsToAdd"></textarea>
-            </div>
-            <button type="submit" class="btn btn-primary">Add</button>
-        </form>
-    </div>
-    <div class="col-lg-6">
-        <form action="/capabilities" method="POST">
-            <div class="form-group">
-                <label for="nameToRem">Unique Name:</label>
-                <input type="text" class="form-control" id="nameToRem" name="nameToRem">
-            </div>
-            <button type="submit" class="btn btn-primary">Remove</button>
-        </form>
-    </div>
-</div>
-<div class="row">
-    <div class="col-lg-12">
-        <table class="table">
-            <thead>
-                <th>Unique Name</th>
-                <th>Info</th>
-            </thead>
-            <tbody>
-                $for capName, capInfo in capabilities.iteritems():
-                    <tr>
-                        <td>$capName</td>
-                        <td><pre style="text-align: left;"><code>$json.dumps( capInfo, indent = 2 )</code></pre></td>
-                    </tr>
-            </tbody>
-        </table>
-    </div>
-</div>
--->

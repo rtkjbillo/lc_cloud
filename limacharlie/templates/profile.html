@@ -3,6 +3,14 @@ $var title = 'Profile'
 <div class="mdl-card mdl-cell mdl-cell--4-col mdl-shadow--4dp std_height">
   <div class="mdl-card__title">
     <h2 class="mdl-card__title-text">Member Organizations</h2>
+    <button class="mdl-button mdl-js-button mdl-js-ripple-effect help-dialog" style="position: absolute; right: 0;">
+      <div>
+        <p>
+          Member Organizations lists all the organizations the currently logged in user is a member of.
+        </p>
+      </div>
+      <i class="material-icons">help</i>
+    </button>
   </div>
   <div class="mdl-card__supporting-text">
     <form method="POST" id="form_member_org">
@@ -64,6 +72,14 @@ $if all_orgs is not None:
   <div class="mdl-card mdl-cell mdl-cell--4-col mdl-shadow--4dp std_height">  
     <div class="mdl-card__title">
       <h2 class="mdl-card__title-text">All Organizations</h2>
+      <button class="mdl-button mdl-js-button mdl-js-ripple-effect help-dialog" style="position: absolute; right: 0;">
+      <div>
+        <p>
+          All Organizations is available to administrators to see the entire list of all organizations hosted.
+        </p>
+      </div>
+      <i class="material-icons">help</i>
+    </button>
     </div>
     <div class="mdl-card__supporting-text">
       <form method="POST" id="form_admin_orgs">
@@ -100,6 +116,18 @@ $if all_orgs is not None:
   <div class="mdl-card mdl-cell mdl-cell--4-col mdl-shadow--4dp std_height">  
     <div class="mdl-card__title">
       <h2 class="mdl-card__title-text">Create/Delete Account</h2>
+      <button class="mdl-button mdl-js-button mdl-js-ripple-effect help-dialog" style="position: absolute; right: 0;">
+      <div>
+        <p>
+          Create/Delete Account allows you to create a new account that is not associated with any organization.
+        </p>
+        <p>
+          If a paging email account is configured in your cloud configs, it will be used to automatically send an enrollment email to the user.
+          If no paging account is configured, a secret enrollment link will be displayed and you are responsible for copy pasting it to your new user.
+        </p>
+      </div>
+      <i class="material-icons">help</i>
+    </button>
     </div>
     <div class="mdl-card__supporting-text">
       <form method="POST" id="form_admin_mod_account">
@@ -120,6 +148,17 @@ $if all_orgs is not None:
   <div class="mdl-card mdl-cell mdl-cell--4-col mdl-shadow--4dp std_height">  
     <div class="mdl-card__title">
       <h2 class="mdl-card__title-text">Create Org</h2>
+      <button class="mdl-button mdl-js-button mdl-js-ripple-effect help-dialog" style="position: absolute; right: 0;">
+      <div>
+        <p>
+          Create Org creates a new organization without any users in it. The name of the organization is not necessarily unique.
+        </p>
+        <p>
+          A new set of sensors and keys will be generated for the new organization.
+        </p>
+      </div>
+      <i class="material-icons">help</i>
+    </button>
     </div>
     <div class="mdl-card__supporting-text">
       <form method="POST" id="form_admin_mod_org">
@@ -139,6 +178,17 @@ $if all_orgs is not None:
   <div class="mdl-card mdl-cell mdl-cell--4-col mdl-shadow--4dp std_height">  
     <div class="mdl-card__title">
       <h2 class="mdl-card__title-text">Generate Sensors</h2>
+      <button class="mdl-button mdl-js-button mdl-js-ripple-effect help-dialog" style="position: absolute; right: 0;">
+      <div>
+        <p>
+          Generate Sensors allows you to trigger the re-generation of sensors for all of the selector organizations.
+        </p>
+        <p>
+          Use this to generate new installers based on a new version of LimaCharlie (configured in your cloud configs).
+        </p>
+      </div>
+      <i class="material-icons">help</i>
+    </button>
     </div>
     <div class="mdl-card__supporting-text">
       Select the organizations for which you'd like to re-generate the installers and sensors from the 

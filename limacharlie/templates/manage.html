@@ -5,6 +5,19 @@ $for oid, installerList in installers.iteritems():
   <div class="mdl-card mdl-cell mdl-cell--12-col mdl-shadow--4dp min_height">
     <div class="mdl-card__title">
       <h2 class="mdl-card__title-text">Installers: $orgNames[ oid ]</h2>
+      <button class="mdl-button mdl-js-button mdl-js-ripple-effect help-dialog" style="position: absolute; right: 0;">
+      <div>
+        <p>
+          Installers are organization specific. They are keyed to each organization in way that ensures sensors cannot get mixed up or controlled by any other organization.
+        </p>
+        <p>
+          Always download the installer right before installing on hosts to ensure you have the latest version. 
+          When new installers are generated, by default old installers will become unable to enroll new sensors. 
+          This allows you to quickly cycle installers in the event you lose control of it (upload to VT for example).
+        </p>
+      </div>
+      <i class="material-icons">help</i>
+    </button>
     </div>
     <div class="mdl-card__supporting-text">
       <table class="mdl-data-table mdl-js-data-table mdl-shadow--2dp" style="width: 100%;">
@@ -51,6 +64,14 @@ $for oid, logEvents in logs.iteritems():
   <div class="mdl-card mdl-cell mdl-cell--12-col mdl-shadow--4dp min_height">
     <div class="mdl-card__title">
       <h2 class="mdl-card__title-text">Audit Logs: $orgNames[ oid ]</h2>
+      <button class="mdl-button mdl-js-button mdl-js-ripple-effect help-dialog" style="position: absolute; right: 0;">
+      <div>
+        <p>
+          Audit Logs represents actions that were taken by members or administrators that influence activity of the organization or are otherwise important (like a user exporting data from a sensor).
+        </p>
+      </div>
+      <i class="material-icons">help</i>
+    </button>
     </div>
     <div class="mdl-card__supporting-text">
       <table class="mdl-data-table mdl-js-data-table mdl-shadow--2dp" style="width: 100%;">
@@ -74,32 +95,4 @@ $for oid, logEvents in logs.iteritems():
     <div class="mdl-card__actions mdl-card--border">
     </div>
   </div>
-$if False:
-  $for oid, profileList in profiles.iteritems():
-    <div class="mdl-card mdl-cell mdl-cell--4-col mdl-shadow--4dp min_height">
-      <div class="mdl-card__title">
-        <h2 class="mdl-card__title-text">Profiles: $orgNames[ oid ]</h2>
-      </div>
-      <div class="mdl-card__supporting-text">
-        <form method="POST" id="form_member_org">
-          <table class="mdl-data-table mdl-js-data-table mdl-shadow--2dp" style="width: 100%;">
-            <thead>
-              <tr>
-                <th></th>
-                <th class="mdl-data-table__cell--non-numeric">Mask ID</th>
-                <th class="mdl-data-table__cell--non-numeric">Profile</th>
-              </tr>
-            </thead>
-            <tbody>
-              $for profile in profileList[ 'profiles' ]:
-                <tr>
-                  <td class="mdl-data-table__cell--non-numeric click-to-copy">$installer[ 'mask' ]</td>
-                  <td class="mdl-data-table__cell--non-numeric click-to-copy">$installer[ 'original_configs' ]</td>
-                </tr>
-            </tbody>
-          </table>
-        </form>
-      </div>
-      <div class="mdl-card__actions mdl-card--border">
-      </div>
-    </div>
+  

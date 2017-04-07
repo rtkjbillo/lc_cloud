@@ -2,6 +2,40 @@ $def with ( sid, hostname, after, before )
 <div class="mdl-card mdl-cell mdl-cell--12-col mdl-shadow--4dp">
   <div class="mdl-card__title">
     <h4 class="mdl-card__title-text">Blink: $hostname</h4>
+    <button class="mdl-button mdl-js-button mdl-js-ripple-effect help-dialog" style="position: absolute; right: 0;">
+      <div>
+        <p>
+          Blink gives you a quick glance at the activity on the host over a set period of time.<br/>
+          Every line of the display represents an event. On the right side will be tags.<br/>
+          The tags come in 3 categories:
+          <ul>
+            <li>
+              <b>Plus ( + ):</b> This means that the specific characteristic the track represent seems to indicate the event is well known or normal, or more likely to be safe somehow. For example, for the VT tags, a + indicates the hash was well known and had no VT hits.
+            </li>
+            <li>
+              <b>Question ( ? ):</b> This means that not much is known about the characteristic, or that no good conclusion can be established.
+            </li>
+            <li>
+              <b>Minus ( - ):</b> This means that characteristic is unknown or somehow indicates something more suspicious or risky.
+            </li>
+          </ul>
+        </p>
+        <p>
+          At the top of the page will be a list of filters as checkboxes. By unchecking one, you filter out all elements that have the specific tag and no other filtered-in tags.
+        </p>
+        <p>
+          So for example, by unchecking all but minus ( - ) tags, you could highlight the most suspicious items in the list.
+        </p>
+        <p>
+          The second part of the tag, the part that follow the slash ( / ) is the actual metric that was used to make the evaluation ( +, ?, - ) of the tag.<br/>
+          For example:
+        </p>
+        <p>
+          The tag (? VT / 1) would indicate that the hash had a single hit on VT and the conclusion is somewhat uncertain as it could easily be a False Positive.
+        </p>
+      </div>
+      <i class="material-icons">help</i>
+    </button>
   </div>
   <div class="mdl-card__supporting-text">
     <div style="height: 800px; overflow: scroll;">
