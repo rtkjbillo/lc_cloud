@@ -260,6 +260,45 @@ class DeploymentManager( Actor ):
             secondaryPort = '443'
             adminOid = uuid.uuid4()
             uiDomain = 'limacharlie'
+            defaultWelcome = '''#### New LimaCharlie Deployment Checklist
+This is a quick checklist of things you likely want to customize with your new deployment:
+
+1. Using the top left menu, head over to the [configuration page](/configs).
+1. You'll want to fill in as many of the config values as you can, but more critically
+    1. Primary and Secondary domains
+    1. Sensor Package, unless you know what you're doing, use the latest release link that shows up
+    1. UI Domain, set that to the IP (or DNS if setup) of the LC install (and with port, default 8888)
+1. Now head out to the [profile page](/profile), it's the link with your user name (default admin@limacharlie)
+1. A default organization (ADMIN_ORG) was already created for you, any users member of that organization will automatically be administrator
+1. Create your first organization where you can add new users and enroll sensors
+    1. Enter the name of your organization in Create Org
+    1. This will generate new keys and installers for this organization
+1. Add yourself (admin@limacharlie) or a new unprivileged user you created to this new organization
+    1. Select the new organization in the Member Organizations, enter the email of the user to add and click Add Selected
+    1. Alternatively, as an admin you can arbitrarily join any organization by usng the All Organization panel and click Join Organization
+1. If you head over to the [sensor configuration](/sensor_configs) page, you can customize the collectors enabled and the events automatically sent to the cloud, but sane defaults should already be set
+1. Go to the [installers and logs page](/manage)
+    1. There you will find the installers for all organizations you're a member of, download one and run it on a relevant host to get your first sensor running
+1. You should not be able to see your sensor enrolled in the [sensors page](/sensors)
+            '''
+            defaultPolicy = '''### How your data is handled
+
+All raw data from sensors, in the form of events, are kept private and under the control of the system owner, as assumed by User membership into the Organization listed as owner of the sensor.
+Events will at no point be looked at or exported outside the Service without the express authorization of a member of the owning Organization, even for debugging purposes.
+For troubleshooting purposes an operator of the Service may request access, but it is up to you as owner to approve or deny. If access is approved, auditing of the access will be visible through the general audit log visible to you as the operator temporarily joining the Organization requiring troubleshooting. 
+
+Extracted information, in the form of Objects (as seen through the Service) will be deemed shareable when its source has been anonymized.
+
+
+This means that the information tuple ( PROCESS_NAME, MyServerNumber2, explorer.exe ) is NOT shareable.
+but the information tuple ( PROCESS_NAME, explorer.exe, "seen on 3000 hosts" ) IS shareable. 
+
+However, Object sharing to other users of the Service is done on a if-seen-by-organization basis. This means that "explorer.exe" will only be visible to a User if that User is a member of an Organization that has observed that process on one of its sensors. 
+
+Therefore, you running "some_unique_exrcutable_to_you.exe" on one of your sensors, where that executable is unique and has never been observed anywhere else, will not result in the sharing of the existence of the executable with Users not member of your Organization. 
+
+We believe this sharing policy strikes a good balance between privacy and information sharing between users of the Service allowing for a better visibility and investigative power.
+            '''
             try:
                 resp = json.loads( urllib2.urlopen( 'https://api.github.com/repos/refractionPOINT/limacharlie/releases/latest' ).read() )
                 sensorPackage = resp[ 'assets' ][ 0 ][ 'browser_download_url' ]
