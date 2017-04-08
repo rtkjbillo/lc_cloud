@@ -1,4 +1,4 @@
-$def with (cards)
+$def with (cards, welcomeMessage)
 $var title = 'Dashboard'
 <div class="mdl-card mdl-cell mdl-cell--10-col mdl-shadow--8dp" style="height: 300px;">
   <div class="mdl-card__title">
@@ -6,7 +6,7 @@ $var title = 'Dashboard'
   </div>
   <div class="mdl-card__supporting-text">
   	<center>
-	    
+	    $:md( welcomeMessage )
     </center>
   </div>
   <div class="mdl-card__actions mdl-card--border">

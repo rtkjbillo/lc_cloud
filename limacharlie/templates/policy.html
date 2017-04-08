@@ -1,4 +1,4 @@
-$def with ()
+$def with (policy)
 $var title = 'Policy'
 
 <div class="mdl-card mdl-cell mdl-cell--10-col mdl-shadow--4dp">
@@ -6,13 +6,7 @@ $var title = 'Policy'
     <h4 class="mdl-card__title-text">Welcome Checklist</h4>
   </div>
   <div class="mdl-card__supporting-text">
-    <h3>New installation checklist:</h3>
-    <ul>
-        <li>
-
-        </li>
-    </ul>
-    
+    $:md(policy)
   </div>
   <div class="mdl-card__actions mdl-card--border">
   </div>

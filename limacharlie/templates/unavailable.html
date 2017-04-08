@@ -1,4 +1,4 @@
-$def with ()
+$def with (outagetext = False)
 
 <!DOCTYPE html>
 <html lang="en">
@@ -86,7 +86,10 @@ $def with ()
           <br/>
           <center>
             <i class="material-icons md-48">pan_tool</i><br/>
-            <h1>The LimaCharlie backend appears to be offline at the moment, please contact the administrator or try later.</h1>
+            $if outagetext is False:
+              <h1>The LimaCharlie backend appears to be offline at the moment, please contact the administrator or try later.</h1>
+            $else:
+              $:md(outagetext)
           </center>
         </div>
       </main>

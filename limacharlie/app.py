@@ -83,6 +83,7 @@ urls = (
 ADMIN_OID = None
 DOMAIN_NAME = None
 IS_BACKEND_AVAILABLE = False
+IS_OUTAGE_ON = False
 
 ROOT_DIRECTORY = os.path.dirname( os.path.abspath( __file__ ) )
 os.chdir( ROOT_DIRECTORY )
@@ -217,6 +218,14 @@ def pollBackendAvailability( isOneOff = True ):
 
 gevent.spawn( pollBackendAvailability, isOneOff = False )
 
+def pollOutageState():
+    global IS_OUTAGE_ON
+    info = deployment.request( 'get_global_config', {} )
+    if info.isSuccess:
+        IS_OUTAGE_ON = False if info.data[ 'global/outagestate' ] == '0' else info.data[ 'global/outagetext' ]
+    gevent.spawn_later( 30, pollOutageState )
+gevent.spawn( pollOutageState )
+
 #==============================================================================
 #   HELPERS
 #==============================================================================
@@ -238,6 +247,9 @@ def authenticated( f ):
     @wraps( f )
     def wrapped( *args, **kwargs ):
         global IS_BACKEND_AVAILABLE
+        global IS_OUTAGE_ON
+        if IS_OUTAGE_ON is not False and not session.is_admin:
+            return renderAlone.unavailable( IS_OUTAGE_ON )
         if not IS_BACKEND_AVAILABLE:
             return renderAlone.unavailable()
         if session.is_logged_in is not True:
@@ -478,7 +490,11 @@ class Welcome:
 
 class Policy ( AuthenticatedPage ):
     def doGET( self ):
-        return render.policy()
+        policy = ''
+        info = deployment.request( 'get_global_config', {} )
+        if info.isSuccess:
+            policy = info.data[ 'global/policy' ]
+        return render.policy( policy )
 
 class Dashboard ( AuthenticatedPage ):
     def doGET( self ):
@@ -500,11 +516,15 @@ class Dashboard ( AuthenticatedPage ):
                     cards.append( card_sensor_stats( str( oid ), sensors ) )
             cards.insert( 0, card_sensor_stats( 'Total', mergedSensors ) )
             del( mergedSensors )
+        welcomeMessage = ''
+        info = deployment.request( 'get_global_config' )
+        if info.isSuccess:
+            welcomeMessage = info.data[ 'global/whatsnew' ]
         for oid, sensors in orgSensors.iteritems():
             for sid, sensor in sensors.iteritems():
                 sensor[ 'realtime' ] = True if str( AgentId( sensor[ 'aid' ] ).sensor_id ) in allLiveDir else False
             cards.insert( 1, card_sensor_stats( orgNames[ str( oid ) ], sensors ) )
-        return render.dashboard( cards )
+        return render.dashboard( cards, welcomeMessage )
 
 class Profile ( AuthenticatedPage ):
     def renderProfile( self ):
@@ -600,7 +620,7 @@ class Profile ( AuthenticatedPage ):
                                               'subject' : '%s Account Created' % DOMAIN_NAME } )
                 if not res.isSuccess:
                     link = 'http://%s/confirm_email?token=%s&email=%s' % ( DOMAIN_NAME, confirmToken, params.email )
-                    return renderAlone.error( 'Failed to send automated email, is your paging email account configured? User is created, copy this confirmation link (that could not be email), the user MUST use this link to login for the first time: %s' % link )
+                    return renderAlone.error( 'Failed to send automated email, is your paging email account configured? User is created, copy this confirmation link (that could not be email), the user MUST use this link to login for the first time: %s<br/><br/>The temporary password for the account is %s' % ( link, tempPassword ) )
                 session.notice = 'Success creating user %s' % params.email
             else:
                 session.notice = 'Error creating users: %s' % res
@@ -1282,6 +1302,7 @@ class Configs ( AuthenticatedAdminPage ):
         return render.configs( info )
 
     def doPOST( self ):
+        global DOMAIN_NAME
         params = web.input( primary_domain = None, primary_port = None,
                             secondary_domain = None, secondary_port = None,
                             enrollmentsecret = None, 
@@ -1291,7 +1312,8 @@ class Configs ( AuthenticatedAdminPage ):
                             uidomain = None,
                             whatsnew = None,
                             outagetext = None,
-                            outagestate = None )
+                            outagestate = None,
+                            policy = None )
 
         if params.primary_domain is not None and params.primary_port is not None:
             if ( deployment.request( 'set_config', 
@@ -1341,6 +1363,7 @@ class Configs ( AuthenticatedAdminPage ):
             if deployment.request( 'set_config', 
                                    { 'conf' : 'global/uidomain', 'value' : params.uidomain, 'by' : session.email } ).isSuccess:
                 session.notice = 'Success setting ui domain.'
+                DOMAIN_NAME = params.uidomain
             else:
                 session.notice = 'Error setting ui domain.'
         elif params.whatsnew is not None:
@@ -1361,6 +1384,12 @@ class Configs ( AuthenticatedAdminPage ):
                     session.notice = 'Error setting outagestate.'
             else:
                 session.notice = 'Error setting outagetext.'
+        elif params.policy is not None:
+            if deployment.request( 'set_config', 
+                                   { 'conf' : 'global/policy', 'value' : params.policy, 'by' : session.email } ).isSuccess:
+                session.notice = 'Success setting policy.'
+            else:
+                session.notice = 'Error setting policy.'
 
         redirectTo( 'configs' )
 

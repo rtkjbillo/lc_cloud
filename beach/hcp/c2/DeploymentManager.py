@@ -278,6 +278,10 @@ class DeploymentManager( Actor ):
             self.db.execute( 'INSERT INTO configs ( conf, value ) VALUES ( %s, %s )', ( 'global/whatsnew', '' ) )
             self.audit.shoot( 'record', { 'oid' : self.admin_oid, 'etype' : 'conf_change', 'msg' : 'Setting whatsnew text.' } )
 
+            self.log( 'loading policy' )
+            self.db.execute( 'INSERT INTO configs ( conf, value ) VALUES ( %s, %s )', ( 'global/policy', '' ) )
+            self.audit.shoot( 'record', { 'oid' : self.admin_oid, 'etype' : 'conf_change', 'msg' : 'Setting policy text.' } )
+
             self.log( 'loading outage display' )
             self.db.execute( 'INSERT INTO configs ( conf, value ) VALUES ( %s, %s )', ( 'global/outagetext', '' ) )
             self.db.execute( 'INSERT INTO configs ( conf, value ) VALUES ( %s, %s )', ( 'global/outagestate', '0' ) )
@@ -506,7 +510,8 @@ class DeploymentManager( Actor ):
             'global/admin_oid' : '',
             'global/whatsnew' : '',
             'global/outagetext' : '',
-            'global/outagestate' : '1'
+            'global/outagestate' : '1',
+            'global/policy' : ''
         }
 
         info = self.db.execute( 'SELECT conf, value FROM configs WHERE conf IN %s', ( globalConf.keys(), ) )
