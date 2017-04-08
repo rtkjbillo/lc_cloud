@@ -15,6 +15,7 @@
 from beach.actor import Actor
 import traceback
 import hashlib
+import hmac
 import time
 import ipaddress
 import uuid
@@ -54,6 +55,10 @@ class EnrollmentManager( Actor ):
             self.installers.add( ( row[ 0 ], row[ 1 ] ) )
         self.rules = newRules
 
+    def getTokenFor( self, aid ):
+        h = hmac.new( self.enrollmentKey, aid.asString(), hashlib.sha256 )
+        return h.digest()
+
     def enroll( self, msg ):
         req = msg.data
 
@@ -74,8 +79,7 @@ class EnrollmentManager( Actor ):
         self.db.execute( 'INSERT INTO org_sensors ( oid, iid, sid ) VALUES ( %s, %s, %s )', 
                          ( aid.org_id, aid.ins_id, aid.sensor_id ) )
 
-        enrollmentToken = hashlib.md5( '%s/%s' % ( aid.asString(), 
-                                                   self.enrollmentKey ) ).digest()
+        enrollmentToken = self.getTokenFor( aid )
 
         return ( True, { 'aid' : aid, 'token' : enrollmentToken } )
 
@@ -86,9 +90,10 @@ class EnrollmentManager( Actor ):
         token = req[ 'token' ]
 
         isAuthorized = False
-        expectedEnrollmentToken = hashlib.md5( '%s/%s' % ( aid.asString(), 
-                                                           self.enrollmentKey ) ).digest()
-        if token == expectedEnrollmentToken:
+
+        expectedEnrollmentToken = self.getTokenFor( aid )
+        
+        if hmac.compare_digest( token, expectedEnrollmentToken ):
             isAuthorized = True
 
         return ( True, { 'is_authorized' : isAuthorized } )

@@ -20,6 +20,7 @@ from StringIO import StringIO
 class AlexaDNS ( Actor ):
     def init( self, parameters, resources ):
         self.domain = 'https://statvoo.com/dl/top-1million-sites.csv.zip'
+        self.keepN = parameters.get( 'keep_n', 100000 )
         self.topMap = {}
         self.topList = []
         self.refreshDomains()
@@ -39,6 +40,7 @@ class AlexaDNS ( Actor ):
         for d in content.split( '\n' ):
             if '' == d: continue
             n, dns = d.split( ',' )
+            if int( n ) > self.keepN: continue
             newMap[ dns ] = int( n )
             newList.append( dns )
         self.topMap = newMap

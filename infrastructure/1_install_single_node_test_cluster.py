@@ -24,15 +24,6 @@ root = os.path.join( os.path.abspath( os.path.dirname( __file__ ) ), '..', '..' 
 originalDir = os.getcwd()
 os.chdir( root )
 
-parser = argparse.ArgumentParser()
-parser.add_argument( '-g', '--genkeys',
-                     required = False,
-                     action = 'store_true',
-                     default = False,
-                     help = 'If present, generate a new set of keys.',
-                     dest = 'genkeys' )
-arguments = parser.parse_args()
-
 def printStep( step, *ret ):
     msg = '''
 ===============
@@ -62,20 +53,7 @@ printStep( 'Updating repo and upgrading existing components.',
     os.system( 'apt-get upgrade -y' ) )
 
 printStep( 'Installing some basic packages required for Beach (mainly).',
-    os.system( 'apt-get install python-pip python-dev debconf-utils python-m2crypto python-pexpect autoconf libtool git flex byacc bison unzip -y' ) )
-
-if arguments.genkeys:
-    printStep( 'Clean old keys and generate a new set.',
-                os.system( 'rm -rf %s' % os.path.join( root, 'keys', '*' ) ),
-                os.system( 'python %s %s' % ( os.path.join( root, 'tools', 'generate_key.py' ),
-                                              os.path.join( root, 'keys', 'c2' ) ) ),
-                os.system( 'python %s %s' % ( os.path.join( root, 'tools', 'generate_key.py' ),
-                                              os.path.join( root, 'keys', 'hbs_root' ) ) ),
-                os.system( 'python %s %s' % ( os.path.join( root, 'tools', 'generate_key.py' ),
-                                              os.path.join( root, 'keys', 'root' ) ) ),
-                os.system( '%s %s %s "-pass pass:letmein"' % ( os.path.join( root, 'tools', 'encrypt_key.sh' ),
-                                                               os.path.join( root, 'keys', 'hbs_root.priv.der' ),
-                                                               os.path.join( root, 'keys', 'hbs_root.priv.enc' ) ) ) )
+    os.system( 'apt-get install openssl python-pip python-dev debconf-utils python-m2crypto python-pexpect autoconf libtool git flex byacc bison unzip -y' ) )
 
 print( 'Download prefixtree (expected to fail).' )
 os.system( 'pip download prefixtree' )
@@ -113,7 +91,7 @@ printStep( 'Initializing Cassandra schema.',
 
 printStep( 'Installing pip packages for various analytics components.',
     os.system( 'pip install time_uuid cassandra-driver==3.7.1 virustotal' ),
-    os.system( 'pip install ipaddress' ) )
+    os.system( 'pip install ipaddress tld pyqrcode pypng' ) )
 
 printStep( 'Installing Yara.',
     os.system( 'git clone https://github.com/refractionPOINT/yara.git' ),
@@ -151,8 +129,9 @@ printStep( 'Setup LC web ui dependencies.',
                                                'limacharlie' ) ) ),
     os.system( 'pip install markdown' ) )
 
-printStep( 'Redirect port 80 to 9090 so we can run as non-root.',
+printStep( 'Redirect port 80 and 443 to 9090 so we can run as non-root.',
            os.system( 'iptables -t nat -A PREROUTING -p tcp --dport 80 -j REDIRECT --to-port 9090' ),
+           os.system( 'iptables -t nat -A PREROUTING -p tcp --dport 443 -j REDIRECT --to-port 9090' ),
            os.system( 'echo iptables-persistent iptables-persistent/autosave_v4 boolean true | sudo debconf-set-selections' ),
            os.system( 'echo iptables-persistent iptables-persistent/autosave_v6 boolean true | sudo debconf-set-selections' ),
            os.system( 'apt-get install iptables-persistent -y' ) )

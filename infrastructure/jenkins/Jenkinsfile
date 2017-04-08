@@ -1,0 +1,481 @@
+// Copyright 2017 Google, Inc
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//    http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+try {
+    parallel (
+        "ubuntu-16-04-64" : {
+            node('builder && ubuntu-16-04 && 64bit') {
+                stage('Checkout Ubuntu-16-04-64') {
+                    git url: 'https://github.com/refractionPOINT/limacharlie.git', branch: 'develop'
+                    sh 'git submodule update --init --recursive'
+                }
+
+                stage('Build Ubuntu-16-04-64') {
+                    dir('sensor') {
+                        sh 'scons -c'
+                        sh 'scons'
+                    }
+                }
+
+                stage('Unit Tests Ubuntu-16-04-64') {
+                    dir('sensor/bin/ubuntu/16.04/x86_64/debug/') {
+                        catchError {
+                            sh './rpal_test'
+                        }
+                        catchError {
+                            sh './processLib_test'
+                        }
+                        catchError {
+                            sh './cryptoLib_test'
+                        }
+                        catchError {
+                            sh './hcp_test'
+                        }
+                        catchError {
+                            sh './libOs_test'
+                        }
+                        catchError {
+                            sh './obsLib_test'
+                        }
+                    }
+                }
+
+                stage('Release Binaries Ubuntu-16-04-64') {
+                    sh 'rm ./prebuilt_binaries/hcp* || true'
+                    sh 'rm ./prebuilt_binaries/hbs* || true'
+                    sh 'rm ./prebuilt_binaries/kernel* || true'
+                    sh 'python ./sensor/scripts/release_binaries.py --version `git rev-parse HEAD` || true'
+                    archive includes: 'prebuilt_binaries/*', excludes: 'prebuilt_binaries/download_binaries.sh'
+                }
+            }
+        },
+        "macos-10-12-64" : {
+            node('builder && macos-10-12 && 64bit') {
+                stage('Checkout MacOS-10-12-64') {
+                    git url: 'https://github.com/refractionPOINT/limacharlie.git', branch: 'develop'
+                    sh 'git submodule update --init --recursive'
+                }
+
+                stage('Build MacOS-10-12-64') {
+                    dir('sensor') {
+                        sh '/usr/local/bin/scons -c'
+                        sh '/usr/local/bin/scons'
+                    }
+                    sh './sensor/scripts/build_kernel_osx.sh CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO'
+                }
+
+                stage('Unit Tests MacOS-10-12-64') {
+                    dir('sensor/bin/macosx/10.12.3/x86_64/debug/') {
+                        catchError {
+                            sh './rpal_test'
+                        }
+                        catchError {
+                            sh './processLib_test'
+                        }
+                        catchError {
+                            sh './cryptoLib_test'
+                        }
+                        catchError {
+                            sh './hcp_test'
+                        }
+                        catchError {
+                            sh './libOs_test'
+                        }
+                        catchError {
+                            sh './obsLib_test'
+                        }
+                    }
+                }
+
+                stage('Release Binaries MacOS-10-12-64') {
+                    sh 'rm ./prebuilt_binaries/hcp* || true'
+                    sh 'rm ./prebuilt_binaries/hbs* || true'
+                    sh 'rm ./prebuilt_binaries/kernel* || true'
+                    sh 'python ./sensor/scripts/release_binaries.py --version `git rev-parse HEAD` || true'
+                    archive includes: 'prebuilt_binaries/*', excludes: 'prebuilt_binaries/download_binaries.sh'
+                }
+            }
+        },
+        "windows-7-64" : {
+            node('builder && windows-7 && 64bit') {
+                stage('Checkout Windows-7-64') {
+                    git url: 'https://github.com/refractionPOINT/limacharlie.git', branch: 'develop'
+                    bat 'git submodule update --init --recursive'
+                }
+
+                stage('Build Windows-7-64') {
+                    dir('sensor/solutions') {
+                        bat '"C:\\Program Files (x86)\\Microsoft Visual Studio 12.0\\Common7\\IDE\\devenv.com" Testing.sln /rebuild "Debug|Win32"'
+                        bat '"C:\\Program Files (x86)\\Microsoft Visual Studio 12.0\\Common7\\IDE\\devenv.com" Testing.sln /rebuild "Debug|x64"'
+                        bat '"C:\\Program Files (x86)\\Microsoft Visual Studio 12.0\\Common7\\IDE\\devenv.com" rpHCP.sln /rebuild "Debug|Win32"'
+                        bat '"C:\\Program Files (x86)\\Microsoft Visual Studio 12.0\\Common7\\IDE\\devenv.com" rpHCP.sln /rebuild "Release|Win32"'
+                        bat '"C:\\Program Files (x86)\\Microsoft Visual Studio 12.0\\Common7\\IDE\\devenv.com" rpHCP.sln /rebuild "Debug|x64"'
+                        bat '"C:\\Program Files (x86)\\Microsoft Visual Studio 12.0\\Common7\\IDE\\devenv.com" rpHCP.sln /rebuild "Release|x64"'
+                    }
+                }
+
+                stage('Unit Tests Windows-7-64') {
+                    dir('sensor\\bin\\windows\\Win32\\Debug\\') {
+                        catchError {
+                            bat '.\\rpal_test.exe'
+                        }
+                        catchError {
+                            bat '.\\processLib_test.exe'
+                        }
+                        catchError {
+                            bat '.\\cryptoLib_test.exe'
+                        }
+                        catchError {
+                            bat '.\\hcp_test.exe'
+                        }
+                        catchError {
+                            bat '.\\libOs_test.exe'
+                        }
+                        catchError {
+                            bat '.\\obsLib_test.exe'
+                        }
+                    }
+                    dir('sensor\\bin\\windows\\x64\\Debug\\') {
+                        catchError {
+                            bat '.\\rpal_test.exe'
+                        }
+                        catchError {
+                            bat '.\\processLib_test.exe'
+                        }
+                        catchError {
+                            bat '.\\cryptoLib_test.exe'
+                        }
+                        catchError {
+                            bat '.\\hcp_test.exe'
+                        }
+                        catchError {
+                            bat '.\\libOs_test.exe'
+                        }
+                        catchError {
+                            bat '.\\obsLib_test.exe'
+                        }
+                    }
+                }
+
+                stage('Release Binaries Windows-7-64') {
+                    bat 'del .\\prebuilt_binaries\\hcp*'
+                    bat 'del .\\prebuilt_binaries\\hbs*'
+                    bat 'del .\\prebuilt_binaries\\kernel*'
+                    bat '''
+                        git rev-parse HEAD > current_version.txt
+                        set /p CURRENT_VERSION=<current_version.txt
+                        python .\\sensor\\scripts\\release_binaries.py --version %CURRENT_VERSION%
+                    '''
+                    stash name: 'current_version', includes: 'current_version.txt'
+                    archive includes: 'prebuilt_binaries\\*', excludes: 'prebuilt_binaries\\download_binaries.sh'
+                }
+            }
+        },
+        "termination-server": {
+            node('termination-1') {
+                stage('Prep Termination Server') {
+                    git url: 'https://github.com/refractionPOINT/lc_cloud.git', branch: 'feature/go-rearchitecture'
+                    sh '''
+                        mkdir go || true
+                        mkdir go/src || true
+                        mkdir go/bin || true
+                        export GOPATH=`pwd`/go 
+                        mkdir go/src/github.com || true
+                        mkdir go/src/github.com/refractionPOINT || true
+                        ln -s `pwd` ./go/src/github.com/refractionPOINT/lc_cloud || true
+                    '''
+                }
+                stage('Build Termination Server') {
+                    sh '''
+                        export GOPATH=`pwd`/go
+                        export PATH=$PATH:`pwd`/go/bin
+                        go get github.com/golang/protobuf/proto
+                        go build github.com/golang/protobuf/protoc-gen-go
+                        mv protoc-gen-go go/bin/
+                        protoc --go_out=. go/src/github.com/refractionPOINT/lc_cloud/standalone/termination_server/lc_server_config/lc_server_config.proto
+                        go get github.com/refractionPOINT/lc_cloud/standalone/termination_server/tls_server
+                        go build github.com/refractionPOINT/lc_cloud/standalone/termination_server/tls_server
+                    '''
+                    archive includes: 'go/bin/tls_server'
+                    sh 'ifconfig ens33 | grep \'inet addr\' | cut -d: -f2 | awk \'{print $1}\' > ts_ip_internal.txt'
+                    stash name: 'ts_ip_internal', includes: 'ts_ip_internal.txt'
+                    dir('standalone/termination_server/tls_server/') {
+                        stash name: 'c2_files', includes: '*', excludes: '*.go'
+                    }
+                }
+            } 
+        }
+    )
+
+    parallel (
+        "cloud" : {
+            node('cloud') {
+                stage('Prep Cloud') {
+                    git url: 'https://github.com/refractionPOINT/limacharlie.git', branch: 'develop'
+                    sh 'git submodule update --init --recursive'
+                    sh 'ln -s `pwd`/cloud/beach/hcp/utils/* `pwd`/cloud/limacharlie/ || true'
+                    sh 'python `pwd`/tools/update_headers.py || true'
+                    sh 'killall python || true'
+                    sh 'echo "drop keyspace hcp_analytics;" | cqlsh || true'
+                    sh 'cqlsh -f `pwd`/cloud/schema/scale_db.cql'
+                }
+
+                stage('Load Binaries') {
+                    sh 'rm ./prebuilt_binaries/hbs* || true'
+                    sh 'rm ./prebuilt_binaries/hcp* || true'
+                    sh 'rm ./prebuilt_binaries/kernel* || true'
+                    unarchive mapping: [ 'prebuilt_binaries/*' : './' ]
+                    stash name: 'blank_sensors', includes: 'prebuilt_binaries/*', excludes: 'prebuilt_binaries/download_binaries.sh'
+                    dir('cloud/infrastructure/') {
+                        sh 'python ./2_start_single_node_test_cluster.py'
+                        sh 'sleep 5'
+                        sh 'python ./3_configure_single_node_test_cluster.py --nodownload -hcp sensor/sample_configs/cloud_in_a_can_hcp.conf -hbs sensor/sample_configs/cloud_in_a_can_hbs.conf'
+                    }
+                    stash name: 'sensors', includes: 'prebuilt_binaries/*', excludes: 'prebuilt_binaries/download_binaries.sh'
+                    sh 'curl icanhazip.com > cloud_ip_external.txt'
+                    stash name: 'cloud_ip_external', includes: 'cloud_ip_external.txt'
+                    sh 'ifconfig ens33 | grep \'inet addr\' | cut -d: -f2 | awk \'{print $1}\' > cloud_ip_internal.txt'
+                    stash name: 'cloud_ip_internal', includes: 'cloud_ip_internal.txt'
+                }
+            }
+        },
+        "ts" : {
+            node('termination-1') {
+                stage('Start TS') {
+                    unarchive mapping: [ 'go/bin/tls_server' : './' ]
+                    unstash name: 'c2_files'
+                    sh './tls_server -port 9090 &'
+                }
+            }
+        }
+    )
+
+    parallel (
+        "ubuntu-16-04-64" : {
+            node('sensor && ubuntu-16-04 && 64bit') {
+                stage('Launch Sensor Ubuntu-16-04-64 on Cloud') {
+                    sh 'rm hcpcc || true'
+                    sh 'rm /usr/local/hcp || true'
+                    sh 'rm ./prebuilt_binaries/hcp_* || true'
+                    sh 'rm ./prebuilt_binaries/hbs_* || true'
+                    sh 'rm ./prebuilt_binaries/kernel_* || true'
+                    unstash name: 'cloud_ip_external'
+                    unstash name: 'cloud_ip_internal'
+                    unstash name: 'sensors'
+                    sh 'chmod 500 ./prebuilt_binaries/hcp_*'
+                    sh './prebuilt_binaries/hcp_ubuntu_x64_debug_* -p `cat cloud_ip_internal.txt` -s `cat cloud_ip_external.txt` || true &'
+                    sh 'sleep 30'
+                    sh 'ls hcpcc || ! echo "Sensor may not be running, no crash counter generated."'
+                }
+                stage('Verify Enrollment Ubuntu-16-04-64 on Cloud') {
+                    sh 'ls /usr/local/hcp || ! echo "Sensor did not enroll properly."'
+                }
+
+                stage('Verify Teardown Ubuntu-16-04-64 on Cloud') {
+                    sh 'pkill -2 -f hcp_ || ! echo "Failed to signal sensor to stop."'
+                    sh 'sleep 15'
+                    sh '! ls hcpcc || ! echo "Sensor did not exit cleanly."'
+                }
+            }
+        },
+        "macos-10-12-64" : {
+            node('sensor && macos-10-12 && 64bit') {
+                stage('Launch Sensor MacOS-10-12-64 on Cloud') {
+                    sh 'rm hcpcc || true'
+                    sh 'rm /usr/local/hcp || true'
+                    sh 'rm ./prebuilt_binaries/hcp_* || true'
+                    sh 'rm ./prebuilt_binaries/hbs_* || true'
+                    sh 'rm ./prebuilt_binaries/kernel_* || true'
+                    unstash name: 'cloud_ip_external'
+                    unstash name: 'cloud_ip_internal'
+                    unstash name: 'sensors'
+                    sh 'chmod 500 ./prebuilt_binaries/hcp_*'
+                    sh './prebuilt_binaries/hcp_osx_x64_debug_* -p `cat cloud_ip_internal.txt` -s `cat cloud_ip_external.txt` || true &'
+                    sh 'sleep 30'
+                    sh 'ls hcpcc || ! echo "Sensor may not be running, no crash counter generated."'
+                }
+                stage('Verify Enrollment MacOS-10-12-64 on Cloud') {
+                    sh 'ls /usr/local/hcp || ! echo "Sensor did not enroll properly."'
+                }
+
+                stage('Verify Teardown MacOS-10-12-64 on Cloud') {
+                    sh 'pkill -2 -f hcp_ || ! echo "Failed to signal sensor to stop."'
+                    sh 'sleep 15'
+                    sh '! ls hcpcc || ! echo "Sensor did not exit cleanly."'
+                }
+            }
+        },
+        "windows-7-64" : {
+            node('sensor && windows-7 && 64bit') {
+                stage('Launch Sensor Windows-7-64 on Cloud') {
+                    bat 'del %SYSTEMROOT%\\sysnative\\hcpcc_debug.dat || Ver > nul'
+                    bat 'del %SYSTEMROOT%\\sysnative\\hcp_debug.dat || Ver > nul'
+                    bat 'del .\\prebuilt_binaries\\hcp_* || Ver > nul'
+                    bat 'del .\\prebuilt_binaries\\hbs_* || Ver > nul'
+                    bat 'del .\\prebuilt_binaries\\kernel_* || Ver > nul'
+                    unstash name: 'cloud_ip_external'
+                    unstash name: 'cloud_ip_internal'
+                    unstash name: 'current_version'
+                    unstash name: 'sensors'
+                    bat '''
+                        set /p CLOUD_IP_INTERNAL=<cloud_ip_internal.txt
+                        set /p CLOUD_IP_EXTERNAL=<cloud_ip_external.txt
+                        set /p CURRENT_VERSION=<current_version.txt
+                        START cmd /c "title hcp && .\\prebuilt_binaries\\hcp_win_x64_debug_%CURRENT_VERSION%.exe -p %CLOUD_IP_INTERNAL% -s %CLOUD_IP_EXTERNAL%"
+                    '''
+                    bat 'ping 1.1.1.1 -n 30 -w 1000 > nul || Ver > nul'
+                    bat 'dir %SYSTEMROOT%\\sysnative\\hcpcc_debug.dat || echo "Sensor may not be running, no crash counter generated."'
+                }
+                stage('Verify Enrollment Windows-7-64 on Cloud') {
+                    bat 'dir %SYSTEMROOT%\\sysnative\\hcp_debug.dat || echo "Sensor did not enroll properly."'
+                }
+
+                stage('Verify Teardown Windows-7-64 on Cloud') {
+                    bat '''
+                        stop_hcp.vbs
+                    '''
+                    bat 'ping 1.1.1.1 -n 30 -w 1000 > nul || Ver > nul'
+                    bat '''
+                        dir %SYSTEMROOT%\\sysnative\\hcpcc_debug.dat
+                        IF %ERRORLEVEL% EQU 0 (
+                            SET ERRORLEVEL=1
+                            echo "Sensor did not exit cleanly."
+                        ) ELSE (
+                            SET ERRORLEVEL=0
+                        )
+                    '''
+                }
+            }
+        }
+    )
+    
+    parallel (
+        "ubuntu-16-04-64" : {
+            node('sensor && ubuntu-16-04 && 64bit') {
+                stage('Launch Sensor Ubuntu-16-04-64 on TS') {
+                    sh 'rm hcpcc || true'
+                    sh 'rm /usr/local/hcp || true'
+                    sh 'rm ./prebuilt_binaries/hcp_* || true'
+                    sh 'rm ./prebuilt_binaries/hbs_* || true'
+                    sh 'rm ./prebuilt_binaries/kernel_* || true'
+                    unstash name: 'cloud_ip_external'
+                    unstash name: 'cloud_ip_internal'
+                    unstash name: 'blank_sensors'
+                    sh 'chmod 500 ./prebuilt_binaries/hcp_*'
+                    sh './prebuilt_binaries/hcp_ubuntu_x64_debug_* -p `cat cloud_ip_internal.txt` -s `cat cloud_ip_external.txt` || true &'
+                    sh 'sleep 30'
+                    sh 'ls hcpcc || ! echo "Sensor may not be running, no crash counter generated."'
+                }
+                stage('Verify Enrollment Ubuntu-16-04-64 on TS') {
+                    sh 'ls /usr/local/hcp || ! echo "Sensor did not enroll properly."'
+                }
+
+                stage('Verify Teardown Ubuntu-16-04-64 on TS') {
+                    sh 'pkill -2 -f hcp_ || ! echo "Failed to signal sensor to stop."'
+                    sh 'sleep 15'
+                    sh '! ls hcpcc || ! echo "Sensor did not exit cleanly."'
+                }
+            }
+        },
+        "macos-10-12-64" : {
+            node('sensor && macos-10-12 && 64bit') {
+                stage('Launch Sensor MacOS-10-12-64 on TS') {
+                    sh 'rm hcpcc || true'
+                    sh 'rm /usr/local/hcp || true'
+                    sh 'rm ./prebuilt_binaries/hcp_* || true'
+                    sh 'rm ./prebuilt_binaries/hbs_* || true'
+                    sh 'rm ./prebuilt_binaries/kernel_* || true'
+                    unstash name: 'cloud_ip_external'
+                    unstash name: 'cloud_ip_internal'
+                    unstash name: 'blank_sensors'
+                    sh 'chmod 500 ./prebuilt_binaries/hcp_*'
+                    sh './prebuilt_binaries/hcp_osx_x64_debug_* -p `cat cloud_ip_internal.txt` -s `cat cloud_ip_external.txt` || true &'
+                    sh 'sleep 30'
+                    sh 'ls hcpcc || ! echo "Sensor may not be running, no crash counter generated."'
+                }
+                stage('Verify Enrollment MacOS-10-12-64 on TS') {
+                    sh 'ls /usr/local/hcp || ! echo "Sensor did not enroll properly."'
+                }
+
+                stage('Verify Teardown MacOS-10-12-64 on TS') {
+                    sh 'pkill -2 -f hcp_ || ! echo "Failed to signal sensor to stop."'
+                    sh 'sleep 15'
+                    sh '! ls hcpcc || ! echo "Sensor did not exit cleanly."'
+                }
+            }
+        },
+        "windows-7-64" : {
+            node('sensor && windows-7 && 64bit') {
+                stage('Launch Sensor Windows-7-64 on TS') {
+                    bat 'del %SYSTEMROOT%\\sysnative\\hcpcc_debug.dat || Ver > nul'
+                    bat 'del %SYSTEMROOT%\\sysnative\\hcp_debug.dat || Ver > nul'
+                    bat 'del .\\prebuilt_binaries\\hcp_* || Ver > nul'
+                    bat 'del .\\prebuilt_binaries\\hbs_* || Ver > nul'
+                    bat 'del .\\prebuilt_binaries\\kernel_* || Ver > nul'
+                    unstash name: 'cloud_ip_external'
+                    unstash name: 'cloud_ip_internal'
+                    unstash name: 'current_version'
+                    unstash name: 'blank_sensors'
+                    bat '''
+                        set /p CLOUD_IP_INTERNAL=<cloud_ip_internal.txt
+                        set /p CLOUD_IP_EXTERNAL=<cloud_ip_external.txt
+                        set /p CURRENT_VERSION=<current_version.txt
+                        START cmd /c "title hcp && .\\prebuilt_binaries\\hcp_win_x64_debug_%CURRENT_VERSION%.exe -p %CLOUD_IP_INTERNAL% -s %CLOUD_IP_EXTERNAL%"
+                    '''
+                    bat 'ping 1.1.1.1 -n 30 -w 1000 > nul || Ver > nul'
+                    bat 'dir %SYSTEMROOT%\\sysnative\\hcpcc_debug.dat || echo "Sensor may not be running, no crash counter generated."'
+                }
+                stage('Verify Enrollment Windows-7-64 on TS') {
+                    bat 'dir %SYSTEMROOT%\\sysnative\\hcp_debug.dat || echo "Sensor did not enroll properly."'
+                }
+
+                stage('Verify Teardown Windows-7-64 on TS') {
+                    bat '''
+                        stop_hcp.vbs
+                    '''
+                    bat 'ping 1.1.1.1 -n 30 -w 1000 > nul || Ver > nul'
+                    bat '''
+                        dir %SYSTEMROOT%\\sysnative\\hcpcc_debug.dat
+                        IF %ERRORLEVEL% EQU 0 (
+                            SET ERRORLEVEL=1
+                            echo "Sensor did not exit cleanly."
+                        ) ELSE (
+                            SET ERRORLEVEL=0
+                        )
+                    '''
+                }
+            }
+        }
+    )
+}
+catch(Exception e) {
+    throw(e)   
+} finally {
+    parallel (
+        "cloud" : {
+            node('cloud') {
+                stage('Shutdown Cloud') {
+                    sh 'pkill -f beach || ! echo "Failed to shutdown cloud."'
+                }
+            }
+        },
+        "ts" : {
+            node('termination-1') {
+                stage('Shutdown Termination Server') {
+                    sh 'pkill -f tls_server || ! echo "Failed to shutdown termination server."'
+                }
+            }
+        }
+    )
+}

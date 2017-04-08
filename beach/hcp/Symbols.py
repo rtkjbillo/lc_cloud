@@ -12,7 +12,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from beach.actor import Actor
+try:
+    from beach.actor import Actor
+except:
+    pass
 import os
 import json
 
@@ -25,7 +28,11 @@ class Symbols( object ):
         class _unnamedSymbolGroup( object ):
             pass
 
-        tmpTags = json.loads( Actor.readRelativeFile( 'rp_hcp_tags.json' ) )
+        try:
+            tmpTags = Actor.readRelativeFile( 'rp_hcp_tags.json' )
+        except:
+            tmpTags = open( os.path.join( os.path.abspath( os.path.dirname( __file__ ) ), 'rp_hcp_tags.json' ), 'r' ).read()
+        tmpTags = json.loads( tmpTags )
         for group in tmpTags[ 'groups' ]:
             gName = group[ 'groupName' ]
             for definition in group[ 'definitions' ]:

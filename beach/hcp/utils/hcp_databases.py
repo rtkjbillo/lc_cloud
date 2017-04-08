@@ -23,14 +23,11 @@ import datetime
 epoch = datetime.datetime.utcfromtimestamp( 0 )
 
 
-try:
-    from cassandra.cluster import Cluster
-    import traceback
-    from cassandra.query import SimpleStatement
-    from cassandra import ConsistencyLevel
-    from cassandra.query import ValueSequence
-except:
-    pass
+from cassandra.cluster import Cluster
+import traceback
+from cassandra.query import SimpleStatement
+from cassandra import ConsistencyLevel
+from cassandra.query import ValueSequence
 
 class CassDb( object ):
 

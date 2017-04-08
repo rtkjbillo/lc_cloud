@@ -77,11 +77,10 @@ printStep( 'Starting all actor in a Beach Patrol (in a screen).',
           patrolFile ) ) )
 
 printStep( 'Starting the LIMA CHARLIE web interface on port 8888 (in a screen).',
-    os.system( 'screen -d -m python %s %s 8888'% ( os.path.join( root,
-                                                                 'cloud',
-                                                                 'limacharlie',
-                                                                 'app.py' ),
-                                                   beachCluster ) ) )
+    os.system( 'screen -d -m python %s 8888'% ( os.path.join( root,
+                                                              'cloud',
+                                                              'limacharlie',
+                                                              'app.py' ) ) ) )
 
 printStep( 'Starting the BEACH REST interface on port 8889 (in a screen).',
     os.system( 'screen -d -m python -m beach.restbridge 8889 %s hcp'% ( beachCluster, ) ) )

@@ -17,18 +17,26 @@ import virustotal
 import json
 RingCache = Actor.importLib( '../utils/hcp_helpers', 'RingCache' )
 Mutex = Actor.importLib( '../utils/hcp_helpers', 'Mutex' )
+CreateOnAccess = Actor.importLib( '../utils/hcp_helpers', 'CreateOnAccess' )
 
 class VirusTotalActor ( Actor ):
     def init( self, parameters, resources ):
+        self.deploymentManager = CreateOnAccess( self.getActorHandle, resources[ 'deployment' ] )
         self.key = parameters.get( '_key', None )
-        if self.key is None: self.logCritical( 'missing API key' )
-
+        
         # Maximum number of queries per minute
         self.qpm = parameters.get( 'qpm', 4 )
         self.ttl = parameters.get( 'ttl', ( 60 * 60 * 24 * 7 ) )
 
-        if self.key is not None:
+        if self.key is None:
+            self.refreshCredentials()
+            self.log( 'got virustotal key from deployment manager' )
+        else:
+            self.log( 'got virustotal key from parameters' )
             self.vt = virustotal.VirusTotal( self.key, limit_per_min = self.qpm )
+
+        if self.key is None: self.logCritical( 'missing API key' )
+
         self.vtMutex = Mutex()
 
         self.Model = self.getActorHandle( resources[ 'modeling' ], timeout = 3, nRetries = 0 )
@@ -46,6 +54,19 @@ class VirusTotalActor ( Actor ):
 
     def deinit( self ):
         pass
+
+    def refreshCredentials( self ):
+        resp = self.deploymentManager.request( 'get_global_config', {} )
+        if resp.isSuccess:
+            oldKey = self.key
+            self.key = resp.data[ 'global/virustotalkey' ]
+            if '' == self.key:
+                self.key = None
+            elif oldKey != self.key:
+                self.log( 'new credentials' )
+                self.vt = virustotal.VirusTotal( self.key, limit_per_min = self.qpm )
+
+        self.delay( 60, self.refreshCredentials )
 
     def wipeStats( self ):
         self.stats = [ 0, 0, 0, 0 ]

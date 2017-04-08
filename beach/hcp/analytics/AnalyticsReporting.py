@@ -48,6 +48,7 @@ class AnalyticsReporting( Actor ):
         self.conclude_inv_stmt = self.db.prepare( 'UPDATE investigation USING TTL ? SET closed = ?, nature = ?, conclusion = ?, why = ? WHERE invid = ? AND hunter = ?' )
 
         self.set_inv_nature_stmt = self.db.prepare( 'UPDATE investigation USING TTL ? SET nature = ? WHERE invId = ? AND hunter = ?' )
+        self.set_inv_conclusion_stmt = self.db.prepare( 'UPDATE investigation USING TTL ? SET conclusion = ? WHERE invId = ? AND hunter = ?' )
 
         self.get_detect_source_stmt = self.db.prepare( 'SELECT source FROM detects WHERE did = ?' )
 
@@ -69,11 +70,14 @@ class AnalyticsReporting( Actor ):
         self.handle( 'report_inv', self.report_inv )
         self.handle( 'conclude_inv', self.conclude_inv )
         self.handle( 'set_inv_nature', self.set_inv_nature )
+        self.handle( 'set_inv_conclusion', self.set_inv_conclusion )
 
         self.paging = CreateOnAccess( self.getActorHandle, resources[ 'paging' ] )
         self.pageDest = parameters.get( 'paging_dest', [] )
         if type( self.pageDest ) is str or type( self.pageDest ) is unicode:
             self.pageDest = [ self.pageDest ]
+
+        self.model = CreateOnAccess( self.getActorHandle, resources[ 'modeling' ] )
 
     def deinit( self ):
         self.db.stop()
@@ -118,7 +122,7 @@ class AnalyticsReporting( Actor ):
         except:
             import traceback
             self.logCritical( 'Exc storing detect %s / %s' % ( str( msg.data ), traceback.format_exc() ) )
-        self.outputs.shoot( 'report', msg.data )
+        self.outputs.shoot( 'report_detect', msg.data )
 
         if 0 != len( self.pageDest ):
             self.paging.shoot( 'page', { 'to' : self.pageDest,
@@ -146,6 +150,17 @@ class AnalyticsReporting( Actor ):
         oid = AgentId( source.split( ' / ' )[ 0 ] ).org_id
 
         self.db.execute( self.close_inv_stmt.bind( ( self.getOrgTtl( oid ), ts, invId, hunter ) ) )
+
+        info = self.model.request( 'get_detect', { 'id' : invId, 'with_inv' : True } )
+        investigations = []
+        if info.isSuccess:
+            investigations = info.data[ 'inv' ]
+        for inv in investigations:
+            if inv[ 'hunter' ] == hunter:
+                inv[ 'source' ] = source
+                self.outputs.shoot( 'report_inv', inv )
+                break
+
         return ( True, )
 
     def inv_task( self, msg ):
@@ -195,4 +210,14 @@ class AnalyticsReporting( Actor ):
         oid = AgentId( source.split( ' / ' )[ 0 ] ).org_id
 
         self.db.execute( self.set_inv_nature_stmt.bind( ( self.getOrgTtl( oid ), nature, invId, hunter ) ) )
+        return ( True, )
+
+    def set_inv_conclusion( self, msg ):
+        invId = msg.data[ 'inv_id' ].upper()
+        hunter = msg.data[ 'hunter' ]
+        conclusion = msg.data[ 'conclusion' ]
+        source = self.getDetectSource( invId )
+        oid = AgentId( source.split( ' / ' )[ 0 ] ).org_id
+
+        self.db.execute( self.set_inv_conclusion_stmt.bind( ( self.getOrgTtl( oid ), conclusion, invId, hunter ) ) )
         return ( True, )

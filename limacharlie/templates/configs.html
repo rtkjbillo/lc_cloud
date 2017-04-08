@@ -1,0 +1,269 @@
+$def with (configs)
+$var title = 'Configurations'
+<div class="mdl-card mdl-cell mdl-cell--3-col mdl-shadow--4dp std_height">
+  <div class="mdl-card__title">
+    <h2 class="mdl-card__title-text">Primary Domain</h2>
+  </div>
+  <div class="mdl-card__supporting-text">
+    <form method="POST" id="form_primary_domain">
+      This is the primary domain and port where your sensors will connect to.<br/>
+      <i>Note that changes will only apply once sensors have been updated, it will NOT apply to old sensors.</i>
+      <br/><br/>
+      <div class="mdl-textfield mdl-js-textfield" style="width: 100%;">
+        <input class="mdl-textfield__input" type="text" id="primary_domain" name="primary_domain" value="$configs['global/primary']"/>
+        <label class="mdl-textfield__label" for="primary_domain">Domain</label>
+      </div>
+      <div class="mdl-textfield mdl-js-textfield" style="width: 100%;">
+        <input class="mdl-textfield__input" type="text" id="primary_port" pattern="[0-9]+" name="primary_port" value="$configs['global/primary_port']"/>
+        <label class="mdl-textfield__label" for="primary_port">Port</label>
+      </div>
+    </form>
+  </div>
+  <div class="mdl-card__actions mdl-card--border">
+    <center>
+      <button class="mdl-button mdl-button--colored mdl-js-button mdl-js-ripple-effect mdl-button--raised" type="submit" form="form_primary_domain" name="action" value="leave" onclick="return confirm('Are you sure you want to update the primary domain?');">Update</button>
+    </center>
+  </div>
+</div>
+
+<div class="mdl-card mdl-cell mdl-cell--3-col mdl-shadow--4dp std_height">
+  <div class="mdl-card__title">
+    <h2 class="mdl-card__title-text">Secondary Domain</h2>
+  </div>
+  <div class="mdl-card__supporting-text">
+    <form method="POST" id="form_secondary_domain">
+      This is the secondary backup domain and port where your sensors will connect to.<br/>
+      <i>Note that changes will only apply once sensors have been updated, it will NOT apply to old sensors.</i>
+      <br/><br/>
+      <div class="mdl-textfield mdl-js-textfield" style="width: 100%;">
+        <input class="mdl-textfield__input" type="text" id="secondary_domain" name="secondary_domain" value="$configs['global/secondary']"/>
+        <label class="mdl-textfield__label" for="secondary_domain">Domain</label>
+      </div>
+      <div class="mdl-textfield mdl-js-textfield" style="width: 100%;">
+        <input class="mdl-textfield__input" type="text" id="secondary_port" pattern="[0-9]+" name="secondary_port" value="$configs['global/secondary_port']"/>
+        <label class="mdl-textfield__label" for="secondary_port">Port</label>
+      </div>
+    </form>
+  </div>
+  <div class="mdl-card__actions mdl-card--border">
+    <center>
+      <button class="mdl-button mdl-button--colored mdl-js-button mdl-js-ripple-effect mdl-button--raised" type="submit" form="form_secondary_domain" name="action" value="leave" onclick="return confirm('Are you sure you want to update the secondary domain?');">Update</button>
+    </center>
+  </div>
+</div>
+
+<div class="mdl-card mdl-cell mdl-cell--3-col mdl-shadow--4dp std_height">
+  <div class="mdl-card__title">
+    <h2 class="mdl-card__title-text">Enrollment Secret</h2>
+  </div>
+  <div class="mdl-card__supporting-text">
+    <form method="POST" id="form_enrollmentsecret">
+      This is a secret string used to sign and verify sensor's enrollment credentials.<br/>
+      <i>It should not be shared with anyone as it could result in a malicious attacker impersonating sensors.</i>
+      <br/><br/>
+      <div class="mdl-textfield mdl-js-textfield" style="width: 100%;">
+        <input class="mdl-textfield__input" type="password" id="enrollmentsecret" name="enrollmentsecret" value="$configs['global/enrollmentsecret']"/>
+        <label class="mdl-textfield__label" for="enrollmentsecret">Secret</label>
+      </div>
+    </form>
+  </div>
+  <div class="mdl-card__actions mdl-card--border">
+    <center>
+      <button class="mdl-button mdl-button--colored mdl-js-button mdl-js-ripple-effect mdl-button--raised" type="submit" form="form_enrollmentsecret" name="action" value="leave" onclick="return confirm('Are you sure you want to update the enrollment secret?');">Update</button>
+    </center>
+  </div>
+</div>
+
+<div class="mdl-card mdl-cell mdl-cell--3-col mdl-shadow--4dp std_height">
+  <div class="mdl-card__title">
+    <h2 class="mdl-card__title-text">Paging Email Account</h2>
+  </div>
+  <div class="mdl-card__supporting-text">
+    <form method="POST" id="form_paging">
+      This is the email account credentials used to send automated emails from.
+      <br/><br/>
+      <div class="mdl-textfield mdl-js-textfield" style="width: 100%;">
+        <input class="mdl-textfield__input" type="email" id="paging_user" name="paging_user" value="$configs['global/paging_user']"/>
+        <label class="mdl-textfield__label" for="paging_user">Email</label>
+      </div>
+      <div class="mdl-textfield mdl-js-textfield" style="width: 100%;">
+        <input class="mdl-textfield__input" type="text" id="paging_from"  name="paging_from" value="$configs['global/paging_from']"/>
+        <label class="mdl-textfield__label" for="paging_from">From Field</label>
+      </div>
+      <div class="mdl-textfield mdl-js-textfield" style="width: 100%;">
+        <input class="mdl-textfield__input" type="password" id="paging_password" name="paging_password" value="$configs['global/paging_password']"/>
+        <label class="mdl-textfield__label" for="paging_password">Password</label>
+      </div>
+    </form>
+  </div>
+  <div class="mdl-card__actions mdl-card--border">
+    <center>
+      <button class="mdl-button mdl-button--colored mdl-js-button mdl-js-ripple-effect mdl-button--raised" type="submit" form="form_paging" name="action" value="leave" onclick="return confirm('Are you sure you want to update the paging account information?');">Update</button>
+    </center>
+  </div>
+</div>
+
+<div class="mdl-card mdl-cell mdl-cell--3-col mdl-shadow--4dp std_height">
+  <div class="mdl-card__title">
+    <h2 class="mdl-card__title-text">VirusTotal Key</h2>
+  </div>
+  <div class="mdl-card__supporting-text">
+    <form method="POST" id="form_virustotalkey">
+      This is a secret string used to sign and verify sensor's enrollment credentials.
+      It should not be shared with anyone as it could result in a malicious attacker impersonating sensors.
+      <br/><br/>
+      <div class="mdl-textfield mdl-js-textfield" style="width: 100%;">
+        <input class="mdl-textfield__input" type="password" id="virustotalkey" name="virustotalkey" value="$configs['global/virustotalkey']"/>
+        <label class="mdl-textfield__label" for="virustotalkey">Secret API Key</label>
+      </div>
+    </form>
+  </div>
+  <div class="mdl-card__actions mdl-card--border">
+    <center>
+      <button class="mdl-button mdl-button--colored mdl-js-button mdl-js-ripple-effect mdl-button--raised" type="submit" form="form_virustotalkey" name="action" value="leave" onclick="return confirm('Are you sure you want to update the VirusTotal API key?');">Update</button>
+    </center>
+  </div>
+</div>
+
+<div class="mdl-card mdl-cell mdl-cell--5-col mdl-shadow--4dp std_height">
+  <div class="mdl-card__title">
+    <h2 class="mdl-card__title-text">Sensor Package</h2>
+  </div>
+  <div class="mdl-card__supporting-text">
+    <form method="POST" id="form_sensorpackage">
+      This is the URL where the sensor package should be fetched from.<br/>
+      It must be a zip file containing all sensor template you wish to provision to your organizations.<br/>
+      <i>This only applies to new sensors provisioned, not old ones.</i>
+      <br/><br/>
+      <div class="mdl-textfield mdl-js-textfield" style="width: 100%;">
+        <input class="mdl-textfield__input" type="url" id="sensorpackage" name="sensorpackage" value="$configs['global/sensorpackage']"/>
+        <label class="mdl-textfield__label" for="sensorpackage">URL</label>
+      </div>
+    </form>
+    <center>
+      <strong>Latest release is:</strong><br/>
+      <i id="latest_release_status" class="material-icons"></i>
+      <br/>
+      <div class="mdl-spinner mdl-js-spinner is-active" id="latest_release_loading" style="display: inline;"></div>
+      <div id="latest_release_link" style="display: inline;" class="click-to-copy"></div>
+    </center>
+  </div>
+  <div class="mdl-card__actions mdl-card--border">
+    <center>
+      <button class="mdl-button mdl-button--colored mdl-js-button mdl-js-ripple-effect mdl-button--raised" type="submit" form="form_sensorpackage" name="action" value="leave" onclick="return confirm('Are you sure you want to update the sensor package?');">Update</button>
+    </center>
+  </div>
+</div>
+
+<div class="mdl-card mdl-cell mdl-cell--3-col mdl-shadow--4dp std_height">
+  <div class="mdl-card__title">
+    <h2 class="mdl-card__title-text">UI Domain</h2>
+  </div>
+  <div class="mdl-card__supporting-text">
+    <form method="POST" id="form_uidomain">
+      This is the domain name used in automated emails and certain externalized links, set it to whatever domain you want your LC web ui to be accessible at.
+      <br/><br/>
+      <div class="mdl-textfield mdl-js-textfield" style="width: 100%;">
+        <input class="mdl-textfield__input" type="text" id="uidomain" name="uidomain" value="$configs['global/uidomain']"/>
+        <label class="mdl-textfield__label" for="uidomain">Domain</label>
+      </div>
+    </form>
+  </div>
+  <div class="mdl-card__actions mdl-card--border">
+    <center>
+      <button class="mdl-button mdl-button--colored mdl-js-button mdl-js-ripple-effect mdl-button--raised" type="submit" form="form_uidomain" name="action" value="leave" onclick="return confirm('Are you sure you want to update the ui domain?');">Update</button>
+    </center>
+  </div>
+</div>
+
+<div class="mdl-card mdl-cell mdl-cell--4-col mdl-shadow--4dp">
+  <div class="mdl-card__title">
+    <h4 class="mdl-card__title-text">What's New</h4>
+  </div>
+  <div class="mdl-card__supporting-text"">
+    <form method="POST" id="form_whatsnew">
+      The markdown-formated text you enter here will be displayed in the "What's New" section of the dashboard for all users.
+      <br/><br/>
+      <div class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label" style="width:100%;">
+          <textarea class="mdl-textfield__input" type="text" rows= "3" id="whatsnew" name="whatsnew">$configs['global/whatsnew']</textarea>
+          <label class="mdl-textfield__label" for="whatsnew">What's New</label>
+      </div>
+    </form>
+  </div>
+  <div class="mdl-card__actions mdl-card--border">
+    <center>
+      <button class="mdl-button mdl-button--colored mdl-js-button mdl-js-ripple-effect mdl-button--raised" type="submit" form="form_whatsnew" name="action" onclick="return confirm('Are you sure you want to update the whats new text?');">Update</button>
+    </center>
+  </div>
+</div>
+
+<div class="mdl-card mdl-cell mdl-cell--4-col mdl-shadow--4dp">
+  <div class="mdl-card__title">
+    <h4 class="mdl-card__title-text">Outage Info</h4>
+  </div>
+  <div class="mdl-card__supporting-text"">
+    <form method="POST" id="form_outage">
+      The markdown-formated text that will be displayed to all non-Admin users when you toggle the outage to "on". 
+      While the outage is "on", all non-admin users will not be granted access to the web ui and will have the warning displayed to them.
+      This is useful for performing maintenance to the cloud and warning users it is happenning.
+      <br/>
+      Outage status is refreshed every 30 seconds.
+      <br/><br/>
+      <div class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label" style="width:100%;">
+          <textarea class="mdl-textfield__input" type="text" rows= "3" id="outagetext" name="outagetext">$configs['global/outagetext']</textarea>
+          <label class="mdl-textfield__label" for="outagetext">Outage Text</label>
+      </div>
+      <label class="mdl-switch mdl-js-switch mdl-js-ripple-effect" for="outagestate">
+        <input type="checkbox" value="4" name="outagestate" id="outagestate" class="mdl-switch__input" $('' if configs['global/outagestate'] == '0' else 'checked')>
+        <span class="mdl-switch__label">Turn on outage</span>
+      </label>
+    </form>
+  </div>
+  <div class="mdl-card__actions mdl-card--border">
+    <center>
+      <button class="mdl-button mdl-button--colored mdl-js-button mdl-js-ripple-effect mdl-button--raised" type="submit" form="form_outage" name="action" onclick="return confirm('Are you sure you want to update the outage information?');">Update</button>
+    </center>
+  </div>
+</div>
+
+<div class="mdl-card mdl-cell mdl-cell--4-col mdl-shadow--4dp">
+  <div class="mdl-card__title">
+    <h4 class="mdl-card__title-text">Policy</h4>
+  </div>
+  <div class="mdl-card__supporting-text"">
+    <form method="POST" id="form_policy">
+      This is a markdown value that will be displayed in the Data Policy section of the UI.
+      <br/><br/>
+      <div class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label" style="width:100%;">
+          <textarea class="mdl-textfield__input" type="text" rows= "3" id="policy" name="policy">$configs['global/policy']</textarea>
+          <label class="mdl-textfield__label" for="policy">Policy</label>
+      </div>
+    </form>
+  </div>
+  <div class="mdl-card__actions mdl-card--border">
+    <center>
+      <button class="mdl-button mdl-button--colored mdl-js-button mdl-js-ripple-effect mdl-button--raised" type="submit" form="form_policy" name="action" onclick="return confirm('Are you sure you want to update the policy text?');">Update</button>
+    </center>
+  </div>
+</div>
+
+
+<script type="text/javascript">
+  jQuery(document).ready(function () {
+        jQuery.getJSON("https://api.github.com/repos/refractionPOINT/limacharlie/releases/latest").done(function (release) {
+            var asset = release.assets[0];
+            jQuery("#latest_release_loading").css('visibility', 'hidden').css('display', 'none');
+            jQuery("#latest_release_link").text(asset.browser_download_url);
+            var prevValue = jQuery("#sensorpackage").val();
+            if(asset.browser_download_url == prevValue) {
+              jQuery("#latest_release_status").text("check_circle").css("color", "green");
+            } else {
+              jQuery("#latest_release_status").text("change_history").css("color", "red");
+            }
+        })
+        .fail(function() {
+            jQuery("#latest_release_loading").css('visibility', 'hidden').css('display', 'none');
+            jQuery("#latest_release_link").text("ERROR");
+        });
+    });
+</script>

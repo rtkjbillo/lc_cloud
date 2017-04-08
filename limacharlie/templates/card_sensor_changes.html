@@ -1,0 +1,21 @@
+$def with ( aid, hostname )
+<div class="mdl-card mdl-cell mdl-cell--5-col mdl-shadow--4dp std_height">
+  <div class="mdl-card__title">
+    <h4 class="mdl-card__title-text">Sensors Changes: $hostname</h4><div class="mdl-layout-spacer"></div><i class="material-icons update_status" style="color:red;">compare_arrows</i>
+  </div>
+  <div class="mdl-card__supporting-text" style="overflow: scroll;">
+    <table class="mdl-data-table mdl-js-data-table mdl-shadow--2dp" style="width: 100%;">
+      <thead>
+        <th></th>
+        <th>Time</th>
+        <th>Type</th>
+        <th>Object</th>
+      </thead>
+      <tbody class="last_sensor_changes" sid="$aid.sensor_id">
+        
+      </tbody>
+    </table>
+  </div>
+  <div class="mdl-card__actions mdl-card--border">
+  </div>
+</div>

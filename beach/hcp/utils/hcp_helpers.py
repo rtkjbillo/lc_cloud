@@ -23,11 +23,17 @@ from functools import wraps
 import inspect
 from contextlib import contextmanager
 
-from beach.actor import Actor
-rSequence = Actor.importLib( './rpcm', 'rSequence' )
+try:
+    from beach.actor import Actor
+    rSequence = Actor.importLib( './rpcm', 'rSequence' )
+except:
+    from rpcm import rSequence
 
-import gevent.lock
-import gevent.event
+try:
+    import gevent.lock
+    import gevent.event
+except:
+    print( "gevent not installed, some functionality won't work" )
 
 import uuid
 
@@ -163,7 +169,7 @@ class HbsCollectorId ( object ):
     OS_FORENSIC = 11
     _AVAILABLE = 12
     EXEC_OOB = 13
-    TODO_CHANGEME = 14
+    _AVAILABLE2 = 14
     PROCESS_HOLLOWING = 15
     YARA = 16
     OS_TRACKER = 17
@@ -771,6 +777,7 @@ class CreateOnAccess( object ):
         return getattr( self._instance, item )
 
 def normalAtom( atom ):
+    if atom is None: return None
     try:
         if type( atom ) is uuid.UUID:
             atom = str( atom )

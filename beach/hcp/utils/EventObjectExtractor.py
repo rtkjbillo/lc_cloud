@@ -66,17 +66,17 @@ class EventObjectExtractor:
         parent = eventRoot.get( 'base.PARENT', None )
         user = eventRoot.get( 'base.USER_NAME', None )
         if user is not None:
-            cls._addObj( objects, user, ObjectTypes.USER_NAME )
+            cls._addObj( eventRoot, objects, user, ObjectTypes.USER_NAME )
             if curExe is not None:
-                cls._addRel( objects, user, ObjectTypes.USER_NAME, curExe, ObjectTypes.PROCESS_NAME )
+                cls._addRel( eventRoot, objects, user, ObjectTypes.USER_NAME, curExe, ObjectTypes.PROCESS_NAME )
         if parent is not None and curExe is not None:
             parentExe = cls._extractProcessInfo( fromAgent, objects, parent )
             if parentExe is not None:
-                cls._addRel( objects, parentExe, ObjectTypes.PROCESS_NAME, curExe, ObjectTypes.PROCESS_NAME )
+                cls._addRel( eventRoot, objects, parentExe, ObjectTypes.PROCESS_NAME, curExe, ObjectTypes.PROCESS_NAME )
 
     @classmethod
     def _extractDns( cls, eventType, eventRoot, fromAgent, objects ):
-        cls._addObj( objects, eventRoot[ 'base.DOMAIN_NAME' ], ObjectTypes.DOMAIN_NAME )
+        cls._addObj( eventRoot, objects, eventRoot[ 'base.DOMAIN_NAME' ], ObjectTypes.DOMAIN_NAME )
 
 
     @classmethod
@@ -85,7 +85,8 @@ class EventObjectExtractor:
             exe = cls._extractProcessInfo( fromAgent, objects, p )
             for m in p[ 'base.MODULES' ]:
                 mod = cls._extractModuleInfo( fromAgent, objects, m )
-                cls._addRel( objects, exe, ObjectTypes.PROCESS_NAME,
+                cls._addRel( eventRoot, 
+                             objects, exe, ObjectTypes.PROCESS_NAME,
                              mod, ObjectTypes.MODULE_NAME )
 
     @classmethod
@@ -94,9 +95,9 @@ class EventObjectExtractor:
         for c in eventRoot.get( 'base.NETWORK_ACTIVITY', [] ):
             port = c.get( 'base.DESTINATION', {} ).get( 'base.PORT', None )
             if port is not None:
-                cls._addObj( objects, port, ObjectTypes.PORT )
+                cls._addObj( eventRoot, objects, port, ObjectTypes.PORT )
                 if exe is not None:
-                    cls._addRel( objects, exe, ObjectTypes.PROCESS_NAME, port, ObjectTypes.PORT )
+                    cls._addRel( eventRoot, objects, exe, ObjectTypes.PROCESS_NAME, port, ObjectTypes.PORT )
 
     @classmethod
     def _extractServices( cls, eventType, eventRoot, fromAgent, objects ):
@@ -116,7 +117,7 @@ class EventObjectExtractor:
     def _extractUserObserved( cls, eventType, eventRoot, fromAgent, objects ):
         user = eventRoot.get( 'base.USER_NAME', None )
         if user is not None:
-            cls._addObj( objects, user, ObjectTypes.USER_NAME )
+            cls._addObj( eventRoot, objects, user, ObjectTypes.USER_NAME )
 
 
 
@@ -135,22 +136,22 @@ class EventObjectExtractor:
                                                                                   isCaseSensitive = isCaseSensitive ) ) for x in objects[ 'rel' ][ ( parentType, childType ) ] ]
 
     @classmethod
-    def _addObj( cls, objects, o, oType ):
+    def _addObj( cls, root, objects, o, oType ):
         if type( o ) is not int:
             if o is None or 0 == len( o ) or 10240 < len( o ):
-                raise InvalidObjectException( 'unexpected obj len: %s ( %s ), rest of objects: %s' % ( o, oType, str( objects ) ) )
+                raise InvalidObjectException( 'unexpected obj len: %s ( %s ), rest of objects: %s ::: %s' % ( o, oType, str( objects ), str( root ) ) )
                 return
         objects[ 'obj' ].setdefault( oType, Set() ).add( o )
 
     @classmethod
-    def _addRel( cls, objects, parent, parentType, child, childType ):
+    def _addRel( cls, root, objects, parent, parentType, child, childType ):
         if type( parent ) is not int:
             if parent is None or 0 == len( parent ) or 10240 < len( parent ):
-                raise InvalidObjectException( 'unexpected rel parent len: %s ( %s ), %s ( %s ) rest of objecs: %s' % ( parent, parentType, child, childType, str( objects ) ) )
+                raise InvalidObjectException( 'unexpected rel parent len: %s ( %s ), %s ( %s ) rest of objecs: %s ::: %s' % ( parent, parentType, child, childType, str( objects ), str( root ) ) )
                 return
         if type( child ) is not int:
             if child is None or 0 == len( child ) or 10240 < len( parent ):
-                raise InvalidObjectException( 'unexpected rel child len: %s ( %s ), %s ( %s ) rest of objects: %s' % ( child, childType, parent, parentType, str( objects ) ) )
+                raise InvalidObjectException( 'unexpected rel child len: %s ( %s ), %s ( %s ) rest of objects: %s ::: %s' % ( child, childType, parent, parentType, str( objects ), str( root ) ) )
                 return
         objects[ 'rel' ].setdefault( ( parentType, childType ), Set() ).add( ( parent, child ) )
 
@@ -158,16 +159,16 @@ class EventObjectExtractor:
     def _extractProcessInfo( cls, fromAgent, objects, procRoot ):
         exePath = procRoot.get( 'base.FILE_PATH', None )
         exe = None
-        if exePath is not None:
+        if exePath is not None and '' != exePath:
             exe = exeFromPath( exePath, agent = fromAgent )
 
-            cls._addObj( objects, exePath, ObjectTypes.FILE_PATH )
-            cls._addObj( objects, exe, ObjectTypes.PROCESS_NAME )
-            cls._addRel( objects, exe, ObjectTypes.PROCESS_NAME, exePath, ObjectTypes.FILE_PATH )
+            cls._addObj( procRoot, objects, exePath, ObjectTypes.FILE_PATH )
+            cls._addObj( procRoot, objects, exe, ObjectTypes.PROCESS_NAME )
+            cls._addRel( procRoot, objects, exe, ObjectTypes.PROCESS_NAME, exePath, ObjectTypes.FILE_PATH )
             cmdLine = procRoot.get( 'base.COMMAND_LINE', None )
             if cmdLine is not None:
-                cls._addObj( objects, cmdLine, ObjectTypes.CMD_LINE )
-                cls._addRel( objects, exe, ObjectTypes.PROCESS_NAME, cmdLine, ObjectTypes.CMD_LINE )
+                cls._addObj( procRoot, objects, cmdLine, ObjectTypes.CMD_LINE )
+                cls._addRel( procRoot, objects, exe, ObjectTypes.PROCESS_NAME, cmdLine, ObjectTypes.CMD_LINE )
         return exe
 
     @classmethod
@@ -178,16 +179,16 @@ class EventObjectExtractor:
         memSize = modRoot.get( 'base.MEMORY_SIZE', None )
 
         if modName is not None:
-            cls._addObj( objects, modName, ObjectTypes.MODULE_NAME )
+            cls._addObj( modRoot, objects, modName, ObjectTypes.MODULE_NAME )
 
         if modPath is not None:
-            cls._addObj( objects, modPath, ObjectTypes.FILE_PATH )
-            cls._addRel( objects, mod, ObjectTypes.MODULE_NAME, modPath, ObjectTypes.FILE_PATH )
+            cls._addObj( modRoot, objects, modPath, ObjectTypes.FILE_PATH )
+            cls._addRel( modRoot, objects, mod, ObjectTypes.MODULE_NAME, modPath, ObjectTypes.FILE_PATH )
 
         if memSize is not None:
-            cls._addObj( objects, memSize, ObjectTypes.MODULE_SIZE )
+            cls._addObj( modRoot, objects, memSize, ObjectTypes.MODULE_SIZE )
             if mod is not None:
-                cls._addRel( objects, mod, ObjectTypes.MODULE_NAME, memSize, ObjectTypes.MODULE_SIZE )
+                cls._addRel( modRoot, objects, mod, ObjectTypes.MODULE_NAME, memSize, ObjectTypes.MODULE_SIZE )
 
         return mod
 
@@ -205,23 +206,23 @@ class EventObjectExtractor:
             mainMod = dll
 
         if svcname is not None:
-            cls._addObj( objects, svcname, ObjectTypes.SERVICE_NAME )
+            cls._addObj( svcRoot, objects, svcname, ObjectTypes.SERVICE_NAME )
         if displayname is not None:
-            cls._addObj( objects, displayname, ObjectTypes.SERVICE_NAME )
+            cls._addObj( svcRoot, objects, displayname, ObjectTypes.SERVICE_NAME )
 
         if svcname is not None and displayname is not None:
-            cls._addRel( objects, svcname, ObjectTypes.SERVICE_NAME, displayname, ObjectTypes.SERVICE_NAME )
+            cls._addRel( svcRoot, objects, svcname, ObjectTypes.SERVICE_NAME, displayname, ObjectTypes.SERVICE_NAME )
 
         if mainMod is not None:
-            cls._addObj( objects, mainMod, ObjectTypes.FILE_PATH )
-            cls._addRel( objects, svcname, ObjectTypes.SERVICE_NAME, mainMod, ObjectTypes.FILE_PATH )
+            cls._addObj( svcRoot, objects, mainMod, ObjectTypes.FILE_PATH )
+            cls._addRel( svcRoot, objects, svcname, ObjectTypes.SERVICE_NAME, mainMod, ObjectTypes.FILE_PATH )
 
         if filePath is not None:
-            cls._addObj( objects, filePath, ObjectTypes.FILE_PATH )
-            cls._addRel( objects, svcname, ObjectTypes.SERVICE_NAME, filePath, ObjectTypes.FILE_PATH )
+            cls._addObj( svcRoot, objects, filePath, ObjectTypes.FILE_PATH )
+            cls._addRel( svcRoot, objects, svcname, ObjectTypes.SERVICE_NAME, filePath, ObjectTypes.FILE_PATH )
         if h is not None:
-            cls._addObj( objects, h, ObjectTypes.FILE_HASH )
-            cls._addRel( objects, svcname, ObjectTypes.SERVICE_NAME, h, ObjectTypes.FILE_HASH )
+            cls._addObj( svcRoot, objects, h, ObjectTypes.FILE_HASH )
+            cls._addRel( svcRoot, objects, svcname, ObjectTypes.SERVICE_NAME, h, ObjectTypes.FILE_HASH )
 
     @classmethod
     def _extractAutorunsInfo( cls, fromAgent, objects, aRoot ):
@@ -234,10 +235,10 @@ class EventObjectExtractor:
             autorun = reg
 
         if autorun is not None:
-            cls._addObj( objects, autorun, ObjectTypes.AUTORUNS )
+            cls._addObj( aRoot, objects, autorun, ObjectTypes.AUTORUNS )
             if h is not None:
-                cls._addObj( objects, h, ObjectTypes.FILE_HASH )
-                cls._addRel( objects, autorun, ObjectTypes.AUTORUNS, h, ObjectTypes.FILE_HASH )
+                cls._addObj( aRoot, objects, h, ObjectTypes.FILE_HASH )
+                cls._addRel( aRoot, objects, autorun, ObjectTypes.AUTORUNS, h, ObjectTypes.FILE_HASH )
 
     @classmethod
     def _extractCodeIdentityInfo( cls, fromAgent, objects, cRoot ):
@@ -250,18 +251,18 @@ class EventObjectExtractor:
         h = cRoot.get( 'base.HASH', None )
 
         if filePath is not None:
-            cls._addObj( objects, filePath, ObjectTypes.FILE_PATH )
-            cls._addObj( objects, fileName, ObjectTypes.MODULE_NAME )
-            cls._addRel( objects, fileName, ObjectTypes.MODULE_NAME, filePath, ObjectTypes.FILE_PATH )
+            cls._addObj( cRoot, objects, filePath, ObjectTypes.FILE_PATH )
+            cls._addObj( cRoot, objects, fileName, ObjectTypes.MODULE_NAME )
+            cls._addRel( cRoot, objects, fileName, ObjectTypes.MODULE_NAME, filePath, ObjectTypes.FILE_PATH )
 
         if h is not None:
-            cls._addObj( objects, h, ObjectTypes.FILE_HASH )
+            cls._addObj( cRoot, objects, h, ObjectTypes.FILE_HASH )
             if fileName is not None:
-                cls._addRel( objects, fileName, ObjectTypes.MODULE_NAME, h, ObjectTypes.FILE_HASH )
+                cls._addRel( cRoot, objects, fileName, ObjectTypes.MODULE_NAME, h, ObjectTypes.FILE_HASH )
 
         sig = cRoot.get( 'base.SIGNATURE', None )
         if sig is not None:
             issuer = sig.get( 'base.CERT_ISSUER', None )
             if issuer is not None:
-                cls._addObj( objects, issuer, ObjectTypes.CERT_ISSUER )
-                cls._addRel( objects, fileName, ObjectTypes.MODULE_NAME, issuer, ObjectTypes.CERT_ISSUER )
+                cls._addObj( cRoot, objects, issuer, ObjectTypes.CERT_ISSUER )
+                cls._addRel( cRoot, objects, fileName, ObjectTypes.MODULE_NAME, issuer, ObjectTypes.CERT_ISSUER )

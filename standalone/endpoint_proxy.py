@@ -31,12 +31,12 @@ class LcEndpointProxy ( StreamServer ):
         	print( "Failed to set keepalive on connection" )
 
         try:
-        	dest = create_connection( random.sample( currentEndpoints, 1 )[ 0 ] )
+            dest = create_connection( random.sample( currentEndpoints, 1 )[ 0 ] )
         except:
         	print( "Failed to connect to EndpointProcessor" )
         else:
-	        gevent.joinall( ( gevent.spawn( forward, source, dest, self ),
-	                          gevent.spawn( forward, dest, source, self ) ) )
+            gevent.joinall( ( gevent.spawn( forward, source, dest, self ),
+                              gevent.spawn( forward, dest, source, self ) ) )
 
 def forward( source, dest, server ):
     buff = bytearray( 4096 )
@@ -67,8 +67,12 @@ def updateEndpoints( endpointActors, nextUpdate ):
 
     currentEndpoints = newEndpoints
 
+    tmpUpdate = nextUpdate
+    if 0 == len( currentEndpoints ):
+        tmpUpdate = 5
+
     print( "Updated list of endpoints, found %s" % len( currentEndpoints ) )
-    gevent.spawn_later( nextUpdate, updateEndpoints, endpointActors, nextUpdate )
+    gevent.spawn_later( tmpUpdate, updateEndpoints, endpointActors, nextUpdate )
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()

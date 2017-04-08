@@ -40,6 +40,8 @@ class FileEventsOutput( Actor ):
         self._file_logger.setLevel( logging.INFO )
         self._file_logger.addHandler( handler )
         self.handle( 'log', self.logToDisk )
+        self.handle( 'report_inv', self.reportDetectOrInv )
+        self.handle( 'report_detect', self.reportDetectOrInv )
         
     def deinit( self ):
         pass
@@ -99,5 +101,19 @@ class FileEventsOutput( Actor ):
         
         self._file_logger.info( json.dumps( { 'routing' : routing, 
                                               'event' : record } ) )
+
+        return ( True, )
+
+    def reportDetectOrInv( self, msg ):
+        msg.data[ 'hostnames' ] = map( lambda x: Host( x ).getHostName(), 
+                                       msg.data[ 'source' ].split( ' / ' ) )
+
+        record = msg.data
+
+        record = self.sanitizeJson( record )
+        if self._is_flat:
+            record = self.flattenRecord( record )
+
+        self._file_logger.info( json.dumps( record ) )
 
         return ( True, )

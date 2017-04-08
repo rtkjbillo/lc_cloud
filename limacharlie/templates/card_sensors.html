@@ -1,0 +1,45 @@
+$def with ( sensors, orgName )
+<div class="mdl-card mdl-cell mdl-cell--8-col mdl-shadow--4dp std_height">
+  <div class="mdl-card__title">
+    <h4 class="mdl-card__title-text">Sensors: $orgName</h4><div class="mdl-layout-spacer"></div><i class="material-icons update_status" style="color:red;">compare_arrows</i>
+  </div>
+  <div class="mdl-card__supporting-text">
+    <table class="mdl-data-table mdl-js-data-table mdl-shadow--2dp" style="width: 100%;">
+      <thead>
+          <tr>
+            <th class="mdl-data-table__cell--non-numeric">Online?</th>
+            <th class="mdl-data-table__cell--non-numeric">Action</th>
+            <th class="mdl-data-table__cell--non-numeric">SensorId</th>
+            <th class="mdl-data-table__cell--non-numeric">Platform</th>
+            <th class="mdl-data-table__cell--non-numeric">HostName</th>
+            <th class="mdl-data-table__cell--non-numeric">Internal IP</th>
+            <th class="mdl-data-table__cell--non-numeric">External IP</th>
+          </tr>
+        </thead>
+      <tbody>
+        $for sensor in sensors.values():
+          <tr>
+            <td><center><i class="material-icons online_status" sid="$AgentId( sensor[ 'aid' ] ).sensor_id" rate="30">lightbulb_outline</i></center></td>
+            <td class="mdl-data-table__cell--non-numeric">
+              <a href="/sensor?sid=$AgentId( sensor[ 'aid' ] ).sensor_id" title="Dive In!"><i class="material-icons">input</i></a>
+              <a href="/blink?sid=$AgentId( sensor[ 'aid' ] ).sensor_id" title="Blink!"><i class="material-icons">menu</i></a>
+            </td>
+            <td class="mdl-data-table__cell--non-numeric click-to-copy">$AgentId( sensor[ 'aid' ] ).sensor_id</td>
+            <td class="mdl-data-table__cell--non-numeric">
+              $if AgentId( sensor[ 'aid' ] ).isWindows():
+                <i class="fa fa-windows fa-2x" aria-hidden="true"></i>
+              $elif AgentId( sensor[ 'aid' ] ).isLinux():
+                <i class="fa fa-linux fa-2x" aria-hidden="true"></i>
+              $elif AgentId( sensor[ 'aid' ] ).isMacOSX():
+                <i class="fa fa-apple fa-2x" aria-hidden="true"></i>
+            </td>
+            <td class="mdl-data-table__cell--non-numeric click-to-copy">$sensor[ 'last_hostname' ]</td>
+            <td class="mdl-data-table__cell--non-numeric click-to-copy">$sensor[ 'last_internal_ip' ]</td>
+            <td class="mdl-data-table__cell--non-numeric click-to-copy">$sensor[ 'last_external_ip' ]</td>
+          </tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="mdl-card__actions mdl-card--border">
+  </div>
+</div>
