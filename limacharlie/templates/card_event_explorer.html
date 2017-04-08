@@ -1,0 +1,281 @@
+$def with ( atid )
+<div class="mdl-card mdl-cell mdl-cell--12-col mdl-shadow--4dp">
+  <div class="mdl-card__title">
+    <h4 class="mdl-card__title-text">Event Explorer: $atid</h4>
+  </div>
+  <div class="mdl-card__supporting-text">
+    <div id="explorer_window" style="height: 800px; overflow: scroll;">
+      <center><div class="mdl-spinner mdl-js-spinner is-active"></div></center>
+    </div>
+  </div>
+  <div class="mdl-card__actions mdl-card--border">
+  </div>
+</div>
+<script src="https://d3js.org/d3.v3.min.js"></script>
+<script type="text/javascript">
+    
+  // ************** Generate the tree diagram   *****************  
+  var i = 0;
+      duration = 750;
+
+  var tree = d3.layout.tree()
+      .nodeSize([15,])
+      .separation(function separation(a, b) {
+          return a.parent == b.parent ? 2 : 1;
+      });
+      //.size([jQuery("#main-container").width() * 4,jQuery("#main-container").height() * 4]);
+
+  var svg;
+
+  var total_height = document.getElementById('explorer_window').clientHeight;
+  var total_width = document.getElementById('explorer_window').clientWidth;
+
+  // load the external data
+  d3.json("/explorerdata?atid=$atid", function(error, data) {
+      jQuery('#explorer_window').empty();
+      svg = d3.select("#explorer_window")
+         .append("svg")
+         .attr("width", "" + total_width + "px")
+         .attr("height", "" + total_height + "px");
+
+      data = data.map(function(elem){
+          n = { data : elem.data };
+          nodeType = Object.keys(elem.data)[0];
+          thisAtom = elem.data[nodeType]["hbs.THIS_ATOM"];
+          parentAtom = elem.data[nodeType]["hbs.PARENT_ATOM"];
+          n.name = thisAtom;
+          n.parent = parentAtom;
+          n.type = nodeType;
+          n.keyName = elem.key;
+          iPrefix = n.type.indexOf( '.' );
+          if( -1 != iPrefix )
+          {
+              n.type = n.type.slice( iPrefix + 1 );
+          }
+          return n;
+      });
+
+      // *********** Convert flat data into a nice tree ***************
+      // create a name: node map
+      var dataMap = data.reduce(function(map, node) {
+          map[node.name] = node;
+          return map;
+      }, {});
+
+      // create the tree array
+      var treeData = [];
+      data.forEach(function(node) {
+          // add to parent
+          var parent = dataMap[node.parent];
+          if (parent) {
+            // create child array if it doesn't exist
+            (parent.children || (parent.children = []))
+              // add node to child array
+              .push(node);
+          } else {
+            // parent is null or missing
+            treeData.push(node);
+          }
+      });
+
+      root = treeData[0];
+      root.x0 = 0;
+      root.y0 = 0;
+
+      update(root);
+  });
+
+  function update(source) {
+
+  // Compute the new tree layout.
+  var xCenter = 0;
+  var xMin = 0;
+  var nodes = tree.nodes(root).reverse(),
+  links = tree.links(nodes);
+
+  // Normalize for fixed-depth.
+  nodes.forEach(function(d) 
+    { 
+      d.y = ( d.depth + 1 ) * 300; 
+      d.x = ( d.x + ( nodes.length * 15 ) / 2 );
+      xMin = Math.min( d.x, xMin );
+      total_width = Math.max( d.y, total_width );
+      total_height = Math.max( d.x, total_height );
+    });
+
+  if( 0 > xMin )
+  {
+    xCenter = Math.abs(xMin);
+  }
+
+  xCenter += 15;
+  total_height += xCenter;
+
+  var diagonal = d3.svg.diagonal()
+      .projection(function(d) { return [d.y, d.x + xCenter]; });
+
+  svg.attr("width", "" + ( total_width + 300 ) + "px")
+     .attr("height", "" + ( total_height + 50 ) + "px");
+
+  // Update the nodes…
+  var node = svg.selectAll("g.node")
+      .data(nodes, function(d) { return d.id || (d.id = ++i); });
+
+  // Enter any new nodes at the parent's previous position.
+  var nodeEnter = node.enter().append("g")
+      .attr("class", "node")
+      .attr("transform", function(d) {
+          return "translate(" + source.y0 + "," + source.x0 + ")"; })
+      .on("click", click)
+      .on("mouseover", function(d) {
+          details.transition()
+              .duration(200)
+              .style("opacity", .95)
+              .style("background-color", "white")
+              .style("visibility", "visible");
+          details .html(
+                  '<center style="background-color:#ddd; font-weight: bold;">' +
+                  '<a href="explore?atid=' + encodeURIComponent( d.parent ) + '">Center on Parent</a><br/>' +
+                  '<a href="explore?atid=' + encodeURIComponent( d.name ) + '">Center on This</a><br/>' +
+                  '</center>' +
+                  '<pre style="padding: 10px; background-color: white;">' + JSON.stringify( d.data, null, 4 ) + "</pre>"
+              )
+              .style("width", "auto")
+              .style("left", (d3.event.pageX) + "px")
+              .style("top", (d3.event.pageY - 28) + "px");
+          })
+        .on("mouseout", function(d) {
+          setTimeout(function(){
+              details.transition()
+              .duration(500)
+              .style("opacity", 0)
+              .style("visibility", "hidden");
+          }, 5000);
+        });
+
+  nodeEnter.append("circle")
+      .attr("r", 1e-6)
+      .style("fill", function(d) {
+          return d._children ? "lightsteelblue" : "#fff"; });
+
+  nodeEnter.append("text")
+      .attr("x", function(d) {
+          return d.children || d._children ? -13 : 13; })
+      .attr("dy", ".35em")
+      .attr("text-anchor", function(d) { 
+          return d.children || d._children ? "end" : "start"; })
+      .text(function(d) { if(d.keyName){ return '' + d.type + ': ' + d.keyName; } else { return d.type } })
+      .style("fill-opacity", 1e-6);
+
+  // add the tool tip
+  var details = d3.select("#main-content").append("p")
+      .attr("class", "tooltip mdl-shadow--4dp")
+      .style("opacity", 0)
+      .style("position", "absolute")
+      .style("z-index", "3")
+      .style("overflow", "scroll");
+
+  // Transition nodes to their new position.
+  var nodeUpdate = node.transition()
+      .duration(duration)
+      .attr("transform", function(d) { 
+          return "translate(" + d.y + "," + ( d.x + xCenter ) + ")";
+      });
+
+  nodeUpdate.select("circle")
+      .attr("r", 10)
+      .style("fill", function(d) { 
+          return d._children ? "lightsteelblue" : "#fff"; });
+
+  nodeUpdate.select("text")
+      .style("fill-opacity", 1);
+
+  // Transition exiting nodes to the parent's new position.
+  var nodeExit = node.exit().transition()
+      .duration(duration)
+      .attr("transform", function(d) { return "translate(" + source.y + 
+                                               "," + ( source.x + xCenter ) + ")"; })
+      .remove();
+
+  nodeExit.select("circle")
+      .attr("r", 1e-6);
+
+  nodeExit.select("text")
+      .style("fill-opacity", 1e-6);
+
+  // Update the links…
+  var link = svg.selectAll("path.link")
+      .data(links, function(d) { return d.target.id; });
+
+  // Enter any new links at the parent's previous position.
+  link.enter().insert("path", "g")
+  .attr("class", "link")
+  .attr("d", function(d) {
+      var o = {x: source.x0, y: source.y0};
+      return diagonal({source: o, target: o});
+  });
+
+  // Transition links to their new position.
+  link.transition()
+  .duration(duration)
+  .attr("d", diagonal);
+
+  // Transition exiting nodes to the parent's new position.
+  link.exit().transition()
+  .duration(duration)
+  .attr("d", function(d) {
+      var o = {x: source.x + xCenter, y: source.y};
+      return diagonal({source: o, target: o});
+  })
+  .remove();
+
+  // Stash the old positions for transition.
+  nodes.forEach(function(d) {
+  d.x0 = d.x + xCenter;
+  d.y0 = d.y;
+  });
+  }
+
+  // Toggle children on click.
+  function click(d) {
+    if (d.children) {
+      d._children = d.children;
+      d.children = null;
+    } else {
+      d.children = d._children;
+      d._children = null;
+    }
+    update(d);
+  }
+</script>
+
+<style>
+
+    div.tooltip {
+        position: absolute;
+        text-align: left;
+        width: 180px;
+        height: 80px;
+        padding: 2px;
+        font: 12px sans-serif;
+        background: lightsteelblue;
+        border: 0px;
+        border-radius: 8px;
+        pointer-events: none;
+    }
+
+    .node circle {
+        fill: #fff;
+        stroke: steelblue;
+        stroke-width: 3px;
+    }
+
+    .node text { font: 12px sans-serif; }
+
+    .link {
+        fill: none;
+        stroke: #ccc;
+        stroke-width: 2px;
+    }
+
+</style>

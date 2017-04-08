@@ -1,0 +1,97 @@
+$def with (oid, oname, otype, olocs, locs, rlocs, parents, children, sid)
+<div class="mdl-card mdl-cell mdl-cell--12-col mdl-shadow--4dp">
+  <div class="mdl-card__title">
+    <h4 class="mdl-card__title-text">Parents: $oname ($otype)</h4>
+  </div>
+  <div class="mdl-card__supporting-text">
+    $if sid is not None:
+      <strong>As observed on $sid</strong><br/>
+    <table class="mdl-data-table mdl-js-data-table mdl-shadow--2dp" style="width: 100%;">
+      <thead>
+        <tr>
+          <th class="mdl-data-table__cell--non-numeric">Type</th>
+          <th class="mdl-data-table__cell--non-numeric">Name</th>
+          <th># Obj Loc</th>
+          <th># Rel Loc</th>
+          <th class="mdl-data-table__cell--non-numeric"></th>
+        </tr>
+      </thead>
+      <tbody>
+        $for pid, pname, ptype, prel in parents:
+          <tr>
+            <td class="click-to-copy mdl-data-table__cell--non-numeric">$ptype</td>
+            <td class="click-to-copy mdl-data-table__cell--non-numeric">$pname</td>
+            <td>$locs.get( pid, 'N/A' )</td>
+            <td>$rlocs.get( pid, 'N/A' )</td>
+            <td>
+              <a href="/obj?oid=$prel&sid=$sid" title="Center on relation"><i class="material-icons">share</i></a>
+              <a href="/obj?oid=$pid&sid=$sid" title="Center on object"><i class="material-icons">arrow_drop_down_circle</i></a>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="mdl-card__actions mdl-card--border">
+  </div>
+</div>
+
+<div class="mdl-card mdl-cell mdl-cell--4-col mdl-shadow--4dp">
+  <div class="mdl-card__title">
+    <h4 class="mdl-card__title-text">Locations: $oname ($otype)</h4>
+  </div>
+  <div class="mdl-card__supporting-text">
+    <table class="mdl-data-table mdl-js-data-table mdl-shadow--2dp" style="width: 100%;">
+      <thead>
+        <tr>
+          <th class="mdl-data-table__cell--non-numeric">Sensor</th>
+          <th class="mdl-data-table__cell--non-numeric">Last Seen</th>
+        </tr>
+      </thead>
+      <tbody>
+        $for lsid, lastseen in olocs:
+          <tr>
+            <td class="click-to-copy mdl-data-table__cell--non-numeric">$lsid</td>
+            <td class="click-to-copy mdl-data-table__cell--non-numeric">$msTsToTime( lastseen )</td>
+          </tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="mdl-card__actions mdl-card--border">
+  </div>
+</div>
+
+<div class="mdl-card mdl-cell mdl-cell--12-col mdl-shadow--4dp">
+  <div class="mdl-card__title">
+    <h4 class="mdl-card__title-text">Children: $oname ($otype)</h4>
+  </div>
+  <div class="mdl-card__supporting-text">
+    $if sid is not None:
+      <strong>As observed on $sid</strong><br/>
+    <table class="mdl-data-table mdl-js-data-table mdl-shadow--2dp" style="width: 100%;">
+      <thead>
+        <tr>
+          <th class="mdl-data-table__cell--non-numeric">Type</th>
+          <th class="mdl-data-table__cell--non-numeric">Name</th>
+          <th># Obj Loc</th>
+          <th># Rel Loc</th>
+          <th class="mdl-data-table__cell--non-numeric"></th>
+        </tr>
+      </thead>
+      <tbody>
+        $for cid, cname, ctype, crel in children:
+          <tr>
+            <td class="click-to-copy mdl-data-table__cell--non-numeric">$ctype</td>
+            <td class="click-to-copy mdl-data-table__cell--non-numeric">$cname</td>
+            <td>$locs.get( cid, 'N/A' )</td>
+            <td>$rlocs.get( cid, 'N/A' )</td>
+            <td>
+              <a href="/obj?oid=$crel&sid=$sid" title="Center on relation"><i class="material-icons">share</i></a>
+              <a href="/obj?oid=$cid&sid=$sid" title="Center on object"><i class="material-icons">arrow_drop_down_circle</i></a>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="mdl-card__actions mdl-card--border">
+  </div>
+</div>

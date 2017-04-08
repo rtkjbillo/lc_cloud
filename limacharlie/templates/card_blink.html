@@ -1,0 +1,222 @@
+$def with ( sid, hostname, after, before )
+<div class="mdl-card mdl-cell mdl-cell--12-col mdl-shadow--4dp">
+  <div class="mdl-card__title">
+    <h4 class="mdl-card__title-text">Blink: $hostname</h4>
+    <button class="mdl-button mdl-js-button mdl-js-ripple-effect help-dialog" style="position: absolute; right: 0;">
+      <div>
+        <p>
+          Blink gives you a quick glance at the activity on the host over a set period of time.<br/>
+          Every line of the display represents an event. On the right side will be tags.<br/>
+          The tags come in 3 categories:
+          <ul>
+            <li>
+              <b>Plus ( + ):</b> This means that the specific characteristic the track represent seems to indicate the event is well known or normal, or more likely to be safe somehow. For example, for the VT tags, a + indicates the hash was well known and had no VT hits.
+            </li>
+            <li>
+              <b>Question ( ? ):</b> This means that not much is known about the characteristic, or that no good conclusion can be established.
+            </li>
+            <li>
+              <b>Minus ( - ):</b> This means that characteristic is unknown or somehow indicates something more suspicious or risky.
+            </li>
+          </ul>
+        </p>
+        <p>
+          At the top of the page will be a list of filters as checkboxes. By unchecking one, you filter out all elements that have the specific tag and no other filtered-in tags.
+        </p>
+        <p>
+          So for example, by unchecking all but minus ( - ) tags, you could highlight the most suspicious items in the list.
+        </p>
+        <p>
+          The second part of the tag, the part that follow the slash ( / ) is the actual metric that was used to make the evaluation ( +, ?, - ) of the tag.<br/>
+          For example:
+        </p>
+        <p>
+          The tag (? VT / 1) would indicate that the hash had a single hit on VT and the conclusion is somewhat uncertain as it could easily be a False Positive.
+        </p>
+      </div>
+      <i class="material-icons">help</i>
+    </button>
+  </div>
+  <div class="mdl-card__supporting-text">
+    <div style="height: 800px; overflow: scroll;">
+      <center>
+        <div class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label">
+          <input class="mdl-textfield__input" type="datetime" id="filter_after" name="filter_after" pattern="[0-9]{4}-[0-9]{2}-[0-9]{2} [0-9]{2}:[0-9]{2}:[0-9]{2}"/>
+          <label class="mdl-textfield__label" for="filter_after">After (YYYY-MM-DD HH:MM:SS)</label>
+        </div>
+        <div class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label">
+          <input class="mdl-textfield__input" type="datetime" id="filter_before" name="filter_before" pattern="[0-9]{4}-[0-9]{2}-[0-9]{2} [0-9]{2}:[0-9]{2}:[0-9]{2}"/>
+          <label class="mdl-textfield__label" for="filter_before">Before (YYYY-MM-DD HH:MM:SS)</label>
+        </div>
+        <br/>
+        <button class="mdl-button mdl-button--colored mdl-js-button mdl-js-ripple-effect mdl-button--raised" onclick="return set_time_range();">Apply Time Range</button>
+        <br/>
+        <br/>
+        <div class="mdl-spinner mdl-js-spinner is-active" id="blink_loading"></div>
+        <table><tr id="blink_filters"></tr></table>
+      </center>
+      <table class="mdl-data-table mdl-js-data-table mdl-shadow--2dp" style="width:100%; visibility: hidden;" id="blink_window">
+        <thead>
+          <th class="mdl-data-table__cell--non-numeric">Time</th>
+          <th class="mdl-data-table__cell--non-numeric"></th>
+          <th class="mdl-data-table__cell--non-numeric">Event</th>
+          <th class="mdl-data-table__cell--non-numeric">Tags</th>
+        </thead>
+        <tbody id='blink_data'>
+        </tbody>
+      </table>
+    </div>
+  </div>
+  <div class="mdl-card__actions mdl-card--border">
+  </div>
+</div>
+<script type="text/javascript">
+  var after = $after;
+  var before = $before;
+  var blinkEvents;
+  var blinkCats = {};
+
+  function loadFilters(data) {
+    jQuery('#blink_filters').empty();
+    blinkCats = {};
+
+    for( var i = 0; i < data.length; i++) {
+      var event = data[ i ];
+      for( var j = 0; j < event[ 3 ].length; j++ ) {
+        var tag = event[ 3 ][ j ];
+        blinkCats[ tag.split( '/' )[ 0 ] ] = true;
+      }
+    }
+
+    var i = 0;
+    for( var key in blinkCats ) {
+      jQuery('#blink_filters').append(
+        jQuery('<td>').append(
+          jQuery('<label>').addClass('mdl-checkbox').addClass('mdl-js-checkbox').attr('for', 'checkbox' + i ).append(
+            jQuery('<input>').attr('type', 'checkbox')
+                             .attr('id', 'checkbox' + i)
+                             .addClass('mdl-checkbox__input')
+                             .attr('checked', 'checked')
+                             .attr('name', key)
+                             .change(update_filter)
+          ).append(
+            jQuery('<span>').addClass('mdl-checkbox__label').text(key)
+          )
+        )
+      );
+
+      i+=1;
+    }
+  }
+
+  function loadBlink(data) {
+    for( var i = 0; i < data.length; i++) {
+      var event = data[ i ];
+      var tags = jQuery('<td>').addClass('mdl-data-table__cell--non-numeric');
+      for( var j = 0; j < event[ 3 ].length; j++ ) {
+        var tag = event[ 3 ][ j ];
+        var color = '';
+        if( tag.startsWith( '+' ) ) {
+          color = 'green';
+        } else if( tag.startsWith( '-' ) ) {
+          color = 'red';
+        }
+        tags.append( 
+          jQuery( '<span>' ).addClass( 'mdl-chip' ).append(
+            jQuery( '<span>' ).addClass( 'mdl-chip__text' ).html( tag.substring( 0, 1 ) + ' ' + tag.substring( 1 ).split( '/' )[ 0 ] + ' <b>/</b> ' + tag.substring( 1 ).split( '/' )[ 1 ] )
+          ).css( 'background-color', color )
+        );
+      }
+      jQuery('#blink_data').append(
+        jQuery('<tr>').append(
+          jQuery('<td>').text( msTsToTime( event[ 4 ] ) ).addClass('mdl-data-table__cell--non-numeric')
+        ).append(
+          jQuery('<td>').append(
+            jQuery('<a>').addClass('material-icons')
+                .text('zoom_out_map')
+                .attr('href','/explore?atid=' + event[ 0 ] )
+                .attr('title','Explore')
+                .attr('target', '_blank')
+          )
+        ).append(
+          jQuery('<td>').append( jQuery('<div>').text( event[ 2 ] ) ).addClass('mdl-data-table__cell--non-numeric')
+        ).append(
+          tags
+        )
+      );
+    }
+
+    jQuery('#blink_loading').css('visibility', 'hidden');
+    jQuery('#blink_window').css('visibility', 'visible');
+  }
+
+  function update_filter() {
+    jQuery('#blink_window').css('visibility', 'hidden');
+    jQuery('#blink_loading').css('visibility', 'visible');
+    jQuery('#blink_data').html('');
+
+    var selected = [];
+    jQuery('input:checked').each(function() {
+      selected.push( jQuery(this).attr('name') );
+    });
+
+    tmpEvents = [];
+    for( var i = 0; i < blinkEvents.length; i++) {
+      var event = blinkEvents[ i ];
+      var isIncluded = false;
+      for( var j = 0; j < event[ 3 ].length; j++ ) {
+        var tag = event[ 3 ][ j ].split( '/' )[ 0 ];
+        var found = false;
+        for( var k = 0; k < selected.length; k++ ) {
+          if( tag.startsWith( selected[ k ] ) ) {
+            found = true;
+            break;
+          }
+        }
+
+        if( found ) {
+          isIncluded = true;
+          break;
+        }
+      }
+      if( isIncluded ) {
+        tmpEvents.push( event );
+      }
+    }
+
+    loadBlink(tmpEvents);
+  }
+
+  function refresh_blink() {
+    jQuery('#blink_window').css('visibility', 'hidden');
+    jQuery('#blink_loading').css('visibility', 'visible');
+    jQuery('#blink_data').empty();
+    jQuery('#blink_filters').empty();
+    jQuery.getJSON( '/blink_data', { sid : '$sid', after : after, before : before } )
+    .done( function(data) {
+      blinkEvents = data['blink'];
+      loadFilters(blinkEvents);
+      loadBlink(blinkEvents);
+    })
+    .fail( function() {
+      jQuery('#blink_window').html('<h2>Failed to get data</h2>');
+    });
+  }
+
+  jQuery(refresh_blink());
+
+  function set_time_range()
+  {
+      after = Date.parse(jQuery('#filter_after').val() + " GMT") / 1000;
+      before = Date.parse(jQuery('#filter_before').val() + " GMT") / 1000;
+      if( isNaN( after ) )
+      {
+          after = 0;
+      }
+      if( isNaN( before ) )
+      {
+          before = 0;
+      }
+      refresh_blink();
+  }
+</script>

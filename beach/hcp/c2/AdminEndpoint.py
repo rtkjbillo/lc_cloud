@@ -153,10 +153,32 @@ class AdminEndpoint( Actor ):
     @audited
     def cmd_hcp_delTasking( self, msg ):
         request = msg.data
-        mask = AgentId( request[ 'mask' ] )
-        moduleid = int( request[ 'module_id' ] )
-        self.db.execute( 'DELETE FROM hcp_module_tasking WHERE aid = %s AND mid = %s',
-                         ( mask.asString(), moduleid ) )
+        oid = request.get( 'oid', None )
+        
+        if oid is None:
+            mask = AgentId( request[ 'mask' ] )
+            moduleid = int( request[ 'module_id' ] )
+            self.db.execute( 'DELETE FROM hcp_module_tasking WHERE aid = %s AND mid = %s',
+                             ( mask.asString(), moduleid ) )
+        else:
+            oid = uuid.UUID( oid )
+            isDeleteModuleToo = request.get( 'is_delete_modules_too', False )
+
+            deleted = {}
+
+            for row in self.db.execute( 'SELECT aid, mid, mhash FROM hcp_module_tasking' ):
+                if AgentId( row[ 0 ] ).org_id == oid:
+                    deleted[ ( row[ 1 ], row[ 2 ] ) ] = True
+                    self.db.execute( 'DELETE FROM hcp_module_tasking WHERE aid = %s AND mid = %s',
+                                     ( row[ 0 ], row[ 1 ] ) )
+
+            if isDeleteModuleToo:
+                for row in self.db.execute( 'SELECT aid, mid, mhash FROM hcp_module_tasking' ):
+                    # This module is still in use...
+                    deleted.pop( ( row[ 0 ], row[ 1 ] ), None )
+                for mid, mhash in deleted.keys():
+                    self.db.execute( 'DELETE FROM hcp_modules WHERE mid = %s AND mhash = %s', ( mid, mhash ) )
+
 
         self.delay( 5, self.moduleTasking.broadcast, 'reload', {} )
         
@@ -258,11 +280,18 @@ class AdminEndpoint( Actor ):
     @audited
     def cmd_hcp_delInstaller( self, msg ):
         oid = uuid.UUID( msg.data[ 'oid' ] )
-        iid = uuid.UUID( msg.data[ 'iid' ] )
-        installerHash = msg.data[ 'hash' ]
+        iid = uuid.UUID( msg.data[ 'iid' ] ) if msg.data.get( 'iid', None ) is not None else None
+        installerHash = msg.data.get( 'hash', None )
 
-        self.db.execute( 'DELETE FROM hcp_installers WHERE oid = %s AND iid = %s AND ihash = %s',
-                         ( oid, iid, installerHash ) )
+        if iid is not None and installerHash is not None:
+            self.db.execute( 'DELETE FROM hcp_installers WHERE oid = %s AND iid = %s AND ihash = %s',
+                             ( oid, iid, installerHash ) )
+        elif iid is not None:
+            self.db.execute( 'DELETE FROM hcp_installers WHERE oid = %s AND iid = %s',
+                             ( oid, iid ) )
+        else:
+            self.db.execute( 'DELETE FROM hcp_installers WHERE oid = %s',
+                             ( oid, ) )
 
         self.delay( 5, self.enrollments.broadcast, 'reload', {} )
 
@@ -273,9 +302,16 @@ class AdminEndpoint( Actor ):
     def cmd_hbs_getProfiles( self, msg ):
         data = { 'profiles' : [] }
         oids = msg.data.get( 'oid', [] )
-        for row in self.db.execute( 'SELECT aid, oprofile FROM hbs_profiles' ):
+        if type( oids ) in ( str, unicode ):
+            oids = [ oids ]
+        oids = map( uuid.UUID, oids )
+        if msg.data.get( 'is_compiled', False ):
+            rows = self.db.execute( 'SELECT aid, cprofile FROM hbs_profiles' )
+        else:
+            rows = self.db.execute( 'SELECT aid, oprofile FROM hbs_profiles' )
+        for row in rows:
             aid = AgentId( row[ 0 ] )
-            if oids is not None and 0 != len( oids ):
+            if 0 != len( oids ):
                 isFound = False
                 for oid in oids:
                     if oid == aid.org_id:
@@ -296,9 +332,11 @@ class AdminEndpoint( Actor ):
         request = msg.data
         mask = AgentId( request[ 'mask' ] ).asString()
         c = request[ 'module_configs' ]
+        oc = request.get( 'original', None )
         isValidConfig = False
         profileError = ''
-        oc = c
+        if oc is None:
+            oc = c
         configHash = None
 
         if c is not None and '' != c:
@@ -307,11 +345,15 @@ class AdminEndpoint( Actor ):
                                  'rList' : rList,
                                  'rSequence' : rSequence,
                                  'HbsCollectorId' : HbsCollectorId }
-            try:
-                profile = eval( c.replace( '\n', '' ), rpcm_environment )
-            except:
-                profile = None
-                profileError = traceback.format_exc()
+            if type( c ) in ( str, unicode ):
+                try:
+                    profile = eval( c.replace( '\n', '' ), rpcm_environment )
+                except:
+                    profile = None
+                    profileError = traceback.format_exc()
+            else:
+                profile = rList(c)
+                oc = str( oc )
 
             if profile is not None:
                 if type( profile ) is rList:
@@ -325,9 +367,6 @@ class AdminEndpoint( Actor ):
                         profileError = 'config could not be serialised'
                 else:
                     profileError = 'config did not evaluate as an rList: %s' % type( profile )
-
-        else:
-            isValidConfig = True
 
         if isValidConfig:
             self.db.execute( 'INSERT INTO hbs_profiles ( aid, cprofile, oprofile, hprofile ) VALUES ( %s, %s, %s, %s )',
@@ -389,7 +428,8 @@ class AdminEndpoint( Actor ):
         request = msg.data
         oid = uuid.UUID( request[ 'oid' ] )
         key = request[ 'key' ]
-        self.db.execute( 'INSERT INTO hbs_keys ( oid, data ) VALUES ( %s, %s )',
-                         ( oid, bytearray( key ) ) )
+        pubKey = request.get( 'pub_key', '' )
+        self.db.execute( 'INSERT INTO hbs_keys ( oid, data, pub ) VALUES ( %s, %s, %s )',
+                         ( oid, bytearray( key ), bytearray( pubKey ) ) )
 
         return ( True, )

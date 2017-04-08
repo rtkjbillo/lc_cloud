@@ -1,0 +1,321 @@
+$def with (platform, oid, orgname, profile, supportedEvents)
+
+<div class="mdl-card mdl-cell mdl-cell--4-col mdl-shadow--4dp">
+	<div class="mdl-card__title">
+		<h4 class="mdl-card__title-text">Sensor Profile: $platform @ $orgname</h4>
+	</div>
+	<div class="mdl-card__supporting-text">
+		<form method="POST" id="form-$oid-$platform">
+			<input type="hidden" name="oid" value="$oid"/>
+			<input type="hidden" name="platform" value="$platform"/>
+			<h5 style="display: inline;">Exfil</h5>
+			<label style="position: absolute;" class="mdl-switch mdl-js-switch mdl-js-ripple-effect" for="col_0_enabled-$oid-$platform">
+				<input type="checkbox" value="0" name="col" id="col_0_enabled-$oid-$platform" class="mdl-switch__input" $('' if profile[ 0 ].get( 'base.IS_DISABLED', None ) == 1 else 'checked')>
+				<span class="mdl-switch__label">Enabled</span>
+			</label>
+			<br/><br/>
+			Filters which events are sent back to the cloud, you really do not want to turn this off.
+			<h6>Events Always Sent to Cloud</h6>
+			<div class="table-scrollable" style="height:500px;">
+				<table class="mdl-data-table mdl-js-data-table mdl-shadow--2dp">
+					<thead>
+						<th class="mdl-data-table__cell--non-numeric">Event Name</th>
+						<th>Enabled</th>
+					</thead>
+					<tbody>
+					$for eventName, eventId in supportedEvents.iteritems():
+						$if not eventName.endswith( '_REQ' ) and 'TODO' not in eventName:
+							<tr>
+								<td class="mdl-data-table__cell--non-numeric">$eventName</td>
+								<td class="checkbox-col">
+									<label class="mdl-switch mdl-js-switch mdl-js-ripple-effect" for="exfil-$eventId-$oid-$platform">
+										<input type="checkbox" value="$eventId" name="exfil" id="exfil-$eventId-$oid-$platform" class="mdl-switch__input" $('' if eventId not in profile[ 0 ].get( 'hbs.LIST_NOTIFICATIONS', [] ) else 'checked')>
+									</label>
+								</td>
+							</tr>
+					</tbody>
+				</table>
+			</div>
+			<br/><br/>
+			<hr/>
+
+			<h5 style="display: inline;">Process Tracker</h5>
+			<br/>
+			<label style="position: absolute;" class="mdl-switch mdl-js-switch mdl-js-ripple-effect" for="col_1_enabled-$oid-$platform">
+				<input type="checkbox" value="1" name="col" id="col_1_enabled-$oid-$platform" class="mdl-switch__input" $('' if profile[ 1 ].get( 'base.IS_DISABLED', None ) == 1 else 'checked')>
+				<span class="mdl-switch__label">Enabled</span>
+			</label>
+			<br/><br/>
+			Tracks process creation and termination, many other events rely on this, you likely want this on.
+
+			<br/><br/>
+			<hr/>
+
+			<h5 style="display: inline;">DNS Tracker</h5>
+			<br/>
+			<label style="position: absolute;" class="mdl-switch mdl-js-switch mdl-js-ripple-effect" for="col_2_enabled-$oid-$platform">
+				<input type="checkbox" value="2" name="col" id="col_2_enabled-$oid-$platform" class="mdl-switch__input" $('' if profile[ 2 ].get( 'base.IS_DISABLED', None ) == 1 else 'checked')>
+				<span class="mdl-switch__label">Enabled</span>
+			</label>
+			<br/><br/>
+			Tracks DNS requests.
+
+			<br/><br/>
+			<hr/>
+
+			<h5 style="display: inline;">Code Identity</h5>
+			<br/>
+			<label style="position: absolute;" class="mdl-switch mdl-js-switch mdl-js-ripple-effect" for="col_3_enabled-$oid-$platform">
+				<input type="checkbox" value="3" name="col" id="col_3_enabled-$oid-$platform" class="mdl-switch__input" $('' if profile[ 3 ].get( 'base.IS_DISABLED', None ) == 1 else 'checked')>
+				<span class="mdl-switch__label">Enabled</span>
+			</label>
+			<br/><br/>
+			Reports hashes and digital signatures of any new piece of code loaded on the host.
+
+			<br/><br/>
+			<hr/>
+
+			<h5 style="display: inline;">Network Tracker</h5>
+			<br/>
+			<label style="position: absolute;" class="mdl-switch mdl-js-switch mdl-js-ripple-effect" for="col_4_enabled-$oid-$platform">
+				<input type="checkbox" value="4" name="col" id="col_4_enabled-$oid-$platform" class="mdl-switch__input" $('' if profile[ 4 ].get( 'base.IS_DISABLED', None ) == 1 else 'checked')>
+				<span class="mdl-switch__label">Enabled</span>
+			</label>
+			<br/><br/>
+			Tracks TCP and UDP "connections".
+
+			<br/><br/>
+			<hr/>
+
+			<h5 style="display: inline;">Hidden Module</h5>
+			<br/>
+			<label style="position: absolute;" class="mdl-switch mdl-js-switch mdl-js-ripple-effect" for="col_5_enabled-$oid-$platform">
+				<input type="checkbox" value="5" name="col" id="col_5_enabled-$oid-$platform" class="mdl-switch__input" $('' if profile[ 5 ].get( 'base.IS_DISABLED', None ) == 1 else 'checked')>
+				<span class="mdl-switch__label">Enabled</span>
+			</label>
+			<br/><br/>
+			Constantly (and on demand) scans the memory space of all processes looking for modules loaded manually and hidden from the OS.
+
+			<br/><br/>
+			<hr/>
+
+			<h5 style="display: inline;">Module Tracker</h5>
+			<br/>
+			<label style="position: absolute;" class="mdl-switch mdl-js-switch mdl-js-ripple-effect" for="col_1_enabled-$oid-$platform">
+				<input type="checkbox" value="6" name="col" id="col_6_enabled-$oid-$platform" class="mdl-switch__input" $('' if profile[ 6 ].get( 'base.IS_DISABLED', None ) == 1 else 'checked')>
+				<span class="mdl-switch__label">Enabled</span>
+			</label>
+			<br/><br/>
+			Tracks loading of modules in all processes.
+
+			<br/><br/>
+			<hr/>
+
+			<h5 style="display: inline;">File Tracker</h5>
+			<br/>
+			<label style="position: absolute;" class="mdl-switch mdl-js-switch mdl-js-ripple-effect" for="col_7_enabled-$oid-$platform">
+				<input type="checkbox" value="7" name="col" id="col_7_enabled-$oid-$platform" class="mdl-switch__input" $('' if profile[ 7 ].get( 'base.IS_DISABLED', None ) == 1 else 'checked')>
+				<span class="mdl-switch__label">Enabled</span>
+			</label>
+			<br/><br/>
+			Tracks file operations (Create, Delete, Rename, Read, Write).
+
+			<br/><br/>
+			<hr/>
+
+			<h5 style="display: inline;">Network Summary</h5>
+			<br/>
+			<label style="position: absolute;" class="mdl-switch mdl-js-switch mdl-js-ripple-effect" for="col_8_enabled-$oid-$platform">
+				<input type="checkbox" value="8" name="col" id="col_8_enabled-$oid-$platform" class="mdl-switch__input" $('' if profile[ 8 ].get( 'base.IS_DISABLED', None ) == 1 else 'checked')>
+				<span class="mdl-switch__label">Enabled</span>
+			</label>
+			<br/><br/>
+			Generates summaries of the first 10 network connections generated per process.
+
+			<br/><br/>
+			<hr/>
+
+			<h5 style="display: inline;">File Forensics</h5>
+			<br/>
+			<label style="position: absolute;" class="mdl-switch mdl-js-switch mdl-js-ripple-effect" for="col_9_enabled-$oid-$platform">
+				<input type="checkbox" value="9" name="col" id="col_9_enabled-$oid-$platform" class="mdl-switch__input" $('' if profile[ 9 ].get( 'base.IS_DISABLED', None ) == 1 else 'checked')>
+				<span class="mdl-switch__label">Enabled</span>
+			</label>
+			<br/><br/>
+			Various generic and forensic file operations mostly available on demand.
+
+			<br/><br/>
+			<hr/>
+
+			<h5 style="display: inline;">Memory Forensics</h5>
+			<br/>
+			<label style="position: absolute;" class="mdl-switch mdl-js-switch mdl-js-ripple-effect" for="col_10_enabled-$oid-$platform">
+				<input type="checkbox" value="10" name="col" id="col_10_enabled-$oid-$platform" class="mdl-switch__input" $('' if profile[ 10 ].get( 'base.IS_DISABLED', None ) == 1 else 'checked')>
+				<span class="mdl-switch__label">Enabled</span>
+			</label>
+			<br/><br/>
+			Various memory forensic operations mostly available on demand.
+
+			<br/><br/>
+			<hr/>
+
+			<h5 style="display: inline;">OS Forensics</h5>
+			<br/>
+			<label style="position: absolute;" class="mdl-switch mdl-js-switch mdl-js-ripple-effect" for="col_11_enabled-$oid-$platform">
+				<input type="checkbox" value="11" name="col" id="col_11_enabled-$oid-$platform" class="mdl-switch__input" $('' if profile[ 11 ].get( 'base.IS_DISABLED', None ) == 1 else 'checked')>
+				<span class="mdl-switch__label">Enabled</span>
+			</label>
+			<br/><br/>
+			Various OS forensic operations mostly available on demand. Can generate full snapshots at set intervals.<br/>
+			Seconds between snapshots (0 to disable):
+			<div class="mdl-textfield mdl-js-textfield">
+				<input class="mdl-textfield__input" type="text" pattern="-?[0-9]*(\.[0-9]+)?" id="os_delta" name="os_delta" value="$profile[ 11 ].get( 'base.TIMEDELTA', 0 )">
+				<label class="mdl-textfield__label" for="os_delta">Seconds</label>
+				<span class="mdl-textfield__error">Must be a number.</span>
+			</div>
+			<br/><br/>
+			<hr/>
+
+			<h5 style="display: inline;">Execution Out of Bounds</h5>
+			<br/>
+			<label style="position: absolute;" class="mdl-switch mdl-js-switch mdl-js-ripple-effect" for="col_13_enabled-$oid-$platform">
+				<input type="checkbox" value="13" name="col" id="col_13_enabled-$oid-$platform" class="mdl-switch__input" $('' if profile[ 13 ].get( 'base.IS_DISABLED', None ) == 1 else 'checked')>
+				<span class="mdl-switch__label">Enabled</span>
+			</label>
+			<br/><br/>
+			Continuously (or on demand) scans the memory space of all processes looking for threads executing outside of known module memory.
+
+			<br/><br/>
+			<hr/>
+
+			<h5 style="display: inline;">Process Hollowing</h5>
+			<br/>
+			<label style="position: absolute;" class="mdl-switch mdl-js-switch mdl-js-ripple-effect" for="col_15_enabled-$oid-$platform">
+				<input type="checkbox" value="15" name="col" id="col_15_enabled-$oid-$platform" class="mdl-switch__input" $('' if profile[ 15 ].get( 'base.IS_DISABLED', None ) == 1 else 'checked')>
+				<span class="mdl-switch__label">Enabled</span>
+			</label>
+			<br/><br/>
+			Continuously (or on demand) scans the memory space of all processes looking for signs of module memory being replaced with malicious payloads.
+
+			<br/><br/>
+			<hr/>
+
+			<h5 style="display: inline;">Yara</h5>
+			<br/>
+			<label style="position: absolute;" class="mdl-switch mdl-js-switch mdl-js-ripple-effect" for="col_16_enabled-$oid-$platform">
+				<input type="checkbox" value="16" name="col" id="col_16_enabled-$oid-$platform" class="mdl-switch__input" $('' if profile[ 16 ].get( 'base.IS_DISABLED', None ) == 1 else 'checked')>
+				<span class="mdl-switch__label">Enabled</span>
+			</label>
+			<br/><br/>
+			Continuously (or on demand) scans the memory space and files of all processes using a globally set Yara signature set. Continuous scanning is throttled to not impact system performance.
+
+			<br/><br/>
+			<hr/>
+
+			<h5 style="display: inline;">OS Tracker</h5>
+			<br/>
+			<label style="position: absolute;" class="mdl-switch mdl-js-switch mdl-js-ripple-effect" for="col_17_enabled-$oid-$platform">
+				<input type="checkbox" value="17" name="col" id="col_17_enabled-$oid-$platform" class="mdl-switch__input" $('' if profile[ 17 ].get( 'base.IS_DISABLED', None ) == 1 else 'checked')>
+				<span class="mdl-switch__label">Enabled</span>
+			</label>
+			<br/><br/>
+			Tracks various OS lists (services, drivers, autoruns) and reports changes.
+
+			<br/><br/>
+			<hr/>
+
+			<h5 style="display: inline;">Doc Collector</h5>
+			<br/>
+			<label style="position: absolute;" class="mdl-switch mdl-js-switch mdl-js-ripple-effect" for="col_18_enabled-$oid-$platform">
+				<input type="checkbox" value="18" name="col" id="col_18_enabled-$oid-$platform" class="mdl-switch__input" $('' if profile[ 18 ].get( 'base.IS_DISABLED', None ) == 1 else 'checked')>
+				<span class="mdl-switch__label">Enabled</span>
+			</label>
+			<br/><br/>
+			Caches the file content of files with various name extensions or path substrings. Generates a stub event containing the hash of the cached files. Content is in a ring buffer and available on demand.
+
+			<br/><br/>
+			<hr/>
+
+			<h5 style="display: inline;">Volume Tracker</h5>
+			<br/>
+			<label style="position: absolute;" class="mdl-switch mdl-js-switch mdl-js-ripple-effect" for="col_19_enabled-$oid-$platform">
+				<input type="checkbox" value="19" name="col" id="col_19_enabled-$oid-$platform" class="mdl-switch__input" $('' if profile[ 19 ].get( 'base.IS_DISABLED', None ) == 1 else 'checked')>
+				<span class="mdl-switch__label">Enabled</span>
+			</label>
+			<br/><br/>
+			Tracks volumes mounting and unmounting like USB drives.
+
+			<br/><br/>
+			<hr/>
+
+			<h5 style="display: inline;">Stateful Tracking</h5>
+			<br/>
+			<label style="position: absolute;" class="mdl-switch mdl-js-switch mdl-js-ripple-effect" for="col_20_enabled-$oid-$platform">
+				<input type="checkbox" value="20" name="col" id="col_20_enabled-$oid-$platform" class="mdl-switch__input" $('' if profile[ 20 ].get( 'base.IS_DISABLED', None ) == 1 else 'checked')>
+				<span class="mdl-switch__label">Enabled</span>
+			</label>
+			<br/><br/>
+			Framework enabling stateful detections on the host.
+
+			<br/><br/>
+			<hr/>
+
+			<h5 style="display: inline;">User Tracker</h5>
+			<br/>
+			<label style="position: absolute;" class="mdl-switch mdl-js-switch mdl-js-ripple-effect" for="col_21_enabled-$oid-$platform">
+				<input type="checkbox" value="21" name="col" id="col_21_enabled-$oid-$platform" class="mdl-switch__input" $('' if profile[ 21 ].get( 'base.IS_DISABLED', None ) == 1 else 'checked')>
+				<span class="mdl-switch__label">Enabled</span>
+			</label>
+			<br/><br/>
+			Tracks when new users log in on the host.
+
+			<br/><br/>
+			<hr/>
+
+			<h5 style="display: inline;">File Type Tracker</h5>
+			<br/>
+			<label style="position: absolute;" class="mdl-switch mdl-js-switch mdl-js-ripple-effect" for="col_22_enabled-$oid-$platform">
+				<input type="checkbox" value="22" name="col" id="col_22_enabled-$oid-$platform" class="mdl-switch__input" $('' if profile[ 22 ].get( 'base.IS_DISABLED', None ) == 1 else 'checked')>
+				<span class="mdl-switch__label">Enabled</span>
+			</label>
+			<br/><br/>
+			Tracks processes accessing (read or write) of various file extensions. Can highlight unusual processes accessing Word documents for example.
+			<!--
+			<table id="file_tracker_extensions">
+				<tr>
+					<td>
+						<div class="mdl-selectfield mdl-js-selectfield" style="width: 50%;">
+							<select class="mdl-selectfield__select" id="f_t_r_1" name="f_t_r">
+								$for i in xrange( 1, 256 ):
+									<option value="$i">$i</option>
+							</select>
+							<label class="mdl-selectfield__label" for="f_t_r_1">RuleId</label>
+						</div>
+					</td>
+					<td>
+						<div class="mdl-textfield mdl-js-textfield">
+							<input class="mdl-textfield__input" type="text" id="f_t_e_1" name="f_t_e" value="">
+							<label class="mdl-textfield__label" for="f_t_e_1">Extension</label>
+						</div>
+					</td>
+					<td>
+						<button class="mdl-button mdl-js-button mdl-js-ripple-effect" onclick="removeExtension(this)">
+							<i class="material-icons">remove</i>
+						</button>
+					</td>
+				</tr>
+			</table>
+			<button class="mdl-button mdl-js-button mdl-button--fab mdl-button--mini-fab mdl-button--colored" onclick="addExtension();">
+				<i class="material-icons">add</i>
+			</button>
+			-->
+			<br/><br/>
+			<hr/>
+		</form>
+	</div>
+	<div class="mdl-card__actions mdl-card--border">
+	<center>
+	<button class="mdl-button mdl-button--colored mdl-js-button mdl-js-ripple-effect mdl-button--raised" type="submit" form="form-$oid-$platform" name="action" value="update" onclick="return confirm('Are you sure you want to update this profile?');">Update</button>
+	</center>
+	</div>
+</div>

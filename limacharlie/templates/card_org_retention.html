@@ -1,0 +1,33 @@
+$def with (org_name, ttls)
+<div class="mdl-card mdl-cell mdl-cell--4-col mdl-shadow--4dp std_height">
+  <div class="mdl-card__title">
+    <h4 class="mdl-card__title-text">Org Retention: $org_name</h4>
+    <button class="mdl-button mdl-js-button mdl-js-ripple-effect help-dialog" style="position: absolute; right: 0;">
+      <div>
+        <p>
+          Org Retention lists the number of seconds that each type of data will be kept in storage and available.
+        </p>
+      </div>
+      <i class="material-icons">help</i>
+    </button>
+  </div>
+  <div class="mdl-card__supporting-text">
+    <table class="mdl-data-table mdl-js-data-table mdl-shadow--2dp" style="width: 100%;">
+      <thead>
+        <tr>
+          <th class="mdl-data-table__cell--non-numeric">Category</th>
+          <th class="">Retention (sec)</th>
+        </tr>
+      </thead>
+      <tbody>
+        $for cat, ttl in ttls.iteritems():
+          <tr>
+            <td class="mdl-data-table__cell--non-numeric click-to-copy">$cat</td>
+            <td class=" click-to-copy">$ttl</td>
+          </tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="mdl-card__actions mdl-card--border">
+  </div>
+</div>
