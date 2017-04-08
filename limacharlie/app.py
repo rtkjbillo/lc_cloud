@@ -539,13 +539,19 @@ class Profile ( AuthenticatedPage ):
                 all_orgs = all_orgs.data[ 'orgs' ]
             else:
                 return renderAlone.error( 'Error fetching all orgs: %s.' % str( orgs ) )
+            all_users = identmanager.request( 'get_user_info', { 'include_all' : True } )
+            if all_users.isSuccess:
+                all_users = all_users.data
+            else:
+                return renderAlone.error( 'Error fetching all users: %s.' % str( orgs ) )
         else:
             all_orgs = None
+            all_users = None
         extra_cards = []
         for org in orgs:
             extra_cards.append( card_org_membership( org[ 0 ], org[ 1 ] ) )
             extra_cards.append( card_org_retention( org[ 0 ], org[ 1 ], org[ 2 ] ) )
-        return render.profile( orgs, all_orgs, extra_cards )
+        return render.profile( orgs, all_orgs, extra_cards, all_users )
 
     def doGET( self ):
         return self.renderProfile()

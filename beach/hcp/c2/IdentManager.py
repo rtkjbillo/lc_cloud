@@ -360,15 +360,23 @@ class IdentManager( Actor ):
     def getUserInfo( self, msg ):
         req = msg.data
 
-        uids = self.asUuidList( req[ 'uid' ] )
+        uids = req.get( 'uid', None )
+        if uids is not None:
+            uids = self.asUuidList( uid )
+
+        isAllIncluded = req.get( 'include_all', False )
 
         res = {}
 
-        for uid in uids:
-            info = self.db.getOne( 'SELECT uid, email FROM user_info WHERE uid = %s', ( uid, ) )
-            if not info:
-                return ( False, 'error getting user info' )
-            res[ info[ 0 ] ] = info[ 1 ]
+        if isAllIncluded:
+            for row in self.db.execute( 'SELECT uid, email FROM user_info' ):
+                res[ row[ 0 ] ] = row[ 1 ]
+        else:
+            for uid in uids:
+                info = self.db.getOne( 'SELECT uid, email FROM user_info WHERE uid = %s', ( uid, ) )
+                if not info:
+                    return ( False, 'error getting user info' )
+                res[ info[ 0 ] ] = info[ 1 ]
         return ( True, res )
 
     def confirmEmail( self, msg ):

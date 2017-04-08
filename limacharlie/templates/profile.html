@@ -1,4 +1,4 @@
-$def with ( orgs, all_orgs, extra_cards)
+$def with ( orgs, all_orgs, extra_cards, all_users)
 $var title = 'Profile'
 <div class="mdl-card mdl-cell mdl-cell--4-col mdl-shadow--4dp std_height">
   <div class="mdl-card__title">
@@ -221,5 +221,42 @@ $if all_orgs is not None:
       <center>
         <button class="mdl-button mdl-button--colored mdl-js-button mdl-js-ripple-effect mdl-button--raised" type="submit" form="form_deploy_orgs" name="action" value="org_deploy" onclick="return confirm('Are you sure you want to re-generate the sensors for the selected orgs?');">Re Generate</button>
       </center>
+    </div>
+  </div>
+
+  <div class="mdl-card mdl-cell mdl-cell--4-col mdl-shadow--4dp std_height">  
+    <div class="mdl-card__title">
+      <h2 class="mdl-card__title-text">All Users</h2>
+      <button class="mdl-button mdl-js-button mdl-js-ripple-effect help-dialog" style="position: absolute; right: 0;">
+      <div>
+        <p>
+          All Users is available to administrators to see the user list of all organizations hosted.
+        </p>
+      </div>
+      <i class="material-icons">help</i>
+    </button>
+    </div>
+    <div class="mdl-card__supporting-text">
+      <form method="POST" id="form_admin_orgs">
+        <div class="table-scrollable">
+          <table class="mdl-data-table mdl-js-data-table mdl-shadow--2dp" style="width: 100%;">
+            <thead>
+              <tr>
+                <th class="mdl-data-table__cell--non-numeric">Name</th>
+                <th class="mdl-data-table__cell--non-numeric">UID</th>
+              </tr>
+            </thead>
+            <tbody>
+              $for uid, email in all_users.iteritems():
+                <tr>
+                  <td class="mdl-data-table__cell--non-numeric click-to-copy">$email</td>
+                  <td class="mdl-data-table__cell--non-numeric click-to-copy">$uid</td>
+                </tr>
+            </tbody>
+          </table>
+        </div>
+      </form>
+    </div>
+    <div class="mdl-card__actions mdl-card--border">
     </div>
   </div>
