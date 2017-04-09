@@ -551,5 +551,6 @@ class SensorConfig( object ):
         profile.collectors[ HbsCollectorId.EXFIL ].addExfil( _.notification.USER_OBSERVED )
         profile.collectors[ HbsCollectorId.EXFIL ].addExfil( _.notification.FILE_TYPE_ACCESSED )
         profile.collectors[ HbsCollectorId.EXFIL ].addExfil( _.notification.EXISTING_PROCESS )
+        profile.collectors[ HbsCollectorId.FILE_TYPE_TRACKER ].disable()
 
         return profile
