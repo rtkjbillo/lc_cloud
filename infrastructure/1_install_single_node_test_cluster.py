@@ -14,7 +14,6 @@
 
 import os
 import sys
-import argparse
 
 if os.geteuid() != 0:
     print( 'Please run me as root to setup this test, but don\'t ever do that in production!' )

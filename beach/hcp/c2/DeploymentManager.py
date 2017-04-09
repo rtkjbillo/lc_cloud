@@ -222,7 +222,8 @@ class DeploymentManager( Actor ):
     def generateOsxAppBundle( self, binName, binary, osxAppBundle ):
         workingDir = tempfile.mkdtemp()
         bundlePath = os.path.join( workingDir, 'bundle.tar.gz' )
-        appDir = os.path.join( workingDir, 'limacharlie.app' )
+        appName = 'limacharlie.app'
+        appDir = os.path.join( workingDir, appName )
         finalBundle = '%s.app.tar.gz' % os.path.join( workingDir, binName )
         with open( bundlePath, 'wb' ) as f:
             f.write( osxAppBundle )
@@ -233,7 +234,7 @@ class DeploymentManager( Actor ):
         with open( os.path.join( appDir, 'Contents', 'MacOS', 'rphcp' ), 'wb' ) as f:
             f.write( binary )
 
-        if 0 != os.system( 'tar zcf %s %s' % ( finalBundle, appDir ) ):
+        if 0 != os.system( 'tar zcf %s -C %s %s' % ( finalBundle, workingDir, appName ) ):
             raise Exception( 'error tar-ing osx app bundle on disk' )
 
         with open( finalBundle, 'rb' ) as f:
@@ -467,6 +468,7 @@ We believe this sharing policy strikes a good balance between privacy and inform
                 patched = self.setSensorConfig( binary, hcpConfig )
                 if 'osx' in binName and osxAppBundle is not None:
                     patched = self.generateOsxAppBundle( binName, binary, osxAppBundle )
+                    binName = '%s.tar.gz' % binName
                 installersToLoad[ binName ] = patched
             elif binName.startswith( 'hbs_' ) and 'release' in binName:
                 patched = self.setSensorConfig( binary, hbsConfig )
