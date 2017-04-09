@@ -234,6 +234,9 @@ class DeploymentManager( Actor ):
         with open( os.path.join( appDir, 'Contents', 'MacOS', 'rphcp' ), 'wb' ) as f:
             f.write( binary )
 
+        if 0 != os.system( 'chmod +x %s' % ( os.path.join( appDir, 'Contents', 'MacOS', 'rphcp' ), ) ):
+            raise Exception( 'error setting osx app as executable' )
+
         if 0 != os.system( 'tar zcf %s -C %s %s' % ( finalBundle, workingDir, appName ) ):
             raise Exception( 'error tar-ing osx app bundle on disk' )
 
