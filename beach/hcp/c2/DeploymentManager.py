@@ -470,7 +470,7 @@ We believe this sharing policy strikes a good balance between privacy and inform
             if binName.startswith( 'hcp_' ):
                 patched = self.setSensorConfig( binary, hcpConfig )
                 if 'osx' in binName and osxAppBundle is not None:
-                    patched = self.generateOsxAppBundle( binName, binary, osxAppBundle )
+                    patched = self.generateOsxAppBundle( binName, patched, osxAppBundle )
                     binName = '%s.tar.gz' % binName
                 installersToLoad[ binName ] = patched
             elif binName.startswith( 'hbs_' ) and 'release' in binName:
