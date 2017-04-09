@@ -122,8 +122,12 @@ class IdentManager( Actor ):
 
         loginData = { 'is_authenticated' : True, 'uid' : uid, 'email' : email, 'orgs' : orgs, 'must_change_password' : must_change_password }
         if must_change_password:
+            domain = 'LimaCharlie'
+            resp = self.deployment.request( 'get_global_config', {} )
+            if resp.isSuccess:
+                domain = resp.data[ 'global/uidomain' ]
             totp = TwoFactorAuth( username = email, secret = totp_secret )
-            loginData[ 'otp' ] = totp.getSecret( asOtp = True )
+            loginData[ 'otp' ] = totp.getSecret( asOtp = True, domain = domain )
         return ( True, loginData )
 
     def createUser( self, msg ):
@@ -424,8 +428,8 @@ class TwoFactorAuth( object ):
                  providedValue == tokens[ 1 ] or
                  providedValue == tokens[ 2 ] )
     
-    def getSecret( self, asOtp = False ):
+    def getSecret( self, asOtp = False, domain = None ):
         if asOtp is False:
             return self._secret
         else:
-            return 'otpauth://totp/%s@LimaCharlie?secret=%s' % ( self._username, self._secret )
+            return 'otpauth://totp/%s@%s?secret=%s' % ( self._username, domain, self._secret )
