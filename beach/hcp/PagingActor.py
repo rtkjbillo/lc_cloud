@@ -44,14 +44,14 @@ class PagingActor( Actor ):
     def refreshCredentials( self ):
         resp = self.deploymentManager.request( 'get_global_config', {} )
         if resp.isSuccess:
-            fromAddr = resp.data[ 'global/paging_from' ]
-            user = resp.data[ 'global/paging_user' ]
-            password = resp.data[ 'global/paging_password' ]
-            if '' == user:
+            self.fromAddr = resp.data[ 'global/paging_from' ]
+            self.user = resp.data[ 'global/paging_user' ]
+            self.password = resp.data[ 'global/paging_password' ]
+            if '' == self.user:
                 self.user = None
-            if '' == password:
+            if '' == self.password:
                 self.password = None
-            if '' == fromAddr:
+            if '' == self.fromAddr:
                 self.fromAddr = None
         self.delay( 60, self.refreshCredentials )
 
