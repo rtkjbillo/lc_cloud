@@ -557,7 +557,7 @@ class Profile ( AuthenticatedPage ):
         return self.renderProfile()
 
     def doPOST( self ):
-        params = web.input( action = None, orgs = [], email = None )
+        params = web.input( action = None, orgs = [], email = None, with_key = False )
         if params.action is None:
             session.notice = 'Missing action parameter.'
             redirectTo( 'profile' )
@@ -653,7 +653,8 @@ class Profile ( AuthenticatedPage ):
                     session.notice = 'Error deploying org: %s' % res
         elif 'org_deploy' == params.action:
             for oid in params.orgs:
-                res = deployment.request( 'deploy_org', { 'is_generate_key' : False, 'oid' : oid } )
+                withKey = True if params.with_key is not False else False
+                res = deployment.request( 'deploy_org', { 'is_generate_key' : withKey, 'oid' : oid } )
                 notice = []
                 if not res.isSuccess: 
                     notice.append( 'Error generating sensors for %s.' % ( oid, ) )
