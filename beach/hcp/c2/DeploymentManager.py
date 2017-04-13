@@ -477,7 +477,7 @@ We believe this sharing policy strikes a good balance between privacy and inform
                 patched = self.setSensorConfig( binary, hbsConfig )
                 hbsToLoad[ binName ] = ( patched, signing.sign( patched ), hashlib.sha256( patched ).hexdigest() )
             elif binName.startswith( 'kernel_' ) and 'release' in binName:
-                kernelToLoad[ binName ] = ( binary, signing.sign( binary ), hashlib.sha256( patched ).hexdigest() )
+                kernelToLoad[ binName ] = ( binary, signing.sign( binary ), hashlib.sha256( binary ).hexdigest() )
 
         self.log( 'binaries for %s have been generated, loading them' % oid )
 
@@ -582,6 +582,7 @@ We believe this sharing policy strikes a good balance between privacy and inform
         req = msg.data
 
         isGenerateKey = req.get( 'is_generate_key', True )
+        isSkipProfiles = req.get( 'skip_profiles', False )
 
         oid = uuid.UUID( req[ 'oid' ] )
 
@@ -599,15 +600,16 @@ We believe this sharing policy strikes a good balance between privacy and inform
         if not self.genBinariesForOrg( packages, oid, osxAppBundle = self.readRelativeFile( 'resources/osx_app_bundle.tar.gz' ) ):
             return ( False, 'error generating binaries for org' )
 
-        resp = self.setProfileFor( oid, AgentId.PLATFORM_WINDOWS, SensorConfig.getDefaultWindowsProfile().toProfile() )
-        if not resp.isSuccess:
-            return ( False, 'error setting default windows profile: %s' % resp )
-        resp = self.setProfileFor( oid, AgentId.PLATFORM_MACOS, SensorConfig.getDefaultOsxProfile().toProfile() )
-        if not resp.isSuccess:
-            return ( False, 'error setting default osx profile: %s' % resp )
-        resp = self.setProfileFor( oid, AgentId.PLATFORM_LINUX, SensorConfig.getDefaultLinuxProfile().toProfile() )
-        if not resp.isSuccess:
-            return ( False, 'error setting default linux profile: %s' % resp )
+        if not isSkipProfiles:
+            resp = self.setProfileFor( oid, AgentId.PLATFORM_WINDOWS, SensorConfig.getDefaultWindowsProfile().toProfile() )
+            if not resp.isSuccess:
+                return ( False, 'error setting default windows profile: %s' % resp )
+            resp = self.setProfileFor( oid, AgentId.PLATFORM_MACOS, SensorConfig.getDefaultOsxProfile().toProfile() )
+            if not resp.isSuccess:
+                return ( False, 'error setting default osx profile: %s' % resp )
+            resp = self.setProfileFor( oid, AgentId.PLATFORM_LINUX, SensorConfig.getDefaultLinuxProfile().toProfile() )
+            if not resp.isSuccess:
+                return ( False, 'error setting default linux profile: %s' % resp )
 
         return ( True, {} )
 
