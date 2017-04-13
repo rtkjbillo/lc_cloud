@@ -144,7 +144,7 @@ class EndpointProcessor( Actor ):
         self.sslContext = ssl.SSLContext( ssl.PROTOCOL_TLSv1_2 )
 
         if self.privateKey is None or self.privateCert is None:
-            resp = self.deploymentManager.request( 'get_c2_cert', {} )
+            resp = self.deploymentManager.request( 'get_c2_cert', {}, timeout = 300 )
             if resp.isSuccess:
                 self.privateKey = resp.data[ 'key' ]
                 self.privateCert = resp.data[ 'cert' ]
@@ -293,7 +293,7 @@ class EndpointProcessor( Actor ):
                             'int_ip' : internalIp,
                             'hostname' : hostName,
                             'connection_id' : c.connId }
-            self.stateChanges.shoot( 'live', newStateMsg )
+            self.stateChanges.shoot( 'live', newStateMsg, timeout = 30 )
             self.sensorDir.broadcast( 'live', newStateMsg )
             del( newStateMsg )
 
@@ -332,7 +332,7 @@ class EndpointProcessor( Actor ):
                     newStateMsg = { 'aid' : aid.asString(), 
                                     'endpoint' : self.name,
                                     'connection_id' : c.connId }
-                    self.stateChanges.shoot( 'dead', newStateMsg )
+                    self.stateChanges.shoot( 'dead', newStateMsg, timeout = 30 )
                     self.sensorDir.broadcast( 'dead', newStateMsg )
                     del( newStateMsg )
                 self.log( 'Connection terminated: %s' % aid.asString() )
@@ -342,8 +342,10 @@ class EndpointProcessor( Actor ):
     def handlerHcp( self, c, messages ):
         for message in messages:
             if 'hcp.MODULES' in message:
-                moduleUpdateResp = self.moduleManager.request( 'sync', { 'mods' : message[ 'hcp.MODULES' ],
-                                                                         'aid' : c.getAid() } )
+                moduleUpdateResp = self.moduleManager.request( 'sync', 
+                                                               { 'mods' : message[ 'hcp.MODULES' ],
+                                                                 'aid' : c.getAid() },
+                                                               timeout = 30 )
                 if moduleUpdateResp.isSuccess:
                     changes = moduleUpdateResp.data[ 'changes' ]
                     tasks = []
@@ -381,8 +383,10 @@ class EndpointProcessor( Actor ):
             if 'notification.SYNC' in message:
                 self.log( "sync received from %s" % c.getAid() )
                 profileHash = message[ 'notification.SYNC' ].get( 'base.HASH', None )
-                profileUpdateResp = self.hbsProfileManager.request( 'sync', { 'hprofile' : profileHash,
-                                                                              'aid' : c.getAid() } )
+                profileUpdateResp = self.hbsProfileManager.request( 'sync', 
+                                                                    { 'hprofile' : profileHash,
+                                                                      'aid' : c.getAid() },
+                                                                    timeout = 30 )
                 if profileUpdateResp.isSuccess and 'changes' in profileUpdateResp.data:
                     profile = profileUpdateResp.data[ 'changes' ].get( 'profile', None )
                     if profile is not None:
@@ -406,7 +410,7 @@ class EndpointProcessor( Actor ):
             invId = message.values()[ 0 ].get( 'hbs.INVESTIGATION_ID', None )
             if invId is not None:
                 routing[ 'investigation_id' ] = invId
-            self.analyticsIntake.shoot( 'analyze', ( ( routing, message ), ) )
+            self.analyticsIntake.shoot( 'analyze', ( ( routing, message ), ), timeout = 600 )
 
     def timeSyncMessage( self ):
         return ( rSequence().addInt8( Symbols.base.OPERATION,
