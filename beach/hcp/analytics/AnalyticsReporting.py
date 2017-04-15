@@ -154,10 +154,11 @@ class AnalyticsReporting( Actor ):
         info = self.model.request( 'get_detect', { 'id' : invId, 'with_inv' : True } )
         investigations = []
         if info.isSuccess:
-            investigations = info.data[ 'inv' ]
+            investigations = info.data[ 'inv' ].values()
         for inv in investigations:
             if inv[ 'hunter' ] == hunter:
                 inv[ 'source' ] = source
+                inv[ 'inv_id' ] = invId
                 self.outputs.shoot( 'report_inv', inv )
                 break
 

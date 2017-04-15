@@ -19,6 +19,7 @@ InvestigationNature = Actor.importLib( 'utils/hcp_helpers', 'InvestigationNature
 InvestigationConclusion = Actor.importLib( 'utils/hcp_helpers', 'InvestigationConclusion' )
 _x_ = Actor.importLib( 'utils/hcp_helpers', '_x_' )
 AgentId = Actor.importLib( 'utils/hcp_helpers', 'AgentId' )
+normalAtom = Actor.importLib( 'utils/hcp_helpers', 'normalAtom' )
 
 import time
 import uuid
@@ -178,8 +179,8 @@ class _Investigation ( object ):
             self.registerForDedupe( invKey, ttl = ttl, isPerSensor = isPerSensor )
         else:
             dupeInv = self.actor.openExistingInvestigation( dupeInvId )
-            dupeInv.reportData( '[duplicate](/detect?id=%s) generated' % self.invId )
-            self.conclude( 'this is a [duplicate](/detect?id=%s)' % dupeInvId,
+            dupeInv.reportData( 'duplicate generated: %s' % self.actor.detectLink( self.invId ) )
+            self.conclude( 'this is a duplicate of %s' % self.actor.detectLink( dupeInvId ),
                            InvestigationNature.DUPLICATE,
                            InvestigationConclusion.NO_ACTION_TAKEN )
             isAbort = True
@@ -193,8 +194,8 @@ class _Investigation ( object ):
 
         if dupeInvId is not False and dupeInvId != self.invId:
             dupeInv = self.actor.openExistingInvestigation( dupeInvId )
-            dupeInv.reportData( '[duplicate](/detect?id=%s) generated' % self.invId )
-            self.conclude( 'this is a [duplicate](/detect?id=%s)' % dupeInvId,
+            dupeInv.reportData( 'duplicate generated: %s' % self.actor.detectLink( self.invId ) )
+            self.conclude( 'this is a duplicate of %s' % self.actor.detectLink( dupeInvId ),
                            InvestigationNature.DUPLICATE,
                            actionTaken )
             isAbort = True
@@ -212,6 +213,9 @@ class Hunter ( Actor ):
             for detect in self.detects:
                 self._registerToDetect( detect )
 
+        self.uiDomain = 'http://limacharlie:8888'
+        self.delay( 60 * 60, self._refreshConf )
+
         self.handle( 'detect', self._handleDetects )
 
         self._reporting = CreateOnAccess( self.getActorHandle, 'analytics/reporting' )
@@ -221,6 +225,14 @@ class Hunter ( Actor ):
         self.Models = CreateOnAccess( self.getActorHandle, 'models' )
         self.VirusTotal = CreateOnAccess( self.getActorHandle, 'analytics/virustotal' )
         self.Alexa = CreateOnAccess( self.getActorHandle, 'analytics/alexadns' )
+
+    def _refreshConf( self ):
+        tmpHandle = self.getActorHandle( resources[ 'deployment' ] )
+        info = tmpHandle.request( 'get_global_config' )
+        if info.isSuccess:
+            self.uiDomain = info.data[ 'global/uidomain' ]
+        tmpHandle.close()
+        self.delay( 60 * 60, self._refreshConf )
 
     def _registerToDetect( self, detect ):
         resp = self._registration.request( 'reg_detect', { 'uid' : self.name, 'name' : detect, 'hunter_type' : self._hunterName } )
@@ -242,6 +254,15 @@ class Hunter ( Actor ):
         detect = msg.data
         self.delay( 0, self.createInvestigation, inv_id = detect[ 'detect_id' ], detect = detect )
         return ( True, )
+
+    def makeLink( self, uri ):
+        return '%s%s' % ( self.uiDomain, uri )
+
+    def exploreLink( self, atom ):
+        return '%s/explore?atid=%s' % ( self.uiDomain, normalAtom( atom ) )
+
+    def detectLink( self, did ):
+        return '%s/detect?id=%s' % ( self.uiDomain, did )
 
     def createInvestigation( self, inv_id = None, detect = {} ):
         try:

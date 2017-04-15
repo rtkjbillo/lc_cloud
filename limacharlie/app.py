@@ -548,16 +548,20 @@ class Profile ( AuthenticatedPage ):
             all_orgs = None
             all_users = None
         extra_cards = []
+        org_configs = {}
         for org in orgs:
+            confInfo = deployment.request( 'get_org_config', { 'oid' : org[ 1 ] } )
+            if confInfo.isSuccess:
+                org_configs[ ( org[ 0 ], org[ 1 ] ) ] = confInfo.data
             extra_cards.append( card_org_membership( org[ 0 ], org[ 1 ] ) )
             extra_cards.append( card_org_retention( org[ 0 ], org[ 1 ], org[ 2 ] ) )
-        return render.profile( orgs, all_orgs, extra_cards, all_users )
+        return render.profile( orgs, all_orgs, extra_cards, all_users, org_configs )
 
     def doGET( self ):
         return self.renderProfile()
 
     def doPOST( self ):
-        params = web.input( action = None, orgs = [], email = None, with_key = False )
+        params = web.input( action = None, orgs = [], email = None, with_key = False, with_profile = False, oid = None, slacktoken = None )
         if params.action is None:
             session.notice = 'Missing action parameter.'
             redirectTo( 'profile' )
@@ -654,7 +658,8 @@ class Profile ( AuthenticatedPage ):
         elif 'org_deploy' == params.action:
             for oid in params.orgs:
                 withKey = True if params.with_key is not False else False
-                res = deployment.request( 'deploy_org', { 'is_generate_key' : withKey, 'oid' : oid } )
+                withProfile = True if params.with_profile is not False else False
+                res = deployment.request( 'deploy_org', { 'is_generate_key' : withKey, 'oid' : oid, 'skip_profiles' : not withProfile } )
                 notice = []
                 if not res.isSuccess: 
                     notice.append( 'Error generating sensors for %s.' % ( oid, ) )
@@ -666,6 +671,15 @@ class Profile ( AuthenticatedPage ):
                     session.notice = '\n'.join( notice )
                     redirectTo( 'profile' )
             session.notice = 'Success generating sensors.'
+        elif 'slack_update' == params.action:
+            if not isOrgAllowed( uuid.UUID( params.oid ) ):
+                session.notice = 'Permission denied on %s' % oid
+                redirectTo( 'profile' )
+            res = deployment.request( 'set_config', { 'conf' : '%s/slack_token' % params.oid, 'value' : params.slacktoken, 'by' : session.email } )
+            if not res.isSuccess: 
+                session.notice = 'Error setting Slack token for %s: %s.' % ( params.oid, str( res ) )
+                redirectTo( 'profile' )
+            session.notice = 'Success setting Slack token for: %s' % params.oid
         else:
             session.notice = 'Action not supported.'
             redirectTo( 'profile' )

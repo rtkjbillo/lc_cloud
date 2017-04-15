@@ -87,6 +87,7 @@ class DeploymentManager( Actor ):
             self.admin_oid = None
 
         self.handle( 'get_global_config', self.get_global_config )
+        self.handle( 'get_org_config', self.get_org_config )
         self.handle( 'set_config', self.set_config )
         self.handle( 'deploy_org', self.deploy_org )
         self.handle( 'get_c2_cert', self.get_c2_cert )
@@ -565,6 +566,19 @@ We believe this sharing policy strikes a good balance between privacy and inform
 
         return ( True, globalConf )
 
+    def get_org_config( self, msg ):
+        oid = uuid.UUID( msg.data[ 'oid' ] )
+        orgConf = {
+            '%s/slack_token' % oid : '',
+        }
+
+        info = self.db.execute( 'SELECT conf, value FROM configs WHERE conf IN %s', ( orgConf.keys(), ) )
+
+        for row in info:
+            orgConf[ row[ 0 ] ] = row[ 1 ]
+
+        return ( True, orgConf )
+
     def set_config( self, msg ):
         req = msg.data
 
@@ -574,7 +588,15 @@ We believe this sharing policy strikes a good balance between privacy and inform
 
         info = self.db.execute( 'UPDATE configs SET value = %s WHERE conf = %s', ( value, conf ) )
 
-        self.audit.shoot( 'record', { 'oid' : self.admin_oid, 'etype' : 'conf_change', 'msg' : 'Config %s was changed by %s.' % ( conf, byUser ) } )
+        try:
+            oid = uuid.UUID( conf.split( '/' )[ 0 ] )
+        except:
+            oid = None
+
+        if oid is None:
+            self.audit.shoot( 'record', { 'oid' : self.admin_oid, 'etype' : 'conf_change', 'msg' : 'Config %s was changed by %s.' % ( conf, byUser ) } )
+        else:
+            self.audit.shoot( 'record', { 'oid' : oid, 'etype' : 'conf_change', 'msg' : 'Config %s was changed by %s.' % ( conf, byUser ) } )
 
         return ( True, {} )
 
