@@ -87,7 +87,7 @@ class IdentManager( Actor ):
     def authenticate( self, msg ):
         req = msg.data
 
-        email = req[ 'email' ]
+        email = req[ 'email' ].lower()
         password = req[ 'password' ]
         totp = req[ 'totp' ]
 
@@ -133,7 +133,7 @@ class IdentManager( Actor ):
     def createUser( self, msg ):
         req = msg.data
 
-        email = req[ 'email' ]
+        email = req[ 'email' ].lower()
         password = req[ 'password' ]
         byUser = req[ 'by' ]
         isNoConfirm = req.get( 'no_confirm', False )
@@ -160,7 +160,7 @@ class IdentManager( Actor ):
     def deleteUser( self, msg ):
         req = msg.data
 
-        email = req[ 'email' ]
+        email = req[ 'email' ].lower()
         byUser = req[ 'by' ]
 
         info = self.db.getOne( 'SELECT uid FROM user_info WHERE email = %s', ( email, ) )
@@ -179,7 +179,7 @@ class IdentManager( Actor ):
     def changePassword( self, msg ):
         req = msg.data
 
-        email = req[ 'email' ]
+        email = req[ 'email' ].lower()
         password = req[ 'password' ]
         byUser = req[ 'by' ]
         totp = req.get( 'totp', None )
@@ -239,7 +239,7 @@ class IdentManager( Actor ):
     def addUserToOrg( self, msg ):
         req = msg.data
 
-        email = req[ 'email' ]
+        email = req[ 'email' ].lower()
         oid = uuid.UUID( str( req[ 'oid' ] ) )
         byUser = req[ 'by' ]
 
@@ -267,7 +267,7 @@ class IdentManager( Actor ):
     def removeUserFromOrg( self, msg ):
         req = msg.data
 
-        email = req[ 'email' ]
+        email = req[ 'email' ].lower()
         oid = uuid.UUID( req[ 'oid' ] )
         byUser = req[ 'by' ]
 
@@ -387,7 +387,7 @@ class IdentManager( Actor ):
         req = msg.data
 
         token = msg.data[ 'token' ]
-        email = msg.data[ 'email' ]
+        email = msg.data[ 'email' ].lower()
 
         info = self.db.getOne( 'SELECT uid, confirmation_token FROM user_info WHERE email = %s', ( email, ) )
 
