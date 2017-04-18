@@ -561,7 +561,7 @@ class Profile ( AuthenticatedPage ):
         return self.renderProfile()
 
     def doPOST( self ):
-        params = web.input( action = None, orgs = [], email = None, with_key = False, with_profile = False, oid = None, slacktoken = None )
+        params = web.input( action = None, orgs = [], email = None, with_key = False, with_profile = False, oid = None, slacktoken = None, slackbottoken = None )
         if params.action is None:
             session.notice = 'Missing action parameter.'
             redirectTo( 'profile' )
@@ -678,6 +678,10 @@ class Profile ( AuthenticatedPage ):
             res = deployment.request( 'set_config', { 'conf' : '%s/slack_token' % params.oid, 'value' : params.slacktoken, 'by' : session.email } )
             if not res.isSuccess: 
                 session.notice = 'Error setting Slack token for %s: %s.' % ( params.oid, str( res ) )
+                redirectTo( 'profile' )
+            res = deployment.request( 'set_config', { 'conf' : '%s/slack_bot_token' % params.oid, 'value' : params.slackbottoken, 'by' : session.email } )
+            if not res.isSuccess: 
+                session.notice = 'Error setting Slack bot token for %s: %s.' % ( params.oid, str( res ) )
                 redirectTo( 'profile' )
             session.notice = 'Success setting Slack token for: %s' % params.oid
         else:

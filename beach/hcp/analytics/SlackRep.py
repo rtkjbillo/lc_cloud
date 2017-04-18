@@ -14,11 +14,13 @@
 
 from beach.actor import Actor
 from slacker import Slacker
+from slackclient import SlackClient
 import json
 import uuid
 import base64
 from sets import Set
 import datetime
+import shlex
 AgentId = Actor.importLib( 'utils/hcp_helpers', 'AgentId' )
 _x_ = Actor.importLib( 'utils/hcp_helpers', '_x_' )
 InvestigationNature = Actor.importLib( 'utils/hcp_helpers', 'InvestigationNature' )
@@ -33,7 +35,7 @@ class SlackRep( Actor ):
         self.deployment = self.getActorHandle(( resources[ 'deployment' ] ) )
         self.identManager = self.getActorHandle( resources[ 'identmanager' ] )
 
-        self.bots = {}
+        self.reps = {}
         self.uiDomain = 'http://limacharlie:8888'
 
         self.schedule( 60, self.refreshBots )
@@ -55,9 +57,10 @@ class SlackRep( Actor ):
                 oConf = self.deployment.request( 'get_org_config', { 'oid' : oid } )
                 if oConf.isSuccess:
                     oToken = oConf.data[ '%s/slack_token' % oid ]
-                    if '' != oToken and oid not in self.bots:
+                    botToken = oConf.data[ '%s/slack_bot_token' % oid ]
+                    if '' != oToken and oid not in self.reps:
                         self.log( "Loading new slack app for %s" % oid )
-                        self.bots[ oid ] = RepInstance( self, oToken )
+                        self.reps[ oid ] = RepInstance( self, oToken, botToken )
 
     def getSources( self, event ):
         return [ AgentId( x ) for x in event[ 'source' ].split( ' / ' ) ]
@@ -68,9 +71,9 @@ class SlackRep( Actor ):
         sources = self.getSources( detect )
         oids = Set( [ x.org_id for x in sources ] )
         for oid in oids:
-            bot = self.bots.get( oid, None )
-            if bot is not None:
-                bot.newInvestigation( sources, detect )
+            rep = self.reps.get( oid, None )
+            if rep is not None:
+                rep.newInvestigation( sources, detect )
         return ( True, )
 
     def reportDetect( self, msg ):
@@ -79,19 +82,57 @@ class SlackRep( Actor ):
         sources = self.getSources( detect )
         oids = Set( [ x.org_id for x in sources ] )
         for oid in oids:
-            bot = self.bots.get( oid, None )
-            if bot is not None:
-                bot.newDetect( sources, detect )
+            rep = self.reps.get( oid, None )
+            if rep is not None:
+                rep.newDetect( sources, detect )
         return ( True, )
 
 class RepInstance( object ):
-    def __init__( self, actor, token ):
+    def __init__( self, actor, apiToken, botToken ):
         self.actor = actor
-        self.authToken = token
-        self.slack = Slacker( self.authToken )
+        self.apiToken = apiToken
+        self.botToken = botToken
+        self.slack = Slacker( self.apiToken )
+        self.bot = SlackClient( self.botToken )
+        self.botId = None
 
         self.makeChannel( '#detects' )
-        self.makeChannel( '#investigations' )
+
+        if not self.bot.rtm_connect():
+            raise Exception( 'failed to connect bot to Slack rtm API' )
+
+        self.actor.newThread( self.botThread )
+
+    def botThread( self, stopEvent ):
+        try:
+            # Get our ID
+            api_call = self.bot.api_call( "users.list" )
+            if api_call.get( 'ok' ):
+                for user in api_call.get( 'members' ):
+                    if user.get( 'name', '' ) == self.bot.server.username:
+                        self.botId = user.get( 'id' )
+                        break
+
+            self.actor.log( "found our id %s for %s" % ( self.botId, self.bot.server.username ) )
+            self.bot.rtm_send_message( '#general', '%s reporting in.' % ( self.bot.server.username, ) )
+
+            while not stopEvent.wait( 1.0 ):
+                for slackMessage in self.bot.rtm_read():
+                    message = slackMessage.get( 'text' )
+                    fromUser = slackMessage.get( 'user' )
+                    channel = slackMessage.get( 'channel' )
+                    if not message or not fromUser or ( '<@%s>' % self.botId ) not in message:
+                        continue
+                    self.executeCommand( channel, fromUser, shlex.split( message.replace( '<@%s>' % self.botId, '' ) ) )
+
+        except:
+            import traceback
+            self.actor.log( "Excp: %s" % traceback.format_exc() )
+
+        self.actor.log( "bot terminating" )
+
+    def executeCommand( self, channel, user, cmd ):
+        self.bot.rtm_send_message( channel, 'so %s wants me to %s' % ( user, str( cmd ) ) )
 
     def sanitizeJson( self, o ):
         if type( o ) is dict:
@@ -113,6 +154,32 @@ class RepInstance( object ):
     def makeChannel( self, name ):
         try:
             self.slack.channels.create( '%s' % name )
+        except:
+            return False
+        return True
+
+    def archiveChannel( self, name ):
+        try:
+            cid = None
+            for channel in self.slack.channels.list().body[ 'channels' ]:
+                if name == channel[ 'name' ]:
+                    cid = channel[ 'id' ]
+                    break
+            if cid is not None:
+                self.slack.channels.archive( cid )
+        except:
+            return False
+        return True
+
+    def inviteToChannel( self, name ):
+        try:
+            cid = None
+            for channel in self.slack.channels.list().body[ 'channels' ]:
+                if name == channel[ 'name' ]:
+                    cid = channel[ 'id' ]
+                    break
+            if cid is not None:
+                self.slack.channels.invite( cid, 'limacharlie' )
         except:
             return False
         return True
@@ -142,6 +209,7 @@ class RepInstance( object ):
         hostNames = [ self.getHostname( x ) for x in sources ]
         channelName = '#inv_%s' % ( investigation[ 'inv_id' ][ : 8 ] )
         self.makeChannel( channelName )
+        self.inviteToChannel( channelName )
 
         message = [ '*Created* on %s' % ( investigation[ 'generated' ] ) ]
         self.slack.chat.post_message( channelName, '\n'.join( message ) )
@@ -156,7 +224,7 @@ class RepInstance( object ):
                     task = '-> '
                 else:
                     task = '-x'
-                message.append( '%s `%s` @ %s' % ( task, str( data ), ts ) )
+                message.append( '%s `%s` @ %s' % ( task, str( evt[ 'data' ] ), ts ) )
                 message.append( 'Why: %s' % evt[ 'why' ] )
             else:
                 # This is data eval
@@ -170,4 +238,5 @@ class RepInstance( object ):
                     '*Conclusion*: %s' % ( InvestigationConclusion.lookup[ investigation[ 'conclusion' ] ], ) ]
         self.slack.chat.post_message( channelName, '\n'.join( message ) )
 
-        self.slack.chat.post_message( '#investigations', json.dumps( self.sanitizeJson( investigation ), indent = 4 ) )
+        if investigation[ 'nature' ] in ( InvestigationNature.FALSE_POSITIVE, InvestigationNature.DUPLICATE ):
+            self.archiveChannel( channelName )

@@ -570,6 +570,7 @@ We believe this sharing policy strikes a good balance between privacy and inform
         oid = uuid.UUID( msg.data[ 'oid' ] )
         orgConf = {
             '%s/slack_token' % oid : '',
+            '%s/slack_bot_token' % oid : '',
         }
 
         info = self.db.execute( 'SELECT conf, value FROM configs WHERE conf IN %s', ( orgConf.keys(), ) )
