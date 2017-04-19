@@ -234,7 +234,7 @@ class Hunter ( Actor ):
         self.Alexa = CreateOnAccess( self.getActorHandle, 'analytics/alexadns' )
 
     def _refreshConf( self ):
-        tmpHandle = self.getActorHandle( resources[ 'deployment' ] )
+        tmpHandle = self.getActorHandle( 'c2/deploymentmanager' )
         info = tmpHandle.request( 'get_global_config' )
         if info.isSuccess:
             self.uiDomain = info.data[ 'global/uidomain' ]
