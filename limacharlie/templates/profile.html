@@ -82,6 +82,11 @@ $for orgInfo, orgConf in org_configs.iteritems():
           <input class="mdl-textfield__input" type="password" id="slacktoken" name="slacktoken" value="$orgConf[ '%s/slack_token' % orgInfo[ 1 ] ]"/>
           <label class="mdl-textfield__label" for="slacktoken">Slack Token</label>
         </div>
+        <br/><br/>
+        <div class="mdl-textfield mdl-js-textfield" style="width: 100%;">
+          <input class="mdl-textfield__input" type="password" id="slackbottoken" name="slackbottoken" value="$orgConf[ '%s/slack_bot_token' % orgInfo[ 1 ] ]"/>
+          <label class="mdl-textfield__label" for="slackbottoken">Slack Bot Token</label>
+        </div>
       </form>
     </div>
     <div class="mdl-card__actions mdl-card--border">

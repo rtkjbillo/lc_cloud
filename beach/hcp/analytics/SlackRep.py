@@ -14,15 +14,20 @@
 
 from beach.actor import Actor
 from slacker import Slacker
+from slackclient import SlackClient
 import json
 import uuid
 import base64
 from sets import Set
 import datetime
+import shlex
+import traceback
+import copy
 AgentId = Actor.importLib( 'utils/hcp_helpers', 'AgentId' )
 _x_ = Actor.importLib( 'utils/hcp_helpers', '_x_' )
 InvestigationNature = Actor.importLib( 'utils/hcp_helpers', 'InvestigationNature' )
 InvestigationConclusion = Actor.importLib( 'utils/hcp_helpers', 'InvestigationConclusion' )
+ObjectTypes = Actor.importLib( 'utils/ObjectsDb', 'ObjectTypes' )
 
 class SlackRep( Actor ):
     def init( self, parameters, resources ):
@@ -32,8 +37,9 @@ class SlackRep( Actor ):
         self.model = self.getActorHandle( resources[ 'modeling' ] )
         self.deployment = self.getActorHandle(( resources[ 'deployment' ] ) )
         self.identManager = self.getActorHandle( resources[ 'identmanager' ] )
+        self.sensordir = self.getActorHandle( resources[ 'sensordir' ] )
 
-        self.bots = {}
+        self.reps = {}
         self.uiDomain = 'http://limacharlie:8888'
 
         self.schedule( 60, self.refreshBots )
@@ -55,9 +61,10 @@ class SlackRep( Actor ):
                 oConf = self.deployment.request( 'get_org_config', { 'oid' : oid } )
                 if oConf.isSuccess:
                     oToken = oConf.data[ '%s/slack_token' % oid ]
-                    if '' != oToken and oid not in self.bots:
+                    botToken = oConf.data[ '%s/slack_bot_token' % oid ]
+                    if '' != oToken and oid not in self.reps:
                         self.log( "Loading new slack app for %s" % oid )
-                        self.bots[ oid ] = RepInstance( self, oToken )
+                        self.reps[ oid ] = RepInstance( self, oid, oToken, botToken )
 
     def getSources( self, event ):
         return [ AgentId( x ) for x in event[ 'source' ].split( ' / ' ) ]
@@ -68,9 +75,9 @@ class SlackRep( Actor ):
         sources = self.getSources( detect )
         oids = Set( [ x.org_id for x in sources ] )
         for oid in oids:
-            bot = self.bots.get( oid, None )
-            if bot is not None:
-                bot.newInvestigation( sources, detect )
+            rep = self.reps.get( oid, None )
+            if rep is not None:
+                rep.newInvestigation( sources, detect )
         return ( True, )
 
     def reportDetect( self, msg ):
@@ -79,19 +86,244 @@ class SlackRep( Actor ):
         sources = self.getSources( detect )
         oids = Set( [ x.org_id for x in sources ] )
         for oid in oids:
-            bot = self.bots.get( oid, None )
-            if bot is not None:
-                bot.newDetect( sources, detect )
+            rep = self.reps.get( oid, None )
+            if rep is not None:
+                rep.newDetect( sources, detect )
         return ( True, )
 
+class CommandContext( object ):
+    def __init__( self, channel, user, cmd, history ):
+        self.channel = channel
+        self.user = user
+        self.cmd = cmd
+        self.history = history
+
+
 class RepInstance( object ):
-    def __init__( self, actor, token ):
+    def __init__( self, actor, oid, apiToken, botToken ):
         self.actor = actor
-        self.authToken = token
-        self.slack = Slacker( self.authToken )
+        self.oid = oid
+        self.apiToken = apiToken
+        self.botToken = botToken
+        self.slack = Slacker( self.apiToken )
+        self.bot = SlackClient( self.botToken )
+        self.botId = None
+
+        self.history = { 'last_cmd' : [] }
 
         self.makeChannel( '#detects' )
-        self.makeChannel( '#investigations' )
+
+        if not self.bot.rtm_connect():
+            raise Exception( 'failed to connect bot to Slack rtm API' )
+
+        self.actor.newThread( self.botThread )
+
+    def botThread( self, stopEvent ):
+        try:
+            # Get our ID
+            api_call = self.bot.api_call( "users.list" )
+            if api_call.get( 'ok' ):
+                for user in api_call.get( 'members' ):
+                    if user.get( 'name', '' ) == self.bot.server.username:
+                        self.botId = user.get( 'id' )
+                        break
+
+            self.actor.log( "found our id %s for %s" % ( self.botId, self.bot.server.username ) )
+            self.bot.rtm_send_message( '#general', 'Reporting in.' )
+
+            while not stopEvent.wait( 1.0 ):
+                for slackMessage in self.tryToRead():
+                    message = slackMessage.get( 'text' )
+                    fromUser = slackMessage.get( 'user' )
+                    channel = slackMessage.get( 'channel' )
+                    if not message or not fromUser or ( '<@%s>' % self.botId ) not in message:
+                        continue
+                    ctx = CommandContext( channel, 
+                                          fromUser, 
+                                          shlex.split( message.replace( '<@%s>' % self.botId, '' ) ), 
+                                          copy.deepcopy( self.history ) )
+                    self.actor.newThread( self.executeCommand, ctx )
+
+        except:
+            self.actor.log( "Excp: %s" % traceback.format_exc() )
+            del( self.actor.reps[ oid ] )
+
+        self.actor.log( "bot terminating" )
+
+    def tryToRead( self ):
+        while True:
+            try:
+                return self.bot.rtm_read()
+            except:
+                self.bot = SlackClient( self.botToken )
+                self.bot.rtm_connect()
+
+    def executeCommand( self, stopEvent, ctx ):
+        try:
+            if 'help' == ctx.cmd[ 0 ]:
+                self.bot.rtm_send_message( ctx.channel, self.prettyJson( 
+                {
+                    'help' : 'this help',
+                    '?' : [ '? <object_name>: lists the objects of any types with that name',
+                            '? <object_name> <object_type> . [of_type]: lists the locations where the object was seen',
+                            '? <object_name> <object_type> > [of_type]: lists all the parents of the object',
+                            '? <object_name> <object_type> < [of_type}: lists all the children of the object' ],
+                    '!' : [ '! command [arguments...] [sensor_id]: execute the command on the sensor, investigation sensor if sensor id not specified' ],
+                    '>' : [ '> [atom_id | previous_event_index]: get the parent event of the atom id or atom id of the 1-based index in the previous command result' ],
+                    '<' : [ '< [atom_id | previous_event_index]: get the children events of the atom id or atom id of the 1-based index in the previous command result' ],
+                    '.' : [ '. [hostname | sensor_id]: get information on a host by name or sensor id' ]
+                } ) )
+            elif '?' == ctx.cmd[ 0 ] and 2 <= len( ctx.cmd ):
+                self.command_objects( ctx )
+            elif '*' == ctx.cmd[ 0 ]:
+                self.command_status( ctx )
+            else:
+                self.bot.rtm_send_message( ctx.channel, "what are you talking about, need *help*?" )
+        except:
+            self.bot.rtm_send_message( ctx.channel, "oops I've fallen and I can't get up: %s" % ( traceback.format_exc(), ) )
+            self.actor.log( "Excp: %s" % traceback.format_exc() )
+
+        self.history[ 'last_cmd' ] = ctx.cmd
+
+    def command_objects( self, ctx ):
+        if 2 == len( ctx.cmd ):
+            # Query for object types that match the name
+            data = self.getModelData( 'get_obj_list', { 'orgs' : self.oid, 'name' : ctx.cmd[ 1 ] } )
+            if data is not None:
+                self.bot.rtm_send_message( ctx.channel, "here are the objects matching:\n%s" % ( self.prettyJson( data[ 'objects' ] ) ) )
+        elif 4 <= len( ctx.cmd ):
+            # Query for a characteristic of the object
+            if '.' == ctx.cmd[ 1 ]:
+                # Query the locations of the object
+                data = self.getModelData( 'get_dir', {} )
+                aid = AgentId( '%s.0.0.0.0' % self.oid )
+                if data is not None:
+                    output = []
+                    for loc in data[ 'olocs' ]:
+                        output.append( "*%s*" % ( self.getHostname( loc[ 0 ] ) ) )
+                        output.append( '  Last Seen: %s' % self.msTsToTime( loc[ 1 ] ) )
+                        output.append( '  SID: %s)\n' % loc[ 0 ] )
+                    self.bot.rtm_send_message( ctx.channel, "locations of object *%s* (%s):\n%s" % ( ctx.cmd[ 2 ],
+                                                                                                     ctx.cmd[ 3 ].upper(),
+                                                                                                     "\n".join( output ) ) )
+            elif '&gt;' == ctx.cmd[ 3 ]:
+                # Query the parents of the object
+                typeFilter = None
+                if 5 == len( ctx.cmd ):
+                    typeFilter = ctx.cmd[ 4 ].upper()
+                data = self.getModelData( 'get_obj_view', { 'orgs' : self.oid, 
+                                                            'obj_name' : ctx.cmd[ 1 ], 
+                                                            'obj_type' : ctx.cmd[ 2 ].upper() } )
+                if data is not None:
+                    output = []
+                    for parent in data[ 'parents' ]:
+                        if typeFilter is not None and typeFilter != parent[ 2 ]: 
+                            continue
+                        output.append( '*%s* (%s)' % ( parent[ 1 ], parent[ 2 ] ) )
+                        output.append( '  Hosts w/ object: %s' % data[ 'locs' ].get( parent[ 0 ], '-' ) )
+                        output.append( '  Hosts w/ relation: %s\n' % data[ 'rlocs' ].get( parent[ 0 ], '-' ) )
+                    self.bot.rtm_send_message( ctx.channel, "parents of object *%s* (%s):\n%s" % ( ctx.cmd[ 1 ],
+                                                                                                   ctx.cmd[ 2 ].upper(),
+                                                                                                   "\n".join( output ) ) )
+            elif '&lt;' == ctx.cmd[ 3 ]:
+                # Query the children of the object
+                if 5 == len( ctx.cmd ):
+                    typeFilter = ctx.cmd[ 4 ].upper()
+                data = self.getModelData( 'get_obj_view', { 'orgs' : self.oid, 
+                                                            'obj_name' : ctx.cmd[ 1 ], 
+                                                            'obj_type' : ctx.cmd[ 2 ].upper() } )
+                if data is not None:
+                    output = []
+                    for child in data[ 'children' ]:
+                        if typeFilter is not None and typeFilter != child[ 2 ]: 
+                            continue
+                        output.append( '*%s* (%s)' % ( child[ 1 ], child[ 2 ] ) )
+                        output.append( '  Hosts w/ object: %s' % data[ 'locs' ].get( child[ 0 ], '-' ) )
+                        output.append( '  Hosts w/ relation: %s\n' % data[ 'rlocs' ].get( child[ 0 ], '-' ) )
+                    self.bot.rtm_send_message( ctx.channel, "parents of object *%s* (%s):\n%s" % ( ctx.cmd[ 1 ],
+                                                                                                   ctx.cmd[ 2 ].upper(),
+                                                                                                   "\n".join( output ) ) )
+
+    def command_status( self, ctx ):
+        orgSensors = self.getOrgSensors()
+        sensorDir = self.getSensorDir()
+        winSensors = 0
+        osxSensors = 0
+        linSensors = 0
+        winOnline = 0
+        osxOnline = 0
+        linOnline = 0
+        onlineSensors = []
+        for sid, sensorInfo in orgSensors.iteritems():
+            aid = AgentId( sensorInfo[ 'aid' ] )
+            isOnline = False
+            if sid in sensorDir:
+                isOnline = True
+                _, _, curBytes, connectedAt = sensorDir[ sid ]
+                onlineSensors.append( ( curBytes, connectedAt, sid ) )
+            if aid.isWindows():
+                winSensors += 1
+                if isOnline:
+                    winOnline += 1
+            if aid.isMacOSX():
+                osxSensors += 1
+                if isOnline:
+                    osxOnline += 1
+            if aid.isLinux():
+                linSensors += 1
+                if isOnline:
+                    linOnline += 1
+
+        del( sensorDir )
+
+        output = []
+        output.append( 'Sensor Status:' )
+        output.append( '  *Windows:* %d (%d online)' % ( winSensors, winOnline ) )
+        output.append( '  *MacOS:* %d (%d online)' % ( osxSensors, osxOnline ) )
+        output.append( '  *Linux:* %d (%d online)' % ( linSensors, linOnline ) )
+        output.append( '' )
+
+        topTraffic = sorted( onlineSensors, key = lambda x: x[ 0 ], reverse = True )[ : 5 ]
+        output.append( 'Top online sensors by data received:' )
+        for info in topTraffic:
+            output.append( '  *%s* bytes: *%s* (%s) since *%s*' % ( info[ 0 ], self.getHostname( info[ 2 ] ), info[ 2 ], self.sTsToTime( info[ 1 ] ) ) )
+        
+        self.bot.rtm_send_message( ctx.channel, "\n".join( output ) )
+
+    def command_task( self, ctx ):
+        pass
+
+    def command_parent_atom( self, ctx ):
+        pass
+
+    def command_children_atom( self, ctx ):
+        pass
+
+    def command_host_info( self, ctx ):
+        pass
+
+    def getModelData( self, request, requestData = {} ):
+        resp = self.actor.model.request( request, requestData, timeout = 10.0 )
+        if resp.isSuccess:
+            return resp.data
+        else:
+            self.bot.rtm_send_message( channel, "model won't talk to me: %s" % str( resp ) )
+            return None
+
+    def getSensorDir( self ):
+        directory = {}
+        data = self.actor.sensordir.request( 'get_dir', {} )
+        if data.isSuccess:
+            directory = data.data[ 'dir' ]
+        return directory
+
+    def getOrgSensors( self ):
+        sensors = {}
+        aid = AgentId( '%s.0.0.0.0' % self.oid )
+        data = self.getModelData( 'list_sensors', { 'aid' : aid } )
+        if data is not None:
+            sensors = data
+        return sensors
 
     def sanitizeJson( self, o ):
         if type( o ) is dict:
@@ -110,9 +342,38 @@ class RepInstance( object ):
 
         return o
 
+    def prettyJson( self, o ):
+        return '```%s```' % json.dumps( self.sanitizeJson( o ), indent = 2 )
+
     def makeChannel( self, name ):
         try:
             self.slack.channels.create( '%s' % name )
+        except:
+            return False
+        return True
+
+    def archiveChannel( self, name ):
+        try:
+            cid = None
+            for channel in self.slack.channels.list().body[ 'channels' ]:
+                if name == channel[ 'name' ]:
+                    cid = channel[ 'id' ]
+                    break
+            if cid is not None:
+                self.slack.channels.archive( cid )
+        except:
+            return False
+        return True
+
+    def inviteToChannel( self, name ):
+        try:
+            cid = None
+            for channel in self.slack.channels.list().body[ 'channels' ]:
+                if name == channel[ 'name' ]:
+                    cid = channel[ 'id' ]
+                    break
+            if cid is not None:
+                self.slack.channels.invite( cid, 'limacharlie' )
         except:
             return False
         return True
@@ -128,6 +389,9 @@ class RepInstance( object ):
             ts = ts.split( '.' )[ 0 ]
         return datetime.datetime.fromtimestamp( float( ts ) / 1000 ).strftime( '%Y-%m-%d %H:%M:%S.%f' )
 
+    def sTsToTime( self, ts ):
+        return self.msTsToTime( ts * 1000 ).split( '.' )[ 0 ]
+
     def newDetect( self, sources, detect ):
         hostNames = [ self.getHostname( x ) for x in sources ]
         atom = _x_( detect[ 'detect' ], '?/hbs.THIS_ATOM' )
@@ -136,12 +400,14 @@ class RepInstance( object ):
         message.append( 'Link to sensor: %s' % ' '.join( [ ( '%s/sensor?sid=%s' % ( self.actor.uiDomain, x.sensor_id ) ) for x in sources ] ) )
         if atom is not None:
             message.append( 'Link to event: %s/explore?atid=%s' % ( self.actor.uiDomain, uuid.UUID( bytes = atom ) ) )
+        message.append( self.prettyJson( detect[ 'detect' ] ) )
         self.slack.chat.post_message( '#detects', '\n'.join( message ) )
 
     def newInvestigation( self, sources, investigation ):
         hostNames = [ self.getHostname( x ) for x in sources ]
         channelName = '#inv_%s' % ( investigation[ 'inv_id' ][ : 8 ] )
         self.makeChannel( channelName )
+        self.inviteToChannel( channelName )
 
         message = [ '*Created* on %s' % ( investigation[ 'generated' ] ) ]
         self.slack.chat.post_message( channelName, '\n'.join( message ) )
@@ -156,13 +422,13 @@ class RepInstance( object ):
                     task = '-> '
                 else:
                     task = '-x'
-                message.append( '%s `%s` @ %s' % ( task, str( data ), ts ) )
+                message.append( '%s `%s` @ %s' % ( task, str( evt[ 'data' ] ), ts ) )
                 message.append( 'Why: %s' % evt[ 'why' ] )
             else:
                 # This is data eval
                 message.append( 'Reporting: %s' % evt[ 'why' ] )
                 if 0 != len( evt[ 'data' ] ):
-                    message.append( '```%s```' % json.dumps( self.sanitizeJson( evt[ 'data' ] ), indent = 2 ) )
+                    message.append( self.prettyJson( evt[ 'data' ] ) )
             self.slack.chat.post_message( channelName, '\n'.join( message ) )
         message = [ '*Closed* on %s' % ( investigation[ 'closed' ] ),
                     '*Why*: %s' % investigation[ 'why' ],
@@ -170,4 +436,5 @@ class RepInstance( object ):
                     '*Conclusion*: %s' % ( InvestigationConclusion.lookup[ investigation[ 'conclusion' ] ], ) ]
         self.slack.chat.post_message( channelName, '\n'.join( message ) )
 
-        self.slack.chat.post_message( '#investigations', json.dumps( self.sanitizeJson( investigation ), indent = 4 ) )
+        if investigation[ 'nature' ] in ( InvestigationNature.FALSE_POSITIVE, InvestigationNature.DUPLICATE ):
+            self.archiveChannel( channelName )

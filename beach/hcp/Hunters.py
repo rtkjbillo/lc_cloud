@@ -99,22 +99,29 @@ class _Investigation ( object ):
 
         self.taskId += 1
 
+        # We start listening for an answer before sending the tasking
+        # so that we are sure to beat the race in case an answer comes
+        # back really quickly.
+        if isNeedResp:
+            ret = _TaskResp( trxId, self )
+
+            def _syncRecv( msg ):
+                routing, event, mtd = msg.data
+                ret._add( event )
+                return ( True, )
+
+            self.actor.handle( trxId, _syncRecv )
+            self.liveTrx.append( trxId )
+
         resp = self.actor._tasking.request( 'task', data, key = dest, timeout = 60, nRetries = 0 )
         if resp.isSuccess:
             self.actor.log( "sent for tasking: %s" % ( str(cmdsAndArgs), ) )
-
-            if isNeedResp:
-                ret = _TaskResp( trxId, self )
-
-                def _syncRecv( msg ):
-                    routing, event, mtd = msg.data
-                    ret._add( event )
-                    return ( True, )
-
-                self.actor.handle( trxId, _syncRecv )
-                self.liveTrx.append( trxId )
         else:
             self.actor.log( "failed to send tasking" )
+            # Well we listened for nothing, cleanup.
+            if isNeedResp:
+                ret.done()
+                ret = None
 
         taskInfo = { 'inv_id' : self.invId,
                      'ts' : time.time(),
@@ -214,7 +221,7 @@ class Hunter ( Actor ):
                 self._registerToDetect( detect )
 
         self.uiDomain = 'http://limacharlie:8888'
-        self.delay( 60 * 60, self._refreshConf )
+        self._refreshConf()
 
         self.handle( 'detect', self._handleDetects )
 
@@ -227,7 +234,7 @@ class Hunter ( Actor ):
         self.Alexa = CreateOnAccess( self.getActorHandle, 'analytics/alexadns' )
 
     def _refreshConf( self ):
-        tmpHandle = self.getActorHandle( resources[ 'deployment' ] )
+        tmpHandle = self.getActorHandle( 'c2/deploymentmanager' )
         info = tmpHandle.request( 'get_global_config' )
         if info.isSuccess:
             self.uiDomain = info.data[ 'global/uidomain' ]

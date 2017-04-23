@@ -91,7 +91,7 @@ printStep( 'Initializing Cassandra schema.',
 printStep( 'Installing pip packages for various analytics components.',
     os.system( 'pip install time_uuid cassandra-driver==3.7.1 virustotal' ),
     os.system( 'pip install ipaddress tld pyqrcode pypng' ),
-    os.system( 'pip install slacker' ) )
+    os.system( 'pip install slacker slackbot' ) )
 
 printStep( 'Installing Yara.',
     os.system( 'git clone https://github.com/refractionPOINT/yara.git' ),

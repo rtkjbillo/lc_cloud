@@ -447,7 +447,6 @@ class SensorConfig( object ):
         profile.collectors[ HbsCollectorId.YARA ].disable()
         profile.collectors[ HbsCollectorId.STATEFUL_TRACKING ].disable()
         profile.collectors[ HbsCollectorId.MODULE_TRACKER ].disable()
-        profile.collectors[ HbsCollectorId.DNS_TRACKER ].disable()
         profile.collectors[ HbsCollectorId.EXFIL ].addExfil( _.notification.NEW_PROCESS )
         profile.collectors[ HbsCollectorId.EXFIL ].addExfil( _.notification.TERMINATE_PROCESS )
         profile.collectors[ HbsCollectorId.EXFIL ].addExfil( _.notification.CODE_IDENTITY )
