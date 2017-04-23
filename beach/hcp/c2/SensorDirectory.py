@@ -42,7 +42,7 @@ class SensorDirectory( Actor ):
         aid = AgentId( msg.data[ 'aid' ] )
         endpoint = msg.data[ 'endpoint' ]
         connId = msg.data[ 'connection_id' ]
-        self.directory[ aid.sensor_id ] = ( connId, endpoint, 0 )
+        self.directory[ aid.sensor_id ] = ( connId, endpoint, 0, int( time.time() ) )
         return ( True, )
 
     def setDead( self, msg ):
@@ -51,7 +51,7 @@ class SensorDirectory( Actor ):
         connId = msg.data[ 'connection_id' ]
         # This is to avoid sensor set dead after long timeout
         # having a collision with the same sensor coming back online.
-        tmp = self.directory.pop( aid.sensor_id, ( None, None, 0 ) )
+        tmp = self.directory.pop( aid.sensor_id, ( None, None, 0, 0 ) )
         if tmp[ 1 ] != endpoint or connId != tmp[ 0 ]:
             # Looks like the sensor re-registered, re-add it.
             self.directory.setdefault( aid.sensor_id, tmp )
@@ -60,15 +60,15 @@ class SensorDirectory( Actor ):
     def addTransfered( self, msg ):
         aid = AgentId( msg.data[ 'aid' ] )
         newBytes = msg.data[ 'bytes_transfered' ]
-        connId, curEndpoint, curBytes = self.directory.get( aid.sensor_id, ( None, None, 0 ) )
-        self.directory[ aid.sensor_id ] = ( connId, curEndpoint, curBytes + newBytes )
+        connId, curEndpoint, curBytes, connectedAt = self.directory.get( aid.sensor_id, ( None, None, 0, 0 ) )
+        self.directory[ aid.sensor_id ] = ( connId, curEndpoint, curBytes + newBytes, connectedAt )
         self.log( '%s transfered %d new bytes.' % ( aid.sensor_id, newBytes ) )
         return ( True, )
 
     def getEndpoint( self, msg ):
         aid = AgentId( msg.data[ 'aid' ] )
-        connId, endpoint, transfered = self.directory.get( aid.sensor_id, ( None, None, 0 ) )
-        return ( True, { 'aid' : aid.sensor_id, 'endpoint' : endpoint, 'transfered' : transfered, 'connection_id' : connId } )
+        connId, endpoint, transfered, connectedAt = self.directory.get( aid.sensor_id, ( None, None, 0, 0 ) )
+        return ( True, { 'aid' : aid.sensor_id, 'endpoint' : endpoint, 'transfered' : transfered, 'connection_id' : connId, 'connected_at' : connectedAt } )
 
     def getDirectory( self, msg ):
         return ( True, { 'dir' : self.directory } )
