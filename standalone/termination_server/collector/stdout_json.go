@@ -16,6 +16,7 @@ package collector
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"github.com/refractionPOINT/lc_cloud/standalone/termination_server/server"
 	"sync"
@@ -30,6 +31,7 @@ type stdOutJSONCollector struct {
 	isPrettyPrint bool
 	ouputWG       sync.WaitGroup
 	mu            sync.Mutex
+	isStarted     bool
 }
 
 // NewStdoutJSON creates a new collector that will output the events to the stdout as JSON.
@@ -50,10 +52,15 @@ func (s *stdOutJSONCollector) SetChannels(connect <-chan server.ConnectMessage, 
 // Start the collector and begin outputting. This will launch numHandlers GoRoutines (as specified in factory).
 // Caller is responsible for calling Stop() for cleanup.
 func (s *stdOutJSONCollector) Start() error {
+	if s.isStarted {
+		return errors.New("stdOutJSONCollector: already started")
+	}
+
 	s.ouputWG.Add(s.numHandlers)
 	for i := 0; i < s.numHandlers; i++ {
 		go s.handler()
 	}
+	s.isStarted = true
 
 	return nil
 }
@@ -80,7 +87,7 @@ func (s *stdOutJSONCollector) handler() {
 		case msg := <-s.disconnect:
 			o = fmt.Sprintf("DISCONNECT: %s", msg.AID)
 		case msg := <-s.incoming:
-			wrapper := make(map[string]interface{}, 2)
+			wrapper := make(map[string]interface{})
 			wrapper["event"] = msg.Event.ToJSON()
 			wrapper["routing"] = make(map[string]interface{}, 1)
 			wrapper["routing"].(map[string]interface{})["aid"] = msg.AID

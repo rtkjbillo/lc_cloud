@@ -52,6 +52,11 @@ const (
 	CmdQuit          = 5
 )
 
+const (
+	numComponentsInAgentID = 5
+	agentIDWildcardValue   = "0"
+)
+
 // AgentID is the logical representation of the ID components used
 // to identify a specific sensor and its basic characteristics.
 type AgentID struct {
@@ -97,58 +102,70 @@ func (aid AgentID) String() string {
 }
 
 // FromString converts the standardized string representation of an AgentID into an AgentID.
-func (aid AgentID) FromString(s string) bool {
+func (aid AgentID) FromString(s string) error {
 	var (
 		err   error
 		tmp64 uint64
 	)
 	components := strings.Split(s, ".")
-	if len(components) != 5 {
-		return false
+	if len(components) != numComponentsInAgentID {
+		return errors.New("AgentID: invalid number of components in string")
 	}
 
-	if components[0] == "0" {
+	if components[0] == agentIDWildcardValue {
 		aid.OID = WildcardUUID
 	} else if aid.OID, err = uuid.Parse(components[0]); err != nil {
-		return false
+		return err
 	}
 
-	if components[1] == "0" {
+	if components[1] == agentIDWildcardValue {
 		aid.IID = WildcardUUID
 	} else if aid.IID, err = uuid.Parse(components[1]); err != nil {
-		return false
+		return err
 	}
 
-	if components[2] == "0" {
+	if components[2] == agentIDWildcardValue {
 		aid.SID = WildcardUUID
 	} else if aid.SID, err = uuid.Parse(components[2]); err != nil {
-		return false
+		return err
 	}
 
 	if tmp64, err = strconv.ParseUint(components[3], 16, 32); err != nil {
-		return false
+		return err
 	}
 	aid.Platform = uint32(tmp64)
 
 	if tmp64, err = strconv.ParseUint(components[3], 16, 32); err != nil {
-		return false
+		return err
 	}
 	aid.Architecture = uint32(tmp64)
 
-	return true
+	return nil
 }
 
 // Matches returns true if both AgentIDs are equal (or wildcarded) in all components.
 func (aid AgentID) Matches(compareTo AgentID) bool {
-	if (aid.OID == WildcardUUID || compareTo.OID == WildcardUUID || aid.OID == compareTo.OID) &&
-		(aid.IID == WildcardUUID || compareTo.IID == WildcardUUID || aid.IID == compareTo.IID) &&
-		(aid.SID == WildcardUUID || compareTo.SID == WildcardUUID || aid.SID == compareTo.SID) &&
-		(aid.Platform == WildcardPlatform || compareTo.Platform == WildcardPlatform || aid.Platform == compareTo.Platform) &&
-		(aid.Architecture == WildcardArchitecture || compareTo.Architecture == WildcardArchitecture || aid.Architecture == compareTo.Architecture) {
-		return true
+	if aid.OID != WildcardUUID && compareTo.OID != WildcardUUID && aid.OID != compareTo.OID {
+		return false
 	}
 
-	return false
+	if aid.IID != WildcardUUID && compareTo.IID != WildcardUUID && aid.IID != compareTo.IID {
+		return false
+	}
+
+	if aid.SID != WildcardUUID && compareTo.SID != WildcardUUID && aid.SID != compareTo.SID {
+		return false
+	}
+
+	if aid.Platform != WildcardPlatform && compareTo.Platform != WildcardPlatform && aid.Platform != compareTo.Platform {
+		return false
+	}
+
+	if aid.Architecture != WildcardArchitecture && compareTo.Architecture != WildcardArchitecture || aid.Architecture != compareTo.Architecture {
+		return false
+	}
+
+	return true
 }
 
 // FromSequence loads an AgentID from an rpcm Sequence in the standard format.

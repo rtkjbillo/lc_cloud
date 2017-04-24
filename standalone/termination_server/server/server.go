@@ -132,11 +132,6 @@ func NewServer(config *lcServerConfig.Config) (Server, error) {
 
 	s := new(server)
 
-	// List of rules that are currently active.
-	s.enrollmentRules = make([]EnrollmentRule, 0)
-	s.moduleRules = make([]ModuleRule, 0)
-	s.profileRules = make([]ProfileRule, 0)
-
 	// A map representing which clients are currently online and available.
 	s.online = make(map[hcp.AgentID]Client)
 
@@ -147,7 +142,7 @@ func NewServer(config *lcServerConfig.Config) (Server, error) {
 
 	if config == nil {
 		// If no config is provided we just return a blank server.
-		return s, err
+		return s, nil
 	}
 
 	// Loading the rules from the proto into the internal format.
@@ -168,8 +163,8 @@ func NewServer(config *lcServerConfig.Config) (Server, error) {
 
 		r.ModuleID = uint8(rule.GetModuleId())
 
-		if !r.AID.FromString(rule.GetAid()) {
-			return s, fmt.Errorf("server: failed to parse AID: %s", rule.GetAid())
+		if err := r.AID.FromString(rule.GetAid()); err != nil {
+			return s, fmt.Errorf("server: failed to parse AID in module rule: %s", err)
 		}
 
 		r.ModuleFile = rule.GetModuleFile()
@@ -190,8 +185,8 @@ func NewServer(config *lcServerConfig.Config) (Server, error) {
 	for _, rule := range config.GetProfileRules().GetRule() {
 		r := ProfileRule{}
 
-		if !r.AID.FromString(rule.GetAid()) {
-			return s, fmt.Errorf("server: failed to parse AID: %s", rule.GetAid())
+		if err := r.AID.FromString(rule.GetAid()); err != nil {
+			return s, fmt.Errorf("server: failed to parse AID in profile rule: %s", err)
 		}
 
 		r.ProfileFile = rule.GetProfileFile()

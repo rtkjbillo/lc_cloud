@@ -112,7 +112,7 @@ func (c *client) ProcessIncoming(moduleID uint8, messages []*rpcm.Sequence) erro
 		// wilcards would make masks apply where they shouldn't. A client always has a specific
 		// identity.
 		if !c.aID.IsAbsolute() {
-			return fmt.Errorf("server: invalid AID %s", c.aID)
+			return fmt.Errorf("server: client AID should not contain wilcards %s", c.aID)
 		}
 
 		if c.aID.IsSIDWild() {
