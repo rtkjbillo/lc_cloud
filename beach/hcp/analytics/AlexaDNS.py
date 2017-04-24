@@ -16,6 +16,8 @@ from beach.actor import Actor
 import urllib2
 from zipfile import ZipFile
 from StringIO import StringIO
+import tld
+import tld.utils
 
 class AlexaDNS ( Actor ):
     def init( self, parameters, resources ):
@@ -46,6 +48,12 @@ class AlexaDNS ( Actor ):
         self.topMap = newMap
         self.topList = newList
         self.log( "updated Alexa top list with %d domains." % len( self.topList ) )
+
+        try:
+            tld.update_tld_names()
+        except:
+            pass
+
         self.delay( 60 * 60 * 24, self.refreshDomains )
 
     def getList( self, msg ):
@@ -54,7 +62,8 @@ class AlexaDNS ( Actor ):
 
     def isInTop( self, msg ):
         domain = msg.data[ 'domain' ]
-        if domain in self.topMap:
-            return ( True, { 'n' : self.topMap[ domain ] } )
-        else:
-            return ( True, { 'n' : None } )
+        try:
+            domain = tld.get_tld( domain, fix_protocol = True )
+        except:
+            pass
+        return ( True, { 'n' : self.topMap.get( domain, None ) } )

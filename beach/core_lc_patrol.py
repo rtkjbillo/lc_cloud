@@ -715,6 +715,31 @@ Patrol( 'AlexaDNS',
             'n_concurrent' : 10 } )
 
 #######################################
+# MalwareDomains
+# This actor retrieves the list of domains
+# compiled by MalwareDomains.com to 
+# be queried against as a list of known bad.
+# Parameters:
+#
+#######################################
+Patrol( 'MalwareDomains',
+        initialInstances = 2,
+        maxInstances = None,
+        relaunchOnFailure = True,
+        onFailureCall = None,
+        scalingFactor = 10000,
+        actorArgs = ( 'analytics/MalwareDomains',
+                      'analytics/malwaredomains/1.0' ),
+        actorKwArgs = {
+            'resources' : {},
+            'parameters' : {},
+            'secretIdent' : 'malwaredomains/d7e813ef-e47d-479c-a56e-0190cad45c25',
+            'trustedIdents' : [ 'analysis/01e9a19d-78e1-4c37-9a6e-37cb592e3897',
+                                'hunter/8e0f55c0-6593-4747-9d02-a4937fa79517',
+                                'blink/6babf560-88db-403d-a5f6-3689397e0104' ],
+            'n_concurrent' : 10 } )
+
+#######################################
 # AnalyticsStateless
 # This actor responsible for sending
 # messages of the right type to the
