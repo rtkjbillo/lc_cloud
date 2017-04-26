@@ -40,6 +40,7 @@ class AutoTasking( Actor ):
         self.sensor_qph = parameters.get( 'sensor_qph', 50 )
         self.global_qph = parameters.get( 'global_qph', 200 )
         self.allowed_commands = Set( parameters.get( 'allowed', [] ) )
+        self.model = self.getActorHandle( resources[ 'modeling' ] )
         self.handle( 'task', self.handleTasking )
         self.sensor_stats = {}
         self.global_stats = 0
@@ -109,6 +110,10 @@ class AutoTasking( Actor ):
             command += ' -@ "%s"' % str( invId )
 
         oid = AgentId( agentid ).org_id
+        if oid is None:
+            resp = self.model.request( 'get_sensor_info', { 'id_or_host' : agentid } )
+            if resp.isSuccess:
+                oid = AgentId( resp.data[ 'id' ] ).org_id
 
         cli = self.getCli( oid )
 

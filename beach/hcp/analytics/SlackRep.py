@@ -23,11 +23,34 @@ import datetime
 import shlex
 import traceback
 import copy
+import time
 AgentId = Actor.importLib( 'utils/hcp_helpers', 'AgentId' )
 _x_ = Actor.importLib( 'utils/hcp_helpers', '_x_' )
 InvestigationNature = Actor.importLib( 'utils/hcp_helpers', 'InvestigationNature' )
 InvestigationConclusion = Actor.importLib( 'utils/hcp_helpers', 'InvestigationConclusion' )
 ObjectTypes = Actor.importLib( 'utils/ObjectsDb', 'ObjectTypes' )
+Event = Actor.importLib( 'utils/hcp_helpers', 'Event' )
+
+class _TaskResp ( object ):
+    def __init__( self, trxId, actor ):
+        self._trxId = trxId
+        self._actor = actor
+        self.wasReceived = False
+        self.responses = []
+        self._event = Event()
+    
+    def _add( self, newData ):
+        if 'hbs.CLOUD_NOTIFICATION' == newData.keys()[ 0 ]:
+            self.wasReceived = True
+        else:
+            self.responses.append( newData )
+            self._event.set()
+    
+    def wait( self, timeout ):
+        return self._event.wait( timeout )
+
+    def done( self ):
+        self._actor.unhandle( self._trxId )
 
 class SlackRep( Actor ):
     def init( self, parameters, resources ):
@@ -38,6 +61,8 @@ class SlackRep( Actor ):
         self.deployment = self.getActorHandle(( resources[ 'deployment' ] ) )
         self.identManager = self.getActorHandle( resources[ 'identmanager' ] )
         self.sensordir = self.getActorHandle( resources[ 'sensordir' ] )
+        self.tasking = self.getActorHandle( resources[ 'autotasking' ] )
+        self.huntmanager = self.getActorHandle( resources[ 'huntsmanager' ] )
 
         self.reps = {}
         self.uiDomain = 'http://limacharlie:8888'
@@ -108,6 +133,11 @@ class RepInstance( object ):
         self.slack = Slacker( self.apiToken )
         self.bot = SlackClient( self.botToken )
         self.botId = None
+        self.invId = str( uuid.uuid4() )
+        self.taskId = 0
+        resp = self.actor.huntmanager.request( 'reg_inv', { 'uid' : self.actor.name, 'name' : self.invId } )
+        if not resp.isSuccess:
+            raise Exception( 'failed to register investigation id for tasking: %s' % resp )
 
         self.history = { 'last_cmd' : [] }
 
@@ -168,15 +198,19 @@ class RepInstance( object ):
                             '? <object_name> <object_type> . [of_type]: lists the locations where the object was seen',
                             '? <object_name> <object_type> > [of_type]: lists all the parents of the object',
                             '? <object_name> <object_type> < [of_type}: lists all the children of the object' ],
-                    '!' : [ '! command [arguments...] [sensor_id]: execute the command on the sensor, investigation sensor if sensor id not specified' ],
-                    '>' : [ '> [atom_id | previous_event_index]: get the parent event of the atom id or atom id of the 1-based index in the previous command result' ],
-                    '<' : [ '< [atom_id | previous_event_index]: get the children events of the atom id or atom id of the 1-based index in the previous command result' ],
+                    '!' : [ '! sensor_id command [arguments...]: execute the command on the sensor, investigation sensor if sensor id not specified' ],
+                    '>' : [ '> atom_id: get the parent event of the atom id or atom id of the 1-based index in the previous command result' ],
+                    '<' : [ '< atom_id: get the children events of the atom id or atom id of the 1-based index in the previous command result' ],
                     '.' : [ '. [hostname | sensor_id]: get information on a host by name or sensor id' ]
                 } ) )
             elif '?' == ctx.cmd[ 0 ] and 2 <= len( ctx.cmd ):
                 self.command_objects( ctx )
             elif '*' == ctx.cmd[ 0 ]:
                 self.command_status( ctx )
+            elif '.' == ctx.cmd[ 0 ] and 2 == len( ctx.cmd ):
+                self.command_host_info( ctx )
+            elif '!' == ctx.cmd[ 0 ] and 2 < len( ctx.cmd ):
+                self.command_task( ctx )
             else:
                 self.bot.rtm_send_message( ctx.channel, "what are you talking about, need *help*?" )
         except:
@@ -291,7 +325,25 @@ class RepInstance( object ):
         self.bot.rtm_send_message( ctx.channel, "\n".join( output ) )
 
     def command_task( self, ctx ):
-        pass
+        taskFuture = self.task( ctx, ctx.cmd[ 1 ], ctx.cmd[ 2 : ] )
+        if taskFuture is not None:
+            try:
+                if taskFuture.wait( 60 ):
+                    start = time.time()
+                    while time.time() < start + 30:
+                        try:
+                            resp = taskFuture.responses.pop()
+                            self.slack.chat.post_message( ctx.channel, self.prettyJson( resp ) )
+                        except IndexError:
+                            time.sleep( 1 )
+                elif taskFuture.wasReceived:
+                    self.actor.log( taskFuture.responses )
+                    self.slack.chat.post_message( ctx.channel, "... task was received but no reply received" )
+                else:
+                    self.slack.chat.post_message( ctx.channel, "... haven't received a reply" )
+            finally:
+                taskFuture.done()
+
 
     def command_parent_atom( self, ctx ):
         pass
@@ -300,14 +352,16 @@ class RepInstance( object ):
         pass
 
     def command_host_info( self, ctx ):
-        pass
+        hostOrId = ctx.cmd[ 1 ]
+        hostInfo = self.getHostInfo( hostOrId )
+        self.bot.rtm_send_message( ctx.channel, "host info for *%s*: %s" % ( ctx.cmd[ 1 ], self.prettyJson( hostInfo ) ) )
 
     def getModelData( self, request, requestData = {} ):
         resp = self.actor.model.request( request, requestData, timeout = 10.0 )
         if resp.isSuccess:
             return resp.data
         else:
-            self.bot.rtm_send_message( channel, "model won't talk to me: %s" % str( resp ) )
+            self.actor.log( "error getting data from model: %s" % str( resp ) )
             return None
 
     def getSensorDir( self ):
@@ -384,6 +438,12 @@ class RepInstance( object ):
         except:
             return '-'
 
+    def getHostInfo( self, aidOrHostnam ):
+        try:
+            return self.actor.model.request( 'get_sensor_info', { 'id_or_host' : str( aidOrHostnam ) } ).data
+        except:
+            return None
+
     def msTsToTime( self, ts ):
         if type( ts ) in ( str, unicode ):
             ts = ts.split( '.' )[ 0 ]
@@ -438,3 +498,42 @@ class RepInstance( object ):
 
         if investigation[ 'nature' ] in ( InvestigationNature.FALSE_POSITIVE, InvestigationNature.DUPLICATE ):
             self.archiveChannel( channelName )
+
+    def task( self, ctx, dest, cmdsAndArgs ):
+        ret = None
+        if type( cmdsAndArgs[ 0 ] ) not in ( tuple, list ):
+            cmdsAndArgs = ( cmdsAndArgs, )
+        data = { 'dest' : dest, 'tasks' : cmdsAndArgs }
+
+        # Currently Hunters only operate live
+        data[ 'expiry' ] = 0
+        trxId = '%s//%s' % ( self.invId, self.taskId )
+        self.taskId += 1
+        data[ 'inv_id' ] = trxId
+
+        # We start listening for an answer before sending the tasking
+        # so that we are sure to beat the race in case an answer comes
+        # back really quickly.
+        ret = _TaskResp( trxId, self.actor )
+
+        def _syncRecv( msg ):
+            routing, event, mtd = msg.data
+            ret._add( event )
+            return ( True, )
+
+        self.actor.handle( trxId, _syncRecv )
+
+        resp = self.actor.tasking.request( 'task', data, key = dest, timeout = 30, nRetries = 0 )
+        if resp.isSuccess:
+            msg = "sent for tasking: %s" % ( str(cmdsAndArgs), )
+            self.actor.log( msg )
+            self.slack.chat.post_message( ctx.channel, msg )
+        else:
+            msg = "failed to send tasking"
+            self.actor.log( msg )
+            self.slack.chat.post_message( ctx.channel, msg )
+            # Well we listened for nothing, cleanup.
+            ret.done()
+            ret = None
+
+        return ret

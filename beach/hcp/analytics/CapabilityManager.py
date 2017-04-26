@@ -15,7 +15,7 @@
 from beach.actor import Actor
 from beach.patrol import Patrol
 
-synchronized = Actor.importLib( '../utils/hcp_helpers', 'synchronized' )
+Mutex = Actor.importLib( '../utils/hcp_helpers', 'Mutex' )
 
 import urllib2
 import json
@@ -36,6 +36,7 @@ class CapabilityManager( Actor ):
         self.hunterTrustedIdent = parameters[ 'hunter_trusted_ident' ]
         self.loadedDetections = {}
         self.loadedPatrols = {}
+        self.mutex = Mutex()
         self.handle( 'load', self.loadCapability )
         self.handle( 'unload', self.unloadDetection )
         self.handle( 'list', self.listDetections )
@@ -88,7 +89,6 @@ class CapabilityManager( Actor ):
 
         return mtd
 
-    @synchronized
     def restartPatrol( self ):
         self.log( "restarting patrol" )
         self.patrol.stop()
@@ -98,40 +98,41 @@ class CapabilityManager( Actor ):
         return ( elem, ) if type( elem ) not in ( list, tuple ) else elem
 
     def loadCapability( self, msg ):
-        url = msg.data.get( 'url', None )
-        if url is not None:
-            url = self.massageUrl( url )
-        patrolContent = msg.data.get( 'content', None )
-        userDefinedName = msg.data[ 'user_defined_name' ]
-        arguments = msg.data[ 'args' ]
-        arguments = json.loads( arguments ) if ( arguments is not None and 0 != len( arguments ) ) else {}
-        
-        if userDefinedName in self.loadedDetections or userDefinedName in self.loadedPatrols:
-            return ( False, 'user defined name already in use' )
+        with self.mutex:
+            url = msg.data.get( 'url', None )
+            if url is not None:
+                url = self.massageUrl( url )
+            patrolContent = msg.data.get( 'content', None )
+            userDefinedName = msg.data[ 'user_defined_name' ]
+            arguments = msg.data[ 'args' ]
+            arguments = json.loads( arguments ) if ( arguments is not None and 0 != len( arguments ) ) else {}
+            
+            if userDefinedName in self.loadedDetections or userDefinedName in self.loadedPatrols:
+                return ( False, 'user defined name already in use' )
 
-        if url is None:
-            if patrolContent is None:
-                return ( False, 'no content provided' )
-            else:
-                tmpPatrol = tempfile.NamedTemporaryFile( delete = False )
-                tmpPatrol.write( patrolContent )
-                url = 'file://%s' % tmpPatrol.name
-                tmpPatrol.close()
+            if url is None:
+                if patrolContent is None:
+                    return ( False, 'no content provided' )
+                else:
+                    tmpPatrol = tempfile.NamedTemporaryFile( delete = False )
+                    tmpPatrol.write( patrolContent )
+                    url = 'file://%s' % tmpPatrol.name
+                    tmpPatrol.close()
 
-        capability = urllib2.urlopen( url ).read()
+            capability = urllib2.urlopen( url ).read()
 
-        summary = self.getDetectionMtdFromContent( capability )
-        if summary is not None:
-            summary[ 'src' ] = url
-            return self.loadDetection( msg, url, userDefinedName, arguments, summary )
-        else:
-            summary = self.getPatrolMtdFromContent( capability )
+            summary = self.getDetectionMtdFromContent( capability )
             if summary is not None:
                 summary[ 'src' ] = url
-                return self.loadPatrol( msg, url, userDefinedName, summary, capability )
+                return self.loadDetection( msg, url, userDefinedName, arguments, summary )
+            else:
+                summary = self.getPatrolMtdFromContent( capability )
+                if summary is not None:
+                    summary[ 'src' ] = url
+                    return self.loadPatrol( msg, url, userDefinedName, summary, capability )
 
-        self.log( 'could not find any capability to load in url' )
-        return ( False, 'could not find any capability to load in url' )
+            self.log( 'could not find any capability to load in url' )
+            return ( False, 'could not find any capability to load in url' )
 
     def loadPatrol( self, msg, url, userDefinedName, summary, capability ):
         newPatrol = Patrol( self._beach_config_path, 
@@ -203,18 +204,21 @@ class CapabilityManager( Actor ):
         return ( True, summary )
 
     def unloadDetection( self, msg ):
-        userDefinedName = msg.data[ 'user_defined_name' ]
-        if userDefinedName in self.loadedDetections:
-            removed = self.patrol.remove( userDefinedName, isStopToo = True )
-            del( self.loadedDetections[ userDefinedName ] )
-        elif userDefinedName in self.loadedPatrols:
-            self.loadedPatrols[ userDefinedName ][ 'instance' ].stop()
-            removedActors = self.loadedPatrols[ userDefinedName ][ 'instance' ].remove()
-            removed = True
-            del( self.loadedPatrols[ userDefinedName ] )
-        return ( True, { 'removed' : removed } )
+        with self.mutex:
+            userDefinedName = msg.data[ 'user_defined_name' ]
+            removed = False
+            if userDefinedName in self.loadedDetections:
+                removed = self.patrol.remove( userDefinedName, isStopToo = True )
+                del( self.loadedDetections[ userDefinedName ] )
+            elif userDefinedName in self.loadedPatrols:
+                self.loadedPatrols[ userDefinedName ][ 'instance' ].stop()
+                removedActors = self.loadedPatrols[ userDefinedName ][ 'instance' ].remove()
+                removed = True
+                del( self.loadedPatrols[ userDefinedName ] )
+            return ( True, { 'removed' : removed } )
 
     def listDetections( self, msg ):
-        return ( True, { 'loadedDetections' : self.loadedDetections,
-                         'loadedPatrols' : self.loadedPatrols } )
+        with self.mutex:
+            return ( True, { 'loadedDetections' : self.loadedDetections,
+                             'loadedPatrols' : self.loadedPatrols } )
 
