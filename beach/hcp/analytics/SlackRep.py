@@ -333,7 +333,13 @@ class RepInstance( object ):
                     while time.time() < start + 30:
                         try:
                             resp = taskFuture.responses.pop()
-                            self.slack.chat.post_message( ctx.channel, self.prettyJson( resp ) )
+                            data = self.prettyJson( resp )
+                            if 512 < len( data ):
+                                atom = base64.b64decode( _x_( resp, '?/hbs.THIS_ATOM' ) )
+                                self.slack.chat.post_message( ctx.channel,
+                                                              'the response is large (%s bytes) get it at: %s/explore?atid=%s' % ( len( data ), self.actor.uiDomain, uuid.UUID( bytes = atom ) ) )
+                            else:
+                                self.slack.chat.post_message( ctx.channel, data )
                         except IndexError:
                             time.sleep( 1 )
                 elif taskFuture.wasReceived:
