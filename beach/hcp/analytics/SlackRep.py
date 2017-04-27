@@ -194,18 +194,7 @@ class RepInstance( object ):
         try:
             self.actor.log( "CMD: %s" % str(ctx.cmd) )
             if 'help' == ctx.cmd[ 0 ]:
-                self.bot.rtm_send_message( ctx.channel, self.prettyJson( 
-                {
-                    'help' : 'this help',
-                    '?' : [ '? <object_name>: lists the objects of any types with that name',
-                            '? <object_name> <object_type> . [of_type]: lists the locations where the object was seen',
-                            '? <object_name> <object_type> > [of_type]: lists all the parents of the object',
-                            '? <object_name> <object_type> < [of_type}: lists all the children of the object' ],
-                    '!' : [ '! sensor_id command [arguments...]: execute the command on the sensor, investigation sensor if sensor id not specified' ],
-                    '>' : [ '> atom_id: get the parent event of the atom id or atom id of the 1-based index in the previous command result' ],
-                    '<' : [ '< atom_id: get the children events of the atom id or atom id of the 1-based index in the previous command result' ],
-                    '.' : [ '. [hostname | sensor_id]: get information on a host by name or sensor id' ]
-                } ) )
+                self.sendHelp( ctx )
             elif '?' == ctx.cmd[ 0 ] and 2 <= len( ctx.cmd ):
                 self.command_objects( ctx )
             elif '*' == ctx.cmd[ 0 ]:
@@ -222,6 +211,20 @@ class RepInstance( object ):
 
         self.history[ 'last_cmd' ] = ctx.cmd
 
+    def sendHelp( self, ctx ):
+        self.bot.rtm_send_message( ctx.channel, self.prettyJson( 
+        {
+            'help' : 'this help',
+            '?' : [ '? <object_name>: lists the objects of any types with that name',
+                    '? <object_name> <object_type> . [of_type]: lists the locations where the object was seen',
+                    '? <object_name> <object_type> > [of_type]: lists all the parents of the object',
+                    '? <object_name> <object_type> < [of_type}: lists all the children of the object' ],
+            '!' : [ '! sensor_id command [arguments...]: execute the command on the sensor, investigation sensor if sensor id not specified' ],
+            '>' : [ '> atom_id: get the parent event of the atom id or atom id of the 1-based index in the previous command result' ],
+            '<' : [ '< atom_id: get the children events of the atom id or atom id of the 1-based index in the previous command result' ],
+            '.' : [ '. [hostname | sensor_id]: get information on a host by name or sensor id' ]
+        } ) )
+
     def command_objects( self, ctx ):
         if 2 == len( ctx.cmd ):
             # Query for object types that match the name
@@ -231,9 +234,11 @@ class RepInstance( object ):
                                                         ( self.prettyJson( [ x for x in data[ 'objects' ] if 'RELATION' != x[ 2 ] ] ), str( ObjectTypes.forward.keys() ) ) )
         elif 4 <= len( ctx.cmd ):
             # Query for a characteristic of the object
-            if '.' == ctx.cmd[ 1 ]:
+            if '.' == ctx.cmd[ 3 ]:
                 # Query the locations of the object
-                data = self.getModelData( 'get_dir', {} )
+                data = self.getModelData( 'get_obj_view', { 'orgs' : self.oid, 
+                                                            'obj_name' : ctx.cmd[ 1 ], 
+                                                            'obj_type' : ctx.cmd[ 2 ].upper() } )
                 aid = AgentId( '%s.0.0.0.0' % self.oid )
                 if data is not None:
                     output = []
@@ -241,8 +246,8 @@ class RepInstance( object ):
                         output.append( "*%s*" % ( self.getHostname( loc[ 0 ] ) ) )
                         output.append( '  Last Seen: %s' % self.msTsToTime( loc[ 1 ] ) )
                         output.append( '  SID: %s)\n' % loc[ 0 ] )
-                    self.bot.rtm_send_message( ctx.channel, "locations of object *%s* (%s):\n%s" % ( ctx.cmd[ 2 ],
-                                                                                                     ctx.cmd[ 3 ].upper(),
+                    self.bot.rtm_send_message( ctx.channel, "locations of object *%s* (%s):\n%s" % ( ctx.cmd[ 1 ],
+                                                                                                     ctx.cmd[ 2 ].upper(),
                                                                                                      "\n".join( output ) ) )
             elif '&gt;' == ctx.cmd[ 3 ]:
                 # Query the parents of the object
@@ -278,9 +283,11 @@ class RepInstance( object ):
                         output.append( '*%s* (%s)' % ( child[ 1 ], child[ 2 ] ) )
                         output.append( '  Hosts w/ object: %s' % data[ 'locs' ].get( child[ 0 ], '-' ) )
                         output.append( '  Hosts w/ relation: %s\n' % data[ 'rlocs' ].get( child[ 0 ], '-' ) )
-                    self.bot.rtm_send_message( ctx.channel, "parents of object *%s* (%s):\n%s" % ( ctx.cmd[ 1 ],
-                                                                                                   ctx.cmd[ 2 ].upper(),
-                                                                                                   "\n".join( output ) ) )
+                    self.bot.rtm_send_message( ctx.channel, "children of object *%s* (%s):\n%s" % ( ctx.cmd[ 1 ],
+                                                                                                    ctx.cmd[ 2 ].upper(),
+                                                                                                    "\n".join( output ) ) )
+        else:
+            self.sendHelp( ctx )
 
     def command_status( self, ctx ):
         orgSensors = self.getOrgSensors()
