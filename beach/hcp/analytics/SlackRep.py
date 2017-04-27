@@ -336,7 +336,8 @@ class RepInstance( object ):
         self.bot.rtm_send_message( ctx.channel, "\n".join( output ) )
 
     def command_task( self, ctx ):
-        taskFuture = self.task( ctx, ctx.cmd[ 1 ], ctx.cmd[ 2 : ] )
+        dest = self.getHostInfo( ctx.cmd[ 1 ] )[ 'id' ]
+        taskFuture = self.task( ctx, dest, ctx.cmd[ 2 : ] )
         if taskFuture is not None:
             try:
                 if taskFuture.wait( 60 ):
