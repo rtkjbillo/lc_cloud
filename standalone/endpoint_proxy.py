@@ -28,13 +28,21 @@ class LcEndpointProxy ( StreamServer ):
         	source.setsockopt( socket.IPPROTO_TCP, socket.TCP_KEEPINTVL, 10 )
         	source.setsockopt( socket.IPPROTO_TCP, socket.TCP_KEEPCNT, 2 )
         except:
-        	print( "Failed to set keepalive on connection" )
+        	print( "Failed to set keepalive on source connection" )
 
         try:
             dest = create_connection( random.sample( currentEndpoints, 1 )[ 0 ] )
         except:
         	print( "Failed to connect to EndpointProcessor" )
         else:
+            try:
+                dest.setsockopt( socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1 )
+                dest.setsockopt( socket.IPPROTO_TCP, socket.TCP_KEEPIDLE, 5 )
+                dest.setsockopt( socket.IPPROTO_TCP, socket.TCP_KEEPINTVL, 10 )
+                dest.setsockopt( socket.IPPROTO_TCP, socket.TCP_KEEPCNT, 2 )
+            except:
+                print( "Failed to set keepalive on dest connection" )
+                
             gevent.joinall( ( gevent.spawn( forward, source, dest, self ),
                               gevent.spawn( forward, dest, source, self ) ) )
 

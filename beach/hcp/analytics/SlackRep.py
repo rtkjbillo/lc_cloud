@@ -24,6 +24,7 @@ import shlex
 import traceback
 import copy
 import time
+import re
 AgentId = Actor.importLib( 'utils/hcp_helpers', 'AgentId' )
 _x_ = Actor.importLib( 'utils/hcp_helpers', '_x_' )
 InvestigationNature = Actor.importLib( 'utils/hcp_helpers', 'InvestigationNature' )
@@ -135,6 +136,7 @@ class RepInstance( object ):
         self.botId = None
         self.invId = str( uuid.uuid4() )
         self.taskId = 0
+        self.slackLinkRE = re.compile( r'<.+://.+\|(.+)>' )
         resp = self.actor.huntmanager.request( 'reg_inv', { 'uid' : self.actor.name, 'name' : self.invId } )
         if not resp.isSuccess:
             raise Exception( 'failed to register investigation id for tasking: %s' % resp )
@@ -170,7 +172,7 @@ class RepInstance( object ):
                         continue
                     ctx = CommandContext( channel, 
                                           fromUser, 
-                                          shlex.split( message.replace( '<@%s>' % self.botId, '' ) ), 
+                                          [ self.stripSlackFormatting( x ) for x in shlex.split( message.replace( '<@%s>' % self.botId, '' ) ) ], 
                                           copy.deepcopy( self.history ) )
                     self.actor.newThread( self.executeCommand, ctx )
 
@@ -190,6 +192,7 @@ class RepInstance( object ):
 
     def executeCommand( self, stopEvent, ctx ):
         try:
+            self.actor.log( "CMD: %s" % str(ctx.cmd) )
             if 'help' == ctx.cmd[ 0 ]:
                 self.bot.rtm_send_message( ctx.channel, self.prettyJson( 
                 {
@@ -224,7 +227,8 @@ class RepInstance( object ):
             # Query for object types that match the name
             data = self.getModelData( 'get_obj_list', { 'orgs' : self.oid, 'name' : ctx.cmd[ 1 ] } )
             if data is not None:
-                self.bot.rtm_send_message( ctx.channel, "here are the objects matching:\n%s" % ( self.prettyJson( data[ 'objects' ] ) ) )
+                self.bot.rtm_send_message( ctx.channel, "here are the objects matching:\n%s\n(valid object types: %s)" % 
+                                                        ( self.prettyJson( [ x for x in data[ 'objects' ] if 'RELATION' != x[ 2 ] ] ), str( ObjectTypes.forward.keys() ) ) )
         elif 4 <= len( ctx.cmd ):
             # Query for a characteristic of the object
             if '.' == ctx.cmd[ 1 ]:
@@ -404,6 +408,12 @@ class RepInstance( object ):
 
     def prettyJson( self, o ):
         return '```%s```' % json.dumps( self.sanitizeJson( o ), indent = 2 )
+
+    def stripSlackFormatting( self, token ):
+        res = self.slackLinkRE.match( token )
+        if res is not None:
+            return res.groups()[ 0 ]
+        return token
 
     def makeChannel( self, name ):
         try:
