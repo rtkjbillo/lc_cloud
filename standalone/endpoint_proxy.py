@@ -10,6 +10,8 @@ import argparse
 import socket
 import gevent
 import random
+import msgpack
+import struct
 from sets import Set
 from gevent.server import StreamServer
 from gevent.socket import create_connection
@@ -21,6 +23,8 @@ class LcEndpointProxy ( StreamServer ):
     def handle( self, source, address ):
         global currentEndpoints
         if 0 == len( currentEndpoints ): return
+
+        print( "Connection from %s" % str( address ) )
 
         try:
         	source.setsockopt( socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1 )
@@ -42,6 +46,12 @@ class LcEndpointProxy ( StreamServer ):
                 dest.setsockopt( socket.IPPROTO_TCP, socket.TCP_KEEPCNT, 2 )
             except:
                 print( "Failed to set keepalive on dest connection" )
+
+            # Send a small connection header that contains the original
+            # source of the connection.
+            connectionHeaders = msgpack.packb( address )
+            dest.sendall( struct.pack( '!I', len( connectionHeaders ) ) )
+            dest.sendall( connectionHeaders )
                 
             gevent.joinall( ( gevent.spawn( forward, source, dest, self ),
                               gevent.spawn( forward, dest, source, self ) ) )
