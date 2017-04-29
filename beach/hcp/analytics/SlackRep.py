@@ -330,8 +330,10 @@ class RepInstance( object ):
 
         topTraffic = sorted( onlineSensors, key = lambda x: x[ 0 ], reverse = True )[ : 5 ]
         output.append( 'Top online sensors by data received:' )
-        for info in topTraffic:
-            output.append( '  *%s* bytes: *%s* (%s) since *%s*' % ( info[ 0 ], self.getHostname( info[ 2 ] ), info[ 2 ], self.sTsToTime( info[ 1 ] ) ) )
+        output.append( self.prettyJson( [ { "hostname" : self.getHostname( x[ 2 ] ), 
+                                            "sid" : x[ 2 ],
+                                            "since" : self.sTsToTime( info[ 1 ] ),
+                                            "bytes" : x[ 0 ] } for x in topTraffic ] ) )
         
         self.bot.rtm_send_message( ctx.channel, "\n".join( output ) )
 
@@ -403,7 +405,7 @@ class RepInstance( object ):
                 o[ k ] = self.sanitizeJson( v )
         elif type( o ) is list or type( o ) is tuple:
             o = [ self.sanitizeJson( x ) for x in o ]
-        elif type( o ) is uuid.UUID:
+        elif type( o ) in ( uuid.UUID, AgentId ):
             o = str( o )
         else:
             try:
@@ -414,8 +416,8 @@ class RepInstance( object ):
 
         return o
 
-    def prettyJson( self, o ):
-        return '```%s```' % json.dumps( self.sanitizeJson( o ), indent = 2 )
+    def prettyJson( self, o, indent = 2 ):
+        return '```%s```' % json.dumps( self.sanitizeJson( o ), indent = indent )
 
     def stripSlackFormatting( self, token ):
         res = self.slackLinkRE.match( token )
@@ -432,6 +434,8 @@ class RepInstance( object ):
 
     def archiveChannel( self, name ):
         try:
+            # Remove the prefix #
+            name = name[ 1 : ].lower()
             cid = None
             for channel in self.slack.channels.list().body[ 'channels' ]:
                 if name == channel[ 'name' ]:
@@ -440,6 +444,8 @@ class RepInstance( object ):
             if cid is not None:
                 self.slack.channels.archive( cid )
         except:
+            self.bot.rtm_send_message( ctx.channel, "error archiving channel: %s" % ( traceback.format_exc(), ) )
+            self.actor.log( "Excp: %s" % traceback.format_exc() )
             return False
         return True
 
@@ -451,7 +457,7 @@ class RepInstance( object ):
                     cid = channel[ 'id' ]
                     break
             if cid is not None:
-                self.slack.channels.invite( cid, 'limacharlie' )
+                self.slack.channels.invite( cid, 'lc_actual' )
         except:
             return False
         return True
@@ -484,8 +490,49 @@ class RepInstance( object ):
         message.append( 'Link to sensor: %s' % ' '.join( [ ( '%s/sensor?sid=%s' % ( self.actor.uiDomain, x.sensor_id ) ) for x in sources ] ) )
         if atom is not None:
             message.append( 'Link to event: %s/explore?atid=%s' % ( self.actor.uiDomain, uuid.UUID( bytes = atom ) ) )
-        message.append( self.prettyJson( detect[ 'detect' ] ) )
-        self.slack.chat.post_message( '#detects', '\n'.join( message ) )
+        detectAttachment = { "text" : self.prettyJson( detect[ 'detect' ] ), 
+                             "fallback" : "Detection Data",
+                             "mrkdwn_in": [ "text", "pretext" ] }
+        self.slack.chat.post_message( '#detects', '\n'.join( message ), attachments = [ detectAttachment ] )
+
+    def renderInvHeader( self, inv, sources ):
+        render = { "fallback" : "New investigation (ID: %s) created on %s." % ( inv[ 'inv_id' ], inv[ 'generated' ] ),
+                   "pretext" : "New investigation.",
+                   "author_name" : inv[ 'hunter' ],
+                   "fields" : [],
+                   "mrkdwn_in": [ "text", "pretext" ] }
+        for source in sources:
+            render[ "fields" ].append( { "title" : self.getHostname( source ), "value" : source.sensor_id, "short" : True } )
+        return self.sanitizeJson( render )
+
+    def renderNewTasking( self, inv, task ):
+        render = { "fallback" : "New tasking sent: %s." % str( task[ 'data' ] ),
+                   "pretext" : "New tasking sent: `%s`." % task[ 'why' ],
+                   "author_name" : inv[ 'hunter' ],
+                   "text" : self.prettyJson( task[ 'data' ], indent = None ),
+                   "fields" : [ { "title" : "Sent", "value" : ( True if task[ 'sent' ] else False ), "short" : True } ],
+                   "mrkdwn_in": [ "text", "pretext" ] }
+        return self.sanitizeJson( render )
+
+    def renderNewData( self, inv, data ):
+        render = { "fallback" : "Reporting new data.",
+                   "pretext" : "Reporting new data: `%s`." % data[ 'why' ],
+                   "author_name" : inv[ 'hunter' ],
+                   "mrkdwn_in": [ "text", "pretext" ] }
+        if 0 != len( data[ 'data' ] ):
+            render[ "text" ] = self.prettyJson( data[ 'data' ] )
+        return self.sanitizeJson( render )
+
+    def renderInvConclusion( self, inv ):
+        render = { "fallback" : "Investigation concluded on %s." % inv[ 'closed' ],
+                   "pretext" : "Investigation concluded,",
+                   "author_name" : inv[ 'hunter' ],
+                   "mrkdwn_in": [ "text", "pretext" ],
+                   "fields" : [ { "title" : "Reasoning", "value" : inv[ 'why' ], "short" : True },
+                                { "title" : "Nature", "value" : InvestigationNature.lookup[ inv[ 'nature' ] ], "short" : True },
+                                { "title" : "Conclusion", "value" : InvestigationConclusion.lookup[ inv[ 'conclusion' ] ], "short" : True },
+                                { "title" : "Closed On", "value" : inv[ 'closed' ], "short" : True } ] }
+        return self.sanitizeJson( render )
 
     def newInvestigation( self, sources, investigation ):
         hostNames = [ self.getHostname( x ) for x in sources ]
@@ -493,32 +540,15 @@ class RepInstance( object ):
         self.makeChannel( channelName )
         self.inviteToChannel( channelName )
 
-        message = [ '*Created* on %s' % ( investigation[ 'generated' ] ) ]
-        self.slack.chat.post_message( channelName, '\n'.join( message ) )
+        self.slack.chat.post_message( channelName, attachments = [ self.renderInvHeader( investigation, sources ) ] )
 
         for evt in sorted( investigation[ 'data' ] + investigation[ 'tasks' ], key = lambda x: x[ 'generated' ] ):
-            message = [ 'Hunter: *%s*' % investigation[ 'hunter' ] ]
-            ts = self.msTsToTime( evt[ 'generated' ] )
             if evt.get( 'sent', None ) is not None:
-                # This is a tasking
-                task = ''
-                if evt[ 'sent' ] is True:
-                    task = '-> '
-                else:
-                    task = '-x'
-                message.append( '%s `%s` @ %s' % ( task, str( evt[ 'data' ] ), ts ) )
-                message.append( 'Why: %s' % evt[ 'why' ] )
+                self.slack.chat.post_message( channelName, attachments = [ self.renderNewTasking( investigation, evt )] )
             else:
-                # This is data eval
-                message.append( 'Reporting: %s' % evt[ 'why' ] )
-                if 0 != len( evt[ 'data' ] ):
-                    message.append( self.prettyJson( evt[ 'data' ] ) )
-            self.slack.chat.post_message( channelName, '\n'.join( message ) )
-        message = [ '*Closed* on %s' % ( investigation[ 'closed' ] ),
-                    '*Why*: %s' % investigation[ 'why' ],
-                    '*Nature*: %s' % ( InvestigationNature.lookup[ investigation[ 'nature' ] ], ),
-                    '*Conclusion*: %s' % ( InvestigationConclusion.lookup[ investigation[ 'conclusion' ] ], ) ]
-        self.slack.chat.post_message( channelName, '\n'.join( message ) )
+                self.slack.chat.post_message( channelName, attachments = [ self.renderNewData( investigation, evt )] )
+
+        self.slack.chat.post_message( channelName, attachments = [ self.renderInvConclusion( investigation ) ] )
 
         if investigation[ 'nature' ] in ( InvestigationNature.FALSE_POSITIVE, InvestigationNature.DUPLICATE ):
             self.archiveChannel( channelName )
