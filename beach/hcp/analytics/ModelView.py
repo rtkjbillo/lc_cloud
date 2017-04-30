@@ -372,6 +372,7 @@ class ModelView( Actor ):
     def get_atoms_from_root( self, msg ):
         tmp_atoms = msg.data[ 'id' ]
         depth = msg.data.get( 'depth', 5 )
+        maxAtoms = msg.data.get( 'max_atoms', 100 )
         withRouting = msg.data.get( 'with_routing', False )
         atoms = []
         
@@ -381,7 +382,12 @@ class ModelView( Actor ):
         # Then start getting children
         while 0 != depth:
             depth -= 1
-            tmp_atoms = [ _ for _ in Atoms( tmp_atoms ).children() ]
+            new_atoms = []
+            for tmpAtom in Atoms( tmp_atoms ).children():
+                new_atoms.append( tmpAtom )
+                if maxAtoms is not None and maxAtoms < ( len( new_atoms ) + len( atoms ) ):
+                    break
+            tmp_atoms = new_atoms
             if 0 == len( tmp_atoms ):
                 break
             atoms.extend( Atoms( tmp_atoms ).events( withRouting = withRouting) )

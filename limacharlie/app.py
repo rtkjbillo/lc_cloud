@@ -842,7 +842,7 @@ class Sensor ( AuthenticatedPage ):
         cards.append( card_sensor_traffic( aid, hostname, None, None ) )
         return render.sensor( hostname, aid, cards )
 
-class Traffic:
+class Traffic ( AuthenticatedPage ):
     @jsonApi
     def GET( self ):
         params = web.input( sid = None, after = None, before = None, max_size = '4096', rich = 'false', max_time = None )
@@ -930,9 +930,9 @@ class Explore ( AuthenticatedPage ):
         cards.append( card_event_explorer( atid ) )
         return render.explore( cards )
 
-class ExplorerData:
+class ExplorerData ( AuthenticatedPage ):
     @jsonApi
-    def GET( self ):
+    def doGET( self ):
         params = web.input( atid = None )
 
         if params.atid is None:

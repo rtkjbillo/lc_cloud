@@ -379,18 +379,19 @@ class RepInstance( object ):
         taskFuture = self.task( ctx, dest, ctx.cmd[ 2 : ] )
         if taskFuture is not None:
             try:
-                if taskFuture.wait( 60 ):
+                if taskFuture.wait( 120 ):
                     start = time.time()
                     while time.time() < start + 30:
                         try:
                             resp = taskFuture.responses.pop()
                             data = self.prettyJson( resp )
-                            if 512 < len( data ):
-                                atom = base64.b64decode( _x_( resp, '?/hbs.THIS_ATOM' ) )
-                                self.slack.chat.post_message( ctx.channel,
-                                                              'the response is large (%s bytes) get it at: %s/explore?atid=%s' % ( len( data ), self.actor.uiDomain, uuid.UUID( bytes = atom ) ) )
-                            else:
-                                self.slack.chat.post_message( ctx.channel, data )
+                            atom = base64.b64decode( _x_( resp, '?/hbs.THIS_ATOM' ) )
+                            self.slack.chat.post_message( ctx.channel, 
+                                                          attachments = [ { "text" : data, 
+                                                                            "pretext" : "Result from *%s* on *%s*" % ( str( ctx.cmd[ 2 : ] ), AgentId( dest ).sensor_id ),
+                                                                            "fallback" : "received task response",
+                                                                            "mrkdwn_in" : [ "text", "pretext" ],
+                                                                            "fields" : [ { "link" : "%s/explore?atid=%s" % ( self.actor.uiDomain, uuid.UUID( bytes = atom ) ) } ] } ] )
                         except IndexError:
                             time.sleep( 1 )
                 elif taskFuture.wasReceived:
