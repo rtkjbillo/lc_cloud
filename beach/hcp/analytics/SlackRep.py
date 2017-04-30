@@ -60,7 +60,7 @@ class SlackRep( Actor ):
         self.channel_allDetects = parameters.get( 'channel_all_detects', 'all_detects' )
 
         self.audit = self.getActorHandle( resources[ 'auditing' ] )
-        self.model = self.getActorHandle( resources[ 'modeling' ] )
+        self.model = self.getActorHandle( resources[ 'modeling' ], timeout = 120, nRetries = 0 )
         self.deployment = self.getActorHandle(( resources[ 'deployment' ] ) )
         self.identManager = self.getActorHandle( resources[ 'identmanager' ] )
         self.sensordir = self.getActorHandle( resources[ 'sensordir' ] )
@@ -168,11 +168,14 @@ class RepInstance( object ):
 
             while not stopEvent.wait( 1.0 ):
                 for slackMessage in self.tryToRead():
-                    message = slackMessage.get( 'text' )
+                    message = unicode( slackMessage.get( 'text' ) )
                     fromUser = slackMessage.get( 'user' )
                     channel = slackMessage.get( 'channel' )
                     if not message or not fromUser or ( '<@%s>' % self.botId ) not in message:
                         continue
+                    # Fixing silly quotes form unicode to ascii
+                    message = message.replace( u'\u201c', '"' )
+                    message = message.replace( u'\u201d', '"' )
                     ctx = CommandContext( channel, 
                                           fromUser, 
                                           [ self.stripSlackFormatting( x ) for x in shlex.split( message.replace( '<@%s>' % self.botId, '' ) ) ], 
@@ -180,7 +183,8 @@ class RepInstance( object ):
                     self.actor.newThread( self.executeCommand, ctx )
 
         except:
-            self.actor.log( "Excp: %s" % traceback.format_exc() )
+            self.actor.log( "Excp: %s while parsing %s" % ( traceback.format_exc(), message ) )
+            self.bot.rtm_send_message( "#general", "oops I've fallen and I can't get up: %s" % ( traceback.format_exc(), ) )
             del( self.actor.reps[ oid ] )
 
         self.actor.log( "bot terminating" )
@@ -195,7 +199,6 @@ class RepInstance( object ):
 
     def executeCommand( self, stopEvent, ctx ):
         try:
-            self.actor.log( "CMD: %s" % str(ctx.cmd) )
             if 'help' == ctx.cmd[ 0 ]:
                 self.sendHelp( ctx )
             elif '?' == ctx.cmd[ 0 ] and 2 <= len( ctx.cmd ):
@@ -450,6 +453,7 @@ class RepInstance( object ):
                                                             "pretext" : "Event %s" % ctx.cmd[ 1 ],
                                                             "text" : self.prettyJson( self.getSingleAtom( ctx.cmd[ 1 ] ) ) } ] )
         elif 4 <= len( ctx.cmd ):
+            self.actor.log( "CMD: %s" % str(ctx.cmd) )
             _, aid, after, before = ctx.cmd[ : 4 ]
             try:
                 aid = AgentId( aid )
@@ -458,6 +462,8 @@ class RepInstance( object ):
             ofTypes = ctx.cmd[ 4 : ]
             if 0 == len( ofTypes ):
                 ofTypes = None
+            else:
+                ofTypes = [ x if '.' in x else ( 'notification.%s' % x.upper() ) for x in ofTypes ]
             try:
                 after = int( after )
             except:
