@@ -25,12 +25,14 @@ import traceback
 import copy
 import time
 import re
+import dateutil.parser
 AgentId = Actor.importLib( 'utils/hcp_helpers', 'AgentId' )
 _x_ = Actor.importLib( 'utils/hcp_helpers', '_x_' )
 InvestigationNature = Actor.importLib( 'utils/hcp_helpers', 'InvestigationNature' )
 InvestigationConclusion = Actor.importLib( 'utils/hcp_helpers', 'InvestigationConclusion' )
 ObjectTypes = Actor.importLib( 'utils/ObjectsDb', 'ObjectTypes' )
 Event = Actor.importLib( 'utils/hcp_helpers', 'Event' )
+EventInterpreter = Actor.importLib( 'utils/EventInterpreter', 'EventInterpreter' )
 
 class _TaskResp ( object ):
     def __init__( self, trxId, actor ):
@@ -64,6 +66,7 @@ class SlackRep( Actor ):
         self.sensordir = self.getActorHandle( resources[ 'sensordir' ] )
         self.tasking = self.getActorHandle( resources[ 'autotasking' ] )
         self.huntmanager = self.getActorHandle( resources[ 'huntsmanager' ] )
+        self.reporting = self.getActorHandle( resources[ 'reporting' ] )
 
         self.reps = {}
         self.uiDomain = 'http://limacharlie:8888'
@@ -203,6 +206,14 @@ class RepInstance( object ):
                 self.command_host_info( ctx )
             elif '!' == ctx.cmd[ 0 ] and 2 < len( ctx.cmd ):
                 self.command_task( ctx )
+            elif 'close' == ctx.cmd[ 0 ] and ( 1 == len( ctx.cmd ) or 2 == len( ctx.cmd ) ):
+                self.command_close( ctx )
+            elif '&gt;' == ctx.cmd[ 0 ] and 2 == len( ctx.cmd ):
+                self.command_parent_atom( ctx )
+            elif '&lt;' == ctx.cmd[ 0 ] and 2 == len( ctx.cmd ):
+                self.command_children_atom( ctx )
+            elif '~' == ctx.cmd[ 0 ] and ( 2 == len( ctx.cmd ) or  4 == len( ctx.cmd ) ):
+                self.command_traffic( ctx )
             else:
                 self.bot.rtm_send_message( ctx.channel, "what are you talking about, need *help*?" )
         except:
@@ -210,6 +221,17 @@ class RepInstance( object ):
             self.actor.log( "Excp: %s" % traceback.format_exc() )
 
         self.history[ 'last_cmd' ] = ctx.cmd
+
+    def isSensorAllowed( self, ctx, sid ):
+        aid = AgentId( sid )
+        if aid.org_id is None:
+            resp = self.actor.model.request( 'get_sensor_info', { 'id_or_host' : aid } )
+            if resp.isSuccess:
+                aid = AgentId( resp.data[ 'id' ] )
+        if aid.org_id == self.oid:
+            return True
+        self.bot.rtm_send_message( ctx.channel, "sensor not allowed" )
+        return False
 
     def sendHelp( self, ctx ):
         self.bot.rtm_send_message( ctx.channel, self.prettyJson( 
@@ -222,8 +244,22 @@ class RepInstance( object ):
             '!' : [ '! sensor_id command [arguments...]: execute the command on the sensor, investigation sensor if sensor id not specified' ],
             '>' : [ '> atom_id: get the parent event of the atom id or atom id of the 1-based index in the previous command result' ],
             '<' : [ '< atom_id: get the children events of the atom id or atom id of the 1-based index in the previous command result' ],
-            '.' : [ '. [hostname | sensor_id]: get information on a host by name or sensor id' ]
+            '.' : [ '. [hostname | sensor_id]: get information on a host by name or sensor id' ],
+            'close' : [ 'close inv_id: closes the specific inv_id with that conclusion.',
+                        'close: closes the inv_id from the current channel with that conclusion.' ],
+            '~' : [ '~ atom_id: display the event content with that atom_id.',
+                    '~ sensor_id from_time to_time: display event summaries for all events on sensor_id from from_time to to_time.' ]
         } ) )
+
+    def command_close( self, ctx ):
+        if 1 == len( ctx.cmd ):
+            #TODO conclude the investigation, tricky a bit because we need the Hunter.
+            self.actor.log( "Archiving channel %s" % ctx.channel )
+            self.archiveChannel( ctx, ctx.channel )
+        elif 2 == len( ctx.cmd ):
+            #TODO conclude the investigation, tricky a bit because we need the Hunter.
+            self.actor.log( "Archiving channel %s" % ctx.cmd[ 1 ] )
+            self.archiveChannel( ctx, ctx.cmd[ 1 ] )
 
     def command_objects( self, ctx ):
         if 2 == len( ctx.cmd ):
@@ -332,13 +368,14 @@ class RepInstance( object ):
         output.append( 'Top online sensors by data received:' )
         output.append( self.prettyJson( [ { "hostname" : self.getHostname( x[ 2 ] ), 
                                             "sid" : x[ 2 ],
-                                            "since" : self.sTsToTime( info[ 1 ] ),
+                                            "since" : self.sTsToTime( x[ 1 ] ),
                                             "bytes" : x[ 0 ] } for x in topTraffic ] ) )
         
         self.bot.rtm_send_message( ctx.channel, "\n".join( output ) )
 
     def command_task( self, ctx ):
         dest = self.getHostInfo( ctx.cmd[ 1 ] )[ 'id' ]
+        if not self.isSensorAllowed( ctx, dest ): return
         taskFuture = self.task( ctx, dest, ctx.cmd[ 2 : ] )
         if taskFuture is not None:
             try:
@@ -364,17 +401,82 @@ class RepInstance( object ):
             finally:
                 taskFuture.done()
 
-
     def command_parent_atom( self, ctx ):
-        pass
+        interpreter = EventInterpreter()
+        data = []
+        for evt in self.crawlUpParentTree( None, rootAtom = ctx.cmd[ 1 ] ):
+            interpreter.setEvent( evt )
+            data.append( { "type" : interpreter.name(),
+                           "atom" : interpreter.getAtom(),
+                           "narrative" : interpreter.narrative() } )
+            
+        render = self.sanitizeJson( { "fallback" : "Events going up from: %s." % ctx.cmd[ 1 ],
+                                      "pretext" : "Events going up from: %s." % ctx.cmd[ 1 ],
+                                      "text" : self.prettyJson( data ),
+                                      "mrkdwn_in" : [ "text", "pretext" ] } )
+        self.slack.chat.post_message( ctx.channel, attachments = [ render ] )
+        
 
     def command_children_atom( self, ctx ):
-        pass
+        interpreter = EventInterpreter()
+        children = self.getChildrenAtoms( ctx.cmd[ 1 ], depth = 1 )
+        if children is None:
+            self.slack.chat.post_message( ctx.channel, "couldn't fetch children for %s" % ctx.cmd[ 1 ] )
+        else:
+            data = []
+            for evt in children:
+                interpreter.setEvent( evt )
+                data.append( { "type" : interpreter.name(),
+                               "atom" : interpreter.getAtom(),
+                               "narrative" : interpreter.narrative() } )
+            render = self.sanitizeJson( { "fallback" : "Direct children events of: %s." % ctx.cmd[ 1 ],
+                                          "pretext" : "Direct children events of: %s." % ctx.cmd[ 1 ],
+                                          "text" : self.prettyJson( data ),
+                                          "mrkdwn_in" : [ "text", "pretext" ] } )
+            self.slack.chat.post_message( ctx.channel, attachments = [ render ] )
 
     def command_host_info( self, ctx ):
         hostOrId = ctx.cmd[ 1 ]
         hostInfo = self.getHostInfo( hostOrId )
+        if not self.isSensorAllowed( ctx, hostInfo[ 'id' ] ): return
         self.bot.rtm_send_message( ctx.channel, "host info for *%s*: %s" % ( ctx.cmd[ 1 ], self.prettyJson( hostInfo ) ) )
+
+    def command_traffic( self, ctx ):
+        if 2 == len( ctx.cmd ):
+            self.slack.chat.post_message( ctx.channel, 
+                                          attachments = [ { "fallback" : "event",
+                                                            "mrkdwn_in" : [ "text", "pretext" ],
+                                                            "pretext" : "Event %s" % ctx.cmd[ 1 ],
+                                                            "text" : self.prettyJson( self.getSingleAtom( ctx.cmd[ 1 ] ) ) } ] )
+        elif 4 == len( ctx.cmd ):
+            _, aid, after, before = ctx.cmd
+            aid = AgentId( aid )
+            try:
+                after = int( after )
+            except:
+                after = ( dateutil.parser.parse( after ) - datetime.datetime( 1970, 1, 1 ) ).total_seconds()
+            try:
+                before = int( before )
+            except:
+                before = ( dateutil.parser.parse( before ) - datetime.datetime( 1970, 1, 1 ) ).total_seconds()
+            if not self.isSensorAllowed( ctx, aid ): return
+            interpreter = EventInterpreter()
+            timeline = self.getModelData( 'get_timeline', { 'id' : aid, 
+                                                            'after' : after, 
+                                                            'before' : before,
+                                                            'is_include_content' : True } )
+            if timeline is None: return
+            events = []
+            for data in timeline[ 'events' ]:
+                interpreter.setEvent( data[ 3 ] )
+                events.append( { "type" : interpreter.name(),
+                                 "atom" : interpreter.getAtom(),
+                                 "narrative" : interpreter.narrative() } )
+            render = self.sanitizeJson( { "fallback" : "Traffic for %s between %s and %s." % ( aid.sensor_id, after, before ),
+                                          "pretext" : "Traffic for %s between %s and %s." % ( aid.sensor_id, after, before ),
+                                          "text" : self.prettyJson( events ),
+                                          "mrkdwn_in" : [ "text", "pretext" ] } )
+            self.slack.chat.post_message( ctx.channel, attachments = [ render ] )
 
     def getModelData( self, request, requestData = {} ):
         resp = self.actor.model.request( request, requestData, timeout = 10.0 )
@@ -417,7 +519,12 @@ class RepInstance( object ):
         return o
 
     def prettyJson( self, o, indent = 2 ):
-        return '```%s```' % json.dumps( self.sanitizeJson( o ), indent = indent )
+        txt = json.dumps( self.sanitizeJson( o ), indent = indent )
+        overflow = ''
+        if 7000 < len( txt ):
+            txt = txt[ : 7000 ]
+            overflow = '\n\n*output too large...*'
+        return '```%s```%s' % ( txt, overflow )
 
     def stripSlackFormatting( self, token ):
         res = self.slackLinkRE.match( token )
@@ -432,28 +539,31 @@ class RepInstance( object ):
             return False
         return True
 
-    def archiveChannel( self, name ):
+    def archiveChannel( self, ctx, name ):
         try:
             # Remove the prefix #
-            name = name[ 1 : ].lower()
+            name1 = name.lower()
+            name2 = name[ 1 : ].lower()
             cid = None
             for channel in self.slack.channels.list().body[ 'channels' ]:
-                if name == channel[ 'name' ]:
+                if channel[ 'name' ].lower() in ( name1, name2 ) or channel[ 'id' ].lower() in ( name1, name2 ):
                     cid = channel[ 'id' ]
                     break
             if cid is not None:
                 self.slack.channels.archive( cid )
         except:
-            self.bot.rtm_send_message( ctx.channel, "error archiving channel: %s" % ( traceback.format_exc(), ) )
+            self.bot.rtm_send_message( ctx.channel, "error archiving channel (%s): %s" % ( cid, traceback.format_exc(), ) )
             self.actor.log( "Excp: %s" % traceback.format_exc() )
             return False
         return True
 
     def inviteToChannel( self, name ):
         try:
+            name1 = name.lower()
+            name2 = name[ 1 : ].lower()
             cid = None
             for channel in self.slack.channels.list().body[ 'channels' ]:
-                if name == channel[ 'name' ]:
+                if channel[ 'name' ].lower() in ( name1, name2 ) or channel[ 'id' ].lower() in ( name1, name2 ):
                     cid = channel[ 'id' ]
                     break
             if cid is not None:
@@ -508,16 +618,14 @@ class RepInstance( object ):
     def renderNewTasking( self, inv, task ):
         render = { "fallback" : "New tasking sent: %s." % str( task[ 'data' ] ),
                    "pretext" : "New tasking sent: `%s`." % task[ 'why' ],
-                   "author_name" : inv[ 'hunter' ],
                    "text" : self.prettyJson( task[ 'data' ], indent = None ),
-                   "fields" : [ { "title" : "Sent", "value" : ( True if task[ 'sent' ] else False ), "short" : True } ],
+                   "fields" : [ { "title" : "Sent", "value" : ( "yes" if task[ 'sent' ] else "no" ), "short" : True } ],
                    "mrkdwn_in": [ "text", "pretext" ] }
         return self.sanitizeJson( render )
 
     def renderNewData( self, inv, data ):
         render = { "fallback" : "Reporting new data.",
                    "pretext" : "Reporting new data: `%s`." % data[ 'why' ],
-                   "author_name" : inv[ 'hunter' ],
                    "mrkdwn_in": [ "text", "pretext" ] }
         if 0 != len( data[ 'data' ] ):
             render[ "text" ] = self.prettyJson( data[ 'data' ] )
@@ -551,12 +659,13 @@ class RepInstance( object ):
         self.slack.chat.post_message( channelName, attachments = [ self.renderInvConclusion( investigation ) ] )
 
         if investigation[ 'nature' ] in ( InvestigationNature.FALSE_POSITIVE, InvestigationNature.DUPLICATE ):
-            self.archiveChannel( channelName )
+            self.archiveChannel( ctx, channelName )
 
     def task( self, ctx, dest, cmdsAndArgs ):
         ret = None
         if type( cmdsAndArgs[ 0 ] ) not in ( tuple, list ):
             cmdsAndArgs = ( cmdsAndArgs, )
+        if not self.isSensorAllowed( ctx, dest ): return
         data = { 'dest' : dest, 'tasks' : cmdsAndArgs }
 
         # Currently Hunters only operate live
@@ -591,3 +700,33 @@ class RepInstance( object ):
             ret = None
 
         return ret
+
+    def getSingleAtom( self, id ):
+        resp = self.actor.model.request( 'get_atoms_from_root', { 'id' : id, 'depth' : 0 } )
+        if resp.isSuccess and 0 < len( resp.data ):
+            return resp.data[ 0 ]
+        else:
+            return None
+
+    def getChildrenAtoms( self, id, depth = 5 ):
+        resp = self.actor.model.request( 'get_atoms_from_root', { 'id' : id, 'depth' : depth } )
+        if resp.isSuccess:
+            return resp.data
+        else:
+            return None
+
+    # This is a generator
+    def crawlUpParentTree( self, rootEvent, rootAtom = None ):
+        currentEvent = rootEvent
+        while True:
+            if currentEvent is None and rootAtom is not None:
+                parentAtom = rootAtom
+            else:
+                parentAtom = _x_( currentEvent, '?/hbs.PARENT_ATOM' )
+            if parentAtom is None:
+                return
+            parentEvent = self.getSingleAtom( parentAtom )
+            if parentEvent is None:
+                return
+            currentEvent = parentEvent
+            yield parentEvent
