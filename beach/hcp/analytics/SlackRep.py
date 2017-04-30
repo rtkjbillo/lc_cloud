@@ -212,7 +212,7 @@ class RepInstance( object ):
                 self.command_parent_atom( ctx )
             elif '&lt;' == ctx.cmd[ 0 ] and 2 == len( ctx.cmd ):
                 self.command_children_atom( ctx )
-            elif '~' == ctx.cmd[ 0 ] and ( 2 == len( ctx.cmd ) or  4 == len( ctx.cmd ) ):
+            elif '~' == ctx.cmd[ 0 ] and ( 2 == len( ctx.cmd ) or  4 <= len( ctx.cmd ) ):
                 self.command_traffic( ctx )
             else:
                 self.bot.rtm_send_message( ctx.channel, "what are you talking about, need *help*?" )
@@ -242,13 +242,13 @@ class RepInstance( object ):
                     '? <object_name> <object_type> > [of_type]: lists all the parents of the object',
                     '? <object_name> <object_type> < [of_type}: lists all the children of the object' ],
             '!' : [ '! sensor_id command [arguments...]: execute the command on the sensor, investigation sensor if sensor id not specified' ],
-            '>' : [ '> atom_id: get the parent event of the atom id or atom id of the 1-based index in the previous command result' ],
-            '<' : [ '< atom_id: get the children events of the atom id or atom id of the 1-based index in the previous command result' ],
+            '>' : [ '> atom_id: get the parent event chain starting at this atom_id.' ],
+            '<' : [ '< atom_id: get all the direct children of this atom_id.' ],
             '.' : [ '. [hostname | sensor_id]: get information on a host by name or sensor id' ],
             'close' : [ 'close inv_id: closes the specific inv_id with that conclusion.',
                         'close: closes the inv_id from the current channel with that conclusion.' ],
             '~' : [ '~ atom_id: display the event content with that atom_id.',
-                    '~ sensor_id from_time to_time: display event summaries for all events on sensor_id from from_time to to_time.' ]
+                    '~ sensor_id from_time to_time [of_type ...]: display event summaries for all events on sensor_id from from_time to to_time, optionally only of types of_type.' ]
         } ) )
 
     def command_close( self, ctx ):
@@ -448,9 +448,15 @@ class RepInstance( object ):
                                                             "mrkdwn_in" : [ "text", "pretext" ],
                                                             "pretext" : "Event %s" % ctx.cmd[ 1 ],
                                                             "text" : self.prettyJson( self.getSingleAtom( ctx.cmd[ 1 ] ) ) } ] )
-        elif 4 == len( ctx.cmd ):
-            _, aid, after, before = ctx.cmd
-            aid = AgentId( aid )
+        elif 4 <= len( ctx.cmd ):
+            _, aid, after, before = ctx.cmd[ : 4 ]
+            try:
+                aid = AgentId( aid )
+            except:
+                aid = AgentId( self.getHostInfo( aid )[ 'id' ] )
+            ofTypes = ctx.cmd[ 4 : ]
+            if 0 == len( ofTypes ):
+                ofTypes = None
             try:
                 after = int( after )
             except:
@@ -464,6 +470,7 @@ class RepInstance( object ):
             timeline = self.getModelData( 'get_timeline', { 'id' : aid, 
                                                             'after' : after, 
                                                             'before' : before,
+                                                            'types' : ofTypes,
                                                             'is_include_content' : True } )
             if timeline is None: return
             events = []
