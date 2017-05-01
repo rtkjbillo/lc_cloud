@@ -379,6 +379,10 @@ class RepInstance( object ):
     def command_task( self, ctx ):
         dest = self.getHostInfo( ctx.cmd[ 1 ] )[ 'id' ]
         if not self.isSensorAllowed( ctx, dest ): return
+        for token in ctx.cmd:
+            if token in ( '-!', '-x', '-@' ):
+                self.bot.rtm_send_message( ctx.channel, "special CLI flags -x, -! and -@ are not allowed." )
+                return
         taskFuture = self.task( ctx, dest, ctx.cmd[ 2 : ] )
         if taskFuture is not None:
             try:
@@ -706,7 +710,10 @@ class RepInstance( object ):
             self.actor.log( msg )
             self.slack.chat.post_message( ctx.channel, msg )
         else:
-            msg = "failed to send tasking"
+            if 'usage' == resp.error:
+                msg = "```%s```" % resp.data
+            else:
+                msg = "failed to send tasking: ```%s```" % resp
             self.actor.log( msg )
             self.slack.chat.post_message( ctx.channel, msg )
             # Well we listened for nothing, cleanup.

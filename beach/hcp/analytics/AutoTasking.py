@@ -17,6 +17,7 @@ from beach.actor import Actor
 from sets import Set
 
 HcpCli = Actor.importLib( '../admin_cli', 'HcpCli' )
+ArgumentParserError = Actor.importLib( '../admin_cli', 'ArgumentParserError' )
 CassDb = Actor.importLib( 'utils/hcp_databases', 'CassDb' )
 CassPool = Actor.importLib( 'utils/hcp_databases', 'CassPool' )
 AgentId = Actor.importLib( '../utils/hcp_helpers', 'AgentId' )
@@ -137,6 +138,9 @@ class AutoTasking( Actor ):
             sent.add( task )
 
             if self.isQuotaAllowed( dest, task ):
-                self.execTask( task, dest, expiry = expiry, invId = invId )
+                try:
+                    self.execTask( task, dest, expiry = expiry, invId = invId )
+                except ArgumentParserError as e:
+                    return ( False, 'usage', str( e ) )
 
         return ( True, )
