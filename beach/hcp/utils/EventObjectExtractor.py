@@ -83,7 +83,7 @@ class EventObjectExtractor:
     def _extractProcessList( cls, eventType, eventRoot, fromAgent, objects ):
         for p in eventRoot[ 'base.PROCESSES' ]:
             exe = cls._extractProcessInfo( fromAgent, objects, p )
-            for m in p[ 'base.MODULES' ]:
+            for m in p.get( 'base.MODULES', [] ):
                 mod = cls._extractModuleInfo( fromAgent, objects, m )
                 cls._addRel( eventRoot, 
                              objects, exe, ObjectTypes.PROCESS_NAME,
