@@ -8,16 +8,6 @@ enrollmentRules {
 	}
 }
 
-# Windows 32 bit on any org, installer and sensor
-moduleRules {
-	#rule {
-	#	aid: "0.0.0.10000000.1"
-	#	moduleId: 2
-	#	moduleFile: "hbs_windows_32_release.dll"
-	#	# Signature file is automatically loaded from moduleFile.sig
-	#}
-}
-
 # Windows on any org, installer and sensor
 profileRules {
 	rule {
