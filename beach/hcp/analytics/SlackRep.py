@@ -176,10 +176,13 @@ class RepInstance( object ):
                     # Fixing silly quotes form unicode to ascii
                     message = message.replace( u'\u201c', '"' )
                     message = message.replace( u'\u201d', '"' )
-                    ctx = CommandContext( channel, 
-                                          fromUser, 
-                                          [ self.stripSlackFormatting( x ) for x in shlex.split( message.replace( '<@%s>' % self.botId, '' ) ) ], 
-                                          copy.deepcopy( self.history ) )
+                    try:
+                        ctx = CommandContext( channel, 
+                                              fromUser, 
+                                              [ self.stripSlackFormatting( x ) for x in shlex.split( message.replace( '<@%s>' % self.botId, '' ) ) ], 
+                                              copy.deepcopy( self.history ) )
+                    except:
+                        self.bot.rtm_send_message( channel, "error parsing command `%s`: %s" % ( message, traceback.format_exc(), ) )
                     self.actor.newThread( self.executeCommand, ctx )
 
         except:

@@ -103,7 +103,7 @@ class AutoTasking( Actor ):
         if expiry is None:
             expiry = 3600
         command = '%s %s -! %s -x %d' % ( task[ 0 ],
-                                          ' '.join( [ '"%s"' % ( x, ) for x in task[ 1 : ] ] ),
+                                          ' '.join( [ '"%s"' % ( x.replace( '\\', '\\\\' ), ) for x in task[ 1 : ] ] ),
                                           agentid,
                                           expiry )
 
