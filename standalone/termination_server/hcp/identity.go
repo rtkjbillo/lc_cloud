@@ -102,7 +102,7 @@ func (aid AgentID) String() string {
 }
 
 // FromString converts the standardized string representation of an AgentID into an AgentID.
-func (aid AgentID) FromString(s string) error {
+func (aid *AgentID) FromString(s string) error {
 	var (
 		err   error
 		tmp64 uint64
@@ -135,7 +135,7 @@ func (aid AgentID) FromString(s string) error {
 	}
 	aid.Platform = uint32(tmp64)
 
-	if tmp64, err = strconv.ParseUint(components[3], 16, 32); err != nil {
+	if tmp64, err = strconv.ParseUint(components[4], 16, 32); err != nil {
 		return err
 	}
 	aid.Architecture = uint32(tmp64)
