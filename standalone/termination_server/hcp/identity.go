@@ -161,7 +161,7 @@ func (aid AgentID) Matches(compareTo AgentID) bool {
 		return false
 	}
 
-	if aid.Architecture != WildcardArchitecture && compareTo.Architecture != WildcardArchitecture || aid.Architecture != compareTo.Architecture {
+	if aid.Architecture != WildcardArchitecture && compareTo.Architecture != WildcardArchitecture && aid.Architecture != compareTo.Architecture {
 		return false
 	}
 
