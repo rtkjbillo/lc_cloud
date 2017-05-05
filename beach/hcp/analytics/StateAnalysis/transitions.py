@@ -25,11 +25,24 @@ def NewProcessNamed( regexp ):
         regexp = re.compile( regexp )
     def _processNamed( history, event ):
         newProcName = _x_( event.event, 'notification.NEW_PROCESS/base.FILE_PATH' )
+        if newProcName is None:
+            newProcName = _x_( event.event, 'notification.EXISTING_PROCESS/base.FILE_PATH' )
         if newProcName is not None and regexp.match( newProcName ):
             return True
         else:
             return False
     return _processNamed
+
+def NewProcessWithPrivilege( isRoot ):
+    def _processWithPriv( history, event ):
+        newProcUid = _x_( event.event, 'notification.NEW_PROCESS/base.USER_ID' )
+        if newProcUid is None:
+            newProcUid = _x_( event.event, 'notification.EXISTING_PROCESS/base.USER_ID' )
+        if newProcUid is not None and ( ( isRoot and 0 == newProcUid ) or ( not isRoot and 0 != newProcUid ) ):
+            return True
+        else:
+            return False
+    return _processWithPriv
 
 def NewDocumentNamed( regexp ):
     try:
@@ -61,6 +74,8 @@ def ParentProcessInHistory():
         if parentPid is not None:
             if parentPid in ( _x_( x.event, 'notification.NEW_PROCESS/hbs.THIS_ATOM' ) for x in history ):
                 return True
+            if parentPid in ( _x_( x.event, 'notification.EXISTING_PROCESS/hbs.THIS_ATOM' ) for x in history ):
+                return True
         return False
     return _parentProcessInHistory
 
@@ -69,6 +84,8 @@ def RunningPidReset():
         currentPid = _x_( event.event, 'notification.NEW_PROCESS/base.PROCESS_ID' )
         if currentPid is None:
             currentPid = _x_( event.event, 'notification.TERMINATE_PROCESS/base.PROCESS_ID' )
+            if currentPid is None:
+                currentPid = _x_( event.event, 'notification.EXISTING_PROCESS/base.PROCESS_ID' )
         if currentPid is not None:
             for proc in history:
                 tmpPid = _x_( proc.event, '?/base.PROCESS_ID' )
