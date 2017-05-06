@@ -12,6 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from beach.actor import Actor
+_x_ = Actor.importLib( '../../utils/hcp_helpers', '_x_' )
+
 class StateEvent ( object ):
     def __init__( self, routing, event, mtd ):
         self.event = event
@@ -67,6 +70,20 @@ class _StateMachineContext( object ):
         self._descriptor = descriptor
         self._currentState = 0
         self._history = []
+        self._indexes = self._defaultIndexes()
+
+    @classmethod
+    def _defaultIndexes( cls ):
+        return { 'atom' : {}, 'pid' : {}, 'ts' : {}, 'max_ts' : 0 }
+
+    def addToHistory( self, evt ):
+        self._history.append( evt )
+        self._indexes[ 'atom' ][ _x_( evt.event, '?/hbs.THIS_ATOM' ) ] = evt
+        self._indexes[ 'pid' ][ _x_( evt.event, '?/base.PROCESS_ID' ) ] = evt
+        thisTs = evt.event.get( 'base.TIMESTAMP', 0 )
+        self._indexes[ 'ts' ][ thisTs ] = evt
+        if thisTs > self._indexes[ 'max_ts' ]:
+            self._indexes[ 'max_ts' ] = thisTs
 
     def update( self, event ):
         reportPriority = None
@@ -77,10 +94,10 @@ class _StateMachineContext( object ):
         state = self._descriptor.states[ self._currentState ]
         i = 0
         for transition in state.transitions:
-            if transition.evalFunc( self._history, event ):
+            if transition.evalFunc( event, self._history, self._indexes ):
                 self._descriptor._debugLogTransition( self._currentState, i, transition, True )
                 if transition.isRecordOnMatch:
-                    self._history.append( event )
+                    self.addToHistory( event )
                 if transition.isReportOnMatch:
                     reportPriority = self._descriptor.priority
                     reportSummary = self._descriptor.summary
@@ -110,7 +127,7 @@ class StateMachine ( object ):
         state = self._descriptor.states[ 0 ]
         i = 0
         for transition in state.transitions:
-            if 0 != transition.toState and transition.evalFunc( [], newEvent ):
+            if 0 != transition.toState and transition.evalFunc( newEvent, [], _StateMachineContext._defaultIndexes() ):
                 self._descriptor._debugLogTransition( '-', i, transition, True )
                 newMachine = _StateMachineContext( self._descriptor )
                 newMachine.update( newEvent )

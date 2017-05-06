@@ -73,7 +73,6 @@ class AnalyticsModeling( Actor ):
         self.stmt_rel_batch_parent = self.ingestStatement( 'INSERT INTO rel_man_parent ( parentkey, ctype, cid ) VALUES ( ?, ?, ? ) USING TTL ?' )
         self.stmt_rel_batch_child = self.ingestStatement( 'INSERT INTO rel_man_child ( childkey, ptype, pid ) VALUES ( ?, ?, ? ) USING TTL ?' )
         self.stmt_obj_batch_man = self.ingestStatement( 'INSERT INTO obj_man ( id, obj, otype ) VALUES ( ?, ?, ? ) USING TTL ?' )
-        self.stmt_obj_batch_name = self.ingestStatement( 'INSERT INTO obj_name ( obj, id ) VALUES ( ?, ? ) USING TTL ?' )
         self.stmt_obj_batch_loc = self.ingestStatement( 'UPDATE loc USING TTL ? SET last = ? WHERE sid = ? AND otype = ? AND id = ?' )
         self.stmt_obj_batch_id = self.ingestStatement( 'INSERT INTO loc_by_id ( id, sid, last ) VALUES ( ?, ?, ? ) USING TTL ?' )
         self.stmt_obj_batch_type = self.ingestStatement( 'INSERT INTO loc_by_type ( d256, otype, id, sid ) VALUES ( ?, ?, ?, ? ) USING TTL ?' )
@@ -151,7 +150,6 @@ class AnalyticsModeling( Actor ):
 
                 self.db.execute_async( self.stmt_obj_batch_man.bind( ( k, objVal, objType, ttl ) ) )
                 self.db.execute_async( self.stmt_obj_org.bind( ( k, oid, ttl ) ) )
-                self.db.execute_async( self.stmt_obj_batch_name.bind( ( objVal, k, ttl ) ) )
                 self.db.execute_async( self.stmt_obj_batch_loc.bind( ( ttl, ts, sid, objType, k ) ) )
                 self.db.execute_async( self.stmt_obj_batch_id.bind( ( k, sid, ts, ttl ) ) )
                 self.db.execute_async( self.stmt_obj_batch_type.bind( ( random.randint( 0, 256 ), objType, k, sid, ttl ) ) )

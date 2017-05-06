@@ -23,20 +23,33 @@ def NewProcessNamed( regexp ):
         regexp.match( '' )
     except:
         regexp = re.compile( regexp )
-    def _processNamed( history, event ):
+    def _processNamed( event, history, indexes ):
         newProcName = _x_( event.event, 'notification.NEW_PROCESS/base.FILE_PATH' )
+        if newProcName is None:
+            newProcName = _x_( event.event, 'notification.EXISTING_PROCESS/base.FILE_PATH' )
         if newProcName is not None and regexp.match( newProcName ):
             return True
         else:
             return False
     return _processNamed
 
+def NewProcessWithPrivilege( isRoot ):
+    def _processWithPriv( event, history, indexes ):
+        newProcUid = _x_( event.event, 'notification.NEW_PROCESS/base.USER_ID' )
+        if newProcUid is None:
+            newProcUid = _x_( event.event, 'notification.EXISTING_PROCESS/base.USER_ID' )
+        if newProcUid is not None and ( ( isRoot and 0 == newProcUid ) or ( not isRoot and 0 != newProcUid ) ):
+            return True
+        else:
+            return False
+    return _processWithPriv
+
 def NewDocumentNamed( regexp ):
     try:
         regexp.match( '' )
     except:
         regexp = re.compile( regexp )
-    def _docNamed( history, event ):
+    def _docNamed( event, history, indexes ):
         newDocName = _x_( event.event, 'notification.NEW_DOCUMENT/base.FILE_PATH' )
         if newDocName is not None and regexp.match( newDocName ):
             return True
@@ -45,9 +58,9 @@ def NewDocumentNamed( regexp ):
     return _docNamed
 
 def HistoryOlderThan( nMilliseconds ):
-    def _historyOlderThan( history, event ):
+    def _historyOlderThan( event, history, indexes ):
         newTs = event.event.get( 'base.TIMESTAMP', 0 )
-        newest = max( x.event.get( 'base.TIMESTAMP', 0 ) for x in history )
+        newest = indexes[ 'max_ts' ]
         if newTs > newest + nMilliseconds:
             return True
         else:
@@ -56,31 +69,38 @@ def HistoryOlderThan( nMilliseconds ):
     return _historyOlderThan
 
 def ParentProcessInHistory():
-    def _parentProcessInHistory( history, event ):
+    def _parentProcessInHistory( event, history, indexes ):
         parentPid = _x_( event.event, '?/hbs.PARENT_ATOM' )
         if parentPid is not None:
-            if parentPid in ( _x_( x.event, 'notification.NEW_PROCESS/hbs.THIS_ATOM' ) for x in history ):
+            parent = indexes[ 'atom' ].get( parentPid, None )
+            if parent is not None and '_PROCESS' in parent.routing.get( 'event_type', '' ):
                 return True
         return False
     return _parentProcessInHistory
 
 def RunningPidReset():
-    def _runningPidReset( history, event ):
+    def _runningPidReset( event, history, indexes ):
         currentPid = _x_( event.event, 'notification.NEW_PROCESS/base.PROCESS_ID' )
         if currentPid is None:
             currentPid = _x_( event.event, 'notification.TERMINATE_PROCESS/base.PROCESS_ID' )
+            if currentPid is None:
+                currentPid = _x_( event.event, 'notification.EXISTING_PROCESS/base.PROCESS_ID' )
         if currentPid is not None:
-            for proc in history:
-                tmpPid = _x_( proc.event, '?/base.PROCESS_ID' )
-                if tmpPid is not None and tmpPid == currentPid:
-                    history.remove( proc )
-                    return True
+            proc = indexes[ 'pid' ].get( currentPid, None )
+            if proc is not None:
+                for idx in indexes.values():
+                    if type( idx ) is dict:
+                        for idxKey, idxVal in idx.items():
+                            if idxVal == proc:
+                                del( idx[ idxKey ] )
+                history.remove( proc )
+                return True
 
         return False
     return _runningPidReset
 
 def SensorRestart():
-    def _sensorRestart( history, event ):
+    def _sensorRestart( event, history, indexes ):
         if( 'notification.STARTING_UP' == event.routing[ 'event_type' ] or
             'notification.SHUTTING_DOWN' == event.routing[ 'event_type' ] ):
             return True
@@ -88,12 +108,12 @@ def SensorRestart():
     return _sensorRestart
 
 def AlwaysReturn( bValue ):
-    def _alwaysReturn( history, event ):
+    def _alwaysReturn( event, history, indexes ):
         return bValue
     return _alwaysReturn
 
 def EventOfType( eventType ):
-    def _eventOfType( history, event ):
+    def _eventOfType( event, history, indexes ):
         if eventType == event.routing.get( 'event_type', '' ):
             return True
         else:
@@ -101,16 +121,16 @@ def EventOfType( eventType ):
     return _eventOfType
 
 def InverseTransition( transition ):
-    def _notTransition( history, event ):
-        return not transition( history, event )
+    def _notTransition( event, history, indexes ):
+        return not transition( event, history, indexes )
     return _notTransition
 
 def AndTransitions( *transitions ):
-    def _andTransition( history, event ):
-        return all( tr( history, event ) for tr in transitions )
+    def _andTransition( event, history, indexes ):
+        return all( tr( event, history, indexes ) for tr in transitions )
     return _andTransition
 
 def OrTransitions( *transitions ):
-    def _orTransition( history, event ):
-        return any( tr( history, event ) for tr in transitions )
+    def _orTransition( event, history, indexes ):
+        return any( tr( event, history, indexes ) for tr in transitions )
     return _orTransition

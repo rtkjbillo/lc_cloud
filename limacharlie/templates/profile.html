@@ -75,12 +75,17 @@ $for orgInfo, orgConf in org_configs.iteritems():
     </div>
     <div class="mdl-card__supporting-text">
       <form method="POST" id="form_slack_token_$orgInfo[ 1 ]">
-        Setting a Slack app token will start the LC Slack app in your community. This app will output detections and investigations.
+        Instructions on how to setup Slack for your community are found <a href="https://github.com/refractionPOINT/limacharlie/wiki/Slack-App">here</a>.
         <br/><br/>
         <input type="hidden" name="oid" value="$orgInfo[ 1 ]"/>
         <div class="mdl-textfield mdl-js-textfield" style="width: 100%;">
           <input class="mdl-textfield__input" type="password" id="slacktoken" name="slacktoken" value="$orgConf[ '%s/slack_token' % orgInfo[ 1 ] ]"/>
           <label class="mdl-textfield__label" for="slacktoken">Slack Token</label>
+        </div>
+        <br/><br/>
+        <div class="mdl-textfield mdl-js-textfield" style="width: 100%;">
+          <input class="mdl-textfield__input" type="password" id="slackbottoken" name="slackbottoken" value="$orgConf[ '%s/slack_bot_token' % orgInfo[ 1 ] ]"/>
+          <label class="mdl-textfield__label" for="slackbottoken">Slack Bot Token</label>
         </div>
       </form>
     </div>

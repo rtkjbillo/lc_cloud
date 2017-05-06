@@ -24,7 +24,7 @@ try {
                 stage('Build Ubuntu-16-04-64') {
                     dir('sensor') {
                         sh 'scons -c'
-                        sh 'scons'
+                        sh 'scons -Q defines=HBS_POWER_ON_SELF_TEST'
                     }
                 }
 
@@ -99,9 +99,7 @@ try {
                 }
 
                 stage('Release Binaries MacOS-10-12-64') {
-                    sh 'rm ./prebuilt_binaries/hcp* || true'
-                    sh 'rm ./prebuilt_binaries/hbs* || true'
-                    sh 'rm ./prebuilt_binaries/kernel* || true'
+                    sh 'rm ./prebuilt_binaries/* || true'
                     sh 'python ./sensor/scripts/release_binaries.py --version `git rev-parse HEAD` || true'
                     archive includes: 'prebuilt_binaries/*', excludes: 'prebuilt_binaries/download_binaries.sh'
                 }
@@ -169,9 +167,7 @@ try {
                 }
 
                 stage('Release Binaries Windows-7-64') {
-                    bat 'del .\\prebuilt_binaries\\hcp*'
-                    bat 'del .\\prebuilt_binaries\\hbs*'
-                    bat 'del .\\prebuilt_binaries\\kernel*'
+                    bat 'del .\\prebuilt_binaries\\* /Q'
                     bat '''
                         git rev-parse HEAD > current_version.txt
                         set /p CURRENT_VERSION=<current_version.txt
@@ -219,142 +215,22 @@ try {
     )
 
     parallel (
-        "cloud" : {
-            node('cloud') {
-                stage('Prep Cloud') {
-                    git url: 'https://github.com/refractionPOINT/limacharlie.git', branch: 'develop'
-                    sh 'git submodule update --init --recursive'
-                    sh 'ln -s `pwd`/cloud/beach/hcp/utils/* `pwd`/cloud/limacharlie/ || true'
-                    sh 'python `pwd`/tools/update_headers.py || true'
-                    sh 'killall python || true'
-                    sh 'echo "drop keyspace hcp_analytics;" | cqlsh || true'
-                    sh 'cqlsh -f `pwd`/cloud/schema/scale_db.cql'
-                }
-
-                stage('Load Binaries') {
-                    sh 'rm ./prebuilt_binaries/hbs* || true'
-                    sh 'rm ./prebuilt_binaries/hcp* || true'
-                    sh 'rm ./prebuilt_binaries/kernel* || true'
-                    unarchive mapping: [ 'prebuilt_binaries/*' : './' ]
-                    stash name: 'blank_sensors', includes: 'prebuilt_binaries/*', excludes: 'prebuilt_binaries/download_binaries.sh'
-                    dir('cloud/infrastructure/') {
-                        sh 'python ./2_start_single_node_test_cluster.py'
-                        sh 'sleep 5'
-                        sh 'python ./3_configure_single_node_test_cluster.py --nodownload -hcp sensor/sample_configs/cloud_in_a_can_hcp.conf -hbs sensor/sample_configs/cloud_in_a_can_hbs.conf'
-                    }
-                    stash name: 'sensors', includes: 'prebuilt_binaries/*', excludes: 'prebuilt_binaries/download_binaries.sh'
-                    sh 'curl icanhazip.com > cloud_ip_external.txt'
-                    stash name: 'cloud_ip_external', includes: 'cloud_ip_external.txt'
-                    sh 'ifconfig ens33 | grep \'inet addr\' | cut -d: -f2 | awk \'{print $1}\' > cloud_ip_internal.txt'
-                    stash name: 'cloud_ip_internal', includes: 'cloud_ip_internal.txt'
-                }
-            }
-        },
         "ts" : {
             node('termination-1') {
                 stage('Start TS') {
                     unarchive mapping: [ 'go/bin/tls_server' : './' ]
+                    sh 'rm ./prebuilt_binaries/*'
+                    unarchive mapping: [ 'prebuilt_binaries/*' : './' ]
+                    dir('prebuilt_binaries/') {
+                        stash name: 'blank_sensors', includes: '*'
+                    }
                     unstash name: 'c2_files'
-                    sh './tls_server -port 9090 &'
-                }
-            }
-        }
-    )
-
-    parallel (
-        "ubuntu-16-04-64" : {
-            node('sensor && ubuntu-16-04 && 64bit') {
-                stage('Launch Sensor Ubuntu-16-04-64 on Cloud') {
-                    sh 'rm hcpcc || true'
-                    sh 'rm /usr/local/hcp || true'
-                    sh 'rm ./prebuilt_binaries/hcp_* || true'
-                    sh 'rm ./prebuilt_binaries/hbs_* || true'
-                    sh 'rm ./prebuilt_binaries/kernel_* || true'
-                    unstash name: 'cloud_ip_external'
-                    unstash name: 'cloud_ip_internal'
-                    unstash name: 'sensors'
-                    sh 'chmod 500 ./prebuilt_binaries/hcp_*'
-                    sh './prebuilt_binaries/hcp_ubuntu_x64_debug_* -p `cat cloud_ip_internal.txt` -s `cat cloud_ip_external.txt` || true &'
-                    sh 'sleep 30'
-                    sh 'ls hcpcc || ! echo "Sensor may not be running, no crash counter generated."'
-                }
-                stage('Verify Enrollment Ubuntu-16-04-64 on Cloud') {
-                    sh 'ls /usr/local/hcp || ! echo "Sensor did not enroll properly."'
-                }
-
-                stage('Verify Teardown Ubuntu-16-04-64 on Cloud') {
-                    sh 'pkill -2 -f hcp_ || ! echo "Failed to signal sensor to stop."'
-                    sh 'sleep 15'
-                    sh '! ls hcpcc || ! echo "Sensor did not exit cleanly."'
-                }
-            }
-        },
-        "macos-10-12-64" : {
-            node('sensor && macos-10-12 && 64bit') {
-                stage('Launch Sensor MacOS-10-12-64 on Cloud') {
-                    sh 'rm hcpcc || true'
-                    sh 'rm /usr/local/hcp || true'
-                    sh 'rm ./prebuilt_binaries/hcp_* || true'
-                    sh 'rm ./prebuilt_binaries/hbs_* || true'
-                    sh 'rm ./prebuilt_binaries/kernel_* || true'
-                    unstash name: 'cloud_ip_external'
-                    unstash name: 'cloud_ip_internal'
-                    unstash name: 'sensors'
-                    sh 'chmod 500 ./prebuilt_binaries/hcp_*'
-                    sh './prebuilt_binaries/hcp_osx_x64_debug_* -p `cat cloud_ip_internal.txt` -s `cat cloud_ip_external.txt` || true &'
-                    sh 'sleep 30'
-                    sh 'ls hcpcc || ! echo "Sensor may not be running, no crash counter generated."'
-                }
-                stage('Verify Enrollment MacOS-10-12-64 on Cloud') {
-                    sh 'ls /usr/local/hcp || ! echo "Sensor did not enroll properly."'
-                }
-
-                stage('Verify Teardown MacOS-10-12-64 on Cloud') {
-                    sh 'pkill -2 -f hcp_ || ! echo "Failed to signal sensor to stop."'
-                    sh 'sleep 15'
-                    sh '! ls hcpcc || ! echo "Sensor did not exit cleanly."'
-                }
-            }
-        },
-        "windows-7-64" : {
-            node('sensor && windows-7 && 64bit') {
-                stage('Launch Sensor Windows-7-64 on Cloud') {
-                    bat 'del %SYSTEMROOT%\\sysnative\\hcpcc_debug.dat || Ver > nul'
-                    bat 'del %SYSTEMROOT%\\sysnative\\hcp_debug.dat || Ver > nul'
-                    bat 'del .\\prebuilt_binaries\\hcp_* || Ver > nul'
-                    bat 'del .\\prebuilt_binaries\\hbs_* || Ver > nul'
-                    bat 'del .\\prebuilt_binaries\\kernel_* || Ver > nul'
-                    unstash name: 'cloud_ip_external'
-                    unstash name: 'cloud_ip_internal'
-                    unstash name: 'current_version'
-                    unstash name: 'sensors'
-                    bat '''
-                        set /p CLOUD_IP_INTERNAL=<cloud_ip_internal.txt
-                        set /p CLOUD_IP_EXTERNAL=<cloud_ip_external.txt
-                        set /p CURRENT_VERSION=<current_version.txt
-                        START cmd /c "title hcp && .\\prebuilt_binaries\\hcp_win_x64_debug_%CURRENT_VERSION%.exe -p %CLOUD_IP_INTERNAL% -s %CLOUD_IP_EXTERNAL%"
-                    '''
-                    bat 'ping 1.1.1.1 -n 30 -w 1000 > nul || Ver > nul'
-                    bat 'dir %SYSTEMROOT%\\sysnative\\hcpcc_debug.dat || echo "Sensor may not be running, no crash counter generated."'
-                }
-                stage('Verify Enrollment Windows-7-64 on Cloud') {
-                    bat 'dir %SYSTEMROOT%\\sysnative\\hcp_debug.dat || echo "Sensor did not enroll properly."'
-                }
-
-                stage('Verify Teardown Windows-7-64 on Cloud') {
-                    bat '''
-                        stop_hcp.vbs
-                    '''
-                    bat 'ping 1.1.1.1 -n 30 -w 1000 > nul || Ver > nul'
-                    bat '''
-                        dir %SYSTEMROOT%\\sysnative\\hcpcc_debug.dat
-                        IF %ERRORLEVEL% EQU 0 (
-                            SET ERRORLEVEL=1
-                            echo "Sensor did not exit cleanly."
-                        ) ELSE (
-                            SET ERRORLEVEL=0
-                        )
-                    '''
+                    stash name: 'sensors', includes: 'prebuilt_binaries/*'
+                    sh './tls_server -port 9090 -alsologtostderr &> tls.log &'
+                    sh 'curl icanhazip.com > cloud_ip_external.txt'
+                    stash name: 'cloud_ip_external', includes: 'cloud_ip_external.txt'
+                    sh 'ifconfig ens33 | grep \'inet addr\' | cut -d: -f2 | awk \'{print $1}\' > cloud_ip_internal.txt'
+                    stash name: 'cloud_ip_internal', includes: 'cloud_ip_internal.txt'
                 }
             }
         }
@@ -366,12 +242,12 @@ try {
                 stage('Launch Sensor Ubuntu-16-04-64 on TS') {
                     sh 'rm hcpcc || true'
                     sh 'rm /usr/local/hcp || true'
-                    sh 'rm ./prebuilt_binaries/hcp_* || true'
-                    sh 'rm ./prebuilt_binaries/hbs_* || true'
-                    sh 'rm ./prebuilt_binaries/kernel_* || true'
+                    sh 'rm ./prebuilt_binaries/* || true'
                     unstash name: 'cloud_ip_external'
                     unstash name: 'cloud_ip_internal'
-                    unstash name: 'blank_sensors'
+                    dir('prebuilt_binaries/'){
+                        unstash name: 'blank_sensors'
+                    }
                     sh 'chmod 500 ./prebuilt_binaries/hcp_*'
                     sh './prebuilt_binaries/hcp_ubuntu_x64_debug_* -p `cat cloud_ip_internal.txt` -s `cat cloud_ip_external.txt` || true &'
                     sh 'sleep 30'
@@ -393,12 +269,12 @@ try {
                 stage('Launch Sensor MacOS-10-12-64 on TS') {
                     sh 'rm hcpcc || true'
                     sh 'rm /usr/local/hcp || true'
-                    sh 'rm ./prebuilt_binaries/hcp_* || true'
-                    sh 'rm ./prebuilt_binaries/hbs_* || true'
-                    sh 'rm ./prebuilt_binaries/kernel_* || true'
+                    sh 'rm ./prebuilt_binaries/* || true'
                     unstash name: 'cloud_ip_external'
                     unstash name: 'cloud_ip_internal'
-                    unstash name: 'blank_sensors'
+                    dir('prebuilt_binaries/'){
+                        unstash name: 'blank_sensors'
+                    }
                     sh 'chmod 500 ./prebuilt_binaries/hcp_*'
                     sh './prebuilt_binaries/hcp_osx_x64_debug_* -p `cat cloud_ip_internal.txt` -s `cat cloud_ip_external.txt` || true &'
                     sh 'sleep 30'
@@ -420,13 +296,13 @@ try {
                 stage('Launch Sensor Windows-7-64 on TS') {
                     bat 'del %SYSTEMROOT%\\sysnative\\hcpcc_debug.dat || Ver > nul'
                     bat 'del %SYSTEMROOT%\\sysnative\\hcp_debug.dat || Ver > nul'
-                    bat 'del .\\prebuilt_binaries\\hcp_* || Ver > nul'
-                    bat 'del .\\prebuilt_binaries\\hbs_* || Ver > nul'
-                    bat 'del .\\prebuilt_binaries\\kernel_* || Ver > nul'
+                    bat 'del .\\prebuilt_binaries\\* /Q || Ver > nul'
                     unstash name: 'cloud_ip_external'
                     unstash name: 'cloud_ip_internal'
                     unstash name: 'current_version'
-                    unstash name: 'blank_sensors'
+                    dir('prebuilt_binaries'){
+                        unstash name: 'blank_sensors'
+                    }
                     bat '''
                         set /p CLOUD_IP_INTERNAL=<cloud_ip_internal.txt
                         set /p CLOUD_IP_EXTERNAL=<cloud_ip_external.txt
@@ -463,13 +339,6 @@ catch(Exception e) {
     throw(e)   
 } finally {
     parallel (
-        "cloud" : {
-            node('cloud') {
-                stage('Shutdown Cloud') {
-                    sh 'pkill -f beach || ! echo "Failed to shutdown cloud."'
-                }
-            }
-        },
         "ts" : {
             node('termination-1') {
                 stage('Shutdown Termination Server') {

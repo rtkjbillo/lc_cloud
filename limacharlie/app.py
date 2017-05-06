@@ -181,7 +181,7 @@ BEACH_CONFIG_FILE = os.path.join( ROOT_DIRECTORY, 'beach.conf' )
 IDENT = 'lc/0bf01f7e-62bd-4cc4-9fec-4c52e82eb903'
 beach = Beach( BEACH_CONFIG_FILE, realm = 'hcp' )
 model = beach.getActorHandle( 'models', nRetries = 3, timeout = 30, ident = IDENT )
-capabilities = beach.getActorHandle( 'analytics/capabilitymanager', nRetries = 3, timeout = 120, ident = IDENT )
+capabilities = beach.getActorHandle( 'analytics/capabilitymanager', nRetries = 3, timeout = 300, ident = IDENT )
 sensordir = beach.getActorHandle( 'c2/sensordir', nRetries = 3, timeout = 30, ident = IDENT )
 identmanager = beach.getActorHandle( 'c2/identmanager', nRetries = 3, timeout = 30, ident = IDENT )
 deployment = beach.getActorHandle( 'c2/deploymentmanager', nRetries = 3, timeout = 30, ident = IDENT )
@@ -561,7 +561,7 @@ class Profile ( AuthenticatedPage ):
         return self.renderProfile()
 
     def doPOST( self ):
-        params = web.input( action = None, orgs = [], email = None, with_key = False, with_profile = False, oid = None, slacktoken = None )
+        params = web.input( action = None, orgs = [], email = None, with_key = False, with_profile = False, oid = None, slacktoken = None, slackbottoken = None )
         if params.action is None:
             session.notice = 'Missing action parameter.'
             redirectTo( 'profile' )
@@ -678,6 +678,10 @@ class Profile ( AuthenticatedPage ):
             res = deployment.request( 'set_config', { 'conf' : '%s/slack_token' % params.oid, 'value' : params.slacktoken, 'by' : session.email } )
             if not res.isSuccess: 
                 session.notice = 'Error setting Slack token for %s: %s.' % ( params.oid, str( res ) )
+                redirectTo( 'profile' )
+            res = deployment.request( 'set_config', { 'conf' : '%s/slack_bot_token' % params.oid, 'value' : params.slackbottoken, 'by' : session.email } )
+            if not res.isSuccess: 
+                session.notice = 'Error setting Slack bot token for %s: %s.' % ( params.oid, str( res ) )
                 redirectTo( 'profile' )
             session.notice = 'Success setting Slack token for: %s' % params.oid
         else:
@@ -838,7 +842,7 @@ class Sensor ( AuthenticatedPage ):
         cards.append( card_sensor_traffic( aid, hostname, None, None ) )
         return render.sensor( hostname, aid, cards )
 
-class Traffic:
+class Traffic ( AuthenticatedPage ):
     @jsonApi
     def GET( self ):
         params = web.input( sid = None, after = None, before = None, max_size = '4096', rich = 'false', max_time = None )
@@ -926,9 +930,9 @@ class Explore ( AuthenticatedPage ):
         cards.append( card_event_explorer( atid ) )
         return render.explore( cards )
 
-class ExplorerData:
+class ExplorerData ( AuthenticatedPage ):
     @jsonApi
-    def GET( self ):
+    def doGET( self ):
         params = web.input( atid = None )
 
         if params.atid is None:

@@ -58,7 +58,8 @@ Patrol( 'DeploymentManager',
                                 'paging/31d29b6a-d455-4df7-a196-aec3104f105d',
                                 'beacon/09ba97ab-5557-4030-9db0-1dbe7f2b9cfd',
                                 'identmanager/f5c3a323-50e5-412a-b711-0e30d8284aa1',
-                                'slackrep/20546efe-0f84-46f2-b9ca-f17bf5997075' ],
+                                'slackrep/20546efe-0f84-46f2-b9ca-f17bf5997075',
+                                'hunter/8e0f55c0-6593-4747-9d02-a4937fa79517' ],
             'n_concurrent' : 5,
             'isIsolated' : True,
             'strategy' : 'random' } )
@@ -84,6 +85,7 @@ Patrol( 'SensorDirectory',
             'secretIdent' : 'sensordir/3babff24-400b-4233-bcac-18f538a88fe1',
             'trustedIdents' : [ 'beacon/09ba97ab-5557-4030-9db0-1dbe7f2b9cfd',
                                 'taskingproxy/794729aa-1ef5-4930-b377-48dda7b759a5',
+                                'slackrep/20546efe-0f84-46f2-b9ca-f17bf5997075',
                                 'lc/0bf01f7e-62bd-4cc4-9fec-4c52e82eb903' ],
             'n_concurrent' : 5,
             'isIsolated' : False,
@@ -412,7 +414,7 @@ Patrol( 'AutoTasking',
         actorArgs = ( 'analytics/AutoTasking',
                       'analytics/autotasking/1.0' ),
         actorKwArgs = {
-            'resources' : {},
+            'resources' : { 'modeling' : 'models/' },
             'parameters' : { 'db' : SCALE_DB,
                              'rate_limit_per_sec' : 200,
                              'max_concurrent' : 5,
@@ -421,6 +423,7 @@ Patrol( 'AutoTasking',
                              'global_qph' : 1000,
                              'allowed' : [ 'file_info',
                                            'file_hash',
+                                           'dir_list',
                                            'doc_cache_get',
                                            'mem_map',
                                            'mem_strings',
@@ -438,7 +441,8 @@ Patrol( 'AutoTasking',
                              'log_file' : './admin_cli.log' },
             'secretIdent' : 'autotasking/a6cd8d9a-a90c-42ec-bd60-0519b6fb1f64',
             'trustedIdents' : [ 'analysis/01e9a19d-78e1-4c37-9a6e-37cb592e3897',
-                                'hunter/8e0f55c0-6593-4747-9d02-a4937fa79517' ],
+                                'hunter/8e0f55c0-6593-4747-9d02-a4937fa79517',
+                                'slackrep/20546efe-0f84-46f2-b9ca-f17bf5997075' ],
             'n_concurrent' : 5,
             'isIsolated' : True } )
 
@@ -514,7 +518,8 @@ Patrol( 'HuntsManager',
             'resources' : {},
             'parameters' : {},
             'secretIdent' : 'huntsmanager/d666cbc3-38d5-4086-b9ce-c543625ee45c',
-            'trustedIdents' : [ 'hunter/8e0f55c0-6593-4747-9d02-a4937fa79517' ],
+            'trustedIdents' : [ 'hunter/8e0f55c0-6593-4747-9d02-a4937fa79517',
+                                'slackrep/20546efe-0f84-46f2-b9ca-f17bf5997075' ],
             'n_concurrent' : 5 } )
 
 #######################################
@@ -596,7 +601,8 @@ Patrol( 'AnalyticsModelView',
                                 'vt/8299a488-7fff-4511-a311-76e6600b4a7a',
                                 'dataexporter/dbf240e5-e8df-46ac-8b5e-356a291fdd40',
                                 'reporting/9ddcc95e-274b-4a49-a003-c952d12049b8',
-                                'slackrep/20546efe-0f84-46f2-b9ca-f17bf5997075' ],
+                                'slackrep/20546efe-0f84-46f2-b9ca-f17bf5997075',
+                                'autotasking/a6cd8d9a-a90c-42ec-bd60-0519b6fb1f64' ],
             'n_concurrent' : 5,
             'isIsolated' : True,
             'strategy' : 'random' } )
@@ -707,6 +713,31 @@ Patrol( 'AlexaDNS',
             'resources' : {},
             'parameters' : {},
             'secretIdent' : 'alexadns/e1527553-815b-4dd5-8a40-708a287605b4',
+            'trustedIdents' : [ 'analysis/01e9a19d-78e1-4c37-9a6e-37cb592e3897',
+                                'hunter/8e0f55c0-6593-4747-9d02-a4937fa79517',
+                                'blink/6babf560-88db-403d-a5f6-3689397e0104' ],
+            'n_concurrent' : 10 } )
+
+#######################################
+# MalwareDomains
+# This actor retrieves the list of domains
+# compiled by MalwareDomains.com to 
+# be queried against as a list of known bad.
+# Parameters:
+#
+#######################################
+Patrol( 'MalwareDomains',
+        initialInstances = 2,
+        maxInstances = None,
+        relaunchOnFailure = True,
+        onFailureCall = None,
+        scalingFactor = 10000,
+        actorArgs = ( 'analytics/MalwareDomains',
+                      'analytics/malwaredomains/1.0' ),
+        actorKwArgs = {
+            'resources' : {},
+            'parameters' : {},
+            'secretIdent' : 'malwaredomains/d7e813ef-e47d-479c-a56e-0190cad45c25',
             'trustedIdents' : [ 'analysis/01e9a19d-78e1-4c37-9a6e-37cb592e3897',
                                 'hunter/8e0f55c0-6593-4747-9d02-a4937fa79517',
                                 'blink/6babf560-88db-403d-a5f6-3689397e0104' ],
@@ -898,3 +929,46 @@ Patrol( 'EndpointProcessor',
             'n_concurrent' : 5,
             'isIsolated' : False,
             'strategy' : 'random' } )
+
+#######################################
+# SlackRep
+# This actor receives Detecs from the
+# stateless and stateful detection
+# actors and ingest them into the
+# reporting pipeline.
+# Parameters:
+# db: the Cassandra seed nodes to
+#    connect to for storage.
+# rate_limit_per_sec: number of db ops
+#    per second, limiting to avoid
+#    db overload since C* is bad at that.
+# max_concurrent: number of concurrent
+#    db queries.
+# block_on_queue_size: stop queuing after
+#    n number of items awaiting ingestion.
+# paging_dest: email addresses to page.
+#######################################
+Patrol( 'SlackRep',
+        initialInstances = 1,
+        maxInstances = 1,
+        relaunchOnFailure = True,
+        onFailureCall = None,
+        scalingFactor = 10000,
+        actorArgs = ( 'analytics/SlackRep',
+                      [ 'analytics/slackrep/1.0',
+                        'analytics/output/detects' ] ),
+        actorKwArgs = {
+            'resources' : { 'modeling' : 'models',
+                            'auditing' : 'c2/audit',
+                            'deployment' : 'c2/deploymentmanager',
+                            'sensordir' : 'c2/sensordir/',
+                            'identmanager' : 'c2/identmanager',
+                            'autotasking' : 'analytics/autotasking',
+                            'huntsmanager' : 'analytics/huntsmanager',
+                            'reporting' : 'analytics/reporting' },
+            'parameters' : {},
+            'secretIdent' : 'slackrep/20546efe-0f84-46f2-b9ca-f17bf5997075',
+            'trustedIdents' : [ 'reporting/9ddcc95e-274b-4a49-a003-c952d12049b8',
+                                'analysis/01e9a19d-78e1-4c37-9a6e-37cb592e3897' ],
+            'n_concurrent' : 5,
+            'isIsolated' : True } )

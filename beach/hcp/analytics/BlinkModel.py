@@ -42,7 +42,9 @@ class BlinkModel( Actor ):
         KeyValueStore.setDatabase( parameters[ 'scale_db' ] )
         Atoms.setDatabase( parameters[ 'scale_db' ] )
         self.alexa = {}
+        self.malwaredomains = {}
         self.refreshAlexa()
+        self.refreshMalwareDomains()
         self.handle( 'get_host_blink', self.get_host_blink )
 
     def deinit( self ):
@@ -67,6 +69,14 @@ class BlinkModel( Actor ):
 
         self.delay( 60 * 60 * 24, self.refreshAlexa )
 
+    def refreshMalwareDomains( self ):
+        mdActor = self.getActorHandle( 'analytics/malwaredomains' )
+        info = mdActor.request( 'get_list', {} )
+        if info.isSuccess:
+            self.malwaredomains = info.data[ 'domains' ]
+
+        self.delay( 60 * 60 * 24, self.refreshMalwareDomains )
+
     def getAlexaTag( self, domain ):
         if domain is None: return None
         if len( self.alexa ) == 0: return None
@@ -76,11 +86,21 @@ class BlinkModel( Actor ):
             pass
         position = self.alexa.get( domain, None )
         if position is None:
-            tag = '-ALEXA'
+            tag = '-ALEXA/'
         elif position <= 1000:
             tag = '+ALEXA/%s' % position
         else:
             tag = '?ALEXA/%s' % position
+        return tag
+
+    def getMalwareDomainsTag( self, domain ):
+        if domain is None: return None
+        if len( self.malwaredomains ) == 0: return None
+
+        if self.malwaredomains.get( domain, None ) is not None:
+            tag = '-MALWAREDOMAINS/'
+        else:
+            tag = '?MALWAREDOMAINS/'
         return tag
 
     def getVtReportTag( self, h ):
@@ -178,6 +198,9 @@ class BlinkModel( Actor ):
                 if tag is not None:
                     tags.append( tag )
                 tag = self.getAlexaTag( interpreter.object()[ 0 ] )
+                if tag is not None:
+                    tags.append( tag )
+                tag = self.getMalwareDomainsTag( interpreter.object()[ 0 ] )
                 if tag is not None:
                     tags.append( tag )
             elif 'MODULE_LOAD' == eventType:

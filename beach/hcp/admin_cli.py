@@ -44,14 +44,26 @@ except:
     Symbols = Actor.importLib( 'Symbols', 'Symbols' )
     Signing = Actor.importLib( 'signing', 'Signing' )
 
+g_isCLI = False
+
+class ArgumentParserError(Exception): pass
+
+class ThrowingArgumentParser(argparse.ArgumentParser):
+    def error(self, message):
+        raise ArgumentParserError(self.format_help())
+
 def report_errors( func ):
     def silenceit( *args, **kwargs ):
-        try:
-            return func( *args,**kwargs )
-        except:
-            print( traceback.format_exc() )
-            syslog.syslog( traceback.format_exc() )
-            return None
+        global g_isCLI
+        if g_isCLI:
+            try:
+                return func( *args,**kwargs )
+            except:
+                print( traceback.format_exc() )
+                syslog.syslog( traceback.format_exc() )
+                return None
+        else:
+            return func( *args, **kwargs )
     return( silenceit )
 
 def hexArg( arg ):
@@ -126,7 +138,11 @@ class HcpCli ( cmd.Cmd ):
                                            ( '' if ( self.investigationId is None or self.investigationId == '' ) else ' : %s ' % self.investigationId ) )
 
     def getParser( self, desc, isHbsTask = False ):
-        parser = argparse.ArgumentParser( prog = desc )
+        global g_isCLI
+        if g_isCLI:
+            parser = argparse.ArgumentParser( prog = desc )
+        else:
+            parser = ThrowingArgumentParser( prog = desc )
 
         if isHbsTask:
             parser.add_argument( '-!',
@@ -1269,6 +1285,7 @@ class HcpCli ( cmd.Cmd ):
                                      arguments )
 
 if __name__ == '__main__':
+    g_isCLI = True
     g_parser = argparse.ArgumentParser()
 
     g_parser.add_argument( '--script',

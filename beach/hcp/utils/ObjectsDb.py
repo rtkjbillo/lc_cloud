@@ -262,33 +262,8 @@ class HostObjects( object ):
     def named( cls, named ):
 
         def thisGen():
-            hasResult = False
-
-            isDoCaseSensitiveSearch = False
-            # If there are upper cases in the name, let's search for it in
-            # both case sensisitve and insensitive.
-            if named != named.lower():
-                isDoCaseSensitiveSearch = True
-
-            for x in cls._db.execute( 'SELECT id FROM obj_name WHERE obj = %s', ( ObjectNormalForm( named, None ), ) ):
-                hasResult = True
+            for x in cls._db.execute( 'SELECT id FROM obj_man WHERE obj LIKE %s', ( ObjectNormalForm( named, None ), ) ):
                 yield x[ 0 ]
-
-            # If we got no result, check for a file path since it has more normalization
-            if not hasResult:
-                for x in cls._db.execute( 'SELECT id FROM obj_name WHERE obj = %s', ( ObjectNormalForm( named, ObjectTypes.FILE_PATH ), ) ):
-                    yield x[ 0 ]
-
-            if isDoCaseSensitiveSearch:
-                for x in cls._db.execute( 'SELECT id FROM obj_name WHERE obj = %s', ( ObjectNormalForm( named, None, isCaseSensitive = True ), ) ):
-                    hasResult = True
-                    yield x[ 0 ]
-
-                # If we got no result, check for a file path since it has more normalization
-                if not hasResult:
-                    for x in cls._db.execute( 'SELECT id FROM obj_name WHERE obj = %s', ( ObjectNormalForm( named, ObjectTypes.FILE_PATH, isCaseSensitive = True ), ) ):
-                        yield x[ 0 ]
-
 
         return cls( thisGen() )
 

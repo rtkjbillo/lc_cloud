@@ -155,13 +155,7 @@ CREATE TABLE obj_man
 
   PRIMARY KEY( id )
 ) WITH compaction = { 'class' : 'SizeTieredCompactionStrategy' } AND gc_grace_seconds = 86400;
-
-CREATE TABLE obj_name
-(
-  obj varchar,
-  id varchar,
-  PRIMARY KEY( obj, id )
-) WITH compaction = { 'class' : 'SizeTieredCompactionStrategy' } AND gc_grace_seconds = 86400;
+CREATE CUSTOM INDEX fn_contains ON obj_man ( obj )USING 'org.apache.cassandra.index.sasi.SASIIndex' WITH OPTIONS = { 'mode': 'CONTAINS', 'case_sensitive': 'false' };
 
 CREATE TABLE obj_org
 (

@@ -17,6 +17,7 @@ StateMachineDescriptor = Actor.importLib( './', 'StateMachineDescriptor' )
 State = Actor.importLib( './', 'State' )
 StateTransition = Actor.importLib( './', 'StateTransition' )
 NewProcessNamed = Actor.importLib( './transitions', 'NewProcessNamed' )
+NewProcessWithPrivilege = Actor.importLib( './transitions', 'NewProcessWithPrivilege' )
 HistoryOlderThan = Actor.importLib( './transitions', 'HistoryOlderThan' )
 RunningPidReset = Actor.importLib( './transitions', 'RunningPidReset' )
 AlwaysReturn = Actor.importLib( './transitions', 'AlwaysReturn' )
@@ -39,23 +40,40 @@ def ProcessBurst( name, priority, summary, procRegExp, nPerBurst, withinMilliSec
                                                evalFunc = HistoryOlderThan( withinMilliSeconds ) ) ) )
     return StateMachineDescriptor( priority, summary, name, *states )
 
-def ProcessDescendant( name, priority, summary, parentRegExp, isDirectOnly, childRegExp = None, documentRegExp = None ):
+def ProcessDescendant( name, priority, summary, isDirectOnly, parentRegExp = None, childRegExp = None, documentRegExp = None, isParentRoot = None, isChildRoot = None ):
     if childRegExp is not None:
+        targetTransition = NewProcessNamed( childRegExp )
+        if isChildRoot is not None:
+            targetTransition = AndTransitions( targetTransition, NewProcessWithPrivilege( isChildRoot ) )
         targetTransition = StateTransition( isRecordOnMatch = True,
                                             isReportOnMatch = True,
                                             toState = 0,
-                                            evalFunc = NewProcessNamed( childRegExp ) )
+                                            evalFunc = targetTransition )
     elif documentRegExp is not None:
         targetTransition = StateTransition( isRecordOnMatch = True,
                                             isReportOnMatch = True,
                                             toState = 0,
                                             evalFunc = NewDocumentNamed( documentRegExp ) )
+    elif isChildRoot is not None:
+        targetTransition = StateTransition( isRecordOnMatch = True,
+                                            isReportOnMatch = True,
+                                            toState = 0,
+                                            evalFunc = NewProcessWithPrivilege( isChildRoot ) )
     else:
         raise Exception( 'no target events for process descendants' )
 
+    if parentRegExp is not None:
+        originTransition = NewProcessNamed( parentRegExp )
+        if isParentRoot is not None:
+            originTransition = AndTransitions( originTransition, NewProcessWithPrivilege( isParentRoot ) )
+    elif isParentRoot is not None:
+        originTransition = NewProcessWithPrivilege( isParentRoot )
+    else:
+        raise Exception( 'no origin events for process descendants' )
+
     parentState = State( StateTransition( isRecordOnMatch = True,
                                           toState = 1,
-                                          evalFunc = NewProcessNamed( parentRegExp ) ) )
+                                          evalFunc = originTransition ) )
     descendantState = State( StateTransition( toState = 0,
                                               evalFunc = SensorRestart() ),
                              StateTransition( toState = 1,

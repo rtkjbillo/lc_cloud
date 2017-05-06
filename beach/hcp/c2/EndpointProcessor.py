@@ -19,6 +19,7 @@ from gevent.server import StreamServer
 import os
 import sys
 import struct
+import msgpack
 import ssl
 import zlib
 import uuid
@@ -42,6 +43,12 @@ class DisconnectException( Exception ):
 class _ClientContext( object ):
     def __init__( self, parent, socket ):
         self.parent = parent
+
+        # A simple connection header sent by the proxy before the connection
+        # content, it encapsulates the original connection source information.
+        self.address = msgpack.unpackb( socket.recv( struct.unpack( '!I', socket.recv( 4 ) )[ 0 ] ) )
+        self.parent.log( 'Remote address: %s' % str( self.address ) )
+
         socket = parent.sslContext.wrap_socket( socket, 
                                                 server_side = True, 
                                                 do_handshake_on_connect = True,
@@ -246,7 +253,9 @@ class EndpointProcessor( Actor ):
 
             hostName = headers.get( 'base.HOST_NAME', None )
             internalIp = headers.get( 'base.IP_ADDRESS', None )
-            externalIp = address[ 0 ]
+            # Use the address in the client context since it was received from the
+            # proxy headers and therefore is the correct original source.
+            externalIp = c.address[ 0 ]
             aid = AgentId( headers[ 'base.HCP_IDENT' ] )
             if aid.org_id is None or aid.ins_id is None or aid.platform is None or aid.architecture is None:
                 aidInfo = str( aid )

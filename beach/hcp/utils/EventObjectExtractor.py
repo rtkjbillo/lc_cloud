@@ -83,7 +83,7 @@ class EventObjectExtractor:
     def _extractProcessList( cls, eventType, eventRoot, fromAgent, objects ):
         for p in eventRoot[ 'base.PROCESSES' ]:
             exe = cls._extractProcessInfo( fromAgent, objects, p )
-            for m in p[ 'base.MODULES' ]:
+            for m in p.get( 'base.MODULES', [] ):
                 mod = cls._extractModuleInfo( fromAgent, objects, m )
                 cls._addRel( eventRoot, 
                              objects, exe, ObjectTypes.PROCESS_NAME,
@@ -181,7 +181,7 @@ class EventObjectExtractor:
         if modName is not None:
             cls._addObj( modRoot, objects, modName, ObjectTypes.MODULE_NAME )
 
-        if modPath is not None:
+        if modPath is not None and '' != modPath:
             cls._addObj( modRoot, objects, modPath, ObjectTypes.FILE_PATH )
             cls._addRel( modRoot, objects, mod, ObjectTypes.MODULE_NAME, modPath, ObjectTypes.FILE_PATH )
 
@@ -217,7 +217,7 @@ class EventObjectExtractor:
             cls._addObj( svcRoot, objects, mainMod, ObjectTypes.FILE_PATH )
             cls._addRel( svcRoot, objects, svcname, ObjectTypes.SERVICE_NAME, mainMod, ObjectTypes.FILE_PATH )
 
-        if filePath is not None:
+        if filePath is not None and '' != filePath:
             cls._addObj( svcRoot, objects, filePath, ObjectTypes.FILE_PATH )
             cls._addRel( svcRoot, objects, svcname, ObjectTypes.SERVICE_NAME, filePath, ObjectTypes.FILE_PATH )
         if h is not None:
@@ -229,7 +229,7 @@ class EventObjectExtractor:
         reg = aRoot.get( 'base.REGISTRY_KEY', None )
         path = aRoot.get( 'base.FILE_PATH', None )
         h = aRoot.get( 'base.HASH', None )
-        if path is not None:
+        if path is not None and '' != path:
             autorun = path
         elif reg is not None:
             autorun = reg
@@ -243,7 +243,7 @@ class EventObjectExtractor:
     @classmethod
     def _extractCodeIdentityInfo( cls, fromAgent, objects, cRoot ):
         filePath = cRoot.get( 'base.FILE_PATH', None )
-        if filePath is None:
+        if filePath is None and '' != filePath:
             filePath = cRoot.get( 'base.DLL', None )
             if filePath is None:
                 filePath = cRoot.get( 'base.EXECUTABLE', None )

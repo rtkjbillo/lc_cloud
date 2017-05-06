@@ -389,10 +389,34 @@ class Mutex( object ):
         self._sem = gevent.lock.BoundedSemaphore( value = 1 )
 
     def lock( self, timeout = None ):
-        return self._sem.acquire( timeout = timeout )
+        return self._sem.acquire( blocking = True, timeout = timeout )
 
     def unlock( self ):
         return self._sem.release()
+
+    def __enter__( self ):
+        self.lock()
+
+    def __exit__( self, type, value, traceback ):
+        self.unlock()
+
+class _rwlock_w( object ):
+    def __init__( self, l ):
+        self.l = l
+    def __enter__( self ):
+        self.l.wLock()
+        return self
+    def __exit__( self, type, value, traceback ):
+        self.l.wUnlock()
+
+class _rwlock_r( object ):
+    def __init__( self, l ):
+        self.l = l
+    def __enter__( self ):
+        self.l.rLock()
+        return self
+    def __exit__( self, type, value, traceback ):
+        self.l.rUnlock()
 
 class RWLock( object ):
     def __init__( self, nReaders ):
@@ -400,7 +424,7 @@ class RWLock( object ):
         self._sem = gevent.lock.BoundedSemaphore( value = nReaders )
 
     def rLock( self, timeout = None ):
-        return self._sem.acquire( timeout = timeout )
+        return self._sem.acquire( blocking = True, timeout = timeout )
 
     def rUnlock( self ):
         return self._sem.release()
@@ -408,7 +432,7 @@ class RWLock( object ):
     def wLock( self, timeout = None ):
         nLocked = 0
         for n in range( self._nReaders ):
-            if self._sem.acquire( timeout = timeout ):
+            if self._sem.acquire( blocking = True, timeout = timeout ):
                 nLocked += 1
         if nLocked != self._nReaders:
             for n in range( nLocked ):
@@ -420,6 +444,13 @@ class RWLock( object ):
     def wUnlock( self ):
         for n in range( self._nReaders ):
             self._sem.release()
+
+    def writer( self ):
+        return _rwlock_w( self )
+
+    def reader( self ):
+        return _rwlock_r( self )
+
 
 class AgentId( object ):
     

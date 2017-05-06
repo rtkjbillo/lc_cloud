@@ -17,6 +17,7 @@ from beach.actor import Actor
 from sets import Set
 
 HcpCli = Actor.importLib( '../admin_cli', 'HcpCli' )
+ArgumentParserError = Actor.importLib( '../admin_cli', 'ArgumentParserError' )
 CassDb = Actor.importLib( 'utils/hcp_databases', 'CassDb' )
 CassPool = Actor.importLib( 'utils/hcp_databases', 'CassPool' )
 AgentId = Actor.importLib( '../utils/hcp_helpers', 'AgentId' )
@@ -40,6 +41,7 @@ class AutoTasking( Actor ):
         self.sensor_qph = parameters.get( 'sensor_qph', 50 )
         self.global_qph = parameters.get( 'global_qph', 200 )
         self.allowed_commands = Set( parameters.get( 'allowed', [] ) )
+        self.model = self.getActorHandle( resources[ 'modeling' ] )
         self.handle( 'task', self.handleTasking )
         self.sensor_stats = {}
         self.global_stats = 0
@@ -101,7 +103,7 @@ class AutoTasking( Actor ):
         if expiry is None:
             expiry = 3600
         command = '%s %s -! %s -x %d' % ( task[ 0 ],
-                                          ' '.join( [ '"%s"' % ( x, ) for x in task[ 1 : ] ] ),
+                                          ' '.join( [ '"%s"' % ( x.replace( '\\', '\\\\' ), ) for x in task[ 1 : ] ] ),
                                           agentid,
                                           expiry )
 
@@ -109,6 +111,10 @@ class AutoTasking( Actor ):
             command += ' -@ "%s"' % str( invId )
 
         oid = AgentId( agentid ).org_id
+        if oid is None:
+            resp = self.model.request( 'get_sensor_info', { 'id_or_host' : agentid } )
+            if resp.isSuccess:
+                oid = AgentId( resp.data[ 'id' ] ).org_id
 
         cli = self.getCli( oid )
 
@@ -132,6 +138,9 @@ class AutoTasking( Actor ):
             sent.add( task )
 
             if self.isQuotaAllowed( dest, task ):
-                self.execTask( task, dest, expiry = expiry, invId = invId )
+                try:
+                    self.execTask( task, dest, expiry = expiry, invId = invId )
+                except ArgumentParserError as e:
+                    return ( False, 'usage', str( e ) )
 
         return ( True, )
