@@ -89,9 +89,10 @@ def RunningPidReset():
             proc = indexes[ 'pid' ].get( currentPid, None )
             if proc is not None:
                 for idx in indexes.values():
-                    for idxKey, idxVal in idx.items():
-                        if idxVal == proc:
-                            del( idx[ idxKey ] )
+                    if type( idx ) is dict:
+                        for idxKey, idxVal in idx.items():
+                            if idxVal == proc:
+                                del( idx[ idxKey ] )
                 history.remove( proc )
                 return True
 
