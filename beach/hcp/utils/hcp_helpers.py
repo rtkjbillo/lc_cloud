@@ -153,6 +153,7 @@ class HcpModuleId( object ):
     TEST = 3
     AAD = 4
     KERNEL_ACQ = 5
+    BULK_COLLECTOR = 6
 
 class HbsCollectorId ( object ):
     EXFIL = 0
