@@ -93,6 +93,7 @@ def RunningPidReset():
                         for idxKey, idxVal in idx.items():
                             if idxVal == proc:
                                 del( idx[ idxKey ] )
+                                break
                 history.remove( proc )
                 return True
 
