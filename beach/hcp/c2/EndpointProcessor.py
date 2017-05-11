@@ -49,10 +49,13 @@ class _ClientContext( object ):
         self.address = msgpack.unpackb( socket.recv( struct.unpack( '!I', socket.recv( 4 ) )[ 0 ] ) )
         self.parent.log( 'Remote address: %s' % str( self.address ) )
 
-        socket = parent.sslContext.wrap_socket( socket, 
-                                                server_side = True, 
-                                                do_handshake_on_connect = True,
-                                                suppress_ragged_eofs = True )
+        try:
+            socket = parent.sslContext.wrap_socket( socket, 
+                                                    server_side = True, 
+                                                    do_handshake_on_connect = True,
+                                                    suppress_ragged_eofs = True )
+        except:
+            raise DisconnectException
         self.s = socket
         self.aid = None
         self.lock = Semaphore( 1 )
