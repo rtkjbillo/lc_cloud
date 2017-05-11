@@ -261,11 +261,11 @@ class RepInstance( object ):
         if 1 == len( ctx.cmd ):
             #TODO conclude the investigation, tricky a bit because we need the Hunter.
             self.actor.log( "Archiving channel %s" % ctx.channel )
-            self.archiveChannel( ctx, ctx.channel )
+            self.archiveChannel( ctx.channel )
         elif 2 == len( ctx.cmd ):
             #TODO conclude the investigation, tricky a bit because we need the Hunter.
             self.actor.log( "Archiving channel %s" % ctx.cmd[ 1 ] )
-            self.archiveChannel( ctx, ctx.cmd[ 1 ] )
+            self.archiveChannel( ctx.cmd[ 1 ] )
 
     def command_objects( self, ctx ):
         if 2 == len( ctx.cmd ):
@@ -560,7 +560,7 @@ class RepInstance( object ):
             return False
         return True
 
-    def archiveChannel( self, ctx, name ):
+    def archiveChannel( self, name ):
         try:
             # Remove the prefix #
             name1 = name.lower()
@@ -573,7 +573,7 @@ class RepInstance( object ):
             if cid is not None:
                 self.slack.channels.archive( cid )
         except:
-            self.bot.rtm_send_message( ctx.channel, "error archiving channel (%s): %s" % ( cid, traceback.format_exc(), ) )
+            self.bot.rtm_send_message( name, "error archiving channel (%s): %s" % ( cid, traceback.format_exc(), ) )
             self.actor.log( "Excp: %s" % traceback.format_exc() )
             return False
         return True
@@ -680,7 +680,7 @@ class RepInstance( object ):
         self.slack.chat.post_message( channelName, attachments = [ self.renderInvConclusion( investigation ) ] )
 
         if investigation[ 'nature' ] in ( InvestigationNature.FALSE_POSITIVE, InvestigationNature.DUPLICATE ):
-            self.archiveChannel( ctx, channelName )
+            self.archiveChannel( channelName )
 
     def task( self, ctx, dest, cmdsAndArgs ):
         ret = None
