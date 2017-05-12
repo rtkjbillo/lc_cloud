@@ -588,8 +588,11 @@ class RepInstance( object ):
                     cid = channel[ 'id' ]
                     break
             if cid is not None:
-                self.slack.channels.invite( cid, 'lc_actual' )
+                self.slack.channels.invite( cid, self.botId )
+            else:
+                self.actor.log( "Channel not found: %s" % name )
         except:
+            self.actor.log( 'EXC: %s' % traceback.format_exc() )
             return False
         return True
 

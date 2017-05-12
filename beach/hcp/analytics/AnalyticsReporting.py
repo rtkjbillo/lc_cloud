@@ -52,12 +52,12 @@ class AnalyticsReporting( Actor ):
 
         self.get_detect_source_stmt = self.db.prepare( 'SELECT source FROM detects WHERE did = ?' )
 
-        self.outputs = self.getActorHandleGroup( resources[ 'output' ] )
+        self.outputs = self.getActorHandleGroup( resources[ 'output' ], timeout = 30 )
 
         self.default_ttl_detections = parameters.get( 'retention_investigations', 60 * 60 * 24 * 365 )
         self.org_ttls = {}
         if 'identmanager' in resources:
-            self.identmanager = self.getActorHandle( resources[ 'identmanager' ] )
+            self.identmanager = self.getActorHandle( resources[ 'identmanager' ], timeout = 30 )
         else:
             self.identmanager = None
             self.log( 'using default ttls' )
@@ -72,12 +72,12 @@ class AnalyticsReporting( Actor ):
         self.handle( 'set_inv_nature', self.set_inv_nature )
         self.handle( 'set_inv_conclusion', self.set_inv_conclusion )
 
-        self.paging = CreateOnAccess( self.getActorHandle, resources[ 'paging' ] )
+        self.paging = CreateOnAccess( self.getActorHandle, resources[ 'paging' ], timeout = 30 )
         self.pageDest = parameters.get( 'paging_dest', [] )
         if type( self.pageDest ) is str or type( self.pageDest ) is unicode:
             self.pageDest = [ self.pageDest ]
 
-        self.model = CreateOnAccess( self.getActorHandle, resources[ 'modeling' ] )
+        self.model = CreateOnAccess( self.getActorHandle, resources[ 'modeling' ], timeout = 30 )
 
     def deinit( self ):
         self.db.stop()
