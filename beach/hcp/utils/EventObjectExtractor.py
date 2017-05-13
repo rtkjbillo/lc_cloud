@@ -34,6 +34,7 @@ class EventObjectExtractor:
             cls._extractors = {
                 'notification.NEW_PROCESS' : EventObjectExtractor._extractProcess,
                 'notification.TERMINATE_PROCESS' : EventObjectExtractor._extractProcess,
+                'notification.EXISTING_PROCESS' : EventObjectExtractor._extractProcess,
                 'notification.DNS_REQUEST' : EventObjectExtractor._extractDns,
                 'notification.OS_PROCESSES_REP' : EventObjectExtractor._extractProcessList,
                 'notification.NETWORK_SUMMARY' : EventObjectExtractor._extractNetworkSummary,
