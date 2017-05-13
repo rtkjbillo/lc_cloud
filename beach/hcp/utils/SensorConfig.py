@@ -432,6 +432,7 @@ class SensorConfig( object ):
         profile.collectors[ HbsCollectorId.DOC_COLLECTOR ].addExtension( ".xlsx" )
         profile.collectors[ HbsCollectorId.DOC_COLLECTOR ].addExtension( ".vbs" )
         profile.collectors[ HbsCollectorId.DOC_COLLECTOR ].addExtension( ".rtf" )
+        profile.collectors[ HbsCollectorId.DOC_COLLECTOR ].addExtension( ".hta" )
         profile.collectors[ HbsCollectorId.DOC_COLLECTOR ].addPattern( "\\windows\\system32\\" )
         profile.collectors[ HbsCollectorId.FILE_TRACKER ].disableModified()
 
