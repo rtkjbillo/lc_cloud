@@ -140,7 +140,7 @@ def sanitizeJson( o, summarized = False ):
     return o
 
 def msTsToTime( ts ):
-    return datetime.datetime.fromtimestamp( float( ts ) / 1000 ).strftime( '%Y-%m-%d %H:%M:%S.%f' )
+    return datetime.datetime.fromtimestamp( float( ts ) / 1000 ).strftime( '%Y-%m-%d %H:%M:%S.%f' )[ : -3 ]
 
 def doMarkdown( content ):
     return markdown.markdown( content, extensions = [ 'markdown.extensions.tables' ] )

@@ -162,7 +162,7 @@ class ModelView( Actor ):
         info[ 'children' ] = [ ( x[ 0 ], x[ 1 ], ObjectTypes.rev[ x[ 2 ] ], ObjectKey( RelationNameFromId( _[ 0 ], x[ 0 ] ), ObjectTypes.RELATION ) ) for x in HostObjects( info[ 'id' ] ).children().acl( oid = orgs ).info() ]
 
         locs = {}
-        for o in HostObjects( [ x[ 0 ] for x in ( info[ 'parents' ] + info[ 'children' ] ) ] ).locs():
+        for o in HostObjects( [ x[ 0 ] for x in ( info[ 'parents' ] + info[ 'children' ] + [ ( info[ 'id' ], None ) ] ) ] ).locs():
             if o[ 0 ] not in locs:
                 locs[ o[ 0 ] ] = 0
             locs[ o[ 0 ] ] += 1
