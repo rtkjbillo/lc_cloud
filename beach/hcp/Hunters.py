@@ -225,13 +225,13 @@ class Hunter ( Actor ):
 
         self.handle( 'detect', self._handleDetects )
 
-        self._reporting = CreateOnAccess( self.getActorHandle, 'analytics/reporting' )
-        self._tasking = CreateOnAccess( self.getActorHandle, 'analytics/autotasking', mode = 'affinity' )
+        self._reporting = CreateOnAccess( self.getActorHandle, 'analytics/reporting', timeout = 30 )
+        self._tasking = CreateOnAccess( self.getActorHandle, 'analytics/autotasking', mode = 'affinity', timeout = 30 )
 
         # APIs made available for Hunts
-        self.Models = CreateOnAccess( self.getActorHandle, 'models' )
-        self.VirusTotal = CreateOnAccess( self.getActorHandle, 'analytics/virustotal' )
-        self.Alexa = CreateOnAccess( self.getActorHandle, 'analytics/alexadns' )
+        self.Models = CreateOnAccess( self.getActorHandle, 'models', timeout = 30 )
+        self.VirusTotal = CreateOnAccess( self.getActorHandle, 'analytics/virustotal', timeout = 10 )
+        self.Alexa = CreateOnAccess( self.getActorHandle, 'analytics/alexadns', timeout = 5 )
 
     def _refreshConf( self ):
         tmpHandle = self.getActorHandle( 'c2/deploymentmanager' )
@@ -325,6 +325,18 @@ class Hunter ( Actor ):
                                     { 'id' : host, 
                                       'types' : ofTypes, 
                                       'after' : int( time.time() ) - lastNSeconds,
+                                      'is_include_content' : True } )
+        if resp.isSuccess:
+            return [ x[ 3 ] for x in resp.data[ 'events' ] if x[ 3 ] is not None ]
+        else:
+            return []
+
+    def getEventsNSecondsAround( self, nSeconds, aroundTime, host, ofTypes = None ):
+        resp = self.Models.request( 'get_timeline', 
+                                    { 'id' : host, 
+                                      'types' : ofTypes, 
+                                      'after' : aroundTime - nSeconds,
+                                      'before' : aroundTime + nSeconds,
                                       'is_include_content' : True } )
         if resp.isSuccess:
             return [ x[ 3 ] for x in resp.data[ 'events' ] if x[ 3 ] is not None ]
