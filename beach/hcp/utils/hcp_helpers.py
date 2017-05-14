@@ -170,7 +170,7 @@ class HbsCollectorId ( object ):
     OS_FORENSIC = 11
     _AVAILABLE = 12
     EXEC_OOB = 13
-    _AVAILABLE2 = 14
+    DENY_TREE = 14
     PROCESS_HOLLOWING = 15
     YARA = 16
     OS_TRACKER = 17
@@ -195,7 +195,7 @@ class HbsCollectorId ( object ):
         11 : 'OS_FORENSIC',
         12 : '_AVAILABLE',
         13 : 'EXEC_OOB',
-        14 : 'TODO_CHANGEME',
+        14 : 'DENY_TREE',
         15 : 'PROCESS_HOLLOWING',
         16 : 'YARA',
         17 : 'OS_TRACKER',

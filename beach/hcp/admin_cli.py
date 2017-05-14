@@ -70,7 +70,11 @@ def hexArg( arg ):
     return int( arg, 16 )
 
 def atomArg( arg ):
-    return uuid.UUID( arg ).bytes
+    try:
+        atom = uuid.UUID( arg ).bytes
+    except:
+        atom = uuid.UUID( bytes = base64.b64decode( arg ) ).bytes
+    return atom
 
 def eventArg( arg ):
     try:
@@ -1281,6 +1285,28 @@ class HcpCli ( cmd.Cmd ):
             if arguments.hashStr is not None:
                 req.addBuffer( self.tags.base.HASH, arguments.hashStr.decode( 'hex' ) )
             self._executeHbsTasking( self.tags.notification.GET_DOCUMENT_REQ,
+                                     req,
+                                     arguments )
+
+    @report_errors
+    def do_deny_tree( self, s ):
+        '''Tells the sensor to stop any activity it can originating from a specific atom.'''
+
+        parser = self.getParser( 'deny_tree', True )
+        parser.add_argument( 'atom',
+                             type = atomArg,
+                             nargs = '+',
+                             help = 'atoms to deny from' )
+        arguments = self.parse( parser, s )
+        if arguments is not None:
+            if arguments.atom is None:
+                raise argparse.ArgumentTypeError( 'At leasr one atom must be specified.' )
+            req = rSequence()
+            atomList = rList( )
+            for atom in arguments.atom:
+                atomList.addBuffer( self.tags.hbs.THIS_ATOM, atom )
+            req.addList( self.tags.hbs.THIS_ATOM, atomList )
+            self._executeHbsTasking( self.tags.notification.DENY_TREE_REQ,
                                      req,
                                      arguments )
 
