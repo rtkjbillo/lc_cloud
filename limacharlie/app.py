@@ -895,6 +895,7 @@ class Traffic ( AuthenticatedPage ):
             originalEvents = info.data.get( 'events', [] )
             info.data[ 'events' ] = []
             for event in originalEvents:
+                if event[ 3 ] is None: continue
                 thisAtom = event[ 3 ].values()[ 0 ].get( 'hbs.THIS_ATOM', None )
                 richEvent = None
                 if hasattr( eventRender, event[ 1 ] ):
