@@ -203,7 +203,7 @@ class _collector_13( _collector ):
     colId = HbsCollectorId.EXEC_OOB
 
 class _collector_14( _collector ):
-    colId = HbsCollectorId._AVAILABLE2
+    colId = HbsCollectorId.DENY_TREE
 
 class _collector_15( _collector ):
     colId = HbsCollectorId.PROCESS_HOLLOWING
@@ -348,7 +348,6 @@ class SensorConfig( object ):
     def getDefaultWindowsProfile( cls ):
         profile = SensorConfig()
         profile.collectors[ 12 ].disable()
-        profile.collectors[ 14 ].disable()
         profile.collectors[ HbsCollectorId.HIDDEN_MODULE ].disable()
         profile.collectors[ HbsCollectorId.EXEC_OOB ].disable()
         profile.collectors[ HbsCollectorId.PROCESS_HOLLOWING ].disable()
@@ -432,6 +431,7 @@ class SensorConfig( object ):
         profile.collectors[ HbsCollectorId.DOC_COLLECTOR ].addExtension( ".xlsx" )
         profile.collectors[ HbsCollectorId.DOC_COLLECTOR ].addExtension( ".vbs" )
         profile.collectors[ HbsCollectorId.DOC_COLLECTOR ].addExtension( ".rtf" )
+        profile.collectors[ HbsCollectorId.DOC_COLLECTOR ].addExtension( ".hta" )
         profile.collectors[ HbsCollectorId.DOC_COLLECTOR ].addPattern( "\\windows\\system32\\" )
         profile.collectors[ HbsCollectorId.FILE_TRACKER ].disableModified()
 
@@ -441,7 +441,6 @@ class SensorConfig( object ):
     def getDefaultOsxProfile( cls ):
         profile = SensorConfig()
         profile.collectors[ 12 ].disable()
-        profile.collectors[ 14 ].disable()
         profile.collectors[ HbsCollectorId.HIDDEN_MODULE ].disable()
         profile.collectors[ HbsCollectorId.EXEC_OOB ].disable()
         profile.collectors[ HbsCollectorId.PROCESS_HOLLOWING ].disable()
@@ -499,7 +498,6 @@ class SensorConfig( object ):
     def getDefaultLinuxProfile( cls ):
         profile = SensorConfig()
         profile.collectors[ 12 ].disable()
-        profile.collectors[ 14 ].disable()
         profile.collectors[ HbsCollectorId.HIDDEN_MODULE ].disable()
         profile.collectors[ HbsCollectorId.EXEC_OOB ].disable()
         profile.collectors[ HbsCollectorId.PROCESS_HOLLOWING ].disable()

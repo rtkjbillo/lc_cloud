@@ -7,5 +7,5 @@ apt-get install python git -y
 sleep 1
 su -c "git clone --recursive https://github.com/refractionPOINT/limacharlie.git -b $LC_BRANCH" `logname`
 cd limacharlie/cloud/infrastructure/
-python ./1_install_single_node_test_cluster.py
-su -c "python ./2_start_single_node_test_cluster.py" `logname`
+python ./install_cloud_in_a_can.py
+su -c "python ./start_cloud_in_a_can.py" `logname`

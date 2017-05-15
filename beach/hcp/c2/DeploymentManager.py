@@ -142,7 +142,7 @@ class DeploymentManager( Actor ):
         }
         
         tmpHandle, tmpPath = tempfile.mkstemp()
-        os.system( 'openssl req -x509 -newkey rsa:4096 -keyout %s_key.pem -out %s_cert.pem -nodes -sha256 -subj "/C=US/ST=CA/L=Mountain View/O=refractionPOINT/CN=rp_c2_dev"' % ( tmpPath, tmpPath ) )
+        os.system( 'openssl req -x509 -days 36500 -newkey rsa:4096 -keyout %s_key.pem -out %s_cert.pem -nodes -sha256 -subj "/C=US/ST=CA/L=Mountain View/O=refractionPOINT/CN=rp_c2_dev"' % ( tmpPath, tmpPath ) )
         
         with open( '%s_key.pem' % tmpPath, 'rb' ) as f:
             cert[ 'key' ] = f.read()

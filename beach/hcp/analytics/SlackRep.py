@@ -284,6 +284,7 @@ class RepInstance( object ):
                 aid = AgentId( '%s.0.0.0.0' % self.oid )
                 if data is not None:
                     output = []
+                    output.append( '*Globally*: %s hosts' % data[ 'locs' ].get( data[ 'id' ], '-' ) )
                     for loc in data[ 'olocs' ]:
                         output.append( "*%s*" % ( self.getHostname( loc[ 0 ] ) ) )
                         output.append( '  Last Seen: %s' % self.msTsToTime( loc[ 1 ] ) )
@@ -588,8 +589,11 @@ class RepInstance( object ):
                     cid = channel[ 'id' ]
                     break
             if cid is not None:
-                self.slack.channels.invite( cid, 'lc_actual' )
+                self.slack.channels.invite( cid, self.botId )
+            else:
+                self.actor.log( "Channel not found: %s" % name )
         except:
+            self.actor.log( 'EXC: %s' % traceback.format_exc() )
             return False
         return True
 

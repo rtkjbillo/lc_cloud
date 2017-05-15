@@ -52,7 +52,7 @@ class SensorDirectory( Actor ):
         # This is to avoid sensor set dead after long timeout
         # having a collision with the same sensor coming back online.
         tmp = self.directory.pop( aid.sensor_id, ( None, None, 0, 0 ) )
-        if tmp[ 1 ] != endpoint or connId != tmp[ 0 ]:
+        if tmp[ 0 ] is not None and ( tmp[ 1 ] != endpoint or connId != tmp[ 0 ] ):
             # Looks like the sensor re-registered, re-add it.
             self.directory.setdefault( aid.sensor_id, tmp )
         return ( True, )
@@ -61,7 +61,11 @@ class SensorDirectory( Actor ):
         aid = AgentId( msg.data[ 'aid' ] )
         newBytes = msg.data[ 'bytes_transfered' ]
         connId, curEndpoint, curBytes, connectedAt = self.directory.get( aid.sensor_id, ( None, None, 0, 0 ) )
-        self.directory[ aid.sensor_id ] = ( connId, curEndpoint, curBytes + newBytes, connectedAt )
+        if connId is not None:
+            self.directory[ aid.sensor_id ] = ( connId, curEndpoint, curBytes + newBytes, connectedAt )
+        else:
+            # Sensor must have just gone offline and we got a race condition.
+            pass
         self.log( '%s transfered %d new bytes.' % ( aid.sensor_id, newBytes ) )
         return ( True, )
 

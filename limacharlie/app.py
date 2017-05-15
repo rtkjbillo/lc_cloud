@@ -140,7 +140,7 @@ def sanitizeJson( o, summarized = False ):
     return o
 
 def msTsToTime( ts ):
-    return datetime.datetime.fromtimestamp( float( ts ) / 1000 ).strftime( '%Y-%m-%d %H:%M:%S.%f' )
+    return datetime.datetime.fromtimestamp( float( ts ) / 1000 ).strftime( '%Y-%m-%d %H:%M:%S.%f' )[ : -3 ]
 
 def doMarkdown( content ):
     return markdown.markdown( content, extensions = [ 'markdown.extensions.tables' ] )
@@ -895,6 +895,7 @@ class Traffic ( AuthenticatedPage ):
             originalEvents = info.data.get( 'events', [] )
             info.data[ 'events' ] = []
             for event in originalEvents:
+                if event[ 3 ] is None: continue
                 thisAtom = event[ 3 ].values()[ 0 ].get( 'hbs.THIS_ATOM', None )
                 richEvent = None
                 if hasattr( eventRender, event[ 1 ] ):

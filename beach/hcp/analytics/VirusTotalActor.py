@@ -21,7 +21,7 @@ CreateOnAccess = Actor.importLib( '../utils/hcp_helpers', 'CreateOnAccess' )
 
 class VirusTotalActor ( Actor ):
     def init( self, parameters, resources ):
-        self.deploymentManager = CreateOnAccess( self.getActorHandle, resources[ 'deployment' ] )
+        self.deploymentManager = CreateOnAccess( self.getActorHandle, resources[ 'deployment' ], timeout = 30 )
         self.key = parameters.get( '_key', None )
         
         # Maximum number of queries per minute
@@ -39,7 +39,7 @@ class VirusTotalActor ( Actor ):
 
         self.vtMutex = Mutex()
 
-        self.Model = self.getActorHandle( resources[ 'modeling' ], timeout = 3, nRetries = 0 )
+        self.Model = self.getActorHandle( resources[ 'modeling' ], timeout = 3, nRetries = 1 )
 
         # Cache size
         self.cache_size = parameters.get( 'cache_size', 5000 )
@@ -119,8 +119,11 @@ class VirusTotalActor ( Actor ):
 
         self.stats[ 0 ] += 1
 
-        report = self.getReportFromCache( fileHash )
-        if report is False or isNoCache:
+        if not isNoCache:
+            report = self.getReportFromCache( fileHash )
+        else:
+            report = False
+        if report is False:
             report = None
             vtReport = None
             nRetry = 3

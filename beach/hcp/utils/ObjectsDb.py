@@ -612,7 +612,7 @@ class FluxEvent( object ):
             for k, n in node.iteritems():
                 if 'base.HASH' == k or str( k ).endswith( '_HASH' ):
                     node[ k ] = n.encode( 'hex' )
-                elif str( k ).endswith( '_ATOM' ):
+                elif str( k ).endswith( '_ATOM' ) and type( n ) is str:
                     node[ k ] = normalAtom( n )
                 else:
                     tmp = cls._dataToUtf8( n )

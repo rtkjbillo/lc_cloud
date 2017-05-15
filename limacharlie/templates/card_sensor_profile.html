@@ -188,6 +188,18 @@ $def with (platform, oid, orgname, profile, supportedEvents)
 			<br/><br/>
 			<hr/>
 
+			<h5 style="display: inline;">Deny Tree</h5>
+			<br/>
+			<label style="position: absolute;" class="mdl-switch mdl-js-switch mdl-js-ripple-effect" for="col_14_enabled-$oid-$platform">
+				<input type="checkbox" value="14" name="col" id="col_14_enabled-$oid-$platform" class="mdl-switch__input" $('' if profile[ 14 ].get( 'base.IS_DISABLED', None ) == 1 else 'checked')>
+				<span class="mdl-switch__label">Enabled</span>
+			</label>
+			<br/><br/>
+			Denies execution of anything under a tree rooted at an atom. Used for rapid automated mitigation.
+
+			<br/><br/>
+			<hr/>
+
 			<h5 style="display: inline;">Process Hollowing</h5>
 			<br/>
 			<label style="position: absolute;" class="mdl-switch mdl-js-switch mdl-js-ripple-effect" for="col_15_enabled-$oid-$platform">
