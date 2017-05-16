@@ -938,19 +938,8 @@ Patrol( 'EndpointProcessor',
 # SlackRep
 # This actor receives Detecs from the
 # stateless and stateful detection
-# actors and ingest them into the
-# reporting pipeline.
+# actors and reports them on Slack.
 # Parameters:
-# db: the Cassandra seed nodes to
-#    connect to for storage.
-# rate_limit_per_sec: number of db ops
-#    per second, limiting to avoid
-#    db overload since C* is bad at that.
-# max_concurrent: number of concurrent
-#    db queries.
-# block_on_queue_size: stop queuing after
-#    n number of items awaiting ingestion.
-# paging_dest: email addresses to page.
 #######################################
 Patrol( 'SlackRep',
         initialInstances = 1,
@@ -960,7 +949,7 @@ Patrol( 'SlackRep',
         scalingFactor = 10000,
         actorArgs = ( 'analytics/SlackRep',
                       [ 'analytics/slackrep/1.0',
-                        'analytics/output/detects' ] ),
+                        'analytics/output/detects/slack' ] ),
         actorKwArgs = {
             'resources' : { 'modeling' : 'models',
                             'auditing' : 'c2/audit',
@@ -976,3 +965,28 @@ Patrol( 'SlackRep',
                                 'analysis/01e9a19d-78e1-4c37-9a6e-37cb592e3897' ],
             'n_concurrent' : 5,
             'isIsolated' : True } )
+
+#######################################
+# FileEventsOutput
+# This actor receives Detecs from the
+# stateless and stateful detection
+# actors and reports them to a log file.
+# Parameters:.
+#######################################
+Patrol( 'FileEventsOutput',
+        initialInstances = 1,
+        maxInstances = 1,
+        relaunchOnFailure = True,
+        onFailureCall = None,
+        scalingFactor = 10000,
+        actorArgs = ( 'analytics/FileEventsOutput',
+                      [ 'analytics/fileeventsoutput/1.0',
+                        'analytics/output/detects/fileevent' ] ),
+        actorKwArgs = {
+            'resources' : {},
+            'parameters' : {},
+            'secretIdent' : 'fileeventsoutput/9a6e2317-db95-4a93-b815-b3c1aaecf527',
+            'trustedIdents' : [ 'reporting/9ddcc95e-274b-4a49-a003-c952d12049b8',
+                                'analysis/01e9a19d-78e1-4c37-9a6e-37cb592e3897' ],
+            'n_concurrent' : 5,
+            'isIsolated' : False } )

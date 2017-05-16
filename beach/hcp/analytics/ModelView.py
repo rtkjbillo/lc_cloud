@@ -371,8 +371,8 @@ class ModelView( Actor ):
 
     def get_atoms_from_root( self, msg ):
         tmp_atoms = msg.data[ 'id' ]
-        depth = msg.data.get( 'depth', 5 )
-        maxAtoms = msg.data.get( 'max_atoms', 100 )
+        depth = msg.data.get( 'depth', 10 )
+        maxAtoms = msg.data.get( 'max_atoms', 1000 )
         withRouting = msg.data.get( 'with_routing', False )
         atoms = []
         

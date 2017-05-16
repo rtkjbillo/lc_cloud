@@ -18,6 +18,7 @@ import time
 import argparse
 
 root = os.path.join( os.path.abspath( os.path.dirname( __file__ ) ), '..', '..' )
+os.chdir( os.path.abspath( os.path.dirname( __file__ ) ) )
 
 parser = argparse.ArgumentParser()
 parser.add_argument( '-b', '--beach',
