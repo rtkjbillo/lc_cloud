@@ -20,6 +20,7 @@ synchronized = Actor.importLib( './hcp_helpers', 'synchronized' )
 from collections import deque
 import gevent
 import datetime
+from cassandra.policies import ConstantReconnectionPolicy
 epoch = datetime.datetime.utcfromtimestamp( 0 )
 
 
@@ -42,7 +43,7 @@ class CassDb( object ):
         self.dbname = dbname
         self.version = version
         self.consistency = self.CL_Default
-        self.cluster = Cluster( url, cql_version = version, control_connection_timeout = 30.0 )
+        self.cluster = Cluster( url, cql_version = version, control_connection_timeout = 30.0, reconnection_policy = ConstantReconnectionPolicy( 15.0, max_attempts = None ) )
         self.cur = self.cluster.connect( dbname )
         #self.cur.row_factory = tuple_factory
         self.cur.default_timeout = 30.0
