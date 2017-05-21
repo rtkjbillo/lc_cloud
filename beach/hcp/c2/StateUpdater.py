@@ -35,11 +35,14 @@ class StateUpdater( Actor ):
         self.recordLive = self.db.prepare( 'UPDATE sensor_states SET alive = dateOf(now()), ext_ip = ?, int_ip = ?, hostname = ?, oid = ?, iid = ?, plat = ?, arch = ? WHERE sid = ?' )
         self.recordHostName = self.db.prepare( 'INSERT INTO sensor_hostnames ( hostname, sid ) VALUES ( ?, ? ) USING TTL %s' % ( 60 * 60 * 24 * 30 ) )
         self.recordDead = self.db.prepare( 'UPDATE sensor_states SET dead = dateOf(now()) WHERE sid = ?' )
+        self.recordTraffic = self.db.prepare( 'INSERT INTO sensor_transfer ( sid, ts, b ) VALUES ( ?, dateOf(now()), ? ) USING TTL %s' % ( 60 * 60 * 24 * 7 ) )
+        self.recordStateChange = self.db.prepare( 'INSERT INTO sensor_ip ( sid, ts, ext_ip, int_ip, hostname ) VALUES ( ?, dateOf(now()), ?, ?, ? ) USING TTL %s' % ( 60 * 60 * 24 * 30 ) )
 
         self.db.start()
 
         self.handle( 'live', self.setLive )
         self.handle( 'dead', self.setDead )
+        self.handle( 'transfered', self.addTransfered )
 
     def deinit( self ):
         pass
@@ -52,9 +55,16 @@ class StateUpdater( Actor ):
 
         self.db.execute_async( self.recordLive.bind( ( extIp, intIp, hostName, aid.org_id, aid.ins_id, aid.platform, aid.architecture, aid.sensor_id ) ) )
         self.db.execute_async( self.recordHostName.bind( ( hostName.upper(), aid.sensor_id ) ) )
+        self.db.execute_async( self.recordStateChange.bind( ( aid.sensor_id, extIp, intIp, hostName.upper() ) ) )
         return ( True, )
 
     def setDead( self, msg ):
         aid = AgentId( msg.data[ 'aid' ] )
         self.db.execute_async( self.recordDead.bind( ( aid.sensor_id, ) ) )
+        return ( True, )
+
+    def addTransfered( self, msg ):
+        aid = AgentId( msg.data[ 'aid' ] )
+        newBytes = msg.data[ 'bytes_transfered' ]
+        self.db.execute_async( self.recordTraffic.bind( ( aid.sensor_id, newBytes ) ) )
         return ( True, )

@@ -314,9 +314,11 @@ class EndpointProcessor( Actor ):
             while True:
                 moduleId, messages, nRawBytes = c.recvFrame( timeout = 60 * 60 )
                 tmpBytesReceived += nRawBytes
-                if 100 == frameIndex:
+                if 500 == frameIndex:
                     self.sensorDir.broadcast( 'transfered', { 'aid' : aid.asString(), 
                                                               'bytes_transfered' : tmpBytesReceived } )
+                    self.stateChanges.shoot( 'transfered', { 'aid' : aid.asString(), 
+                                                             'bytes_transfered' : tmpBytesReceived } )
                     tmpBytesReceived = 0
                     frameIndex = 0
                 else:
@@ -341,6 +343,8 @@ class EndpointProcessor( Actor ):
                     del( self.currentClients[ aid.sensor_id ] )
                     self.sensorDir.broadcast( 'transfered', { 'aid' : aid.asString(), 
                                                               'bytes_transfered' : tmpBytesReceived } )
+                    self.stateChanges.shoot( 'transfered', { 'aid' : aid.asString(), 
+                                                             'bytes_transfered' : tmpBytesReceived } )
                     newStateMsg = { 'aid' : aid.asString(), 
                                     'endpoint' : self.name,
                                     'connection_id' : c.connId }

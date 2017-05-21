@@ -25,6 +25,22 @@ CREATE TABLE sensor_states(
 ) WITH compaction = { 'class' : 'DateTieredCompactionStrategy' } AND gc_grace_seconds = 86400;
 CREATE INDEX ON sensor_states ( oid );
 
+CREATE TABLE sensor_transfer(
+  sid uuid,
+  ts timestamp,
+  b int,
+  PRIMARY KEY( sid, ts )
+) WITH compaction = { 'class' : 'DateTieredCompactionStrategy' } AND gc_grace_seconds = 86400;
+
+CREATE TABLE sensor_ip(
+  sid uuid,
+  ts timestamp,
+  ext_ip varchar,
+  int_ip varchar,
+  hostname varchar,
+  PRIMARY KEY( sid, ts )
+) WITH compaction = { 'class' : 'DateTieredCompactionStrategy' } AND gc_grace_seconds = 86400;
+
 CREATE TABLE org_sensors(
   oid uuid,
   iid uuid,
