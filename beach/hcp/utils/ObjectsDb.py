@@ -442,6 +442,27 @@ class Host( object ):
 
         return records
 
+    @classmethod
+    def getHostsUsingIp( self, ip, after, before = None, inOrgs = tuple() ):
+        if type( inOrgs ) not in ( list, tuple ):
+            inOrgs = ( inOrgs, )
+        inOrgs = map( _makeUuid, inOrgs )
+        
+        if before is None:
+            before = int( time.time() + ( 60 * 60 * 1 ) )
+        if after is None:
+            after = int( time.time() - ( 60 * 60 * 24 * 30 ) )
+        if 0 == len( inOrgs ):
+            rows = self._db.execute( 'SELECT ts, sid FROM sensor_ip WHERE ip = %s AND ts >= %s AND ts <= %s', ( ip, after, before ) )
+        else:
+            rows = self._db.execute( 'SELECT ts, sid FROM sensor_ip WHERE ip = %s AND ts >= %s AND ts <= %s AND oid IN %s', ( ip, after, before, inOrgs ) )
+
+        records = []
+        for row in rows:
+            records.append( ( row[ 0 ], row[ 1 ] ) )
+
+        return records
+
     def __init__( self, agentid ):
         if type( agentid  ) is not AgentId:
             agentid = AgentId( agentid )
@@ -577,6 +598,16 @@ class Host( object ):
             events.append( { 'name' : row[ 0 ], 'id' : row[ 1 ] } )
 
         return events
+
+    def getBandwidthUsage( self, after = None ):
+        if after is None:
+            after = time.time() - ( 60 * 60 * 24 * 1 )
+        after = int( after ) * 1000
+        values = []
+        for row in self._db.execute( 'SELECT ts, b FROM sensor_transfer WHERE sid = %s AND ts >= %s', ( self.sid, after ) ):
+            values.append( ( self._db.timeToMsTs( row[ 0 ] ), row[ 1 ] ) )
+        return values
+
 
 class FluxEvent( object ):
     @classmethod

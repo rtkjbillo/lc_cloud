@@ -36,7 +36,7 @@ class StateUpdater( Actor ):
         self.recordHostName = self.db.prepare( 'INSERT INTO sensor_hostnames ( hostname, sid ) VALUES ( ?, ? ) USING TTL %s' % ( 60 * 60 * 24 * 30 ) )
         self.recordDead = self.db.prepare( 'UPDATE sensor_states SET dead = dateOf(now()) WHERE sid = ?' )
         self.recordTraffic = self.db.prepare( 'INSERT INTO sensor_transfer ( sid, ts, b ) VALUES ( ?, dateOf(now()), ? ) USING TTL %s' % ( 60 * 60 * 24 * 7 ) )
-        self.recordStateChange = self.db.prepare( 'INSERT INTO sensor_ip ( sid, ts, ext_ip, int_ip, hostname ) VALUES ( ?, dateOf(now()), ?, ?, ? ) USING TTL %s' % ( 60 * 60 * 24 * 30 ) )
+        self.recordStateChange = self.db.prepare( 'INSERT INTO sensor_ip ( oid, sid, ts, ip ) VALUES ( ?, ?, dateOf(now()), ? ) USING TTL %s' % ( 60 * 60 * 24 * 30 ) )
 
         self.db.start()
 
@@ -55,7 +55,8 @@ class StateUpdater( Actor ):
 
         self.db.execute_async( self.recordLive.bind( ( extIp, intIp, hostName, aid.org_id, aid.ins_id, aid.platform, aid.architecture, aid.sensor_id ) ) )
         self.db.execute_async( self.recordHostName.bind( ( hostName.upper(), aid.sensor_id ) ) )
-        self.db.execute_async( self.recordStateChange.bind( ( aid.sensor_id, extIp, intIp, hostName.upper() ) ) )
+        self.db.execute_async( self.recordStateChange.bind( ( aid.org_id, aid.sensor_id, extIp ) ) )
+        self.db.execute_async( self.recordStateChange.bind( ( aid.org_id, aid.sensor_id, intIp ) ) )
         return ( True, )
 
     def setDead( self, msg ):

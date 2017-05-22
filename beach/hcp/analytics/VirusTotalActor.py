@@ -47,7 +47,6 @@ class VirusTotalActor ( Actor ):
         self.cache = RingCache( maxEntries = self.cache_size, isAutoAdd = False )
 
         self.stats = [ 0, 0, 0, 0 ]
-        self.schedule( 60 * 60, self.wipeStats )
         self.schedule( 60 * 60, self.reportStats )
 
         self.handle( 'get_report', self.getReport )
@@ -73,6 +72,7 @@ class VirusTotalActor ( Actor ):
 
     def reportStats( self ):
         self.log( "VT Stats - Total: %s, Lvl1Cache: %s, Lvl2Cache: %s, VTAPI: %s" % tuple( self.stats ) )
+        self.wipeStats()
 
     def getReportFromCache( self, fileHash ):
         report = False

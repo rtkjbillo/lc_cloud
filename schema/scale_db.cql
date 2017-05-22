@@ -34,11 +34,10 @@ CREATE TABLE sensor_transfer(
 
 CREATE TABLE sensor_ip(
   sid uuid,
+  oid uuid,
   ts timestamp,
-  ext_ip varchar,
-  int_ip varchar,
-  hostname varchar,
-  PRIMARY KEY( sid, ts )
+  ip varchar,
+  PRIMARY KEY( ip, oid, ts, sid )
 ) WITH compaction = { 'class' : 'DateTieredCompactionStrategy' } AND gc_grace_seconds = 86400;
 
 CREATE TABLE org_sensors(

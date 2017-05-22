@@ -78,6 +78,8 @@ urls = (
     '/blink_data', 'BlinkData',
     '/configs', 'Configs',
     '/sensor_configs', 'SensorConfigs',
+    '/sensor_bandwidth', 'SensorBandwidth',
+    '/sensor_ip_use', 'SensorIpUse',
 )
 
 ADMIN_OID = None
@@ -1484,6 +1486,39 @@ class SensorConfigs ( AuthenticatedPage ):
             session.notice = 'Success updating profile'
 
         redirectTo( 'sensor_configs' )
+
+class SensorBandwidth ( AuthenticatedPage ):
+    @jsonApi
+    def doGET( self ):
+        params = web.input( sensor_id = None )
+
+        if params.sensor_id is None:
+            raise web.HTTPError( '400 Bad Request: sensor id required' )
+
+        info = model.request( 'get_sensor_info', { 'id_or_host' : params.sensor_id } )
+
+        if not isOrgAllowed( AgentId( info.data[ 'id' ] ).org_id ):
+            raise web.HTTPError( '401 Unauthorized' )
+
+        usage = model.request( 'get_sensor_bandwidth', { 'sid' : params.sensor_id } )
+        if not usage.isSuccess:
+            raise web.HTTPError( '503 Service Unavailable: %s' % str( usage ) )
+
+        return usage.data
+
+class SensorIpUse ( AuthenticatedPage ):
+    @jsonApi
+    def doGET( self ):
+        params = web.input( ip = None, before = None, after = None )
+
+        usage = model.request( 'get_ip_usage', { 'ip' : params.ip, 
+                                                 'after' : params.after, 
+                                                 'before' : params.before, 
+                                                 'oid' : session.orgs } )
+        if not usage.isSuccess:
+            raise web.HTTPError( '503 Service Unavailable: %s' % str( usage ) )
+
+        return usage.data
 
 #==============================================================================
 #   CARDS
