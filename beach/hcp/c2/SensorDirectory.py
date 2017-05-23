@@ -66,7 +66,7 @@ class SensorDirectory( Actor ):
         else:
             # Sensor must have just gone offline and we got a race condition.
             pass
-        self.log( '%s transfered %d new bytes.' % ( aid.sensor_id, newBytes ) )
+        #self.log( '%s transfered %d new bytes.' % ( aid.sensor_id, newBytes ) )
         return ( True, )
 
     def getEndpoint( self, msg ):

@@ -314,7 +314,7 @@ class EndpointProcessor( Actor ):
             while True:
                 moduleId, messages, nRawBytes = c.recvFrame( timeout = 60 * 60 )
                 tmpBytesReceived += nRawBytes
-                if 500 == frameIndex:
+                if 200 == frameIndex:
                     self.sensorDir.broadcast( 'transfered', { 'aid' : aid.asString(), 
                                                               'bytes_transfered' : tmpBytesReceived } )
                     self.stateChanges.shoot( 'transfered', { 'aid' : aid.asString(), 

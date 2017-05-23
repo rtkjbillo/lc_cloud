@@ -841,6 +841,7 @@ class Sensor ( AuthenticatedPage ):
         cards.append( card_sensor_ident( aid, hostname, orgNames[ str( aid.org_id ) ] ) )
         cards.append( card_sensor_last( aid, hostname ) )
         cards.append( card_sensor_changes( aid, hostname ) )
+        cards.append( card_sensor_bandwidth( aid, hostname ) )
         cards.append( card_sensor_traffic( aid, hostname, None, None ) )
         return render.sensor( hostname, aid, cards )
 
@@ -1563,6 +1564,9 @@ def card_sensor_last( aid, hostname ):
 
 def card_sensor_changes( aid, hostname ):
     return renderAlone.card_sensor_changes( aid, hostname )
+
+def card_sensor_bandwidth( aid, hostname ):
+    return renderAlone.card_sensor_bandwidth( aid, hostname )
 
 #==============================================================================
 #   START
