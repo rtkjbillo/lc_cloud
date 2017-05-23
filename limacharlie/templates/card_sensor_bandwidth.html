@@ -35,12 +35,15 @@ $def with ( aid, hostname )
     for (var i = 0; i < data.length; i++) {
         dataPoints.push( { x : data[ i ][ 0 ], y : Math.round( data[ i ][ 1 ] / 1024 ) } );
     }
-    chart_data_bandwidth.push( { legendText: "$aid.sensor_id",
-                                 type: 'line',
-                                 showInLegend: true,
-                                 xValueType: "dateTime",
-                                 dataPoints: dataPoints } )
-    chart_bandwidth.render();
+    if( 0 != dataPoints.length )
+    {
+        chart_data_bandwidth[ 0 ] = { legendText: "$aid.sensor_id",
+                                      type: 'line',
+                                      showInLegend: true,
+                                      xValueType: "dateTime",
+                                      dataPoints: dataPoints };
+        chart_bandwidth.render();
+    }
   }
   function get_bandwidth(sid, nSec){
     jQuery.getJSON( '/sensor_bandwidth',

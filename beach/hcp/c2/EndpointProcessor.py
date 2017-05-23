@@ -310,16 +310,20 @@ class EndpointProcessor( Actor ):
             del( newStateMsg )
 
             self.log( 'Client %s registered, beginning to receive data' % aid.asString() )
+            lastTransferReport = time.time()
             frameIndex = 0
             while True:
                 moduleId, messages, nRawBytes = c.recvFrame( timeout = 60 * 60 )
                 tmpBytesReceived += nRawBytes
-                if 200 == frameIndex:
-                    self.sensorDir.broadcast( 'transfered', { 'aid' : aid.asString(), 
-                                                              'bytes_transfered' : tmpBytesReceived } )
-                    self.stateChanges.shoot( 'transfered', { 'aid' : aid.asString(), 
-                                                             'bytes_transfered' : tmpBytesReceived } )
-                    tmpBytesReceived = 0
+                if 10 == frameIndex:
+                    now = time.time()
+                    if now > lastTransferReport + ( 60 * 10 ):
+                        self.sensorDir.broadcast( 'transfered', { 'aid' : aid.asString(), 
+                                                                  'bytes_transfered' : tmpBytesReceived } )
+                        self.stateChanges.shoot( 'transfered', { 'aid' : aid.asString(), 
+                                                                 'bytes_transfered' : tmpBytesReceived } )
+                        tmpBytesReceived = 0
+                        lastTransferReport = now
                     frameIndex = 0
                 else:
                     frameIndex += 1
