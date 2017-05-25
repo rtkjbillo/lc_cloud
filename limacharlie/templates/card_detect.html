@@ -4,7 +4,7 @@ $def with ( detect, hostcache, orgNames, investigations )
     <h4 class="mdl-card__title-text">$detect[ 3 ] @ $hostcache.get( detect[ 2 ], detect[ 2 ] ) ( $orgNames[ str( AgentId( detect[ 2 ] ).org_id ) ] )</h4>
   </div>
   <div class="mdl-card__supporting-text" style="position: relative; ">
-    <pre>$json.dumps( detect[ 5 ], indent = 4 )</pre>
+    <pre class="code" style="border: 1px solid black;">$json.dumps( detect[ 5 ], indent = 4 )</pre>
     $for inv in investigations.itervalues():
       <hr/>
       <h4 style="margin: 0px;">Hunter: $inv[ 'hunter' ]</h4>
