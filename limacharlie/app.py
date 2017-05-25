@@ -1125,7 +1125,6 @@ class Detects ( AuthenticatedPage ):
     def doGET( self ):
         params = web.input( before = None, after = None, is_all = False )
 
-        isAll = False if params.is_all is False else True
         before = int( params.before ) if params.before is not None else None
         after = int( params.after ) if params.after is not None else None
         if after is None and before is None:
@@ -1155,7 +1154,7 @@ class Detects ( AuthenticatedPage ):
             investigations = []
             if info.isSuccess:
                 investigations = info.data[ 'inv' ]
-            cards.append( renderAlone.card_detect( detect, hostcache, orgNames, investigations, isAll ) )
+            cards.append( renderAlone.card_detect( detect, hostcache, orgNames, investigations ) )
 
         return render.detects( cards )
 

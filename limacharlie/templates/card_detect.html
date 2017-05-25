@@ -1,72 +1,64 @@
-$def with ( detect, hostcache, orgNames, investigations, isAll )
-$for inv in investigations.itervalues():
-  $if ( isAll or ( inv[ 'nature' ] not in ( InvestigationNature.FALSE_POSITIVE, InvestigationNature.DUPLICATE, InvestigationNature.TEST )  and inv[ 'conclusion' ] in ( InvestigationConclusion.RUNNING, InvestigationConclusion.REQUIRES_HUMAN ) ) ):
-    <ul class="mdl-menu mdl-menu--bottom-right mdl-js-menu mdl-js-ripple-effect" for="set-nature-$detect[ 1 ]">
-      $for k, v in InvestigationNature.lookup.iteritems():
-        <li class="mdl-menu__item" onclick="location.href = '/set_conclusion?did=$detect[ 1 ]&hunter=$inv[ 'hunter' ]&nature=$k'">$v</li>
+$def with ( detect, hostcache, orgNames, investigations )
+<div class="mdl-card mdl-cell mdl-cell--12-col mdl-shadow--4dp">
+  <div class="mdl-card__title">
+    <h4 class="mdl-card__title-text">$detect[ 3 ] @ $hostcache.get( detect[ 2 ], detect[ 2 ] ) ( $orgNames[ str( AgentId( detect[ 2 ] ).org_id ) ] )</h4>
+  </div>
+  <div class="mdl-card__supporting-text" style="position: relative; ">
+    <pre>$json.dumps( detect[ 5 ], indent = 4 )</pre>
+    $for inv in investigations.itervalues():
       <hr/>
-      $for k, v in InvestigationConclusion.lookup.iteritems():
-        <li class="mdl-menu__item" onclick="location.href = '/set_conclusion?did=$detect[ 1 ]&hunter=$inv[ 'hunter' ]&conclusion=$k'">$v</li>
-    </ul>
-    <div class="mdl-card mdl-cell mdl-cell--12-col mdl-shadow--4dp">
-      <div class="mdl-card__title">
-        <h4 class="mdl-card__title-text">$('%s ( %s / %s )' % ( inv[ 'hunter' ], orgNames[ str( AgentId( detect[ 2 ] ).org_id ) ], hostcache.get( detect[ 2 ], detect[ 2 ] ) ))</h4>
-        <button id="set-nature-$detect[ 1 ]" class="mdl-button mdl-js-button mdl-button--icon" style="position: absolute; right: 0%;">
-          <i class="material-icons">more_vert</i>
-        </button>
+      <h4 style="margin: 0px;">Hunter: $inv[ 'hunter' ]</h4>
+      <div>
+        <h5 style="margin: 0px; border: 2px solid grey; border-radius: 15px; display:inline-block; padding: 5px; left: 0%; position: relative;">$InvestigationNature.lookup[ inv[ 'nature' ] ]</h5>
+        <h5 style="margin: 0px; border: 2px solid grey; border-radius: 15px; display:inline-block; padding: 5px; left: 10%; position: relative;">$InvestigationConclusion.lookup[ inv[ 'conclusion' ] ]</h5>
+        <h6 style="margin: 0px; display:inline-block; left: 20%; position: relative;">Created on<br/>$inv[ 'generated' ]</h6>
+        <h6 style="margin: 0px; display:inline-block; left: 30%; position: relative;">Closed on<br/>$inv[ 'closed' ]</h6>
+        <h6 style="margin: 0px; display:inline-block; left: 40%; position: relative;">Original detect<br/>$detect[ 3 ]</h6>
       </div>
-      <div class="mdl-card__supporting-text" style="position: relative; ">
-        <div style="position: relative; text-align: center; display:inline-block;">
-          <h5 style="border: 2px solid grey; border-radius: 15px; display:inline-block; padding: 5px; left: 0%; position: relative;">$InvestigationNature.lookup[ inv[ 'nature' ] ]</h5>
-          <h5 style="border: 2px solid grey; border-radius: 15px; display:inline-block; padding: 5px; left: 10%; position: relative;">$InvestigationConclusion.lookup[ inv[ 'conclusion' ] ]</h5>
-          <h6 style="display:inline-block; left: 20%; position: relative;">Created on<br/>$inv[ 'generated' ]</h6>
-          <h6 style="display:inline-block; left: 30%; position: relative;">Closed on<br/>$inv[ 'closed' ]</h6>
-          <h6 style="display:inline-block; left: 40%; position: relative;">Original detect<br/>$detect[ 3 ]</h6>
-        </div>
-        <br/>
-        <div style="width: 100%; display:inline-block;">
-          <table class="mdl-data-table mdl-js-data-table mdl-shadow--2dp" style="width:100%;">
-            <thead>
-              <th></th>
-              <th class="mdl-data-table__cell--non-numeric">Time</th>
-              <th class="mdl-data-table__cell--non-numeric">What</th>
-              <th class="mdl-data-table__cell--non-numeric">Data</th>
-            </thead>
-            <tbody>
-              $for evt in sorted( inv[ 'data' ] + inv[ 'tasks' ], key = lambda x: x[ 'generated' ] ):
-                <tr>
-                  <td>
-                    $if evt.get( 'sent', None ) is not None:
-                      $if evt[ 'sent' ] is True:
-                        <i class="material-icons" style="color:green;">trending_flat</i>
-                      $else:
-                        <i class="material-icons" style="color:red;">trending_flat</i>
-                    $else:
-                      <i class="material-icons" style="color:orange;">lightbulb_outline</i>
-                  </td>
-                  <td class="mdl-data-table__cell--non-numeric">$msTsToTime( evt[ 'generated' ] ).split( '.' )[ 0 ]</td>
-                  $if 0 != len( evt[ 'data' ] ):
-                    <td class="mdl-data-table__cell--non-numeric"><div class="why_blurb">$:md( evt[ 'why' ] )</div></td>
-                    <td class="mdl-data-table__cell--non-numeric">
-                      $if type( evt[ 'data' ] ) is dict:
-                        <pre class="code" style="border: 1px solid black;">$json.dumps( evt[ 'data' ], indent = 4 )</pre>
-                      $else:
-                        <pre class="code" style="border: 1px solid black;">$json.dumps( evt[ 'data' ] )</pre>
-                    </td>
-                  $else:
-                    <td class="mdl-data-table__cell--non-numeric" colspan="2"><div class="why_blurb">$:md( evt[ 'why' ] )</div></td>
-                </tr>
+      <br/>
+      <div style="width: 100%; display:inline-block;">
+        <table class="mdl-data-table mdl-js-data-table mdl-shadow--2dp" style="width:100%;">
+          <thead>
+            <th></th>
+            <th class="mdl-data-table__cell--non-numeric">Time</th>
+            <th class="mdl-data-table__cell--non-numeric">What</th>
+            <th class="mdl-data-table__cell--non-numeric">Data</th>
+          </thead>
+          <tbody>
+            $for evt in sorted( inv[ 'data' ] + inv[ 'tasks' ], key = lambda x: x[ 'generated' ] ):
               <tr>
-                <td></td>
-                <td class="mdl-data-table__cell--non-numeric">$inv[ 'closed' ]</td>
-                <td class="mdl-data-table__cell--non-numeric">$:md( inv[ 'why' ] )</td>
-                <td></td>
+                <td>
+                  $if evt.get( 'sent', None ) is not None:
+                    $if evt[ 'sent' ] is True:
+                      <i class="material-icons" style="color:green;">trending_flat</i>
+                    $else:
+                      <i class="material-icons" style="color:red;">trending_flat</i>
+                  $else:
+                    <i class="material-icons" style="color:orange;">lightbulb_outline</i>
+                </td>
+                <td class="mdl-data-table__cell--non-numeric">$msTsToTime( evt[ 'generated' ] ).split( '.' )[ 0 ]</td>
+                $if 0 != len( evt[ 'data' ] ):
+                  <td class="mdl-data-table__cell--non-numeric"><div class="why_blurb">$:md( evt[ 'why' ] )</div></td>
+                  <td class="mdl-data-table__cell--non-numeric">
+                    $if type( evt[ 'data' ] ) is dict or 3 < len( evt[ 'data' ] ):
+                      <pre class="code" style="border: 1px solid black;">$json.dumps( evt[ 'data' ], indent = 4 )</pre>
+                    $else:
+                      <pre class="code" style="border: 1px solid black;">$json.dumps( evt[ 'data' ] )</pre>
+                  </td>
+                $else:
+                  <td class="mdl-data-table__cell--non-numeric" colspan="2"><div class="why_blurb">$:md( evt[ 'why' ] )</div></td>
               </tr>
-            </tbody>
-            
-          </table>
-        </div>
+            <tr>
+              <td></td>
+              <td class="mdl-data-table__cell--non-numeric">$inv[ 'closed' ]</td>
+              <td class="mdl-data-table__cell--non-numeric">$:md( inv[ 'why' ] )</td>
+              <td></td>
+            </tr>
+          </tbody>
+          
+        </table>
       </div>
-      <div class="mdl-card__actions mdl-card--border">
-      </div>
-    </div>
+  </div>
+  <div class="mdl-card__actions mdl-card--border">
+  </div>
+</div>
