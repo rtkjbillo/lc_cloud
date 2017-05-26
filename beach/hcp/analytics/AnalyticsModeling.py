@@ -53,7 +53,7 @@ class AnalyticsModeling( Actor ):
 
         self.org_ttls = {}
         if 'identmanager' in resources:
-            self.identmanager = self.getActorHandle( resources[ 'identmanager' ] )
+            self.identmanager = self.getActorHandle( resources[ 'identmanager' ], timeout = 30 )
         else:
             self.identmanager = None
             self.log( 'using default ttls' )
