@@ -563,7 +563,13 @@ class Profile ( AuthenticatedPage ):
         return self.renderProfile()
 
     def doPOST( self ):
-        params = web.input( action = None, orgs = [], email = None, with_key = False, with_profile = False, oid = None, slacktoken = None, slackbottoken = None )
+        params = web.input( action = None, 
+                            orgs = [], 
+                            email = None, 
+                            with_key = False, with_profile = False, 
+                            oid = None, 
+                            slacktoken = None, slackbottoken = None,
+                            webhook_secret = None, webhook_dest = None )
         if params.action is None:
             session.notice = 'Missing action parameter.'
             redirectTo( 'profile' )
@@ -686,6 +692,19 @@ class Profile ( AuthenticatedPage ):
                 session.notice = 'Error setting Slack bot token for %s: %s.' % ( params.oid, str( res ) )
                 redirectTo( 'profile' )
             session.notice = 'Success setting Slack token for: %s' % params.oid
+        elif 'webhook_update' == params.action:
+            if not isOrgAllowed( uuid.UUID( params.oid ) ):
+                session.notice = 'Permission denied on %s' % oid
+                redirectTo( 'profile' )
+            res = deployment.request( 'set_config', { 'conf' : '%s/webhook_secret' % params.oid, 'value' : params.webhook_secret, 'by' : session.email } )
+            if not res.isSuccess: 
+                session.notice = 'Error setting webhook secret for %s: %s.' % ( params.oid, str( res ) )
+                redirectTo( 'profile' )
+            res = deployment.request( 'set_config', { 'conf' : '%s/webhook_dest' % params.oid, 'value' : params.webhook_dest, 'by' : session.email } )
+            if not res.isSuccess: 
+                session.notice = 'Error setting webhook dest for %s: %s.' % ( params.oid, str( res ) )
+                redirectTo( 'profile' )
+            session.notice = 'Success setting webhook for: %s' % params.oid
         else:
             session.notice = 'Action not supported.'
             redirectTo( 'profile' )

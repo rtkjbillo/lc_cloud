@@ -59,7 +59,8 @@ Patrol( 'DeploymentManager',
                                 'beacon/09ba97ab-5557-4030-9db0-1dbe7f2b9cfd',
                                 'identmanager/f5c3a323-50e5-412a-b711-0e30d8284aa1',
                                 'slackrep/20546efe-0f84-46f2-b9ca-f17bf5997075',
-                                'hunter/8e0f55c0-6593-4747-9d02-a4937fa79517' ],
+                                'hunter/8e0f55c0-6593-4747-9d02-a4937fa79517',
+                                'webhookoutput/4738d18b-4c0c-412c-89e4-b6ecb00904a1' ],
             'n_concurrent' : 5,
             'isIsolated' : True,
             'strategy' : 'random' } )
@@ -382,7 +383,8 @@ Patrol( 'IdentManager',
             'trustedIdents' : [ 'lc/0bf01f7e-62bd-4cc4-9fec-4c52e82eb903',
                                 'analysis/038528f5-5135-4ca8-b79f-d6b8ffc53bf5',
                                 'reporting/9ddcc95e-274b-4a49-a003-c952d12049b8',
-                                'slackrep/20546efe-0f84-46f2-b9ca-f17bf5997075' ],
+                                'slackrep/20546efe-0f84-46f2-b9ca-f17bf5997075',
+                                'webhookoutput/4738d18b-4c0c-412c-89e4-b6ecb00904a1' ],
             'n_concurrent' : 5,
             'isIsolated' : True,
             'strategy' : 'random' } )
@@ -987,6 +989,33 @@ Patrol( 'FileEventsOutput',
             'resources' : {},
             'parameters' : {},
             'secretIdent' : 'fileeventsoutput/9a6e2317-db95-4a93-b815-b3c1aaecf527',
+            'trustedIdents' : [ 'reporting/9ddcc95e-274b-4a49-a003-c952d12049b8',
+                                'analysis/01e9a19d-78e1-4c37-9a6e-37cb592e3897' ],
+            'n_concurrent' : 5,
+            'isIsolated' : False } )
+
+#######################################
+# WebHookOutput
+# This actor receives Detecs from the
+# stateless and stateful detection
+# actors and reports them to a per org
+# webhook.
+# Parameters:.
+#######################################
+Patrol( 'WebHookOutput',
+        initialInstances = 1,
+        maxInstances = 1,
+        relaunchOnFailure = True,
+        onFailureCall = None,
+        scalingFactor = 10000,
+        actorArgs = ( 'analytics/WebHookOutput',
+                      [ 'analytics/webhookoutput/1.0',
+                        'analytics/output/detects/webhookoutput' ] ),
+        actorKwArgs = {
+            'resources' : { 'deployment' : 'c2/deploymentmanager',
+                            'identmanager' : 'c2/identmanager' },
+            'parameters' : {},
+            'secretIdent' : 'webhookoutput/4738d18b-4c0c-412c-89e4-b6ecb00904a1',
             'trustedIdents' : [ 'reporting/9ddcc95e-274b-4a49-a003-c952d12049b8',
                                 'analysis/01e9a19d-78e1-4c37-9a6e-37cb592e3897' ],
             'n_concurrent' : 5,

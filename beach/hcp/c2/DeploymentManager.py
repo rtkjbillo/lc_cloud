@@ -571,6 +571,8 @@ We believe this sharing policy strikes a good balance between privacy and inform
         orgConf = {
             '%s/slack_token' % oid : '',
             '%s/slack_bot_token' % oid : '',
+            '%s/webhook_secret' % oid : '',
+            '%s/webhook_dest' % oid : '',
         }
 
         info = self.db.execute( 'SELECT conf, value FROM configs WHERE conf IN %s', ( orgConf.keys(), ) )
