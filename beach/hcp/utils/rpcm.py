@@ -336,7 +336,7 @@ class rpcm( object ):
     def _serialise_element( self, elem ):
         result = None
         
-        if 'tag' in elem and 'type'  in elem and 'value' in elem:
+        if 'tag' in elem and 'type' in elem and 'value' in elem:
             tag = elem[ 'tag' ]
             typ = elem[ 'type' ]
                 

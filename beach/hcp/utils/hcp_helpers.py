@@ -536,9 +536,9 @@ class AgentId( object ):
                 elif self.sensor_id is not None:
                     self.sensor_id = uuid.UUID( self.sensor_id )
             else:
-                self.org_id = str( seq[ 0 ] )
-                self.ins_id = str( seq[ 1 ] )
-                self.sensor_id = str( seq[ 2 ] )
+                self.org_id = str( seq[ 0 ] ) if seq[ 0 ] is not None else None
+                self.ins_id = str( seq[ 1 ] ) if seq[ 1 ] is not None else None
+                self.sensor_id = str( seq[ 2 ] ) if seq[ 2 ] is not None else None
                 self.platform = seq[ 3 ]
                 self.architecture = seq[ 4 ]
 
