@@ -52,19 +52,20 @@ class VirtualSensor( gevent.Greenlet ):
         except:
             self.destServer = cloudDest
             self.destPort = 443
-        self.oid = uuid.UUID( orgId )
-        self.iid = uuid.UUID( installerId )
+        self.oid = uuid.UUID( str( orgId ) )
+        self.iid = uuid.UUID( str( installerId ) )
         self.sid = sensorId
         self.arch = architecture
         self.plat = platform
         if self.sid is not None:
-            self.sid = uuid.UUID( self.sid )
+            self.sid = uuid.UUID( str( self.sid ) )
         self.enrollmentToken = enrollmentToken
         self.socket = None
 
         self.threads = gevent.pool.Group()
         self.stopEvent = gevent.event.Event()
         self.lock = Semaphore( 1 )
+        self.connectedEvent = gevent.event.Event()
 
         self.r = rpcm( isHumanReadable = True, isDebug = self.log )
         self.r.loadSymbols( Symbols.lookups )
@@ -98,8 +99,9 @@ class VirtualSensor( gevent.Greenlet ):
             self.sendFrame( HcpModuleId.HCP, [ headers ], timeout = 30, isNotHbs = True )
             self.log( "Handshake sent" )
             self.threads.add( gevent.spawn( self.recvThread ) )
-            self.threads.add( gevent.spawn_later( 10, self.syncHcpThread ) )
-            self.threads.add( gevent.spawn_later( 20, self.syncHbsThread ) )
+            self.threads.add( gevent.spawn_later( 1, self.syncHcpThread ) )
+            self.threads.add( gevent.spawn_later( 10, self.syncHbsThread ) )
+            self.threads.add( gevent.spawn_later( 2, lambda: self.connectedEvent.set() ) )
             return True
         except:
             self.log( "Failed to connect over TLS: %s" % traceback.format_exc() )
@@ -108,6 +110,7 @@ class VirtualSensor( gevent.Greenlet ):
     def disconnect( self ):
         self.log( "Disconnecting" )
         try:
+            self.connectedEvent.clear()
             self.socket.close()
             self.threads.join( timeout = 5 )
             self.threads.kill( timeout = 1 )

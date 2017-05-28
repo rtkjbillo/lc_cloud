@@ -23,10 +23,45 @@ import signal
 import msgpack
 import base64
 import sys
+import argparse
 
-if 5 != len( sys.argv ):
-    print( "Usage: <OID> <IID> <STATE_FILE> <NUM_SENSORS>" )
-    sys.exit( -1 )
+
+parser = argparse.ArgumentParser( prog = 'Simulator' )
+parser.add_argument( 'oid',
+                     type = str,
+                     help = 'the organization id virtual sensors are in' )
+parser.add_argument( 'iid',
+                     type = str,
+                     help = 'the installer id for the virtual sensors' )
+parser.add_argument( 'configFile',
+                     type = str,
+                     help = 'the main config file where virtual sensors are saved and loaded from' )
+parser.add_argument( '--osx',
+                     type = int,
+                     required = False,
+                     dest = 'n_osx',
+                     default = 0,
+                     help = 'the number of OSX virtual sensors to start' )
+parser.add_argument( '--windows',
+                     type = int,
+                     required = False,
+                     dest = 'n_win',
+                     default = 0,
+                     help = 'the number of Windows virtual sensors to start' )
+parser.add_argument( '--linux',
+                     type = int,
+                     required = False,
+                     dest = 'n_lin',
+                     default = 0,
+                     help = 'the number of Linux virtual sensors to start' )
+parser.add_argument( '--delay',
+                     type = int,
+                     required = False,
+                     dest = 'delay',
+                     default = 10,
+                     help = 'the number of seconds on which the virtual sensors start, spread evenly' )
+
+args = parser.parse_args()
 
 SENSORS = gevent.pool.Group()
 
@@ -42,10 +77,12 @@ global timeToStopEvent
 gevent.signal( signal.SIGQUIT, _stop )
 gevent.signal( signal.SIGINT, _stop )
 
-SCALE_TEST_OID  = sys.argv[ 1 ]
-SCALE_TEST_IID = sys.argv[ 2 ]
-SCALE_TEST_FILE = sys.argv[ 3 ]
-NUM_SENSORS = int( sys.argv[ 4 ] )
+SCALE_TEST_OID  = args.oid
+SCALE_TEST_IID = args.iid
+SCALE_TEST_FILE = args.configFile
+NUM_SENSORS_OSX = args.n_osx
+NUM_SENSORS_WIN = args.n_win
+NUM_SENSORS_LIN = args.n_lin
 CONF = []
 try:
     with open( SCALE_TEST_FILE, 'rb' ) as f:
@@ -60,32 +97,55 @@ def recvMessage( sensor, message ):
 def enrolled( sensor, newAgentId, enrollmentToken ):
     global CONF
     print( "ENROLLED %s @ %s WITH %s" % ( sensor, newAgentId, base64.b64encode( enrollmentToken ) ) )
-    CONF.append( { 'sid' : str( newAgentId.sensor_id ), 'token' : enrollmentToken } )
+    CONF.append( { 'aid' : str( newAgentId ), 'token' : enrollmentToken } )
     with open( SCALE_TEST_FILE, 'wb' ) as f:
         f.write( msgpack.packb( CONF ) )
 
 def debugLog( msg ):
     print( "DBG:: %s" % str( msg ) )
 
-for i in range( 0, NUM_SENSORS ):
-    if i < len( CONF ):
-        existing = CONF[ i ]
-        sid = str( existing[ 'sid' ] )
-        token = existing[ 'token' ]
-    else:
-        sid = None
-        token = None
+START_OFFSET = args.delay / ( NUM_SENSORS_OSX + NUM_SENSORS_WIN + NUM_SENSORS_LIN + len( CONF ) )
+
+# Start existing sensors
+for sensorInfo in CONF:
+    aid = AgentId( str( sensorInfo[ 'aid' ] ) )
+    token = sensorInfo[ 'token' ]
 
     SENSORS.start( VirtualSensor( 'hcp.limacharlie.io', 
                                   recvMessage, 
-                                  SCALE_TEST_OID, 
-                                  SCALE_TEST_IID, 
-                                  AgentId.PLATFORM_MACOS, 
-                                  AgentId.ARCHITECTURE_X64,
-                                  sensorId = sid,
+                                  aid.org_id, 
+                                  aid.ins_id, 
+                                  aid.platform, 
+                                  aid.architecture,
+                                  sensorId = aid.sensor_id,
                                   enrollmentToken = token,
                                   cbDebugLog = debugLog, 
                                   cbEnrollment = enrolled ) )
+    gevent.sleep( START_OFFSET )
+
+# Enroll new sensors
+for i in range( 0, NUM_SENSORS_OSX + NUM_SENSORS_WIN + NUM_SENSORS_LIN ):
+    if 0 != NUM_SENSORS_OSX:
+        platform = AgentId.PLATFORM_MACOS
+        NUM_SENSORS_OSX -= 1
+    elif 0 != NUM_SENSORS_WIN:
+        platform = AgentId.PLATFORM_WINDOWS
+        NUM_SENSORS_WIN -= 1
+    elif 0 != NUM_SENSORS_LIN:
+        platform = AgentId.PLATFORM_LINUX
+        NUM_SENSORS_LIN -= 1
+
+    SENSORS.start( VirtualSensor( 'hcp.limacharlie.io', 
+                                  recvMessage, 
+                                  args.oid, 
+                                  args.iid, 
+                                  platform, 
+                                  AgentId.ARCHITECTURE_X64,
+                                  sensorId = None,
+                                  enrollmentToken = None,
+                                  cbDebugLog = debugLog, 
+                                  cbEnrollment = enrolled ) )
+    gevent.sleep( START_OFFSET )
 
 print( "Waiting for all VirtualSensor to stop" )
 SENSORS.join()
