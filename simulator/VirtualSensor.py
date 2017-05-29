@@ -44,136 +44,136 @@ class VirtualSensor( gevent.Greenlet ):
                   sensorId = None, enrollmentToken = None, 
                   cbDebugLog = None, cbEnrollment = None ):
         gevent.Greenlet.__init__( self )
-        self.cbDebugLog = cbDebugLog
-        self.cbReceiveMessage = cbReceiveMessage
-        self.cbEnrollment = cbEnrollment
+        self._cbDebugLog = cbDebugLog
+        self._cbReceiveMessage = cbReceiveMessage
+        self._cbEnrollment = cbEnrollment
         try:
-            self.destServer, self.destPort = cloudDest.split( ':' )
+            self._destServer, self._destPort = cloudDest.split( ':' )
         except:
-            self.destServer = cloudDest
-            self.destPort = 443
-        self.oid = uuid.UUID( str( orgId ) )
-        self.iid = uuid.UUID( str( installerId ) )
-        self.sid = sensorId
-        self.arch = architecture
-        self.plat = platform
-        if self.sid is not None:
-            self.sid = uuid.UUID( str( self.sid ) )
-        self.enrollmentToken = enrollmentToken
-        self.socket = None
+            self._destServer = cloudDest
+            self._destPort = 443
+        self._oid = uuid.UUID( str( orgId ) )
+        self._iid = uuid.UUID( str( installerId ) )
+        self._sid = sensorId
+        self._arch = architecture
+        self._plat = platform
+        if self._sid is not None:
+            self._sid = uuid.UUID( str( self._sid ) )
+        self._enrollmentToken = enrollmentToken
+        self._socket = None
 
-        self.threads = gevent.pool.Group()
-        self.stopEvent = gevent.event.Event()
-        self.lock = Semaphore( 1 )
-        self.connectedEvent = gevent.event.Event()
+        self._threads = gevent.pool.Group()
+        self._stopEvent = gevent.event.Event()
+        self._lock = Semaphore( 1 )
+        self._connectedEvent = gevent.event.Event()
 
-        self.r = rpcm( isHumanReadable = True, isDebug = self.log )
-        self.r.loadSymbols( Symbols.lookups )
+        self._r = rpcm( isHumanReadable = True, isDebug = self._log )
+        self._r.loadSymbols( Symbols.lookups )
 
-        self.hcpModules = []
-        self.hbsProfileHash = ( "\x00" * 32 )
+        self._hcpModules = []
+        self._hbsProfileHash = ( "\x00" * 32 )
 
-    def log( self, msg ):
-        if self.cbDebugLog is not None:
-            self.cbDebugLog( '%s => %s' % ( self.sid, msg ) )
+    def _log( self, msg ):
+        if self._cbDebugLog is not None:
+            self._cbDebugLog( '%s => %s' % ( self._sid, msg ) )
 
     ###########################################################################
     #   SSL CONNECTION STUFF
     ###########################################################################
-    def connect( self ):
+    def _connect( self ):
         try:
-            self.socket = gevent.ssl.wrap_socket( gevent.socket.socket( gevent.socket.AF_INET, 
+            self._socket = gevent.ssl.wrap_socket( gevent.socket.socket( gevent.socket.AF_INET, 
                                                                  gevent.socket.SOCK_STREAM ), 
                                            cert_reqs = gevent.ssl.CERT_NONE )
-            self.socket.connect( ( self.destServer, self.destPort ) )
-            self.log( "Connected" )
+            self._socket.connect( ( self._destServer, self._destPort ) )
+            self._log( "Connected" )
             headers = rSequence()
-            headers.addSequence( Symbols.base.HCP_IDENT, AgentId( ( self.oid, self.iid, self.sid, self.plat, self.arch ) ).toJson() )
-            headers.addStringA( Symbols.base.HOST_NAME, hashlib.md5( str( self.sid ) ).hexdigest() )
+            headers.addSequence( Symbols.base.HCP_IDENT, AgentId( ( self._oid, self._iid, self._sid, self._plat, self._arch ) ).toJson() )
+            headers.addStringA( Symbols.base.HOST_NAME, hashlib.md5( str( self._sid ) ).hexdigest() )
             headers.addIpv4( Symbols.base.IP_ADDRESS, "%d.%d.%d.%d" % ( random.randint( 0, 254 ), 
                                                                         random.randint( 0, 254 ), 
                                                                         random.randint( 0, 254 ), 
                                                                         random.randint( 0, 254 ) ) )
-            if self.enrollmentToken is not None:
-                headers.addBuffer( Symbols.hcp.ENROLLMENT_TOKEN, self.enrollmentToken )
-            self.sendFrame( HcpModuleId.HCP, [ headers ], timeout = 30, isNotHbs = True )
-            self.log( "Handshake sent" )
-            self.threads.add( gevent.spawn( self.recvThread ) )
-            self.threads.add( gevent.spawn_later( 1, self.syncHcpThread ) )
-            self.threads.add( gevent.spawn_later( 10, self.syncHbsThread ) )
-            self.threads.add( gevent.spawn_later( 2, lambda: self.connectedEvent.set() ) )
+            if self._enrollmentToken is not None:
+                headers.addBuffer( Symbols.hcp.ENROLLMENT_TOKEN, self._enrollmentToken )
+            self._sendFrame( HcpModuleId.HCP, [ headers ], timeout = 30, isNotHbs = True )
+            self._log( "Handshake sent" )
+            self._threads.add( gevent.spawn( self._recvThread ) )
+            self._threads.add( gevent.spawn_later( 1, self._syncHcpThread ) )
+            self._threads.add( gevent.spawn_later( 10, self._syncHbsThread ) )
+            self._threads.add( gevent.spawn_later( 2, lambda: self._connectedEvent.set() ) )
             return True
         except:
-            self.log( "Failed to connect over TLS: %s" % traceback.format_exc() )
+            self._log( "Failed to connect over TLS: %s" % traceback.format_exc() )
             return False
 
-    def disconnect( self ):
-        self.log( "Disconnecting" )
+    def _disconnect( self ):
+        self._log( "Disconnecting" )
         try:
-            self.connectedEvent.clear()
-            self.socket.close()
-            self.threads.join( timeout = 5 )
-            self.threads.kill( timeout = 1 )
+            self._connectedEvent.clear()
+            self._socket.close()
+            self._threads.join( timeout = 5 )
+            self._threads.kill( timeout = 1 )
         except:
             pass
-        self.log( "Disconnected" )
-        self.socket = None
+        self._log( "Disconnected" )
+        self._socket = None
 
     ###########################################################################
     #   THREADS
     ###########################################################################
-    def recvThread( self ):
-        while not self.stopEvent.wait( 0 ):
+    def _recvThread( self ):
+        while not self._stopEvent.wait( 0 ):
             try:
-                moduleId, messages, nRawBytes = self.recvFrame( timeout = 60 * 60 )
+                moduleId, messages, nRawBytes = self._recvFrame( timeout = 60 * 60 )
             except:
-                if self.stopEvent.wait( 0 ):
+                if self._stopEvent.wait( 0 ):
                     return
                 raise
             if HcpModuleId.HCP == moduleId:
                 # For now we assume a constant set of Modules for simplicity
                 for message in messages:
                     if HcpOperations.LOAD_MODULE == message[ 'base.OPERATION' ]:
-                        self.log( "Received HCP module load" )
-                        self.hcpModules.append( ( message[ 'hcp.MODULE_ID' ], 
+                        self._log( "Received HCP module load" )
+                        self._hcpModules.append( ( message[ 'hcp.MODULE_ID' ], 
                                                   hashlib.sha256( message[ 'base.BINARY' ] ).digest() ) )
                     elif HcpOperations.SET_HCP_ID == message[ 'base.OPERATION' ]:
-                        self.log( "Received enrollment" )
+                        self._log( "Received enrollment" )
                         newId = AgentId( dict( message[ 'base.HCP_IDENT' ] ) )
-                        self.sid = newId.sensor_id
-                        self.enrollmentToken = message[ 'hcp.ENROLLMENT_TOKEN' ]
-                        if self.cbEnrollment is not None:
-                            self.cbEnrollment( self, newId, self.enrollmentToken )
+                        self._sid = newId.sensor_id
+                        self._enrollmentToken = message[ 'hcp.ENROLLMENT_TOKEN' ]
+                        if self._cbEnrollment is not None:
+                            self._cbEnrollment( self, newId, self._enrollmentToken )
             elif HcpModuleId.HBS == moduleId:
                 for message in messages:
                     if 'notification.SYNC' == message.keys()[ 0 ]:
-                        self.log( "Received HBS profile" )
-                        self.hbsProfileHash = message[ 'notification.SYNC' ][ 'base.HASH' ]
+                        self._log( "Received HBS profile" )
+                        self._hbsProfileHash = message[ 'notification.SYNC' ][ 'base.HASH' ]
                     else:
                         try:
-                            self.cbReceiveMessage( self, message )
+                            self._cbReceiveMessage( self, message )
                         except:
-                            self.log( "Error processing new messages: %s" % traceback.format_exc() )
+                            self._log( "Error processing new messages: %s" % traceback.format_exc() )
 
-    def syncHbsThread( self ):
-        self.doHbsSync()
-        self.threads.add( gevent.spawn_later( 60 * 5, self.syncHbsThread ) )
+    def _syncHbsThread( self ):
+        self._doHbsSync()
+        self._threads.add( gevent.spawn_later( 60 * 5, self._syncHbsThread ) )
 
-    def syncHcpThread( self ):
-        self.doHcpSync()
-        self.threads.add( gevent.spawn_later( 60 * 10, self.syncHcpThread ) )
+    def _syncHcpThread( self ):
+        self._doHcpSync()
+        self._threads.add( gevent.spawn_later( 60 * 10, self._syncHcpThread ) )
 
     ###########################################################################
     #   SEND AND RECEIVE DATA STUFF
     ###########################################################################
-    def recvData( self, size, timeout = None ):
+    def _recvData( self, size, timeout = None ):
         data = None
         timeout = gevent.Timeout( timeout )
         timeout.start()
         try:
             data = ''
             while size > len( data ):
-                tmp = self.socket.recv( size - len( data ) )
+                tmp = self._socket.recv( size - len( data ) )
                 if not tmp:
                     raise DisconnectException( 'disconnect while receiving' )
                     break
@@ -184,71 +184,96 @@ class VirtualSensor( gevent.Greenlet ):
             timeout.cancel()
         return data
 
-    def recvFrame( self, timeout = None ):
-        frameSize = struct.unpack( '>I', self.recvData( 4, timeout = timeout ) )[ 0 ]
+    def _recvFrame( self, timeout = None ):
+        frameSize = struct.unpack( '>I', self._recvData( 4, timeout = timeout ) )[ 0 ]
         if (1024 * 1024 * 50) < frameSize:
             raise Exception( "frame size too large: %s" % frameSize )
-        frame = self.recvData( frameSize, timeout = timeout )
+        frame = self._recvData( frameSize, timeout = timeout )
         decompressedSize = struct.unpack( '>I', frame[ : 4 ] )[ 0 ]
         frame = zlib.decompress( frame[ 4 : ] )
         moduleId = struct.unpack( 'B', frame[ : 1 ] )[ 0 ]
         frame = frame[ 1 : ]
-        self.r.setBuffer( frame )
-        messages = self.r.deserialise( isList = True )
+        self._r.setBuffer( frame )
+        messages = self._r.deserialise( isList = True )
         return ( moduleId, messages, frameSize + 4 )
 
-    def sendData( self, data, timeout = None ):
+    def _sendData( self, data, timeout = None ):
         timeout = gevent.Timeout( timeout )
         timeout.start()
         try:
-            with self.lock:
-                self.socket.sendall( data )
+            with self._lock:
+                self._socket.sendall( data )
         except:
             raise DisconnectException( 'disconnect while sending' )
         finally:
             timeout.cancel()
 
-    def sendFrame( self, moduleId, messages, timeout = None, isNotHbs = False ):
+    def _sendFrame( self, moduleId, messages, timeout = None, isNotHbs = False ):
         msgList = rList()
         for msg in messages:
             if not isNotHbs:
                 msg.values()[ 0 ][ 'value' ].addTimestamp( Symbols.base.TIMESTAMP, int( time.time() * 1000 ) )
             msgList.addSequence( Symbols.base.MESSAGE, msg )
-        hcpData = struct.pack( 'B', moduleId ) + self.r.serialise( msgList )
+        hcpData = struct.pack( 'B', moduleId ) + self._r.serialise( msgList )
         data = zlib.compress( hcpData )
-        self.sendData( struct.pack( '>I', len( data ) ) + data, timeout = timeout )
+        self._sendData( struct.pack( '>I', len( data ) ) + data, timeout = timeout )
 
     ###########################################################################
     #   HOUSE-KEEPING
     ###########################################################################
-    def stop( self ):
-        self.stopEvent.set()
-
-    def doHcpSync( self ):
+    def _doHcpSync( self ):
         moduleList = rList()
-        for moduleId, moduleHash in self.hcpModules:
+        for moduleId, moduleHash in self._hcpModules:
             moduleList.addSequence( Symbols.hcp.MODULE, rSequence().addInt8( Symbols.hcp.MODULE_ID, moduleId ) )
-        self.log( "Sending HCP sync" )
-        self.sendFrame( HcpModuleId.HCP, [ rSequence().addList( Symbols.hcp.MODULES, moduleList ) ], timeout = 30, isNotHbs = True )
+        self._log( "Sending HCP sync" )
+        self._sendFrame( HcpModuleId.HCP, [ rSequence().addList( Symbols.hcp.MODULES, moduleList ) ], timeout = 30, isNotHbs = True )
 
-    def doHbsSync( self ):
-        self.log( "Sending HBS sync" )
-        self.sendFrame( HcpModuleId.HBS, [ rSequence().addSequence( Symbols.notification.SYNC, 
+    def _doHbsSync( self ):
+        self._log( "Sending HBS sync" )
+        self._sendFrame( HcpModuleId.HBS, [ rSequence().addSequence( Symbols.notification.SYNC, 
                                                                     rSequence().addBuffer( Symbols.base.HASH, 
-                                                                                           self.hbsProfileHash ) ) ], 30 )
+                                                                                           self._hbsProfileHash ) ) ], 30 )
+
+    def _generateEvent( self, everyNSeconds, eventGenerator, plusOrMinusNSeconds ):
+        if self._connectedEvent.wait( 0 ):
+            try:
+                messages = next( eventGenerator )
+            except StopIteration:
+                self._log( "Scheduled event generator failed to generate, ignoring it in the future." )
+                return
+
+            if type( messages ) not in ( tuple, list ):
+                messages = ( messages, )
+
+            self._sendFrame( HcpModuleId.HBS, messages, timeout = 30 )
+
+        if not self._stopEvent.wait( 0 ):
+            nextEvent = everyNSeconds
+            if 0 != plusOrMinusNSeconds:
+                nextEvent += random.randint( -plusOrMinusNSeconds, plusOrMinusNSeconds )
+            self._threads.add( gevent.spawn_later( nextEvent, self._generateEvent, everyNSeconds, eventGenerator, plusOrMinusNSeconds ) )
+
+    ###########################################################################
+    #   PUBLIC FUNCTIONALITY
+    ###########################################################################
+    def stop( self ):
+        self._stopEvent.set()
+
+    def scheduleEvent( self, everyNSeconds, eventGenerator, plusOrMinusNSeconds = 0 ):
+        self._threads.add( gevent.spawn_later( 0, self._generateEvent, everyNSeconds, eventGenerator, plusOrMinusNSeconds ) )
 
     ###########################################################################
     #   MAIN
     ###########################################################################
     def _run( self ):
         try:
-            self.log( "Starting virtual sensor: %s" % AgentId( ( self.oid, self.iid, self.sid, self.plat, self.arch ) ) )
+            self._log( "Starting virtual sensor: %s" % AgentId( ( self._oid, self._iid, self._sid, self._plat, self._arch ) ) )
 
-            self.connect()
+            self._connect()
 
-            self.stopEvent.wait()
+            self._stopEvent.wait()
 
-            self.disconnect()
+            self._disconnect()
         except:
-            self.log( "Exception:: %s" % traceback.format_exc() )
-        self.log( "Sensor exited" )
+            self._log( "Exception:: %s" % traceback.format_exc() )
+        self._log( "Sensor exited" )

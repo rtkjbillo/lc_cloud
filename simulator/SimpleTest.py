@@ -18,12 +18,19 @@ import gevent.pool
 
 from VirtualSensor import VirtualSensor
 from hcp.utils.hcp_helpers import AgentId
+from hcp.utils.rpcm import rpcm
+from hcp.utils.rpcm import rList
+from hcp.utils.rpcm import rSequence
+from hcp.Symbols import Symbols
+Symbols = Symbols()
 import time
 import signal
 import msgpack
 import base64
 import sys
 import argparse
+import random
+import uuid
 
 
 parser = argparse.ArgumentParser( prog = 'Simulator' )
@@ -106,21 +113,45 @@ def debugLog( msg ):
 
 START_OFFSET = args.delay / ( NUM_SENSORS_OSX + NUM_SENSORS_WIN + NUM_SENSORS_LIN + len( CONF ) )
 
+
+
+
+
+
+# Events to generate
+def generateDnsEvent():
+    while True:
+        yield rSequence().addSequence( Symbols.notification.DNS_REQUEST, 
+                                       rSequence().addInt32( Symbols.base.PROCESS_ID, random.randint( 0, 0xFFFFFFFF ) )
+                                                  .addStringA( Symbols.base.DOMAIN_NAME, "www.evil.com" )
+                                                  .addBuffer( Symbols.hbs.PARENT_ATOM, uuid.uuid4().bytes )
+                                                  .addBuffer( Symbols.hbs.THIS_ATOM, uuid.uuid4().bytes )
+                                                  .addIpv4( Symbols.base.IP_ADDRESS, "%d.%d.%d.%d" % ( random.randint( 0, 254 ), 
+                                                                                                       random.randint( 0, 254 ), 
+                                                                                                       random.randint( 0, 254 ), 
+                                                                                                       random.randint( 0, 254 ) ) )
+                                                  .addInt32( Symbols.base.MESSAGE_ID, random.randint( 0, 0xFFFF ) )
+                                                  .addInt8( Symbols.base.DNS_TYPE, 1 ) )
+
+
 # Start existing sensors
 for sensorInfo in CONF:
     aid = AgentId( str( sensorInfo[ 'aid' ] ) )
     token = sensorInfo[ 'token' ]
 
-    SENSORS.start( VirtualSensor( 'hcp.limacharlie.io', 
-                                  recvMessage, 
-                                  aid.org_id, 
-                                  aid.ins_id, 
-                                  aid.platform, 
-                                  aid.architecture,
-                                  sensorId = aid.sensor_id,
-                                  enrollmentToken = token,
-                                  cbDebugLog = debugLog, 
-                                  cbEnrollment = enrolled ) )
+    newSensor = VirtualSensor( 'hcp.limacharlie.io', 
+                               recvMessage, 
+                               aid.org_id, 
+                               aid.ins_id, 
+                               aid.platform, 
+                               aid.architecture,
+                               sensorId = aid.sensor_id,
+                               enrollmentToken = token,
+                               cbDebugLog = debugLog, 
+                               cbEnrollment = enrolled )
+    SENSORS.start( newSensor )
+    newSensor.scheduleEvent( 30, generateDnsEvent(), plusOrMinusNSeconds = 15 )
+
     gevent.sleep( START_OFFSET )
 
 # Enroll new sensors
@@ -135,16 +166,18 @@ for i in range( 0, NUM_SENSORS_OSX + NUM_SENSORS_WIN + NUM_SENSORS_LIN ):
         platform = AgentId.PLATFORM_LINUX
         NUM_SENSORS_LIN -= 1
 
-    SENSORS.start( VirtualSensor( 'hcp.limacharlie.io', 
-                                  recvMessage, 
-                                  args.oid, 
-                                  args.iid, 
-                                  platform, 
-                                  AgentId.ARCHITECTURE_X64,
-                                  sensorId = None,
-                                  enrollmentToken = None,
-                                  cbDebugLog = debugLog, 
-                                  cbEnrollment = enrolled ) )
+    existingSensor = VirtualSensor( 'hcp.limacharlie.io', 
+                                    recvMessage, 
+                                    args.oid, 
+                                    args.iid, 
+                                    platform, 
+                                    AgentId.ARCHITECTURE_X64,
+                                    sensorId = None,
+                                    enrollmentToken = None,
+                                    cbDebugLog = debugLog, 
+                                    cbEnrollment = enrolled )
+    SENSORS.start( existingSensor )
+    existingSensor.scheduleEvent( 30, generateDnsEvent(), plusOrMinusNSeconds = 15 )
     gevent.sleep( START_OFFSET )
 
 print( "Waiting for all VirtualSensor to stop" )
