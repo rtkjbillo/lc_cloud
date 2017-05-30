@@ -259,11 +259,11 @@ for sensorInfo in CONF:
     SENSORS.start( virtSensor )
 
     if args.with_startup_traffic:
-        virtSensor.scheduleEvent( 20, generateDnsEvent(), plusOrMinusNSeconds = 5 )
         virtSensor.scheduleEvent( 1, generateCodeIdentityEvent(), plusOrMinusNSeconds = 2, upToNEvents = 200 )
         virtSensor.scheduleEvent( 5, generateCodeIdentityEvent(), plusOrMinusNSeconds = 2, upToNEvents = 500 )
         virtSensor.scheduleEvent( 120, generateCodeIdentityEvent(), plusOrMinusNSeconds = 20, upToNEvents = 5000 )
     if args.with_constant_traffic or args.with_startup_traffic:
+        virtSensor.scheduleEvent( 20, generateDnsEvent(), plusOrMinusNSeconds = 5 )
         virtSensor.scheduleEvent( 50, generateNewProcessEvent(), plusOrMinusNSeconds = 20 )
         virtSensor.scheduleEvent( 50, generateTerminateProcessEvent(), plusOrMinusNSeconds = 20 )
         virtSensor.scheduleEvent( 100, generateNetworkSummaryEvent(), plusOrMinusNSeconds = 40 )
@@ -297,11 +297,11 @@ for i in range( 0, NUM_SENSORS_OSX + NUM_SENSORS_WIN + NUM_SENSORS_LIN ):
     SENSORS.start( virtSensor )
 
     if args.with_startup_traffic:
-        virtSensor.scheduleEvent( 20, generateDnsEvent(), plusOrMinusNSeconds = 5 )
         virtSensor.scheduleEvent( 1, generateCodeIdentityEvent(), plusOrMinusNSeconds = 2, upToNEvents = 200 )
         virtSensor.scheduleEvent( 5, generateCodeIdentityEvent(), plusOrMinusNSeconds = 2, upToNEvents = 500 )
         virtSensor.scheduleEvent( 120, generateCodeIdentityEvent(), plusOrMinusNSeconds = 20, upToNEvents = 5000 )
     if args.with_constant_traffic or args.with_startup_traffic:
+        virtSensor.scheduleEvent( 20, generateDnsEvent(), plusOrMinusNSeconds = 5 )
         virtSensor.scheduleEvent( 50, generateNewProcessEvent(), plusOrMinusNSeconds = 20 )
         virtSensor.scheduleEvent( 50, generateTerminateProcessEvent(), plusOrMinusNSeconds = 20 )
         virtSensor.scheduleEvent( 100, generateNetworkSummaryEvent(), plusOrMinusNSeconds = 40 )
