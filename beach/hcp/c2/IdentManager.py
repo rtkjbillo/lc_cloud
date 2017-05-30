@@ -394,10 +394,12 @@ class IdentManager( Actor ):
         token = msg.data[ 'token' ]
         email = msg.data[ 'email' ].lower()
 
-        info = self.db.getOne( 'SELECT uid, confirmation_token FROM user_info WHERE email = %s', ( email, ) )
+        info = self.db.getOne( 'SELECT uid, confirmation_token, must_change_password FROM user_info WHERE email = %s', ( email, ) )
 
-        if info is None or ( info[ 1 ] != token and '' != info[ 1 ] ):
+        if info is None or not info[ 2 ]:
             return ( True, { 'confirmed' : False } )
+        elif info[ 1 ] != token and '' != info[ 1 ]:
+            return ( True, { 'confirmed' : True, 'uid' : info[ 0 ] } )
         else:
             self.db.execute( 'UPDATE user_info SET confirmation_token = \'\' WHERE email = %s', ( email, ) )
             return ( True, { 'confirmed' : True, 'uid' : info[ 0 ] } )

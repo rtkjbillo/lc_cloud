@@ -436,7 +436,8 @@ class ConfirmEmail:
             return renderAlone.error( 'Error confirming email: %s' % info )
 
         if info.data[ 'confirmed' ]  is False:
-            return renderAlone.error( 'Bad email confirmation token.' )
+            session.notice = 'Email already confirmed or bad, login as usual.'
+            redirectTo( 'login' )
 
         session.notice = 'Email confirmed, you can now login.'
 
