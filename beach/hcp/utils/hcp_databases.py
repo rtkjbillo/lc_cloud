@@ -150,6 +150,7 @@ class CassPool( object ):
         self.blockOnQueueSize = blockOnQueueSize
         self.queries = deque()
         self.qCounter = 0
+        self.withStats = withStats
         self.threads = gevent.pool.Group()
         for _ in range( self.maxConcurrent ):
             self._addHandler()
@@ -194,7 +195,7 @@ class CassPool( object ):
                 self.rateLimit()
                 try:
                     self.db.execute( *q )
-                    if withStats:
+                    if self.withStats:
                         self.qCounter += 1
                     #syslog.syslog( syslog.LOG_USER, '+' )
                 except:
