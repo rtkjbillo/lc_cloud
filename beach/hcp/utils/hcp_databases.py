@@ -139,7 +139,7 @@ class CassDb( object ):
 
 class CassPool( object ):
 
-    def __init__( self, db, maxConcurrent = 1, error_log_func = None, rate_limit_per_sec = None, blockOnQueueSize = None ):
+    def __init__( self, db, maxConcurrent = 1, error_log_func = None, rate_limit_per_sec = None, blockOnQueueSize = None, withStats = False ):
         self.maxConcurrent = maxConcurrent
         self.db = db
         self.error_log = error_log_func
@@ -149,6 +149,7 @@ class CassPool( object ):
         self.last_rate_time = 0
         self.blockOnQueueSize = blockOnQueueSize
         self.queries = deque()
+        self.qCounter = 0
         self.threads = gevent.pool.Group()
         for _ in range( self.maxConcurrent ):
             self._addHandler()
@@ -193,6 +194,8 @@ class CassPool( object ):
                 self.rateLimit()
                 try:
                     self.db.execute( *q )
+                    if withStats:
+                        self.qCounter += 1
                     #syslog.syslog( syslog.LOG_USER, '+' )
                 except:
                     syslog.syslog( syslog.LOG_USER, 'EXCEPTION: %s' % traceback.format_exc() )

@@ -159,37 +159,20 @@ class EventObjectExtractor:
     @classmethod
     def _extractProcessInfo( cls, fromAgent, objects, procRoot ):
         exePath = procRoot.get( 'base.FILE_PATH', None )
-        exe = None
         if exePath is not None and '' != exePath:
-            exe = exeFromPath( exePath, agent = fromAgent )
-
-            cls._addObj( procRoot, objects, exePath, ObjectTypes.FILE_PATH )
-            cls._addObj( procRoot, objects, exe, ObjectTypes.PROCESS_NAME )
-            cls._addRel( procRoot, objects, exe, ObjectTypes.PROCESS_NAME, exePath, ObjectTypes.FILE_PATH )
+            cls._addObj( procRoot, objects, exePath, ObjectTypes.PROCESS_NAME )
             cmdLine = procRoot.get( 'base.COMMAND_LINE', None )
             if cmdLine is not None:
                 cls._addObj( procRoot, objects, cmdLine, ObjectTypes.CMD_LINE )
-                cls._addRel( procRoot, objects, exe, ObjectTypes.PROCESS_NAME, cmdLine, ObjectTypes.CMD_LINE )
-        return exe
+                cls._addRel( procRoot, objects, exePath, ObjectTypes.PROCESS_NAME, cmdLine, ObjectTypes.CMD_LINE )
+        return exePath
 
     @classmethod
     def _extractModuleInfo( cls, fromAgent, objects, modRoot ):
         modPath = modRoot.get( 'base.FILE_PATH', None )
-        modName = modRoot.get( 'base.MODULE_NAME', None )
-        mod = modName if modName is not None else exeFromPath( modPath, agent = fromAgent )
-        memSize = modRoot.get( 'base.MEMORY_SIZE', None )
 
-        if modName is not None:
-            cls._addObj( modRoot, objects, modName, ObjectTypes.MODULE_NAME )
-
-        if modPath is not None and '' != modPath:
-            cls._addObj( modRoot, objects, modPath, ObjectTypes.FILE_PATH )
-            cls._addRel( modRoot, objects, mod, ObjectTypes.MODULE_NAME, modPath, ObjectTypes.FILE_PATH )
-
-        if memSize is not None:
-            cls._addObj( modRoot, objects, memSize, ObjectTypes.MODULE_SIZE )
-            if mod is not None:
-                cls._addRel( modRoot, objects, mod, ObjectTypes.MODULE_NAME, memSize, ObjectTypes.MODULE_SIZE )
+        if modPath is not None:
+            cls._addObj( modRoot, objects, modPath, ObjectTypes.MODULE_NAME )
 
         return mod
 
@@ -248,22 +231,19 @@ class EventObjectExtractor:
             filePath = cRoot.get( 'base.DLL', None )
             if filePath is None:
                 filePath = cRoot.get( 'base.EXECUTABLE', None )
-        fileName = exeFromPath( filePath, agent = fromAgent )
         h = cRoot.get( 'base.HASH', None )
 
         if filePath is not None:
-            cls._addObj( cRoot, objects, filePath, ObjectTypes.FILE_PATH )
-            cls._addObj( cRoot, objects, fileName, ObjectTypes.MODULE_NAME )
-            cls._addRel( cRoot, objects, fileName, ObjectTypes.MODULE_NAME, filePath, ObjectTypes.FILE_PATH )
+            cls._addObj( cRoot, objects, filePath, ObjectTypes.MODULE_NAME )
 
         if h is not None:
             cls._addObj( cRoot, objects, h, ObjectTypes.FILE_HASH )
-            if fileName is not None:
-                cls._addRel( cRoot, objects, fileName, ObjectTypes.MODULE_NAME, h, ObjectTypes.FILE_HASH )
+            if filePath is not None:
+                cls._addRel( cRoot, objects, filePath, ObjectTypes.MODULE_NAME, h, ObjectTypes.FILE_HASH )
 
-        sig = cRoot.get( 'base.SIGNATURE', None )
-        if sig is not None:
-            issuer = sig.get( 'base.CERT_ISSUER', None )
-            if issuer is not None:
-                cls._addObj( cRoot, objects, issuer, ObjectTypes.CERT_ISSUER )
-                cls._addRel( cRoot, objects, fileName, ObjectTypes.MODULE_NAME, issuer, ObjectTypes.CERT_ISSUER )
+        #sig = cRoot.get( 'base.SIGNATURE', None )
+        #if sig is not None:
+        #    issuer = sig.get( 'base.CERT_ISSUER', None )
+        #    if issuer is not None and filePath is not None:
+        #        cls._addObj( cRoot, objects, issuer, ObjectTypes.CERT_ISSUER )
+        #        cls._addRel( cRoot, objects, filePath, ObjectTypes.MODULE_NAME, issuer, ObjectTypes.CERT_ISSUER )

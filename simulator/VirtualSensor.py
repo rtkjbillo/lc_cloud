@@ -136,7 +136,7 @@ class VirtualSensor( gevent.Greenlet ):
                     if HcpOperations.LOAD_MODULE == message[ 'base.OPERATION' ]:
                         self._log( "Received HCP module load" )
                         self._hcpModules.append( ( message[ 'hcp.MODULE_ID' ], 
-                                                  hashlib.sha256( message[ 'base.BINARY' ] ).digest() ) )
+                                                   hashlib.sha256( message[ 'base.BINARY' ] ).digest() ) )
                     elif HcpOperations.SET_HCP_ID == message[ 'base.OPERATION' ]:
                         self._log( "Received enrollment" )
                         newId = AgentId( dict( message[ 'base.HCP_IDENT' ] ) )
@@ -224,7 +224,8 @@ class VirtualSensor( gevent.Greenlet ):
     def _doHcpSync( self ):
         moduleList = rList()
         for moduleId, moduleHash in self._hcpModules:
-            moduleList.addSequence( Symbols.hcp.MODULE, rSequence().addInt8( Symbols.hcp.MODULE_ID, moduleId ) )
+            moduleList.addSequence( Symbols.hcp.MODULE, rSequence().addInt8( Symbols.hcp.MODULE_ID, moduleId )
+                                                                   .addBuffer( Symbols.base.HASH, moduleHash ) )
         self._log( "Sending HCP sync" )
         self._sendFrame( HcpModuleId.HCP, [ rSequence().addList( Symbols.hcp.MODULES, moduleList ) ], timeout = 30, isNotHbs = True )
 
@@ -234,12 +235,17 @@ class VirtualSensor( gevent.Greenlet ):
                                                                     rSequence().addBuffer( Symbols.base.HASH, 
                                                                                            self._hbsProfileHash ) ) ], 30 )
 
-    def _generateEvent( self, everyNSeconds, eventGenerator, plusOrMinusNSeconds ):
+    def _generateEvent( self, everyNSeconds, eventGenerator, plusOrMinusNSeconds, upToNEvents ):
         if self._connectedEvent.wait( 0 ):
-            try:
-                messages = next( eventGenerator )
-            except StopIteration:
-                self._log( "Scheduled event generator failed to generate, ignoring it in the future." )
+            if upToNEvents is None or 0 != upToNEvents:
+                if upToNEvents is not None:
+                    upToNEvents -= 1
+                try:
+                    messages = next( eventGenerator )
+                except StopIteration:
+                    self._log( "Scheduled event generator failed to generate, ignoring it in the future." )
+                    return
+            else:
                 return
 
             if type( messages ) not in ( tuple, list ):
@@ -251,7 +257,9 @@ class VirtualSensor( gevent.Greenlet ):
             nextEvent = everyNSeconds
             if 0 != plusOrMinusNSeconds:
                 nextEvent += random.randint( -plusOrMinusNSeconds, plusOrMinusNSeconds )
-            self._threads.add( gevent.spawn_later( nextEvent, self._generateEvent, everyNSeconds, eventGenerator, plusOrMinusNSeconds ) )
+            if 0 > nextEvent:
+                nextEvent = 0
+            self._threads.add( gevent.spawn_later( nextEvent, self._generateEvent, everyNSeconds, eventGenerator, plusOrMinusNSeconds, upToNEvents ) )
 
     ###########################################################################
     #   PUBLIC FUNCTIONALITY
@@ -259,8 +267,8 @@ class VirtualSensor( gevent.Greenlet ):
     def stop( self ):
         self._stopEvent.set()
 
-    def scheduleEvent( self, everyNSeconds, eventGenerator, plusOrMinusNSeconds = 0 ):
-        self._threads.add( gevent.spawn_later( 0, self._generateEvent, everyNSeconds, eventGenerator, plusOrMinusNSeconds ) )
+    def scheduleEvent( self, everyNSeconds, eventGenerator, plusOrMinusNSeconds = 0, upToNEvents = None ):
+        self._threads.add( gevent.spawn_later( 0, self._generateEvent, everyNSeconds, eventGenerator, plusOrMinusNSeconds, upToNEvents ) )
 
     ###########################################################################
     #   MAIN

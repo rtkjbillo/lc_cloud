@@ -30,10 +30,15 @@ import base64
 import sys
 import argparse
 import random
+import string
 import uuid
+import hashlib
 
 
 parser = argparse.ArgumentParser( prog = 'Simulator' )
+parser.add_argument( 'cloud',
+                     type = str,
+                     help = 'where to reach the cloud' )
 parser.add_argument( 'oid',
                      type = str,
                      help = 'the organization id virtual sensors are in' )
@@ -67,14 +72,29 @@ parser.add_argument( '--delay',
                      dest = 'delay',
                      default = 10,
                      help = 'the number of seconds on which the virtual sensors start, spread evenly' )
+parser.add_argument( '--with-constant-traffic',
+                     required = False,
+                     dest = 'with_constant_traffic',
+                     default = False,
+                     action = 'store_true',
+                     help = 'generates simulated traffic for each sensor, at constant load, if specified' )
+parser.add_argument( '--with-startup-traffic',
+                     required = False,
+                     dest = 'with_startup_traffic',
+                     default = False,
+                     action = 'store_true',
+                     help = 'generates simulated traffic for each sensor, including initial startup spike, if specified' )
 
 args = parser.parse_args()
 
 SENSORS = gevent.pool.Group()
+IS_STOP = False
 
 # Setting the signal handler to trigger the stop event
 def _stop():
     global SENSORS
+    global IS_STOP
+    IS_STOP = True
     print( "Signaling all VirtualSensor to stop" )
     for sensor in SENSORS:
         sensor.stop()
@@ -111,19 +131,22 @@ def enrolled( sensor, newAgentId, enrollmentToken ):
 def debugLog( msg ):
     print( "DBG:: %s" % str( msg ) )
 
-START_OFFSET = args.delay / ( NUM_SENSORS_OSX + NUM_SENSORS_WIN + NUM_SENSORS_LIN + len( CONF ) )
+TOTAL_SENSORS_EXPECTED = NUM_SENSORS_OSX + NUM_SENSORS_WIN + NUM_SENSORS_LIN + len( CONF )
+if 0 != TOTAL_SENSORS_EXPECTED:
+    START_OFFSET = ( args.delay / TOTAL_SENSORS_EXPECTED ) if TOTAL_SENSORS_EXPECTED != 0 else 0
 
+def randomStringOf( n ):
+    return ''.join( random.choice( string.ascii_lowercase ) for _ in range( n ) )
 
-
-
-
+def randomHash():
+    return hashlib.sha256( str( random.randint( 0, 65536 ) ) ).digest()
 
 # Events to generate
 def generateDnsEvent():
     while True:
         yield rSequence().addSequence( Symbols.notification.DNS_REQUEST, 
                                        rSequence().addInt32( Symbols.base.PROCESS_ID, random.randint( 0, 0xFFFFFFFF ) )
-                                                  .addStringA( Symbols.base.DOMAIN_NAME, "www.evil.com" )
+                                                  .addStringA( Symbols.base.DOMAIN_NAME, "%s.%s.com" % ( randomStringOf( 3 ), randomStringOf( 8 ) ) )
                                                   .addBuffer( Symbols.hbs.PARENT_ATOM, uuid.uuid4().bytes )
                                                   .addBuffer( Symbols.hbs.THIS_ATOM, uuid.uuid4().bytes )
                                                   .addIpv4( Symbols.base.IP_ADDRESS, "%d.%d.%d.%d" % ( random.randint( 0, 254 ), 
@@ -133,29 +156,124 @@ def generateDnsEvent():
                                                   .addInt32( Symbols.base.MESSAGE_ID, random.randint( 0, 0xFFFF ) )
                                                   .addInt8( Symbols.base.DNS_TYPE, 1 ) )
 
+def generateCodeIdentityEvent():
+    while True:
+        filePath = "c:\\windows\\%s" % randomStringOf( 10 )
+        yield rSequence().addSequence( Symbols.notification.CODE_IDENTITY, 
+                                       rSequence().addInt32( Symbols.base.PROCESS_ID, random.randint( 0, 0xFFFFFFFF ) )
+                                                  .addStringA( Symbols.base.FILE_PATH, filePath )
+                                                  .addBuffer( Symbols.hbs.PARENT_ATOM, uuid.uuid4().bytes )
+                                                  .addBuffer( Symbols.hbs.THIS_ATOM, uuid.uuid4().bytes )
+                                                  .addBuffer( Symbols.base.HASH, randomHash() )
+                                                  .addInt8( Symbols.base.ERROR, 0 )
+                                                  .addSequence( Symbols.base.SIGNATURE,
+                                                                rSequence().addInt8( Symbols.base.FILE_CERT_IS_VERIFIED_GLOBAL, 0 )
+                                                                           .addStringA( Symbols.base.FILE_PATH, filePath )
+                                                                           .addInt8( Symbols.base.FILE_CERT_IS_VERIFIED_LOCAL, 0 )
+                                                                           .addInt32( Symbols.base.CERT_CHAIN_STATUS, 124 )
+                                                                           .addStringA( Symbols.base.CERT_ISSUER, "C=US, S=Washington, L=Redmond, O=Microsoft Corporation, CN=Microsoft Windows Production PCA 2011" )
+                                                                           .addStringA( Symbols.base.CERT_ISSUER, "C=US, S=Washington, L=Redmond, O=Microsoft Corporation, CN=Microsoft Windows" )
+                                                                           .addInt8( Symbols.base.FILE_IS_SIGNED, 1 ) ) )
+
+def generateNewProcessEvent():
+    while True:
+        parentId = random.randint( 0, 0xFFFFFFFF )
+        yield rSequence().addSequence( Symbols.notification.NEW_PROCESS, 
+                                       rSequence().addInt32( Symbols.base.PROCESS_ID, random.randint( 0, 0xFFFFFFFF ) )
+                                                  .addStringA( Symbols.base.FILE_PATH, "c:\\program files\\%s" % randomStringOf( 8 ) )
+                                                  .addStringA( Symbols.base.COMMAND_LINE, "%s" % randomStringOf( 15 ) )
+                                                  .addStringA( Symbols.base.USER_NAME, randomStringOf( 8 ) )
+                                                  .addInt32( Symbols.base.USER_ID, random.randint( 0, 64 ) )
+                                                  .addBuffer( Symbols.hbs.PARENT_ATOM, uuid.uuid4().bytes )
+                                                  .addBuffer( Symbols.hbs.THIS_ATOM, uuid.uuid4().bytes )
+                                                  .addInt32( Symbols.base.PARENT_PROCESS_ID, parentId )
+                                                  .addSequence( Symbols.base.PARENT, 
+                                                                rSequence().addInt32( Symbols.base.PROCESS_ID, parentId )
+                                                                           .addStringA( Symbols.base.FILE_PATH, "c:\\program files\\%s" % randomStringOf( 8 ) )
+                                                                           .addStringA( Symbols.base.COMMAND_LINE, "%s" % randomStringOf( 15 ) )
+                                                                           .addStringA( Symbols.base.USER_NAME, randomStringOf( 8 ) )
+                                                                           .addInt32( Symbols.base.USER_ID, random.randint( 0, 64 ) )
+                                                                           .addInt32( Symbols.base.PARENT_PROCESS_ID, parentId ) ) )
+
+def generateTerminateProcessEvent():
+    while True:
+        yield rSequence().addSequence( Symbols.notification.TERMINATE_PROCESS, 
+                                       rSequence().addInt32( Symbols.base.PROCESS_ID, random.randint( 0, 0xFFFFFFFF ) )
+                                                  .addBuffer( Symbols.hbs.PARENT_ATOM, uuid.uuid4().bytes )
+                                                  .addBuffer( Symbols.hbs.THIS_ATOM, uuid.uuid4().bytes )
+                                                  .addInt32( Symbols.base.PARENT_PROCESS_ID, random.randint( 0, 0xFFFFFFFF ) ) )
+
+def generateUserObservedEvent():
+    while True:
+        yield rSequence().addSequence( Symbols.notification.USER_OBSERVED, 
+                                       rSequence().addStringA( Symbols.base.USER_NAME, randomStringOf( 8 ) )
+                                                  .addBuffer( Symbols.hbs.PARENT_ATOM, uuid.uuid4().bytes )
+                                                  .addBuffer( Symbols.hbs.THIS_ATOM, uuid.uuid4().bytes ) )
+
+def generateNetworkSummaryEvent():
+    while True:
+        connections = rList()
+        for _ in range( 0, random.randint( 0, 11 ) ):
+            connections.addSequence( Symbols.notification.NEW_TCP4_CONNECTION,
+                                     rSequence().addInt32( Symbols.base.PROCESS_ID, random.randint( 0, 0xFFFFFFFF ) )
+                                                .addInt8( Symbols.base.IS_OUTGOING, random.randint( 0, 1 ) )
+                                                .addBuffer( Symbols.hbs.PARENT_ATOM, uuid.uuid4().bytes )
+                                                .addBuffer( Symbols.hbs.THIS_ATOM, uuid.uuid4().bytes )
+                                                .addTimestamp( Symbols.base.TIMESTAMP, int( time.time() * 1000 ) )
+                                                .addSequence( Symbols.base.DESTINATION, 
+                                                              rSequence().addIpv4( Symbols.base.IP_ADDRESS, 
+                                                                                   "%d.%d.%d.%d" % ( random.randint( 0, 254 ), 
+                                                                                                     random.randint( 0, 254 ), 
+                                                                                                     random.randint( 0, 254 ), 
+                                                                                                     random.randint( 0, 254 ) ) )
+                                                                         .addInt16( Symbols.base.PORT, random.randint( 0, 0xFFFF ) ) )
+                                                .addSequence( Symbols.base.SOURCE, 
+                                                              rSequence().addIpv4( Symbols.base.IP_ADDRESS, 
+                                                                                   "%d.%d.%d.%d" % ( random.randint( 0, 254 ), 
+                                                                                                     random.randint( 0, 254 ), 
+                                                                                                     random.randint( 0, 254 ), 
+                                                                                                     random.randint( 0, 254 ) ) )
+                                                                         .addInt16( Symbols.base.PORT, random.randint( 0, 0xFFFF ) ) ) )
+        yield rSequence().addSequence( Symbols.notification.NETWORK_SUMMARY, 
+                                       rSequence().addBuffer( Symbols.hbs.PARENT_ATOM, uuid.uuid4().bytes )
+                                                  .addBuffer( Symbols.hbs.THIS_ATOM, uuid.uuid4().bytes )
+                                                  .addSequence( Symbols.base.PROCESS, next( generateNewProcessEvent() ) )
+                                                  .addList( Symbols.base.NETWORK_ACTIVITY, connections ) )
 
 # Start existing sensors
 for sensorInfo in CONF:
+    if IS_STOP: break
     aid = AgentId( str( sensorInfo[ 'aid' ] ) )
     token = sensorInfo[ 'token' ]
 
-    newSensor = VirtualSensor( 'hcp.limacharlie.io', 
-                               recvMessage, 
-                               aid.org_id, 
-                               aid.ins_id, 
-                               aid.platform, 
-                               aid.architecture,
-                               sensorId = aid.sensor_id,
-                               enrollmentToken = token,
-                               cbDebugLog = debugLog, 
-                               cbEnrollment = enrolled )
-    SENSORS.start( newSensor )
-    newSensor.scheduleEvent( 30, generateDnsEvent(), plusOrMinusNSeconds = 15 )
+    virtSensor = VirtualSensor( args.cloud, 
+                                recvMessage, 
+                                aid.org_id, 
+                                aid.ins_id, 
+                                aid.platform, 
+                                aid.architecture,
+                                sensorId = aid.sensor_id,
+                                enrollmentToken = token,
+                                cbDebugLog = debugLog, 
+                                cbEnrollment = enrolled )
+    SENSORS.start( virtSensor )
+
+    if args.with_startup_traffic:
+        virtSensor.scheduleEvent( 20, generateDnsEvent(), plusOrMinusNSeconds = 5 )
+        virtSensor.scheduleEvent( 1, generateCodeIdentityEvent(), plusOrMinusNSeconds = 2, upToNEvents = 200 )
+        virtSensor.scheduleEvent( 5, generateCodeIdentityEvent(), plusOrMinusNSeconds = 2, upToNEvents = 500 )
+        virtSensor.scheduleEvent( 120, generateCodeIdentityEvent(), plusOrMinusNSeconds = 20, upToNEvents = 5000 )
+    if args.with_constant_traffic or args.with_startup_traffic:
+        virtSensor.scheduleEvent( 50, generateNewProcessEvent(), plusOrMinusNSeconds = 20 )
+        virtSensor.scheduleEvent( 50, generateTerminateProcessEvent(), plusOrMinusNSeconds = 20 )
+        virtSensor.scheduleEvent( 100, generateNetworkSummaryEvent(), plusOrMinusNSeconds = 40 )
+        virtSensor.scheduleEvent( 60, generateUserObservedEvent(), plusOrMinusNSeconds = 600, upToNEvents = 10 )
 
     gevent.sleep( START_OFFSET )
 
 # Enroll new sensors
 for i in range( 0, NUM_SENSORS_OSX + NUM_SENSORS_WIN + NUM_SENSORS_LIN ):
+    if IS_STOP: break
     if 0 != NUM_SENSORS_OSX:
         platform = AgentId.PLATFORM_MACOS
         NUM_SENSORS_OSX -= 1
@@ -166,18 +284,29 @@ for i in range( 0, NUM_SENSORS_OSX + NUM_SENSORS_WIN + NUM_SENSORS_LIN ):
         platform = AgentId.PLATFORM_LINUX
         NUM_SENSORS_LIN -= 1
 
-    existingSensor = VirtualSensor( 'hcp.limacharlie.io', 
-                                    recvMessage, 
-                                    args.oid, 
-                                    args.iid, 
-                                    platform, 
-                                    AgentId.ARCHITECTURE_X64,
-                                    sensorId = None,
-                                    enrollmentToken = None,
-                                    cbDebugLog = debugLog, 
-                                    cbEnrollment = enrolled )
-    SENSORS.start( existingSensor )
-    existingSensor.scheduleEvent( 30, generateDnsEvent(), plusOrMinusNSeconds = 15 )
+    virtSensor = VirtualSensor( args.cloud, 
+                                recvMessage, 
+                                args.oid, 
+                                args.iid, 
+                                platform, 
+                                AgentId.ARCHITECTURE_X64,
+                                sensorId = None,
+                                enrollmentToken = None,
+                                cbDebugLog = debugLog, 
+                                cbEnrollment = enrolled )
+    SENSORS.start( virtSensor )
+
+    if args.with_startup_traffic:
+        virtSensor.scheduleEvent( 20, generateDnsEvent(), plusOrMinusNSeconds = 5 )
+        virtSensor.scheduleEvent( 1, generateCodeIdentityEvent(), plusOrMinusNSeconds = 2, upToNEvents = 200 )
+        virtSensor.scheduleEvent( 5, generateCodeIdentityEvent(), plusOrMinusNSeconds = 2, upToNEvents = 500 )
+        virtSensor.scheduleEvent( 120, generateCodeIdentityEvent(), plusOrMinusNSeconds = 20, upToNEvents = 5000 )
+    if args.with_constant_traffic or args.with_startup_traffic:
+        virtSensor.scheduleEvent( 50, generateNewProcessEvent(), plusOrMinusNSeconds = 20 )
+        virtSensor.scheduleEvent( 50, generateTerminateProcessEvent(), plusOrMinusNSeconds = 20 )
+        virtSensor.scheduleEvent( 100, generateNetworkSummaryEvent(), plusOrMinusNSeconds = 40 )
+        virtSensor.scheduleEvent( 60, generateUserObservedEvent(), plusOrMinusNSeconds = 600, upToNEvents = 10 )
+
     gevent.sleep( START_OFFSET )
 
 print( "Waiting for all VirtualSensor to stop" )
