@@ -147,12 +147,16 @@ class EventObjectExtractor:
     @classmethod
     def _addRel( cls, root, objects, parent, parentType, child, childType ):
         if type( parent ) is not int:
-            if parent is None or 0 == len( parent ) or 10240 < len( parent ):
+            if parent is None or 10240 < len( parent ):
                 raise InvalidObjectException( 'unexpected rel parent len: %s ( %s ), %s ( %s ) rest of objecs: %s ::: %s' % ( parent, parentType, child, childType, str( objects ), str( root ) ) )
                 return
+            elif 0 == len( parent ):
+                return
         if type( child ) is not int:
-            if child is None or 0 == len( child ) or 10240 < len( parent ):
+            if child is None or 10240 < len( parent ):
                 raise InvalidObjectException( 'unexpected rel child len: %s ( %s ), %s ( %s ) rest of objects: %s ::: %s' % ( child, childType, parent, parentType, str( objects ), str( root ) ) )
+                return
+            elif 0 == len( child ):
                 return
         objects[ 'rel' ].setdefault( ( parentType, childType ), Set() ).add( ( parent, child ) )
 
@@ -213,6 +217,7 @@ class EventObjectExtractor:
         reg = aRoot.get( 'base.REGISTRY_KEY', None )
         path = aRoot.get( 'base.FILE_PATH', None )
         h = aRoot.get( 'base.HASH', None )
+        autorun = None
         if path is not None and '' != path:
             autorun = path
         elif reg is not None:

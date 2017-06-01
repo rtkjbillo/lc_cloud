@@ -1,0 +1,84 @@
+$def with ()
+$var title = 'Find Host'
+<div class="mdl-card mdl-cell mdl-cell--10-col mdl-shadow--4dp">
+  <div class="mdl-card__title">
+    <h4 class="mdl-card__title-text">Find Host</h4>
+  </div>
+  <div class="mdl-card__supporting-text">
+    <div style="height: 800px; overflow: scroll;">
+      <p>
+      	Find a host by IP address. Enter an internal or external IP address, this will return the list
+      	of all hosts having reported with that internal or external IP address in the last month.
+      </p>
+      <center>
+        <div class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label">
+          <input class="mdl-textfield__input" type="ip" id="ip" name="ip" pattern="[0-9]{0,3}\.[0-9]{0,3}\.[0-9]{0,3}\.[0-9]{0,3}"/>
+          <label class="mdl-textfield__label" for="ip">IP Address (123.123.123.123)</label>
+        </div>
+        <br/>
+        <button class="mdl-button mdl-button--colored mdl-js-button mdl-js-ripple-effect mdl-button--raised" onclick="return find_host();">Search</button>
+        <br/>
+        <br/>
+        <div class="mdl-spinner mdl-js-spinner is-active" id="host_loading" style="visibility: hidden;"></div>
+      </center>
+      <table class="mdl-data-table mdl-js-data-table mdl-shadow--2dp" style="width:100%; visibility: hidden;" id="host_window">
+        <thead>
+          <th class="mdl-data-table__cell--non-numeric">Time</th>
+          <th class="mdl-data-table__cell--non-numeric">Hostname</th>
+          <th class="mdl-data-table__cell--non-numeric">SensorId</th>
+        </thead>
+        <tbody id='host_data'>
+        </tbody>
+      </table>
+    </div>
+  </div>
+  <div class="mdl-card__actions mdl-card--border">
+  </div>
+</div>
+<script type="text/javascript">
+  function loadHost(data) {
+  	var tmpCache = {};
+    for( var i = 0; i < data.length; i++) {
+      var record = data[ i ];
+      var ts = record[ 0 ];
+      var sid = record[ 1 ];
+      if( !(sid in tmpCache) ) {
+      	tmpCache[sid] = 1;
+      	jQuery.getJSON( '/sensor_state', { sensor_id: sid })
+      	.done( function(data) {
+      		jQuery(".sid_" + sid).text(data['hostname']);
+      	});
+      }
+      jQuery('#host_data').append(
+        jQuery('<tr>').append(
+          jQuery('<td>').text( ts ).addClass('mdl-data-table__cell--non-numeric').addClass('click-to-copy')
+        ).append(
+          jQuery('<td>').text( "-" ).addClass('mdl-data-table__cell--non-numeric').addClass('click-to-copy').addClass('sid_' + sid)
+        ).append(
+          jQuery('<td>').text( sid ).addClass('mdl-data-table__cell--non-numeric').addClass('click-to-copy')
+        )
+      );
+    }
+
+    jQuery('#host_loading').css('visibility', 'hidden');
+    jQuery('#host_window').css('visibility', 'visible');
+  }
+
+  function refresh_host(ip_address) {
+    jQuery('#host_window').css('visibility', 'hidden');
+    jQuery('#host_loading').css('visibility', 'visible');
+    jQuery('#host_data').empty();
+    jQuery.getJSON( '/sensor_ip_use', { ip : ip_address } )
+    .done( function(data) {
+      loadHost(data["usage"]);
+    })
+    .fail( function() {
+      jQuery('#host_window').html('<h2>Failed to get data</h2>');
+    });
+  }
+
+  function find_host()
+  {
+      refresh_host(jQuery('#ip').val());
+  }
+</script>

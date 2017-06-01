@@ -80,6 +80,7 @@ urls = (
     '/sensor_configs', 'SensorConfigs',
     '/sensor_bandwidth', 'SensorBandwidth',
     '/sensor_ip_use', 'SensorIpUse',
+    '/find_host', 'FindHost',
 )
 
 ADMIN_OID = None
@@ -625,7 +626,7 @@ class Profile ( AuthenticatedPage ):
                                                                    '',
                                                                    'You can now login at %s with the temporary password: %s' % ( DOMAIN_NAME, tempPassword ),
                                                                    '',
-                                                                   'Confirm your email address by following this link: <a href="http://%s/confirm_email?token=%s&email=%s">http://%s/confirm_email?token=%s&email=%s</a>' % ( DOMAIN_NAME, confirmToken, params.email, DOMAIN_NAME, confirmToken, params.email ),
+                                                                   'Confirm your email address by following this link: <a href="%s/confirm_email?token=%s&email=%s">%s/confirm_email?token=%s&email=%s</a>' % ( DOMAIN_NAME, confirmToken, params.email, DOMAIN_NAME, confirmToken, params.email ),
                                                                    '',
                                                                    'Get help and stay up to date the following ways:',
                                                                    ' - Twitter: @rp_limacharlie',
@@ -1538,7 +1539,15 @@ class SensorIpUse ( AuthenticatedPage ):
         if not usage.isSuccess:
             raise web.HTTPError( '503 Service Unavailable: %s' % str( usage ) )
 
+        usage.data[ 'usage' ] = sorted( usage.data[ 'usage' ], key = lambda x: x[ 0 ], reverse = True )
+
         return usage.data
+
+class FindHost ( AuthenticatedPage ):
+    def doGET( self ):
+        params = web.input()
+        
+        return render.find_host()
 
 #==============================================================================
 #   CARDS

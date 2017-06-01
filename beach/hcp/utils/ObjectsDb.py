@@ -449,9 +449,9 @@ class Host( object ):
         inOrgs = map( _makeUuid, inOrgs )
         
         if before is None:
-            before = int( time.time() + ( 60 * 60 * 1 ) )
+            before = int( time.time() + ( 60 * 60 * 1 ) ) * 1000
         if after is None:
-            after = int( time.time() - ( 60 * 60 * 24 * 30 ) )
+            after = int( time.time() - ( 60 * 60 * 24 * 30 ) ) * 1000
         if 0 == len( inOrgs ):
             rows = self._db.execute( 'SELECT ts, sid FROM sensor_ip WHERE ip = %s AND ts >= %s AND ts <= %s', ( ip, after, before ) )
         else:
