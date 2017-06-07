@@ -176,7 +176,10 @@ CREATE TABLE obj_org
 (
   id varchar,
   oid uuid,
-  PRIMARY KEY( id, oid )
+  ts timestamp,
+  sid uuid,
+  eid uuid,
+  PRIMARY KEY( id, oid, ts, sid )
 ) WITH compaction = { 'class' : 'SizeTieredCompactionStrategy' } AND gc_grace_seconds = 86400;
 
 CREATE TABLE loc

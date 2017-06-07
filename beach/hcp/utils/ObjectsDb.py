@@ -305,6 +305,25 @@ class HostObjects( object ):
 
         return type(self)( thisGen() )
 
+    def events( self, oid = None, after = None, before = None ):
+        if oid is None:
+            for row in self._db.execute( 'SELECT sid, eid FROM obj_org WHERE id IN %s', ( self._ids, ) ):
+                yield ( row[ 0 ], row[ 1 ] )
+        else:
+            if type( oid ) not in ( list, tuple, Set ):
+                oid = [ oid ]
+            for ids in chunks( self._ids, self._queryChunks ):
+                timeFilt = ''
+                params = [ ids, oid ]
+                if after is not None:
+                    timeFilt += ' AND ts >= %s'
+                    params.append( int( after ) * 1000 )
+                if before is not None:
+                    timeFilt += ' AND ts <= %s'
+                    params.append( int( before ) * 1000 )
+                for row in self._db.execute( 'SELECT sid, eid FROM obj_org WHERE id IN %s AND oid IN %s' + timeFilt, params ):
+                    yield ( row[ 0 ], row[ 1 ] )
+
     def info( self ):
         for ids in chunks( self._ids, self._queryChunks ):
             try:
@@ -447,7 +466,7 @@ class Host( object ):
         if type( inOrgs ) not in ( list, tuple ):
             inOrgs = ( inOrgs, )
         inOrgs = map( _makeUuid, inOrgs )
-        
+
         if before is None:
             before = int( time.time() + ( 60 * 60 * 1 ) ) * 1000
         if after is None:
