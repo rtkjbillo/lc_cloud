@@ -366,6 +366,17 @@ def getAllSensors( isAllOrgs = False ):
                 info.setdefault( AgentId( sensor[ 'aid' ] ).org_id, {} )[ sid ] = sensor
     return info
 
+def getHostnames( sid ):
+    if type( sid ) not in ( list, tuple ):
+        sid = ( sid, )
+    hostnames = {}
+    for s in sid:
+        if s not in hostnames:
+            info = model.request( 'get_sensor_info', { 'id_or_host' : s } )
+            if info.isSuccess:
+                hostnames[ s ] = info.data[ 'hostname' ]
+    return hostnames
+
 def setDownloadFileName( name ):
     web.header( 'Content-Disposition', 'attachment;filename="%s"' % name )
 
@@ -1079,6 +1090,8 @@ class ObjView ( AuthenticatedPage ):
         info = model.request( 'get_obj_view', filt )
         cards = []
         if info.isSuccess and 0 != len( info.data ):
+            hostnames = getHostnames( [ x[ 0 ] for x in info.data[ 'olocs' ] ] )
+
             cards.append( card_object( info.data[ 'id' ], 
                                        info.data[ 'oname' ],
                                        info.data[ 'otype' ],
@@ -1087,7 +1100,8 @@ class ObjView ( AuthenticatedPage ):
                                        info.data[ 'rlocs' ],
                                        info.data[ 'parents' ],
                                        info.data[ 'children' ],
-                                       params.sid ) )
+                                       params.sid,
+                                       hostnames ) )
         elif 0 == len( info.data ):
             session.notice = 'No object found.'
         else:
@@ -1169,11 +1183,7 @@ class Detects ( AuthenticatedPage ):
         orgNames = getOrgNames()
         for detect in allDetects:
             sensors = [ x for x in detect[ 2 ].split( ' / ' ) ]
-            for sensor in sensors:
-                if sensor not in hostcache:
-                    info = model.request( 'get_sensor_info', { 'id_or_host' : sensor } )
-                    if info.isSuccess:
-                        hostcache[ sensor ] = info.data[ 'hostname' ]
+            hostcache.update( getHostnames( sensors ) )
             info = model.request( 'get_detect', { 'id' : detect[ 1 ], 'with_inv' : True } )
             investigations = []
             if info.isSuccess:
@@ -1549,7 +1559,7 @@ class SensorIpUse ( AuthenticatedPage ):
 class FindHost ( AuthenticatedPage ):
     def doGET( self ):
         params = web.input()
-        
+
         return render.find_host()
 
 #==============================================================================
@@ -1587,8 +1597,8 @@ def card_event( event, atom ):
 def card_objsummary( oid, oname, otype ):
     return renderAlone.card_objsummary( oid, oname, otype )
 
-def card_object( oid, oname, otype, olocs, locs, rlocs, parents, children, sid ):
-    return renderAlone.card_object( oid, oname, otype, olocs, locs, rlocs, parents, children, sid )
+def card_object( oid, oname, otype, olocs, locs, rlocs, parents, children, sid, hostnames ):
+    return renderAlone.card_object( oid, oname, otype, olocs, locs, rlocs, parents, children, sid, hostnames )
 
 def card_sensor_last( aid, hostname ):
     return renderAlone.card_sensor_last( aid, hostname )

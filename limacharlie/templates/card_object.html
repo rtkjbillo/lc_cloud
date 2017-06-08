@@ -1,4 +1,4 @@
-$def with (oid, oname, otype, olocs, locs, rlocs, parents, children, sid)
+$def with (oid, oname, otype, olocs, locs, rlocs, parents, children, sid, hostnames)
 <div class="mdl-card mdl-cell mdl-cell--12-col mdl-shadow--4dp">
   <div class="mdl-card__title">
     <h4 class="mdl-card__title-text">Parents: $oname ($otype)</h4>
@@ -45,6 +45,7 @@ $def with (oid, oname, otype, olocs, locs, rlocs, parents, children, sid)
       <thead>
         <tr>
           <th class="mdl-data-table__cell--non-numeric">Sensor</th>
+          <th class="mdl-data-table__cell--non-numeric">Hostname</th>
           <th class="mdl-data-table__cell--non-numeric">Last Seen</th>
         </tr>
       </thead>
@@ -52,6 +53,7 @@ $def with (oid, oname, otype, olocs, locs, rlocs, parents, children, sid)
         $for lsid, lastseen in olocs:
           <tr>
             <td class="click-to-copy mdl-data-table__cell--non-numeric">$lsid</td>
+            <td class="click-to-copy mdl-data-table__cell--non-numeric">$hostnames.get( lsid, '-' )</td>
             <td class="click-to-copy mdl-data-table__cell--non-numeric">$msTsToTime( lastseen )</td>
           </tr>
       </tbody>
