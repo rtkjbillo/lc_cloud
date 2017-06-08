@@ -300,8 +300,12 @@ class HostObjects( object ):
             oid = [ oid ]
         def thisGen():
             for ids in chunks( self._ids, self._queryChunks ):
+                tmpIds = Set()
                 for row in self._db.execute( 'SELECT id FROM obj_org WHERE id IN %s AND oid IN %s', ( ids, oid ) ):
-                    yield row[ 0 ]
+                    if row[ 0 ] not in tmpIds:
+                        tmpIds.add( row[ 0 ] )
+                        yield row[ 0 ]
+
 
         return type(self)( thisGen() )
 
