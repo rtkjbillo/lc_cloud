@@ -47,3 +47,6 @@
 .table-scrollable table {
     width: 100%;
 }
+.canvasjs-chart-credit {
+   display: none;
+}

@@ -157,6 +157,7 @@ render = _renderWrapper( web.template.render( 'templates',
                                                           'json' : json,
                                                           'sorted' : sorted,
                                                           'md' : doMarkdown,
+                                                          'hash' : lambda x: hashlib.sha256(x).hexdigest(),
                                                           'type' : type } ) )
 renderAlone = web.template.render( 'templates', globals = { 'session' : session, 
                                                             'str' : str, 
@@ -167,6 +168,7 @@ renderAlone = web.template.render( 'templates', globals = { 'session' : session,
                                                             'InvestigationConclusion' : InvestigationConclusion,
                                                             'sorted' : sorted,
                                                             'md' : doMarkdown,
+                                                            'hash' : lambda x: hashlib.sha256(x).hexdigest(),
                                                             'type' : type } )
 eventRender = web.template.render( 'templates/custom_events', globals = { 'json' : json,
                                                                           'msTsToTime' : msTsToTime,
@@ -178,6 +180,7 @@ eventRender = web.template.render( 'templates/custom_events', globals = { 'json'
                                                                           'EventInterpreter' : EventInterpreter,
                                                                           'sorted' : sorted,
                                                                           'md' : doMarkdown,
+                                                                          'hash' : lambda x: hashlib.sha256(x).hexdigest(),
                                                                           'type' : type } )
 
 BEACH_CONFIG_FILE = os.path.join( ROOT_DIRECTORY, 'beach.conf' )
@@ -517,8 +520,8 @@ class Dashboard ( AuthenticatedPage ):
                     sensor[ 'realtime' ] = True if str( AgentId( sensor[ 'aid' ] ).sensor_id ) in allLiveDir else False
                     mergedSensors[ sid ] = sensor
                 if oid not in session.orgs:
-                    cards.append( card_sensor_stats( str( oid ), sensors ) )
-            cards.insert( 0, card_sensor_stats( 'Total', mergedSensors ) )
+                    cards.append( card_sensor_stats( str( oid ), sensors, str( oid ) ) )
+            cards.insert( 0, card_sensor_stats( 'Total', mergedSensors, 'total' ) )
             del( mergedSensors )
         welcomeMessage = ''
         info = deployment.request( 'get_global_config' )
@@ -527,7 +530,7 @@ class Dashboard ( AuthenticatedPage ):
         for oid, sensors in orgSensors.iteritems():
             for sid, sensor in sensors.iteritems():
                 sensor[ 'realtime' ] = True if str( AgentId( sensor[ 'aid' ] ).sensor_id ) in allLiveDir else False
-            cards.insert( 1, card_sensor_stats( orgNames[ str( oid ) ], sensors ) )
+            cards.insert( 1, card_sensor_stats( orgNames[ str( oid ) ], sensors, str( oid ) ) )
         return render.dashboard( cards, welcomeMessage )
 
 class Profile ( AuthenticatedPage ):
@@ -1552,8 +1555,8 @@ class FindHost ( AuthenticatedPage ):
 #==============================================================================
 #   CARDS
 #==============================================================================
-def card_sensor_stats( name, sensors ):
-    return renderAlone.card_sensor_stats( sensors, name )
+def card_sensor_stats( name, sensors, oid ):
+    return renderAlone.card_sensor_stats( sensors, name, oid )
 
 def card_org_membership( name, oid ):
     members = []
