@@ -1,0 +1,19 @@
+$def with ()
+$var title = 'Bulk Search'
+<div class="mdl-card mdl-cell mdl-cell--8-col mdl-shadow--4dp std_height">
+  <div class="mdl-card__title">
+    <h2 class="mdl-card__title-text">Bulk Search</h2>
+  </div>
+  <div class="mdl-card__supporting-text">
+    <form method="POST" id="form_bulk" action="/objsearch">
+      Enter all indicators you're looking for, one per line.
+      <br/><br/>
+      <textarea class="mdl-textfield__input" type="text" id="obj" name="obj" rows="10"></textarea>
+    </form>
+  </div>
+  <div class="mdl-card__actions mdl-card--border">
+    <center>
+      <button class="mdl-button mdl-button--colored mdl-js-button mdl-js-ripple-effect mdl-button--raised" type="submit" form="form_bulk" name="action" value="search">Search</button>
+    </center>
+  </div>
+</div>

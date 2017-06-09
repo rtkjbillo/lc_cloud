@@ -81,6 +81,7 @@ urls = (
     '/sensor_bandwidth', 'SensorBandwidth',
     '/sensor_ip_use', 'SensorIpUse',
     '/find_host', 'FindHost',
+    '/bulk_search', 'BulkSearch',
 )
 
 ADMIN_OID = None
@@ -1051,22 +1052,35 @@ class Search ( AuthenticatedPage ):
 
 class ObjSearch ( AuthenticatedPage ):
     def doGET( self ):
+        return self.doSearch()
+
+    def doPOST( self ):
+        return self.doSearch()
+
+    def doSearch( self ):
         params = web.input( obj = None )
 
         if params.obj is None:
             return renderAlone.error( 'need to supply an obj' )
 
         cards = []
-        info = model.request( 'get_obj_list', { 'name' : params.obj, 'orgs' : session.orgs } )
-        if info.isSuccess and 0 != len( info.data[ 'objects' ] ):
-            for oid, oname, otype in info.data[ 'objects' ]:
-                cards.append( card_objsummary( oid, oname, otype ) )
-        elif not info.isSuccess:
-            session.notice = 'Error searching for object: %s' % str( info )
-        else:
-            session.notice = 'No objects found of that name.'
+        objNames = map( lambda x: x.strip(), params.obj.split( '\n' ) )
+        for objName in objNames:
+            info = model.request( 'get_obj_list', { 'name' : objName, 'orgs' : session.orgs } )
+            if info.isSuccess and 0 != len( info.data[ 'objects' ] ):
+                for oid, oname, otype in info.data[ 'objects' ]:
+                    cards.append( card_objsummary( oid, oname, otype ) )
+            elif 1 == len( objNames ):
+                if not info.isSuccess:
+                    session.notice = 'Error searching for object: %s' % str( info )
+                else:
+                    session.notice = 'No objects found of that name.'
 
         return render.objsearch( cards )
+
+class BulkSearch ( AuthenticatedPage ):
+    def doGET( self ):
+        return render.bulk_search()
 
 class ObjView ( AuthenticatedPage ):
     def doGET( self ):
