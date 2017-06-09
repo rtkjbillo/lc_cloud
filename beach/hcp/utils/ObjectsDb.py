@@ -311,8 +311,8 @@ class HostObjects( object ):
 
     def events( self, oid = None, after = None, before = None ):
         if oid is None:
-            for row in self._db.execute( 'SELECT sid, eid FROM obj_org WHERE id IN %s', ( self._ids, ) ):
-                yield ( row[ 0 ], row[ 1 ] )
+            for row in self._db.execute( 'SELECT ts, sid, eid FROM obj_org WHERE id IN %s', ( self._ids, ) ):
+                yield ( row[ 0 ], row[ 1 ], row[ 2 ] )
         else:
             if type( oid ) not in ( list, tuple, Set ):
                 oid = [ oid ]
@@ -325,8 +325,8 @@ class HostObjects( object ):
                 if before is not None:
                     timeFilt += ' AND ts <= %s'
                     params.append( int( before ) * 1000 )
-                for row in self._db.execute( 'SELECT sid, eid FROM obj_org WHERE id IN %s AND oid IN %s' + timeFilt, params ):
-                    yield ( row[ 0 ], row[ 1 ] )
+                for row in self._db.execute( 'SELECT ts, sid, eid FROM obj_org WHERE id IN %s AND oid IN %s' + timeFilt, params ):
+                    yield ( row[ 0 ], row[ 1 ], row[ 2 ] )
 
     def info( self ):
         for ids in chunks( self._ids, self._queryChunks ):

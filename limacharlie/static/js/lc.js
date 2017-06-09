@@ -157,59 +157,61 @@ function update_status(isLive){
 }
 
 $(function() {
-	$(".click-to-copy")
-		.click( function(){ 
-			copyToClipboard( $(this) );
-			$(this).css('cursor', 'pointer')
-				   .addClass( 'mdl-badge mdl-badge--overlap' )
-				   .attr( 'data-badge', 'copied' );
-			var that = this;
-			setTimeout( function(){ $(that).removeClass( 'mdl-badge mdl-badge--overlap' ).removeAttr( 'data-badge' ); }, 5000 ); 
-		} );
-
-	$(".online_status").each( function() {
-		var sid = $(this).attr('sid');
-		var rate = Number($(this).attr('rate'));
-		if( isNaN( rate ) )
-		{
-			rate = 5;
-		}
-		do_refresh_online(this, sid, rate);
-	});
-
-	$(".last_sensor_ip").each( function() {
-		var sid = $(this).attr('sid');
-		var rate = Number($(this).attr('rate'));
-		if( isNaN( rate ) )
-		{
-			rate = 30;
-		}
-		do_refresh_ip(this, sid, rate);
-	});
-
-	$(".last_sensor_events").each( function() {
-		var sid = $(this).attr('sid');
-		var rate = Number($(this).attr('rate'));
-		if( isNaN( rate ) )
-		{
-			rate = 10;
-		}
-		do_refresh_lastevents(this, sid, rate);
-	});
-
-	$(".last_sensor_changes").each( function() {
-		var sid = $(this).attr('sid');
-		var rate = Number($(this).attr('rate'));
-		if( isNaN( rate ) )
-		{
-			rate = 30;
-		}
-		do_refresh_lastchanges(this, sid, rate);
-	});
-
-
+	lc_init_handlers();
 	display_ct();
 });
+
+function lc_init_handlers() {
+    $(".click-to-copy")
+        .click( function(){ 
+            copyToClipboard( $(this) );
+            $(this).css('cursor', 'pointer')
+                   .addClass( 'mdl-badge mdl-badge--overlap' )
+                   .attr( 'data-badge', 'copied' );
+            var that = this;
+            setTimeout( function(){ $(that).removeClass( 'mdl-badge mdl-badge--overlap' ).removeAttr( 'data-badge' ); }, 5000 ); 
+        } );
+
+    $(".online_status").each( function() {
+        var sid = $(this).attr('sid');
+        var rate = Number($(this).attr('rate'));
+        if( isNaN( rate ) )
+        {
+            rate = 5;
+        }
+        do_refresh_online(this, sid, rate);
+    });
+
+    $(".last_sensor_ip").each( function() {
+        var sid = $(this).attr('sid');
+        var rate = Number($(this).attr('rate'));
+        if( isNaN( rate ) )
+        {
+            rate = 30;
+        }
+        do_refresh_ip(this, sid, rate);
+    });
+
+    $(".last_sensor_events").each( function() {
+        var sid = $(this).attr('sid');
+        var rate = Number($(this).attr('rate'));
+        if( isNaN( rate ) )
+        {
+            rate = 10;
+        }
+        do_refresh_lastevents(this, sid, rate);
+    });
+
+    $(".last_sensor_changes").each( function() {
+        var sid = $(this).attr('sid');
+        var rate = Number($(this).attr('rate'));
+        if( isNaN( rate ) )
+        {
+            rate = 30;
+        }
+        do_refresh_lastchanges(this, sid, rate);
+    });
+}
 
 function msTsToTime( ts ) {
     var t = new Date( ts );

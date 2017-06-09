@@ -82,6 +82,7 @@ urls = (
     '/sensor_ip_use', 'SensorIpUse',
     '/find_host', 'FindHost',
     '/bulk_search', 'BulkSearch',
+    '/obj_instance', 'ObjInstance',
 )
 
 ADMIN_OID = None
@@ -1575,6 +1576,25 @@ class FindHost ( AuthenticatedPage ):
         params = web.input()
 
         return render.find_host()
+
+class ObjInstance ( AuthenticatedPage ):
+    def doGET( self ):
+        params = web.input( oid = None )
+
+        if params.oid is None:
+            return renderAlone.error( 'need to supply an oid' )
+
+        instances = model.request( 'get_obj_instances', { 'oid' : params.oid, 'orgs' : session.orgs } )
+
+        if instances.isSuccess and 0 != len( instances.data ) and 0 != len( instances.data[ 'instances' ] ):
+            hostnames = getHostnames( [ x[ 1 ] for x in instances.data[ 'instances' ] ] )
+            return render.obj_instance( instances.data[ 'instances' ], hostnames )
+        elif not instances.isSuccess:
+            session.notice = 'Error fetching instances: %s' % str( instances )
+        else:
+            session.notice = 'No instances found.'
+        
+        redirectTo( '' )
 
 #==============================================================================
 #   CARDS

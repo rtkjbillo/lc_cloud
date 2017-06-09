@@ -59,6 +59,7 @@ class ModelView( Actor ):
         self.handle( 'get_installer', self.get_installer )
         self.handle( 'get_sensor_bandwidth', self.get_sensor_bandwidth )
         self.handle( 'get_ip_usage', self.get_ip_usage )
+        self.handle( 'get_obj_instances', self.get_obj_instances )
 
     def deinit( self ):
         Host.closeDatabase()
@@ -441,3 +442,10 @@ class ModelView( Actor ):
         usage = Host.getHostsUsingIp( ip, after = after, before = before, inOrgs = oid )
 
         return ( True, { 'usage' : usage } )
+
+    def get_obj_instances( self, msg ):
+        orgs = self.asUuidList( msg.data[ 'orgs' ] )
+
+        instances = [ x for x in HostObjects( msg.data[ 'oid' ] ).events( oid = orgs ) ]
+
+        return ( True, { 'instances' : instances } )
