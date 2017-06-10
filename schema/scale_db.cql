@@ -81,15 +81,9 @@ CREATE INDEX ON org_membership ( uid );
 CREATE TABLE sensor_tags(
   sid uuid,
   tag varchar,
-  uid uuid,
+  frm varchar,
   added timestamp,
   PRIMARY KEY( sid, tag )
-) WITH compaction = { 'class' : 'SizeTieredCompactionStrategy' } AND gc_grace_seconds = 86400;
-
-CREATE TABLE tags(
-  tag varchar,
-  sid uuid,
-  PRIMARY KEY( tag, sid )
 ) WITH compaction = { 'class' : 'SizeTieredCompactionStrategy' } AND gc_grace_seconds = 86400;
 
 CREATE TABLE sensor_hostnames(

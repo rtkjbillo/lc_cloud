@@ -631,6 +631,14 @@ class Host( object ):
             values.append( ( self._db.timeToMsTs( row[ 0 ] ), row[ 1 ] ) )
         return values
 
+    def getTags( self ):
+        tags = {}
+        for row in self._db.execute( 'SELECT sid, tag, frm, added FROM sensor_tags WHERE sid = %s', ( self.sid, ) ):
+            tags[ row[ 1 ] ] = ( row[ 0 ], row[ 1 ], row[ 2 ], row[ 3 ] )
+        return tags
+
+    def setTag( self, tag, by = '', ttl = ( 60 * 60 * 24 * 365 ) ):
+        self._db.execute( 'INSERT INTO sensor_tags ( sid, tag, frm, added ) VALUES ( %s, %s, %s, dateOf(now()) ) USING TTL %s', ( self.sid, str( tag ).lower(), by, ttl ) )
 
 class FluxEvent( object ):
     @classmethod
