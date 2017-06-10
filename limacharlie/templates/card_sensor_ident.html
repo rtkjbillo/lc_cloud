@@ -7,8 +7,8 @@ $def with ( aid, hostname, orgName )
     <table class="mdl-data-table mdl-js-data-table mdl-shadow--2dp" style="width: 100%;">
       <tbody>
         <tr>
-          <td class="mdl-data-table__cell--non-numeric click-to-copy"><b>Org Id</b></td>
-          <td class=" click-to-copy">$aid.org_id ($orgName)</td>
+          <td class="mdl-data-table__cell--non-numeric click-to-copy"><b>Org</b></td>
+          <td class=" click-to-copy">$orgName</td>
         </tr>
         <tr>
           <td class="mdl-data-table__cell--non-numeric click-to-copy"><b>Installer Id</b></td>
@@ -23,7 +23,7 @@ $def with ( aid, hostname, orgName )
           <td class=" click-to-copy">$hostname</td>
         </tr>
         <tr>
-          <td class="mdl-data-table__cell--non-numeric click-to-copy"><b>Platform/Architecture</b></td>
+          <td class="mdl-data-table__cell--non-numeric click-to-copy"><b>Plat./Arch.</b></td>
           <td class=" click-to-copy">$("%s %s" % ( aid.platformString(), aid.architectureString() ) )</td>
         </tr>
         <tr>

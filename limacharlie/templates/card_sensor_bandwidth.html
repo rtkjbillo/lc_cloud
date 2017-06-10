@@ -37,7 +37,7 @@ $def with ( aid, hostname )
     if( 0 != dataPoints.length )
     {
         chart_data_bandwidth[ 0 ] = { legendText: "$aid.sensor_id",
-                                      type: 'line',
+                                      type: 'area',
                                       showInLegend: true,
                                       xValueType: "dateTime",
                                       dataPoints: dataPoints };
