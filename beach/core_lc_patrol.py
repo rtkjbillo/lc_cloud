@@ -543,7 +543,7 @@ Patrol( 'AnalyticsModeling',
         actorKwArgs = {
             'resources' : { 'identmanager' : 'c2/identmanager' },
             'parameters' : { 'db' : SCALE_DB,
-                             'rate_limit_per_sec' : 1000,
+                             'rate_limit_per_sec' : 5000,
                              'max_concurrent' : 5,
                              'block_on_queue_size' : 200000,
                              'retention_raw_events' : ( 60 * 60 * 24 * 14 ),

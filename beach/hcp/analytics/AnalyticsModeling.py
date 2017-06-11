@@ -110,6 +110,7 @@ class AnalyticsModeling( Actor ):
         self.delay( self.statFrameSeconds, self.reportStats )
 
     def reportCongestion( self ):
+        now = time.time()
         ePerSec = float( self.nWrites ) / ( now - self.lastReport ) 
         wPerSec = float( self.db.qCounter ) / ( now - self.lastReport )
         if ePerSec > wPerSec + 10:
