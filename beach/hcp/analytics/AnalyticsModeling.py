@@ -87,7 +87,14 @@ class AnalyticsModeling( Actor ):
         self.nWrites = 0
         self.lastReport = time.time()
         self.handle( 'analyze', self.analyze )
-        self.delay( 600, self.reportStats )
+        self.statFrameSeconds = 600
+        self.delay( self.statFrameSeconds, self.reportStats )
+
+        self.nCongestedFrames = 0
+        self.nFreeFrames = 0
+        self.congestionFrameSeconds = 10
+        self.nFrameChange = 3
+        self.delay( self.congestionFrameSeconds, self.reportCongestion )
 
     def deinit( self ):
         self.db.stop()
@@ -100,7 +107,26 @@ class AnalyticsModeling( Actor ):
         self.nWrites = 0
         self.db.qCounter = 0
         self.lastReport = now
-        self.delay( 600, self.reportStats )
+        self.delay( self.statFrameSeconds, self.reportStats )
+
+    def reportCongestion( self ):
+        ePerSec = float( self.nWrites ) / ( now - self.lastReport ) 
+        wPerSec = float( self.db.qCounter ) / ( now - self.lastReport )
+        if ePerSec > wPerSec + 10:
+            self.nCongestedFrames += 1
+            self.nFreeFrames = 0
+        else:
+            self.nCongestedFrames = 0
+            self.nFreeFrames += 1
+        
+        if not self.isCongested() and self.nFrameChange <= self.nCongestedFrames:
+            self.setCongested( isCongested = True )
+            self.log( "Entering congested state." )
+        elif self.isCongested() and self.nFrameChange <= self.nFreeFrames:
+            self.setCongested( isCongested = False )
+            self.log( "Leaving congested state." )
+
+        self.delay( self.congestionFrameSeconds, self.reportCongestion )
 
     def ingestStatement( self, statement ):
         stmt = self.db.prepare( statement )
