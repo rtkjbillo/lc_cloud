@@ -24,9 +24,9 @@ class AnalyticsIntake( Actor ):
         self.handle( 'analyze', self.analyze )
         self.analytics_stateless = self.getActorHandle( resources[ 'stateless' ], timeout = 30, nRetries = 3 )
         self.analytics_stateful = self.getActorHandle( resources[ 'stateful' ], timeout = 30, nRetries = 3 )
-        self.analytics_modeling = self.getActorHandle( resources[ 'modeling' ], timeout = 120, nRetries = 3 )
-        self.async_builder = self.getActorHandle( resources[ 'relation_builder' ], timeout = 120, nRetries = 3 )
-        self.analytics_investigation = self.getActorHandle( resources[ 'investigation' ], timeout = 120, nRetries = 3 )
+        self.analytics_modeling = self.getActorHandle( resources[ 'modeling' ], timeout = 1200, nRetries = 3 )
+        self.async_builder = self.getActorHandle( resources[ 'relation_builder' ], timeout = 1200, nRetries = 3 )
+        self.analytics_investigation = self.getActorHandle( resources[ 'investigation' ], timeout = 1200, nRetries = 3 )
 
         self.processedCounter = 0
 
