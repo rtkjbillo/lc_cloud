@@ -160,7 +160,8 @@ render = _renderWrapper( web.template.render( 'templates',
                                                           'sorted' : sorted,
                                                           'md' : doMarkdown,
                                                           'hash' : lambda x: hashlib.sha256(x).hexdigest(),
-                                                          'type' : type } ) )
+                                                          'type' : type },
+                                              cache = False ) )
 renderAlone = web.template.render( 'templates', globals = { 'session' : session, 
                                                             'str' : str, 
                                                             'msTsToTime' : msTsToTime,
@@ -213,7 +214,8 @@ def pollBackendAvailability( isOneOff = True ):
     aid = AgentId( '0.0.0.0.0' )
     aid.org_id = ADMIN_OID
     res = model.request( 'list_sensors', { 'aid' : aid }, timeout = 2 )
-    if res.isSuccess:
+    res2 = identmanager.request( 'get_org_info', { 'include_all' : True } )
+    if res.isSuccess and res2.isSuccess:
         IS_BACKEND_AVAILABLE = True
         print( 'Backend available' )
         if not isOneOff:
@@ -222,7 +224,7 @@ def pollBackendAvailability( isOneOff = True ):
         IS_BACKEND_AVAILABLE = False
         print( 'Backend unavailable' )
         if not isOneOff:
-            gevent.spawn_later( 5, pollBackendAvailability, isOneOff = False )
+            gevent.spawn_later( 2, pollBackendAvailability, isOneOff = False )
 
 gevent.spawn( pollBackendAvailability, isOneOff = False )
 
@@ -600,7 +602,7 @@ class Profile ( AuthenticatedPage ):
         if 'admin_join' == params.action:
             for oid in params.orgs:
                 res = identmanager.request( 'add_user_to_org', { 'email' : session.email, 'oid' : oid, 'by' : session.email } )
-                if not res.isSuccess: 
+                if not res.isSuccess or not res.data.get( 'is_added', False ): 
                     session.notice = 'Error adding user %s to %s by %s (%s).' % ( session.email, oid, session.email, str( res ) )
                     redirectTo( 'profile' )
                 audit.shoot( 'record', { 'oid' : ADMIN_OID, 'etype' : 'admin_join_org', 'msg' : 'Admin %s admin-joined oid %s.' % ( session.email, oid ) } )
@@ -611,7 +613,7 @@ class Profile ( AuthenticatedPage ):
                 redirectTo( 'profile' )
             for oid in params.orgs:
                 res = identmanager.request( 'add_user_to_org', { 'email' : params.email, 'oid' : oid, 'by' : session.email } )
-                if not res.isSuccess: 
+                if not res.isSuccess or not res.data.get( 'is_added', False ):
                     session.notice = 'Error adding user %s to %s by %s (%s).' % ( params.email, oid, session.email, str( res ) )
                     redirectTo( 'profile' )
             session.notice = 'Success adding %s to orgs' % params.email
@@ -628,7 +630,7 @@ class Profile ( AuthenticatedPage ):
                 redirectTo( 'profile' )
             for oid in params.orgs:
                 res = identmanager.request( 'remove_user_from_org', { 'email' : params.email, 'oid' : oid, 'by' : session.email } )
-                if not res.isSuccess: 
+                if not res.isSuccess or not res.data.get( 'is_removed', False ): 
                     session.notice = 'Error removing user %s from %s by %s (%s).' % ( params.email, oid, session.email, str( res ) )
                     redirectTo( 'profile' )
             session.notice = 'Success removing %s from orgs' % params.email
@@ -663,7 +665,7 @@ class Profile ( AuthenticatedPage ):
                 redirectTo( 'profile' )
         elif 'account_delete' == params.action and session.is_admin:
             res = identmanager.request( 'delete_user', { 'email' : params.email, 'by' : session.email } )
-            if not res.isSuccess:
+            if not res.isSuccess or not res.data.get( 'is_deleted', False ):
                 session.notice = 'Error deleting user: %s' % res
                 redirectTo( 'profile' )
             session.notice = 'Success deleting account %s' % params.email
