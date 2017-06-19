@@ -36,6 +36,7 @@ AgentId = Actor.importLib( 'utils/hcp_helpers', 'AgentId' )
 HcpModuleId = Actor.importLib( 'utils/hcp_helpers', 'HcpModuleId' )
 Symbols = Actor.importLib( 'Symbols', 'Symbols' )()
 HcpOperations = Actor.importLib( 'utils/hcp_helpers', 'HcpOperations' )
+LimitedQPSBuffer = Actor.importLib( 'utils/hcp_helpers', 'LimitedQPSBuffer' )
 
 class DisconnectException( Exception ):
     pass
@@ -240,6 +241,7 @@ class EndpointProcessor( Actor ):
     def handleNewClient( self, socket, address ):
         aid = None
         tmpBytesReceived = 0
+        bufferedOutput = None
 
         self.log( 'New connection from %s:%s' % address )
 
@@ -312,6 +314,7 @@ class EndpointProcessor( Actor ):
             self.log( 'Client %s registered, beginning to receive data' % aid.asString() )
             lastTransferReport = time.time()
             frameIndex = 0
+            bufferedOutput = LimitedQPSBuffer( 30, cbLog = lambda x: self.log( "%s %s" % ( aid.asString(), x ) ) )
             while True:
                 moduleId, messages, nRawBytes = c.recvFrame( timeout = 60 * 60 )
                 tmpBytesReceived += nRawBytes
@@ -332,7 +335,7 @@ class EndpointProcessor( Actor ):
                 if handler is None:
                     self.log( 'Received data for unknown module' )
                 else:
-                    handler( c, messages )
+                    bufferedOutput.add( handler, c, messages )
 
         except Exception as e:
             if type( e ) is not DisconnectException:
@@ -358,6 +361,14 @@ class EndpointProcessor( Actor ):
                 self.log( 'Connection terminated: %s' % aid.asString() )
             else:
                 self.log( 'Connection terminated: %s:%s' % address )
+
+            if bufferedOutput is not None:
+                qSize = bufferedOutput.size()
+                if 0 != qSize:
+                    self.log( 'Waiting for queue of size %s to flush for %s' % ( qSize, aid.asString() ) )
+                bufferedOutput.close()
+                if 0 != qSize:
+                    self.log( 'Queue for %s finished flushing' % aid.asString() )
 
     def handlerHcp( self, c, messages ):
         for message in messages:

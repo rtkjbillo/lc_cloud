@@ -22,6 +22,9 @@ import functools
 from functools import wraps
 import inspect
 from contextlib import contextmanager
+import gevent.queue
+import gevent.pool
+import gevent
 
 try:
     from beach.actor import Actor
@@ -821,3 +824,43 @@ def normalAtom( atom ):
         except:
             atom = str( uuid.UUID( bytes = base64.b64decode( atom.replace( ' ', '+' ) ) ) )
     return atom
+
+class LimitedQPSBuffer( object ):
+    def __init__( self, maxQps, cbLog = None ):
+        self._maxQps = maxQps
+        self._q = gevent.queue.Queue()
+        self._log = cbLog
+        self._transmitted = 0
+        self._lastWait = time.time()
+        self._isRunning = True
+        self._threads = gevent.pool.Group()
+        self._threads.add( gevent.spawn_later( 0, self._sendLoop ) )
+        self._threads.add( gevent.spawn_later( 1, self._resetStats ) )
+
+    def _resetStats( self ):
+        if self._isRunning:
+            self._transmitted = 0
+            self._threads.add( gevent.spawn_later( 1, self._resetStats ) )
+
+    def _sendLoop( self ):
+        while self._isRunning:
+            if self._transmitted >= self._maxQps:
+                self._log( "slowing down (%s in queue)" % ( self._q.qsize(), ) )
+                gevent.sleep( 1 )
+            try:
+                cb, items = self._q.get_nowait()
+            except:
+                gevent.sleep( 1 )
+            else:
+                self._transmitted += 1
+                cb( *items )
+
+    def add( self, cb, *items ):
+        self._q.put_nowait( ( cb, items ) )
+
+    def size( self ):
+        return self._q.qsize()
+
+    def close( self ):
+        self._isRunning = False
+        self._threads.join()
