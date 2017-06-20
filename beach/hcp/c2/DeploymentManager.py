@@ -94,6 +94,7 @@ class DeploymentManager( Actor ):
         self.handle( 'update_profile', self.update_profile )
         self.handle( 'get_profiles', self.get_profiles )
         self.handle( 'get_supported_events', self.get_supported_events )
+        self.handle( 'get_capabilities', self.get_capabilities )
         
     def deinit( self ):
         pass
@@ -702,3 +703,13 @@ We believe this sharing policy strikes a good balance between privacy and inform
             if attrName == 'lookups': continue
             allEvents[ attrName ] = int( attrVal )
         return ( True, allEvents )
+
+    def get_capabilities( self, msg ):
+        req = msg.data
+
+        info = self.db.getOne( 'SELECT conf, value FROM configs WHERE conf = %s', ( 'global/capabilities', ) )
+
+        if info is not None:
+            return ( True, { 'capabilities' : info[ 1 ] } )
+
+        return ( False, 'not found' )

@@ -130,6 +130,7 @@ class EndpointProcessor( Actor ):
         self.handlerPortEnd = parameters.get( 'handler_port_end', 20000 )
         self.bindAddress = parameters.get( 'handler_address', '0.0.0.0' )
         self.bindInterface = parameters.get( 'handler_interface', None )
+        self.sensorMaxQps = parameters.get( 'sensor_max_qps', 30 )
         
         if self.bindInterface is not None:
             ip4 = self.getIpv4ForIface( self.bindInterface )
@@ -141,13 +142,13 @@ class EndpointProcessor( Actor ):
         self.r = rpcm( isHumanReadable = True )
         self.r.loadSymbols( Symbols.lookups )
 
-        self.analyticsIntake = self.getActorHandle( resources[ 'analytics' ] )
-        self.enrollmentManager = self.getActorHandle( resources[ 'enrollments' ] )
-        self.stateChanges = self.getActorHandleGroup( resources[ 'states' ] )
-        self.sensorDir = self.getActorHandle( resources[ 'sensordir' ] )
-        self.moduleManager = self.getActorHandle( resources[ 'module_tasking' ] )
-        self.hbsProfileManager = self.getActorHandle( resources[ 'hbs_profiles' ] )
-        self.deploymentManager = self.getActorHandle( resources[ 'deployment' ] )
+        self.analyticsIntake = self.getActorHandle( resources[ 'analytics' ], nRetries = 3 )
+        self.enrollmentManager = self.getActorHandle( resources[ 'enrollments' ], nRetries = 3 )
+        self.stateChanges = self.getActorHandleGroup( resources[ 'states' ], nRetries = 3 )
+        self.sensorDir = self.getActorHandle( resources[ 'sensordir' ], nRetries = 3 )
+        self.moduleManager = self.getActorHandle( resources[ 'module_tasking' ], nRetries = 3 )
+        self.hbsProfileManager = self.getActorHandle( resources[ 'hbs_profiles' ], nRetries = 3 )
+        self.deploymentManager = self.getActorHandle( resources[ 'deployment' ], nRetries = 3 )
 
         self.privateKey = parameters.get( '_priv_key', None )
         self.privateCert = parameters.get( '_priv_cert', None )
@@ -314,7 +315,7 @@ class EndpointProcessor( Actor ):
             self.log( 'Client %s registered, beginning to receive data' % aid.asString() )
             lastTransferReport = time.time()
             frameIndex = 0
-            bufferedOutput = LimitedQPSBuffer( 30, cbLog = lambda x: self.log( "%s %s" % ( aid.asString(), x ) ) )
+            bufferedOutput = LimitedQPSBuffer( self.sensorMaxQps, cbLog = lambda x: self.log( "%s %s" % ( aid.asString(), x ) ) )
             while True:
                 moduleId, messages, nRawBytes = c.recvFrame( timeout = 60 * 60 )
                 tmpBytesReceived += nRawBytes
