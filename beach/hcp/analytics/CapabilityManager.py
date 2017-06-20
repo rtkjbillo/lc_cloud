@@ -70,7 +70,7 @@ class CapabilityManager( Actor ):
                 else:
                     self.log( "Error loading capability %s from config store: %s." % ( data[ 'name' ], txt ) )
         else:
-            self.log( "Error fetching existing capabilities: %s" % resp )
+            self.log( "No capabilities found." )
 
     def massageUrl( self, url ):
         if url.startswith( 'https://github.com/' ):
