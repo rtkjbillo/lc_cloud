@@ -315,7 +315,7 @@ class Hunter ( Actor ):
 
     def getObjectInfo( self, objName, objType ):
         resp = self.Models.request( 'get_obj_view', { 'obj_name' : objName, 'obj_type' : objType } )
-        if resp.isSuccess:
+        if resp.isSuccess and 0 != len( resp.data ):
             return resp.data
         else:
             return None
