@@ -335,6 +335,16 @@ def isOrgAllowed( oid ):
         return True
     return False
 
+def isSensorAllowed( aid ):
+    aid = AgentId( aid )
+    if aid.org_id is not None:
+        return isOrgAllowed( aid.org_id )
+    else:
+        info = model.request( 'get_sensor_info', { 'id_or_host' : str( aid ) } )
+        if info.isSuccess:
+            return isOrgAllowed( AgentId( info.data[ 'id' ] ).org_id )
+    return False
+
 def getOrgName( oid ):
     orgs = identmanager.request( 'get_org_info', { 'oid' : oid } )
     res = {}
@@ -1066,20 +1076,28 @@ class ObjSearch ( AuthenticatedPage ):
         if params.obj is None:
             return renderAlone.error( 'need to supply an obj' )
 
-        cards = []
         objNames = map( lambda x: x.strip(), params.obj.split( '\n' ) )
+        results = {}
         for objName in objNames:
             info = model.request( 'get_obj_list', { 'name' : objName, 'orgs' : session.orgs } )
             if info.isSuccess and 0 != len( info.data[ 'objects' ] ):
                 for oid, oname, otype in info.data[ 'objects' ]:
-                    cards.append( card_objsummary( oid, oname, otype ) )
+                    results[ oid ] = { 'name' : oname, 'type' : otype, 'locs' : 0, 'glocs' : 0 }
             elif 1 == len( objNames ):
                 if not info.isSuccess:
                     session.notice = 'Error searching for object: %s' % str( info )
                 else:
                     session.notice = 'No objects found of that name.'
 
-        return render.objsearch( cards )
+        if 0 != len( results ):
+            info = model.request( 'get_obj_loc', { 'objects' : [ ( x[ 1 ][ 'name' ], x[ 1 ][ 'type' ] ) for x in results.iteritems() ] } )
+            if info.isSuccess:
+                for oid, sid, ts in info.data:
+                    results[ oid ][ 'glocs' ] += 1
+                    if isSensorAllowed( sid ):
+                        results[ oid ][ 'locs' ] += 1
+
+        return render.objsearch( results )
 
 class BulkSearch ( AuthenticatedPage ):
     def doGET( self ):

@@ -1,4 +1,34 @@
-$def with (cards)
+$def with (objects)
 $var title = 'Object Search'
-$for card in cards:
-  $:card
+<div class="mdl-card mdl-cell mdl-cell--12-col mdl-shadow--4dp">
+  <div class="mdl-card__title">
+    <h4 class="mdl-card__title-text">Search Results</h4>
+  </div>
+  <div class="mdl-card__supporting-text">
+	<table class="mdl-data-table mdl-js-data-table mdl-shadow--2dp" style="width: 100%;">
+		<thead>
+		  <tr>
+		    <th class="mdl-data-table__cell--non-numeric">Object Type</th>
+		    <th class="mdl-data-table__cell--non-numeric">Object Name</th>
+		    <th># Location</th>
+		    <th># Global Location</th>
+		    <th class="mdl-data-table__cell--non-numeric">Goto</th>
+		  </tr>
+		</thead>
+		<tbody>
+		  $for oid, info in objects.iteritems():
+		    <tr>
+		      <td class="mdl-data-table__cell--non-numeric click-to-copy">$info[ 'type' ]</td>
+		      <td class="mdl-data-table__cell--non-numeric click-to-copy">$info[ 'name' ]</td>
+		      <td class="click-to-copy">$info[ 'locs' ]</td>
+		      <td class="click-to-copy">$info[ 'glocs' ]</td>
+		      <td class="mdl-data-table__cell--non-numeric">
+		      	<a href="/obj?oid=$oid" target="_blank">View</a>
+		      </td>
+		    </tr>
+		</tbody>
+	</table>
+  </div>
+  <div class="mdl-card__actions mdl-card--border">
+  </div>
+</div>
