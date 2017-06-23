@@ -63,6 +63,9 @@ class _ClientContext( object ):
         self.r = rpcm( isHumanReadable = True, isDebug = self.parent.log )
         self.r.loadSymbols( Symbols.lookups )
         self.connId = uuid.uuid4()
+        self.hostName = None
+        self.int_ip = None
+        self.ext_ip = None
 
     def setAid( self, aid ):
         self.aid = aid
@@ -262,6 +265,9 @@ class EndpointProcessor( Actor ):
             # Use the address in the client context since it was received from the
             # proxy headers and therefore is the correct original source.
             externalIp = c.address[ 0 ]
+            c.hostName = hostName
+            c.int_ip = internalIp
+            c.ext_ip = externalIp
             aid = AgentId( headers[ 'base.HCP_IDENT' ] )
             if aid.org_id is None or aid.ins_id is None or aid.platform is None or aid.architecture is None:
                 aidInfo = str( aid )
@@ -436,6 +442,9 @@ class EndpointProcessor( Actor ):
                             
             # Transmit the message to the analytics cloud.
             routing = { 'aid' : c.getAid(),
+                        'hostname' : c.hostName,
+                        'int_ip' : c.int_ip,
+                        'ext_ip' : c.ext_ip,
                         'moduleid' : HcpModuleId.HBS,
                         'event_type' : message.keys()[ 0 ],
                         'event_id' : uuid.uuid4() }
