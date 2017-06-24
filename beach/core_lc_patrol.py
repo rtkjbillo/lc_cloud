@@ -683,6 +683,30 @@ Patrol( 'VirusTotalActor',
                                 'hunter/8e0f55c0-6593-4747-9d02-a4937fa79517' ] } )
 
 #######################################
+# GeoLocationActor
+# This actor IP address geolocation.
+# Parameters:
+#
+#######################################
+Patrol( 'GeoLocationActor',
+        initialInstances = 1,
+        maxInstances = None,
+        relaunchOnFailure = True,
+        onFailureCall = None,
+        scalingFactor = 10000,
+        actorArgs = ( 'analytics/GeoLocationActor',
+                      'analytics/geolocation/1.0' ),
+        actorKwArgs = {
+            'resources' : {},
+            'parameters' : {},
+            'secretIdent' : 'geolocation/649a9dd2-bfba-46d1-8247-bbd1096703ca',
+            'trustedIdents' : [ 'analysis/01e9a19d-78e1-4c37-9a6e-37cb592e3897',
+                                'hunter/8e0f55c0-6593-4747-9d02-a4937fa79517',
+                                'blink/6babf560-88db-403d-a5f6-3689397e0104',
+                                'lc/0bf01f7e-62bd-4cc4-9fec-4c52e82eb903' ],
+            'isIsolated' : False } )
+
+#######################################
 # AlexaDNS
 # This actor retrieves the list of Alexa
 # top domains to be queried against as
