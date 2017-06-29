@@ -93,7 +93,7 @@ class BEAdmin( object ):
     def hcp_delInstaller( self, oid, iid, hash ):
         return self._query( 'hcp.remove_installer', { 'oid' : oid, 'iid' : iid, 'hash' : hash } )
     
-    def hbs_getProfiles( self, oid = None ):
+    def hbs_getProfiles( self, oid = [] ):
         return self._query( 'hbs.get_profiles', { 'oid' : oid } )
     
     def hbs_addProfile( self, mask, config ):
