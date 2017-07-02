@@ -130,8 +130,11 @@ class CassDb( object ):
     def shutdown( self ):
         if not self.isShutdown:
             self.isShutdown = True
-            self.cur.shutdown()
-            self.cluster.shutdown()
+            try:
+                self.cur.shutdown()
+                self.cluster.shutdown()
+            except:
+                pass
             time.sleep( 0.5 )
 
     def timeToMsTs( self, t ):
