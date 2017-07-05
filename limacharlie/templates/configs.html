@@ -247,6 +247,42 @@ $var title = 'Configurations'
   </div>
 </div>
 
+<div class="mdl-card mdl-cell mdl-cell--4-col mdl-shadow--4dp">
+  <div class="mdl-card__title">
+    <h4 class="mdl-card__title-text">Send Usage Metrics</h4>
+  </div>
+  <div class="mdl-card__supporting-text"">
+    <form method="POST" id="form_metrics">
+      If enabled, the cloud will send anonymous usage metrics to the maintainers. These metrics are:
+      <br/>
+      <ul>
+        <li>
+          Global number of sensors enrolled
+        </li>
+        <li>
+          Global number of sensors online
+        </li>
+        <li>
+          Number of nodes in the Beach cluster
+        </li>
+        <li>
+          Memory and CPU usage of nodes in the Beach cluster
+        </li>
+      </ul>
+      <br/><br/>
+      <label class="mdl-switch mdl-js-switch mdl-js-ripple-effect" for="sendmetrics">
+        <input type="checkbox" value="4" name="sendmetrics" id="sendmetrics" class="mdl-switch__input" $('' if configs['global/send_metrics'] == '0' else 'checked')>
+        <span class="mdl-switch__label">Send usage metrics</span>
+      </label>
+    </form>
+  </div>
+  <div class="mdl-card__actions mdl-card--border">
+    <center>
+      <button class="mdl-button mdl-button--colored mdl-js-button mdl-js-ripple-effect mdl-button--raised" type="submit" form="form_metrics" name="action" onclick="return confirm('Are you sure you want to update the metrics upload?');">Update</button>
+    </center>
+  </div>
+</div>
+
 
 <script type="text/javascript">
   jQuery(document).ready(function () {

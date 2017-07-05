@@ -1487,6 +1487,13 @@ class Configs ( AuthenticatedAdminPage ):
                 session.notice = 'Success setting policy.'
             else:
                 session.notice = 'Error setting policy.'
+        elif params.sendmetrics is not None:
+            sendmetrics = '1' if params.sendmetrics is not None else '0'
+            if deployment.request( 'set_config', 
+                                   { 'conf' : 'global/send_metrics', 'value' : sendmetrics, 'by' : session.email } ).isSuccess:
+                session.notice = 'Success setting metrics upload.'
+            else:
+                session.notice = 'Error setting metrics upload.'
 
         redirectTo( 'configs' )
 

@@ -13,6 +13,7 @@
 # limitations under the License.
 
 from beach.actor import Actor
+from beach.beach_api import Beach
 import traceback
 import M2Crypto
 import tempfile
@@ -66,6 +67,7 @@ class Signing( object ):
 
 class DeploymentManager( Actor ):
     def init( self, parameters, resources ):
+        self.beach_api = Beach( self._beach_config_path, realm = 'hcp' )
         self._db = CassDb( parameters[ 'db' ], 'hcp_analytics', consistencyOne = True )
         self.db = CassPool( self._db,
                             rate_limit_per_sec = parameters[ 'rate_limit_per_sec' ],
@@ -77,6 +79,7 @@ class DeploymentManager( Actor ):
         self.audit = self.getActorHandle( resources[ 'auditing' ] )
         self.page = self.getActorHandle( resources[ 'paging' ] )
         self.admin = self.getActorHandle( resources[ 'admin' ] )
+        self.sensorDir = self.getActorHandle( resources[ 'sensordir' ] )
 
         self.genDefaultsIfNotPresent()
 
@@ -95,9 +98,45 @@ class DeploymentManager( Actor ):
         self.handle( 'get_profiles', self.get_profiles )
         self.handle( 'get_supported_events', self.get_supported_events )
         self.handle( 'get_capabilities', self.get_capabilities )
+
+        self.metricsUrl = resources.get( 'metrics_url', 'https://limacharlie.io/metrics/opensource' )
+        self.schedule( ( 60 * 60 ) + random.randint( 0, 60 * 60 ) , self.sendMetricsIfEnabled )
         
     def deinit( self ):
         pass
+
+    def sendMetricsIfEnabled( self ):
+        status, conf = self.get_global_config( None )
+        if status is True and '0' != conf.get( 'global/send_metrics', '0' ):
+            # Metrics upload is enabled.
+            self.log( 'Reporting metrics to %s' % self.metricsUrl )
+            metrics = {}
+            sensorReq = self.admin.request( 'hcp.get_agent_states', {} )
+            if sensorReq.isSuccess:
+                sensors = sensorReq.data.get( 'agents', {} )
+                metrics[ 'n_sensors' ] = len( sensors )
+            del( sensorReq )
+            dirReq = self.sensorDir.request( 'get_dir', {} )
+            if dirReq.isSuccess:
+                metrics[ 'n_online_sensors' ] = len( dirReq.data.get( 'dir', {} ) )
+            del( dirReq )
+            metrics[ 'n_nodes' ] = self.beach_api.getNodeCount()
+            # Get node health and anonymize the node IPs
+            tmpHealth = self.beach_api.getClusterHealth()
+            metrics[ 'nodes_health' ] = {}
+            nodeCount = 0
+            for nodeIp, health in tmpHealth.iteritems():
+                nodeCount += 1
+                metrics[ 'nodes_health' ][ str( nodeCount ) ] = health
+
+            # All metrics gathered, send them.
+            try:
+                req = urllib2.Request( self.metricsUrl )
+                req.add_header( 'Content-Type', 'application/json' )
+                req.add_header( 'User-Agent', 'lc_cloud' )
+                response = urllib2.urlopen( req, json.dumps( metrics ) )
+            except:
+                self.log( 'failed to send metrics: %s' % traceback.format_exc() )
 
     def generateKey( self ):
         key = {
@@ -360,6 +399,10 @@ We believe this sharing policy strikes a good balance between privacy and inform
             self.db.execute( 'INSERT INTO configs ( conf, value ) VALUES ( %s, %s )', ( 'global/secondary_port', secondaryPort ) )
             self.audit.shoot( 'record', { 'oid' : self.admin_oid, 'etype' : 'conf_change', 'msg' : 'Setting secondary port: %s.' % secondaryPort } )
 
+            self.log( 'loading metrics upload' )
+            self.db.execute( 'INSERT INTO configs ( conf, value ) VALUES ( %s, %s )', ( 'global/send_metrics', '0' ) )
+            self.audit.shoot( 'record', { 'oid' : self.admin_oid, 'etype' : 'conf_change', 'msg' : 'Setting metrics upload.' } )
+
     def setSensorConfig( self, sensor, config ):
         # This is the key also defined in the sensor as _HCP_DEFAULT_STATIC_STORE_KEY
         # and used with the same algorithm as obfuscationLib
@@ -557,7 +600,8 @@ We believe this sharing policy strikes a good balance between privacy and inform
             'global/whatsnew' : '',
             'global/outagetext' : '',
             'global/outagestate' : '1',
-            'global/policy' : ''
+            'global/policy' : '',
+            'global/send_metrics' : '0'
         }
 
         info = self.db.execute( 'SELECT conf, value FROM configs WHERE conf IN %s', ( globalConf.keys(), ) )
