@@ -36,13 +36,6 @@ Return Values: %s
         print( 'Stopping execution since this step failed.' )
         sys.exit(-1)
 
-printStep( 'Upgrade max number of file descriptors.',
-           os.system( 'echo "* - nofile 1024000" >> /etc/security/limits.conf' ),
-           os.system( 'echo "root - nofile 1024000" >> /etc/security/limits.conf' ),
-           os.system( 'echo "session required pam_limits.so" >> /etc/pam.d/common-session' ),
-           os.system( 'echo "fs.file-max = 1024000" >> /etc/sysctl.conf'),
-           os.system( 'sysctl -p' ) )
-
 printStep( 'Turn off systemd broadcast.',
            os.system( 'echo "ForwardToWall=no" >> /etc/systemd/journald.conf' ),
            os.system( 'systemctl restart systemd-journald' ) )
