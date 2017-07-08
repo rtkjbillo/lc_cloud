@@ -111,6 +111,7 @@ class DeploymentManager( Actor ):
             # Metrics upload is enabled.
             self.log( 'Reporting metrics to %s' % self.metricsUrl )
             metrics = {}
+            metrics[ 'deployment_id' ] = conf.get( 'global/deployment_id', '' )
             sensorReq = self.admin.request( 'hcp.get_agent_states', {} )
             if sensorReq.isSuccess:
                 sensors = sensorReq.data.get( 'agents', {} )
@@ -403,6 +404,10 @@ We believe this sharing policy strikes a good balance between privacy and inform
             self.db.execute( 'INSERT INTO configs ( conf, value ) VALUES ( %s, %s )', ( 'global/send_metrics', '0' ) )
             self.audit.shoot( 'record', { 'oid' : self.admin_oid, 'etype' : 'conf_change', 'msg' : 'Setting metrics upload.' } )
 
+            self.log( 'loading deployment id' )
+            self.db.execute( 'INSERT INTO configs ( conf, value ) VALUES ( %s, %s )', ( 'global/deployment_id', str(uuid.uuid4()) ) )
+            self.audit.shoot( 'record', { 'oid' : self.admin_oid, 'etype' : 'conf_change', 'msg' : 'Setting metrics upload.' } )
+
     def setSensorConfig( self, sensor, config ):
         # This is the key also defined in the sensor as _HCP_DEFAULT_STATIC_STORE_KEY
         # and used with the same algorithm as obfuscationLib
@@ -601,7 +606,8 @@ We believe this sharing policy strikes a good balance between privacy and inform
             'global/outagetext' : '',
             'global/outagestate' : '1',
             'global/policy' : '',
-            'global/send_metrics' : '0'
+            'global/send_metrics' : '0',
+            'global/deployment_id' : '',
         }
 
         info = self.db.execute( 'SELECT conf, value FROM configs WHERE conf IN %s', ( globalConf.keys(), ) )
