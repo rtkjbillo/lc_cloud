@@ -22,9 +22,6 @@ import functools
 from functools import wraps
 import inspect
 from contextlib import contextmanager
-import gevent.queue
-import gevent.pool
-import gevent
 
 try:
     from beach.actor import Actor
@@ -35,6 +32,9 @@ except:
 try:
     import gevent.lock
     import gevent.event
+    import gevent.queue
+    import gevent.pool
+    import gevent
 except:
     print( "gevent not installed, some functionality won't work" )
 
