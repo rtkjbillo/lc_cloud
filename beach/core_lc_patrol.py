@@ -201,7 +201,8 @@ Patrol( 'EnrollmentManager',
                              'enrollment_token' : '595f06f1-49cf-48fe-8410-8706dc469116' },
             'secretIdent' : 'enrollment/a3bebbb0-00e2-4345-990b-4c36a40b475e',
             'trustedIdents' : [ 'beacon/09ba97ab-5557-4030-9db0-1dbe7f2b9cfd',
-                                'admin/dde768a4-8f27-4839-9e26-354066c8540e' ],
+                                'admin/dde768a4-8f27-4839-9e26-354066c8540e',
+                                'identmanager/f5c3a323-50e5-412a-b711-0e30d8284aa1' ],
             'isIsolated' : True,
             'strategy' : 'repulsion' } )
 
@@ -368,6 +369,7 @@ Patrol( 'IdentManager',
         actorKwArgs = {
             'resources' : { 'auditing' : 'c2/audit',
                             'paging' : 'paging',
+                            'enrollments' : 'c2/enrollments',
                             'deployment' : 'c2/deploymentmanager' },
             'parameters' : { 'db' : SCALE_DB,
                              'rate_limit_per_sec' : 200,

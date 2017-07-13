@@ -262,6 +262,7 @@ class EndpointProcessor( Actor ):
 
             hostName = headers.get( 'base.HOST_NAME', None )
             internalIp = headers.get( 'base.IP_ADDRESS', None )
+            hcpHash = headers.get( 'base.HASH', None )
             # Use the address in the client context since it was received from the
             # proxy headers and therefore is the correct original source.
             externalIp = c.address[ 0 ]
@@ -297,7 +298,8 @@ class EndpointProcessor( Actor ):
             else:
                 enrollmentToken = headers.get( 'hcp.ENROLLMENT_TOKEN', None )
                 resp = self.enrollmentManager.request( 'authorize', { 'aid' : aid.asString(), 
-                                                                      'token' : enrollmentToken }, timeout = 10 )
+                                                                      'token' : enrollmentToken,
+                                                                      'hash' : hcpHash }, timeout = 10 )
                 if not resp.isSuccess or not resp.data.get( 'is_authorized', False ):
                     raise DisconnectException( 'Could not authorize %s' % aid )
 

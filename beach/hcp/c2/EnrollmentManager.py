@@ -53,7 +53,6 @@ class EnrollmentManager( Actor ):
         newRules = []
         for row in self.db.execute( 'SELECT oid, iid FROM hcp_installers' ):
             self.installers.add( ( row[ 0 ], row[ 1 ] ) )
-        self.rules = newRules
 
     def getTokenFor( self, aid ):
         h = hmac.new( self.enrollmentKey, aid.asString(), hashlib.sha256 )
