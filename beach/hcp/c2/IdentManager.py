@@ -92,6 +92,9 @@ class IdentManager( Actor ):
         password = req[ 'password' ]
         totp = req[ 'totp' ]
 
+        if 0 == len( email ) or 0 == len( password ):
+            return ( True, { 'is_authenticated' : False } )
+
         isAuthenticated = False
         info = self.db.getOne( 'SELECT uid, email, salt, salted_password, is_deleted, must_change_password, confirmation_token, totp_secret FROM user_info WHERE email = %s', 
                                ( email, ) )
