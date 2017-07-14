@@ -323,10 +323,9 @@ class EndpointProcessor( Actor ):
             self.sensorDir.broadcast( 'live', newStateMsg )
             del( newStateMsg )
 
-            resp = self.tagging.request( 'get_tags', { 'sid' : aid.sensor_id } )
+            resp = self.tagging.request( 'get_tags', { 'sid' : aid.sensor_id }, timeout = 2 )
             if resp.isSuccess:
-                for tag in resp.data.get( 'tags', {} ).values()[ 0 ].iterkeys():
-                    c.tags.append( tag )
+                c.tags = resp.data.get( 'tags', {} ).values()[ 0 ].keys()
                 self.log( 'Retrieved tags %s for %s' % ( c.tags, aid.asString() ) )
 
             self.log( 'Client %s registered, beginning to receive data' % aid.asString() )

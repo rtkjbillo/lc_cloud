@@ -199,6 +199,7 @@ page = beach.getActorHandle( 'paging', nRetries = 3, timeout = 30, ident = IDENT
 audit = beach.getActorHandle( 'c2/audit', nRetries = 3, timeout = 10, ident = IDENT )
 reporting = beach.getActorHandle( 'analytics/reporting/', nRetries = 3, timeout = 30, ident = IDENT )
 blink = beach.getActorHandle( 'analytics/blinkmodel/', nRetries = 3, timeout = 60, ident = IDENT )
+tagging = beach.getActorHandle( 'c2/taggingmanager', nRetries = 3, timeout = 5, ident = IDENT )
 
 print( "Fetching deployment global configurations..." )
 _ = deployment.request( 'get_global_config', {} )
@@ -887,7 +888,11 @@ class Sensor ( AuthenticatedPage ):
 
         cards = []
         orgNames = getOrgNames()
-        cards.append( card_sensor_ident( aid, hostname, orgNames[ str( aid.org_id ) ] ) )
+        tags = []
+        resp = tagging.request( 'get_tags', { 'sid' : aid.sensor_id } )
+        if resp.isSuccess:
+            tags = resp.data.get( 'tags', {} ).values()[ 0 ].keys()
+        cards.append( card_sensor_ident( aid, hostname, orgNames[ str( aid.org_id ) ], tags ) )
         cards.append( card_sensor_last( aid, hostname ) )
         cards.append( card_sensor_changes( aid, hostname ) )
         cards.append( card_sensor_bandwidth( aid, hostname ) )
@@ -1643,8 +1648,8 @@ def card_org_retention( name, oid, ttls ):
 def card_sensors( name, sensors ):
     return renderAlone.card_sensors( sensors, name )
 
-def card_sensor_ident( aid, hostname, orgName ):
-    return renderAlone.card_sensor_ident( aid, hostname, orgName )
+def card_sensor_ident( aid, hostname, orgName, tags ):
+    return renderAlone.card_sensor_ident( aid, hostname, orgName, tags )
 
 def card_sensor_traffic( aid, hostname, after, before ):
     return renderAlone.card_sensor_traffic( aid, hostname, after, before )

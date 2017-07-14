@@ -1,4 +1,4 @@
-$def with ( aid, hostname, orgName )
+$def with ( aid, hostname, orgName, tags )
 <div class="mdl-card mdl-cell mdl-cell--4-col mdl-shadow--4dp std_height">
   <div class="mdl-card__title">
     <h4 class="mdl-card__title-text">Sensors Ident: $hostname</h4><div class="mdl-layout-spacer"></div><i class="material-icons online_status" sid="$aid.sensor_id" rate="30">lightbulb_outline</i>
@@ -19,16 +19,20 @@ $def with ( aid, hostname, orgName )
           <td class=" click-to-copy">$aid.sensor_id</td>
         </tr>
         <tr>
-          <td class="mdl-data-table__cell--non-numeric click-to-copy"><b>Hostname</b></td>
-          <td class=" click-to-copy">$hostname</td>
-        </tr>
-        <tr>
-          <td class="mdl-data-table__cell--non-numeric click-to-copy"><b>Plat./Arch.</b></td>
-          <td class=" click-to-copy">$("%s %s" % ( aid.platformString(), aid.architectureString() ) )</td>
+          <td class="mdl-data-table__cell--non-numeric click-to-copy"><b>Hostname (Plat./Arch.)</b></td>
+          <td class=" click-to-copy">$hostname $("%s %s" % ( aid.platformString(), aid.architectureString() ) )</td>
         </tr>
         <tr>
           <td class="mdl-data-table__cell--non-numeric click-to-copy"><b>Last IP (ext/int)</b></td>
           <td class=" click-to-copy last_sensor_ip" sid="$aid.sensor_id"></td>
+        </tr>
+        <tr>
+          <td class="mdl-data-table__cell--non-numeric" style="width: 100%;" colspan="2">
+            $for tag in tags:
+              <span class="mdl-chip" style="background-color: rgba(255, 0, 0, 0.52);">
+                <span class="mdl-chip__text">$tag</span>
+              </span>
+          </td>
         </tr>
       </tbody>
     </table>
