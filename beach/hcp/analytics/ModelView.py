@@ -60,8 +60,6 @@ class ModelView( Actor ):
         self.handle( 'get_sensor_bandwidth', self.get_sensor_bandwidth )
         self.handle( 'get_ip_usage', self.get_ip_usage )
         self.handle( 'get_obj_instances', self.get_obj_instances )
-        self.handle( 'get_sensor_tags', self.get_sensor_tags )
-        self.handle( 'set_sensor_tag', self.set_sensor_tag )
 
     def deinit( self ):
         Host.closeDatabase()
@@ -451,16 +449,3 @@ class ModelView( Actor ):
         instances = [ x for x in HostObjects( msg.data[ 'oid' ] ).events( oid = orgs ) ]
 
         return ( True, { 'instances' : instances } )
-
-    def get_sensor_tags( self, msg ):
-        return ( True, { 'tags' : Host( msg.data[ 'sid' ] ).getTags() } )
-
-    def set_sensor_tag( self, msg ):
-        sid = msg.data[ 'sid' ]
-        by = msg.data.get( 'by', '' )
-        ttl = msg.data.get( 'ttl', 60 * 60 * 24 * 365 )
-        tag = msg.data[ 'tag' ]
-
-        Host( sid ).setTag( tag, by = by, ttl = ttl )
-
-        return ( True, )

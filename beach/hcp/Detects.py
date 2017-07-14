@@ -60,6 +60,7 @@ class StatelessActor ( Actor ):
                                         resources.get( 'detects', 'analytics/detects/%s' ) % self._cat,
                                         timeout = 30 )
         self._models = CreateOnAccess( self.getActorHandle, 'models', timeout = 30 )
+        self._tagging = CreateOnAccess( self.getActorHandle, 'c2/taggingmanager', timeout = 30 )
         self.handle( 'process', self._process )
 
     def task( self, dest, cmdsAndArgs, expiry = None, inv_id = None ):
@@ -84,7 +85,7 @@ class StatelessActor ( Actor ):
         self.log( "sent for tasking: %s" % ( str(cmdsAndArgs), ) )
 
     def tag( self, aid, tag, ttl = ( 60 * 60 * 24 * 365 ) ):
-        self._models.shoot( 'set_sensor_tag', { 'tag' : tag, 'ttl' : ttl, 'sid' : AgentId( aid ).sensor_id, 'by' : self._cat } )
+        self._tagging.shoot( 'set_tag', { 'tag' : tag, 'ttl' : ttl, 'sid' : AgentId( aid ).sensor_id, 'by' : self._cat } )
 
     def _process( self, msg ):
         newDetects = Detects()

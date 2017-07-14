@@ -89,8 +89,47 @@ Patrol( 'SensorDirectory',
                                 'taskingproxy/794729aa-1ef5-4930-b377-48dda7b759a5',
                                 'slackrep/20546efe-0f84-46f2-b9ca-f17bf5997075',
                                 'lc/0bf01f7e-62bd-4cc4-9fec-4c52e82eb903',
-                                'deploymentmanagager/afd2a4e5-3319-4c1c-bef7-dc4456d7a235' ],
+                                'deploymentmanagager/afd2a4e5-3319-4c1c-bef7-dc4456d7a235',
+                                'taggingmanagager/693bfd35-80ca-42e1-b0c6-44ef5b27fb59' ],
             'isIsolated' : False,
+            'strategy' : 'repulsion' } )
+
+
+#######################################
+# TaggingManager
+# This actor is responsible for 
+# managing tagging of sensors.
+# Parameters:
+# db: the Cassandra seed nodes to
+#    connect to for storage.
+# rate_limit_per_sec: number of db ops
+#    per second, limiting to avoid
+#    db overload since C* is bad at that.
+# max_concurrent: number of concurrent
+#    db queries.
+# block_on_queue_size: stop queuing after
+#    n number of items awaiting ingestion.
+#######################################
+Patrol( 'TaggingManager',
+        initialInstances = 1,
+        maxInstances = None,
+        relaunchOnFailure = True,
+        onFailureCall = None,
+        scalingFactor = 5000,
+        actorArgs = ( 'c2/TaggingManager',
+                      [ 'c2/taggingmanager/1.0' ] ),
+        actorKwArgs = {
+            'resources' : { 'sensordir' : 'c2/sensordir/',
+                            'admin' : 'c2/admin' },
+            'parameters' : { 'db' : SCALE_DB,
+                             'rate_limit_per_sec' : 200,
+                             'max_concurrent' : 5,
+                             'block_on_queue_size' : 100 },
+            'secretIdent' : 'taggingmanagager/693bfd35-80ca-42e1-b0c6-44ef5b27fb59',
+            'trustedIdents' : [ 'lc/0bf01f7e-62bd-4cc4-9fec-4c52e82eb903',
+                                'beacon/09ba97ab-5557-4030-9db0-1dbe7f2b9cfd',
+                                'analysis/01e9a19d-78e1-4c37-9a6e-37cb592e3897' ],
+            'isIsolated' : True,
             'strategy' : 'repulsion' } )
 
 #######################################
@@ -931,7 +970,8 @@ Patrol( 'EndpointProcessor',
                             'sensordir' : 'c2/sensordir/',
                             'module_tasking' : 'c2/modulemanager',
                             'hbs_profiles' : 'c2/hbsprofilemanager',
-                            'deployment' : 'c2/deploymentmanager' },
+                            'deployment' : 'c2/deploymentmanager',
+                            'tagging' : 'c2/taggingmanager' },
             'parameters' : { 'handler_interface' : 'eth1',
                              'sensor_max_qps' : 30 },
             'secretIdent' : 'beacon/09ba97ab-5557-4030-9db0-1dbe7f2b9cfd',

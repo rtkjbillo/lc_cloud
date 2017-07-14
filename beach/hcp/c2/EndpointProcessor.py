@@ -66,6 +66,7 @@ class _ClientContext( object ):
         self.hostName = None
         self.int_ip = None
         self.ext_ip = None
+        self.tags = []
 
     def setAid( self, aid ):
         self.aid = aid
@@ -152,6 +153,7 @@ class EndpointProcessor( Actor ):
         self.moduleManager = self.getActorHandle( resources[ 'module_tasking' ], nRetries = 3 )
         self.hbsProfileManager = self.getActorHandle( resources[ 'hbs_profiles' ], nRetries = 3 )
         self.deploymentManager = self.getActorHandle( resources[ 'deployment' ], nRetries = 3 )
+        self.tagging = self.getActorHandle( resources[ 'tagging' ], nRetries = 3 )
 
         self.privateKey = parameters.get( '_priv_key', None )
         self.privateCert = parameters.get( '_priv_cert', None )
@@ -189,6 +191,7 @@ class EndpointProcessor( Actor ):
 
         self.handle( 'task', self.taskClient )
         self.handle( 'report', self.report )
+        self.handle( 'add_tag', self.addTag )
 
         self.server = None
         self.serverPort = random.randint( self.handlerPortStart, self.handlerPortEnd )
@@ -320,6 +323,12 @@ class EndpointProcessor( Actor ):
             self.sensorDir.broadcast( 'live', newStateMsg )
             del( newStateMsg )
 
+            resp = self.tagging.request( 'get_tags', { 'sid' : aid.sensor_id } )
+            if resp.isSuccess:
+                for tag in resp.data.get( 'tags', {} ).values()[ 0 ].iterkeys():
+                    c.tags.append( tag )
+                self.log( 'Retrieved tags %s for %s' % ( c.tags, aid.asString() ) )
+
             self.log( 'Client %s registered, beginning to receive data' % aid.asString() )
             lastTransferReport = time.time()
             frameIndex = 0
@@ -384,7 +393,8 @@ class EndpointProcessor( Actor ):
             if 'hcp.MODULES' in message:
                 moduleUpdateResp = self.moduleManager.request( 'sync', 
                                                                { 'mods' : message[ 'hcp.MODULES' ],
-                                                                 'aid' : c.getAid() },
+                                                                 'aid' : c.getAid(),
+                                                                 'tags' : c.tags },
                                                                timeout = 30 )
                 if moduleUpdateResp.isSuccess:
                     changes = moduleUpdateResp.data[ 'changes' ]
@@ -425,7 +435,8 @@ class EndpointProcessor( Actor ):
                 profileHash = message[ 'notification.SYNC' ].get( 'base.HASH', None )
                 profileUpdateResp = self.hbsProfileManager.request( 'sync', 
                                                                     { 'hprofile' : profileHash,
-                                                                      'aid' : c.getAid() },
+                                                                      'aid' : c.getAid(),
+                                                                      'tags' : c.tags },
                                                                     timeout = 30 )
                 if profileUpdateResp.isSuccess and 'changes' in profileUpdateResp.data:
                     profile = profileUpdateResp.data[ 'changes' ].get( 'profile', None )
@@ -449,7 +460,8 @@ class EndpointProcessor( Actor ):
                         'ext_ip' : c.ext_ip,
                         'moduleid' : HcpModuleId.HBS,
                         'event_type' : message.keys()[ 0 ],
-                        'event_id' : uuid.uuid4() }
+                        'event_id' : uuid.uuid4(),
+                        'tags' : c.tags }
             invId = message.values()[ 0 ].get( 'hbs.INVESTIGATION_ID', None )
             if invId is not None:
                 routing[ 'investigation_id' ] = invId
@@ -479,3 +491,13 @@ class EndpointProcessor( Actor ):
 
     def report( self, msg ):
         return ( True, { 'address' : self.bindAddress, 'port' : self.serverPort } )
+
+    def addTag( self, msg ):
+        sid = AgentId( msg.data[ 'sid' ] ).sensor_id
+        tag = msg.data[ 'tag' ]
+        c = self.currentClients.get( sid, None )
+        if c is not None:
+            if tag not in c.tags:
+                c.tags.append( tag )
+            return ( True, )
+        return ( False, 'sensor not online' )
