@@ -211,6 +211,30 @@ function lc_init_handlers() {
         }
         do_refresh_lastchanges(this, sid, rate);
     });
+
+    $(".mdl-chip--deletable .mdl-chip__action").each( function() {
+        $(this).click(function(){
+            var chip = $(this).parent();
+            $.post("/del_tag", { sid: chip.attr('sid'),
+                                 tag: chip.attr('tag') });
+            chip.remove();
+        });
+    });
+    $(".add_tag").each( function() {
+        $(this).keypress(function(e){
+            if( e.which == 13) {
+                $.post("/add_tag", { sid: $(this).attr('sid'),
+                                     tag: this.value });
+                $("#tags_" + $(this).attr('sid')).append(
+                    '<span class="mdl-chip mdl-chip--deletable" style="background-color: rgba(255, 0, 0, 0.52);" sid="' + $(this).attr('sid') + '" tag="' + this.value + '">'
+                       + '<span class="mdl-chip__text">' + this.value + '</span>'
+                       + '<button type="button" class="mdl-chip__action"><i class="material-icons">cancel</i></button>'
+                     + '</span>'
+                );
+                this.value = '';
+            }
+        });
+    });
 }
 
 function msTsToTime( ts ) {

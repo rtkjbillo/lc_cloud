@@ -83,6 +83,8 @@ urls = (
     '/find_host', 'FindHost',
     '/bulk_search', 'BulkSearch',
     '/obj_instance', 'ObjInstance',
+    '/add_tag', 'AddTag',
+    '/del_tag', 'DelTag',
 )
 
 ADMIN_OID = None
@@ -1627,6 +1629,51 @@ class ObjInstance ( AuthenticatedPage ):
             session.notice = 'No instances found.'
         
         redirectTo( '' )
+
+class AddTag ( AuthenticatedPage ):
+    @jsonApi
+    def doPOST( self ):
+        params = web.input( sid = None, tag = None )
+
+        if params.sid is None:
+            raise web.HTTPError( '400 Bad Request: sid required' )
+
+        if params.tag is None:
+            raise web.HTTPError( '400 Bad Request: tag required' )
+
+        if not isSensorAllowed( params.sid ):
+            raise web.HTTPError( '401 Unauthorized' )
+
+        resp = tagging.request( 'add_tags', { 'sid' : AgentId( params.sid ).sensor_id, 
+                                              'tag' : params.tag,
+                                              'by' : session.email,
+                                              'ttl' : ( 60 * 60 * 24 * 365 * 100 ) } )
+        if resp.isSuccess:
+            return { 'success' : True }
+        else:
+            raise web.HTTPError( '503 Service Unavailable: %s' % str( resp ) )
+
+class DelTag ( AuthenticatedPage ):
+    @jsonApi
+    def doPOST( self ):
+        params = web.input( sid = None, tag = None )
+
+        if params.sid is None:
+            raise web.HTTPError( '400 Bad Request: sid required' )
+
+        if params.tag is None:
+            raise web.HTTPError( '400 Bad Request: tag required' )
+
+        if not isSensorAllowed( params.sid ):
+            raise web.HTTPError( '401 Unauthorized' )
+
+        resp = tagging.request( 'del_tags', { 'sid' : AgentId( params.sid ).sensor_id, 
+                                              'tag' : params.tag,
+                                              'by' : session.email } )
+        if resp.isSuccess:
+            return { 'success' : True }
+        else:
+            raise web.HTTPError( '503 Service Unavailable: %s' % str( resp ) )
 
 #==============================================================================
 #   CARDS

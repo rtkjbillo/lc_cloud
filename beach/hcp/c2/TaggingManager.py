@@ -37,6 +37,7 @@ class TaggingManager( Actor ):
 
         self.handle( 'get_tags', self.getTags )
         self.handle( 'add_tags', self.addTags )
+        self.handle( 'del_tags', self.delTags )
 
     def deinit( self ):
         Host.closeDatabase()
@@ -78,7 +79,7 @@ class TaggingManager( Actor ):
                 endpointId = sidCache.get( host.sid, None )
 
                 if endpointId is None:
-                    resp = self.sensorDir.request( 'get_endpoint', { 'aid' : aid } )
+                    resp = self.sensorDir.request( 'get_endpoint', { 'aid' : host.sid } )
                     if resp.isSuccess:
                         endpointId = resp.data[ 'endpoint' ]
                     sidCache[ host.sid ] = endpointId
@@ -90,6 +91,41 @@ class TaggingManager( Actor ):
                         endpointCache[ endpointId ] = endpoint
                     if hEndpoint is not None:
                         hEndpoint.shoot( 'add_tag', { 'sid' : host.sid, 'tag' : tag } )
+
+        for h in endpointCache.itervalues():
+            h.close()
+
+        return ( True, )
+
+    def delTags( self, msg ):
+        req = msg.data
+
+        hosts = self.hostList( req[ 'sid' ] )
+        tags = self.tagList( req[ 'tag' ] )
+        by = req.get( 'by', '' )
+
+        endpointCache = {}
+        sidCache = {}
+
+        for host in hosts:
+            for tag in tags:
+                host.unsetTag( tag )
+
+                endpointId = sidCache.get( host.sid, None )
+
+                if endpointId is None:
+                    resp = self.sensorDir.request( 'get_endpoint', { 'aid' : host.sid } )
+                    if resp.isSuccess:
+                        endpointId = resp.data[ 'endpoint' ]
+                    sidCache[ host.sid ] = endpointId
+
+                if endpointId is not None:
+                    hEndpoint = endpointCache.get( endpointId, None )
+                    if hEndpoint is None:
+                        endpoint = self.getActorHandle( '_ACTORS/%s' % endpointId )
+                        endpointCache[ endpointId ] = endpoint
+                    if hEndpoint is not None:
+                        hEndpoint.shoot( 'del_tag', { 'sid' : host.sid, 'tag' : tag } )
 
         for h in endpointCache.itervalues():
             h.close()

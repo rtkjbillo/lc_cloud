@@ -640,6 +640,9 @@ class Host( object ):
     def setTag( self, tag, by = '', ttl = ( 60 * 60 * 24 * 365 ) ):
         self._db.execute( 'INSERT INTO sensor_tags ( sid, tag, frm, added ) VALUES ( %s, %s, %s, dateOf(now()) ) USING TTL %s', ( self.sid, str( tag ).lower(), by, ttl ) )
 
+    def unsetTag( self, tag ):
+        self._db.execute( 'DELETE FROM sensor_tags WHERE sid = %s AND tag = %s', ( self.sid, str( tag ).lower() ) )
+
 class FluxEvent( object ):
     @classmethod
     def decode( cls, data, withRouting = False, isFullDump = False ):

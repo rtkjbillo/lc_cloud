@@ -85,6 +85,7 @@ CREATE TABLE sensor_tags(
   added timestamp,
   PRIMARY KEY( sid, tag )
 ) WITH compaction = { 'class' : 'SizeTieredCompactionStrategy' } AND gc_grace_seconds = 86400;
+CREATE CUSTOM INDEX fn_tag_contains ON sensor_tags ( tag )USING 'org.apache.cassandra.index.sasi.SASIIndex' WITH OPTIONS = { 'mode': 'CONTAINS', 'case_sensitive': 'false' };
 
 CREATE TABLE sensor_hostnames(
   hostname varchar,

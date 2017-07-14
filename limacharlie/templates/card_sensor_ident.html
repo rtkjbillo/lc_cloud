@@ -27,11 +27,16 @@ $def with ( aid, hostname, orgName, tags )
           <td class=" click-to-copy last_sensor_ip" sid="$aid.sensor_id"></td>
         </tr>
         <tr>
-          <td class="mdl-data-table__cell--non-numeric" style="width: 100%;" colspan="2">
+          <td class="mdl-data-table__cell--non-numeric" style="width: 100%;" colspan="2" id="tags_$aid.sensor_id">
             $for tag in tags:
-              <span class="mdl-chip" style="background-color: rgba(255, 0, 0, 0.52);">
+              <span class="mdl-chip mdl-chip--deletable" style="background-color: rgba(255, 0, 0, 0.52);" sid="$aid.sensor_id" tag="$tag">
                 <span class="mdl-chip__text">$tag</span>
+                <button type="button" class="mdl-chip__action"><i class="material-icons">cancel</i></button>
               </span>
+            <span class="mdl-chip mdl-chip--contact" style="background-color: rgba(0, 255, 205, 0.52);" sid="$aid.sensor_id">
+              <span class="mdl-chip__contact mdl-color--teal mdl-color-text--white">+</span>
+              <span class="mdl-chip__text"><input class="mdl-textfield__input add_tag" sid="$aid.sensor_id" type="text" placeholder="new_tag_name"></span>
+            </span>
           </td>
         </tr>
       </tbody>

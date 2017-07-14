@@ -192,6 +192,7 @@ class EndpointProcessor( Actor ):
         self.handle( 'task', self.taskClient )
         self.handle( 'report', self.report )
         self.handle( 'add_tag', self.addTag )
+        self.handle( 'del_tag', self.delTag )
 
         self.server = None
         self.serverPort = random.randint( self.handlerPortStart, self.handlerPortEnd )
@@ -498,5 +499,18 @@ class EndpointProcessor( Actor ):
         if c is not None:
             if tag not in c.tags:
                 c.tags.append( tag )
+            return ( True, )
+        return ( False, 'sensor not online' )
+
+    def delTag( self, msg ):
+        sid = AgentId( msg.data[ 'sid' ] ).sensor_id
+        tag = msg.data[ 'tag' ]
+        c = self.currentClients.get( sid, None )
+        if c is not None:
+            if tag in c.tags:
+                try:
+                    c.tags.remove( tag )
+                except:
+                    pass
             return ( True, )
         return ( False, 'sensor not online' )
