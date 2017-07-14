@@ -232,6 +232,7 @@ function lc_init_handlers() {
                      + '</span>'
                 );
                 this.value = '';
+                lc_init_handlers();
             }
         });
     });
