@@ -38,6 +38,7 @@ class TaggingManager( Actor ):
         self.handle( 'get_tags', self.getTags )
         self.handle( 'add_tags', self.addTags )
         self.handle( 'del_tags', self.delTags )
+        self.handle( 'search_tags', self.searchTags )
 
     def deinit( self ):
         Host.closeDatabase()
@@ -131,3 +132,13 @@ class TaggingManager( Actor ):
             h.close()
 
         return ( True, )
+
+    def searchTags( self, msg ):
+        req = msg.data
+
+        tag = req[ 'tag' ]
+        orgs = req.get( 'oid', [] )
+
+        sids = Host.getHostsWithTag( tag, inOrgs = orgs )
+
+        return ( True, { 'hosts' : sids } )

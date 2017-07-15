@@ -1064,11 +1064,7 @@ class Search ( AuthenticatedPage ):
             redirectTo( 'sensor', sid = AgentId( info.data[ 'id' ] ).sensor_id )
 
         info = model.request( 'get_obj_list', { 'name' : params.term } )
-        if info.isSuccess and 0 != len( info.data[ 'objects' ] ):
-            redirectTo( 'objsearch', obj = params.term )
-
-        session.notice = 'Nothing found with this search term.'
-        redirectTo( '' )
+        redirectTo( 'objsearch', obj = params.term )
 
 class ObjSearch ( AuthenticatedPage ):
     def doGET( self ):
@@ -1090,11 +1086,6 @@ class ObjSearch ( AuthenticatedPage ):
             if info.isSuccess and 0 != len( info.data[ 'objects' ] ):
                 for oid, oname, otype in info.data[ 'objects' ]:
                     results[ oid ] = { 'name' : oname, 'type' : otype, 'locs' : 0, 'glocs' : 0 }
-            elif 1 == len( objNames ):
-                if not info.isSuccess:
-                    session.notice = 'Error searching for object: %s' % str( info )
-                else:
-                    session.notice = 'No objects found of that name.'
 
         if 0 != len( results ):
             info = model.request( 'get_obj_loc', { 'objects' : [ ( x[ 1 ][ 'name' ], x[ 1 ][ 'type' ] ) for x in results.iteritems() ] } )
@@ -1104,7 +1095,16 @@ class ObjSearch ( AuthenticatedPage ):
                     if isSensorAllowed( sid ):
                         results[ oid ][ 'locs' ] += 1
 
-        return render.objsearch( results )
+        tagInfo = {}
+        hostnames = {}
+        resp = tagging.request( 'search_tags', { 'tag' : params.obj, 'oid' : session.orgs } )
+        if resp.isSuccess:
+            resp = tagging.request( 'get_tags', { 'sid' : resp.data.get( 'hosts', [] ) } )
+            if resp.isSuccess:
+                tagInfo = resp.data.get( 'tags', {} )
+                hostnames = getHostnames( tagInfo.keys() )
+
+        return render.objsearch( results, tagInfo, hostnames )
 
 class BulkSearch ( AuthenticatedPage ):
     def doGET( self ):

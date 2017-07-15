@@ -486,6 +486,21 @@ class Host( object ):
 
         return records
 
+    @classmethod
+    def getHostsWithTag( self, tag, inOrgs = tuple() ):
+        if type( inOrgs ) not in ( list, tuple ):
+            inOrgs = ( inOrgs, )
+        inOrgs = map( _makeUuid, inOrgs )
+
+        rows = self._db.execute( 'SELECT sid FROM sensor_tags WHERE tag LIKE %s', ( tag, ) )
+
+        records = []
+        for row in rows:
+            if 0 == len( inOrgs ) or Host( row[ 0 ] ).getFullAid().org_id in inOrgs:
+                records.append( row[ 0 ] )
+
+        return records
+
     def __init__( self, agentid ):
         if type( agentid  ) is not AgentId:
             agentid = AgentId( agentid )

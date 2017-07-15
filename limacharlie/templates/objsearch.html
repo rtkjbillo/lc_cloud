@@ -1,8 +1,8 @@
-$def with (objects)
-$var title = 'Object Search'
+$def with (objects, tagInfo, hostnames)
+$var title = 'Search Results'
 <div class="mdl-card mdl-cell mdl-cell--12-col mdl-shadow--4dp">
   <div class="mdl-card__title">
-    <h4 class="mdl-card__title-text">Search Results</h4>
+    <h4 class="mdl-card__title-text">Object Results</h4>
   </div>
   <div class="mdl-card__supporting-text">
 	<table class="mdl-data-table mdl-js-data-table mdl-shadow--2dp" style="width: 100%;">
@@ -24,6 +24,44 @@ $var title = 'Object Search'
 		      <td class="click-to-copy">$info[ 'glocs' ]</td>
 		      <td class="mdl-data-table__cell--non-numeric">
 		      	<a href="/obj?oid=$oid" target="_blank">View</a>
+		      </td>
+		    </tr>
+		</tbody>
+	</table>
+  </div>
+  <div class="mdl-card__actions mdl-card--border">
+  </div>
+</div>
+
+<hr/>
+
+<div class="mdl-card mdl-cell mdl-cell--12-col mdl-shadow--4dp">
+  <div class="mdl-card__title">
+    <h4 class="mdl-card__title-text">Tag Results</h4>
+  </div>
+  <div class="mdl-card__supporting-text">
+	<table class="mdl-data-table mdl-js-data-table mdl-shadow--2dp" style="width: 100%;">
+		<thead>
+		  <tr>
+		    <th class="mdl-data-table__cell--non-numeric">SensorId</th>
+		    <th class="mdl-data-table__cell--non-numeric">Hostname</th>
+		    <th class="mdl-data-table__cell--non-numeric">Tags</th>
+		    <th class="mdl-data-table__cell--non-numeric">Goto</th>
+		  </tr>
+		</thead>
+		<tbody>
+		  $for sid, tags in tagInfo.iteritems():
+		    <tr>
+		      <td class="mdl-data-table__cell--non-numeric click-to-copy">$sid</td>
+		      <td class="mdl-data-table__cell--non-numeric click-to-copy">$hostnames.get( sid, '-' )</td>
+		      <td class="mdl-data-table__cell--non-numeric click-to-copy">
+			      $for tag in tags.keys():
+					<span class="mdl-chip" style="background-color: rgba(255, 0, 0, 0.52);">
+						<span class="mdl-chip__text">$tag</span>
+					</span>
+		      </td>
+		      <td class="mdl-data-table__cell--non-numeric">
+		      	<a href="/sensor?sid=$sid" target="_blank">View Sensor</a>
 		      </td>
 		    </tr>
 		</tbody>
