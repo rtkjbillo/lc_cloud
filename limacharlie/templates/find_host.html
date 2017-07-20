@@ -42,13 +42,7 @@ $var title = 'Find Host'
       var record = data[ i ];
       var ts = record[ 0 ];
       var sid = record[ 1 ];
-      if( !(sid in tmpCache) ) {
-      	tmpCache[sid] = 1;
-      	jQuery.getJSON( '/sensor_state', { sensor_id: sid })
-      	.done( function(data) {
-      		jQuery(".sid_" + sid).text(data['hostname']);
-      	});
-      }
+      tmpCache[sid] = "-";
       jQuery('#host_data').append(
         jQuery('<tr>').append(
           jQuery('<td>').text( ts ).addClass('mdl-data-table__cell--non-numeric').addClass('click-to-copy')
@@ -60,6 +54,13 @@ $var title = 'Find Host'
       );
     }
 
+    Object.keys(tmpCache).forEach(function(currentKey) {
+        jQuery.getJSON( '/sensor_state', { sensor_id: currentKey })
+            .done( function(data) {
+                jQuery(".sid_" + currentKey).text(data['hostname']);
+            });
+	});
+    
     jQuery('#host_loading').css('visibility', 'hidden');
     jQuery('#host_window').css('visibility', 'visible');
     lc_init_handlers();
