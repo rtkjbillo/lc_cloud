@@ -218,7 +218,7 @@ class DeploymentManager( Actor ):
             aid.platform = AgentId.PLATFORM_IOS
         elif 'android' in binName:
             aid.platform = AgentId.PLATFORM_ANDROID
-        elif 'ubuntu' in binName:
+        elif 'ubuntu' in binName or 'centos' in binName or 'linux' in binName:
             aid.platform = AgentId.PLATFORM_LINUX
 
         return aid
