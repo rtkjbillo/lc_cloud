@@ -1,3 +1,7 @@
+function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
 function copyToClipboard(element) {
     var $temp = $("<input>");
     $("body").append($temp);
@@ -180,6 +184,11 @@ function lc_init_handlers() {
             rate = 5;
         }
         do_refresh_online(this, sid, rate);
+        
+        // Some pages have a high number of status checks
+        // so we delay each one by a small value to indirectly
+        // limit the number of checks per second.
+        sleep( 1000 / 10 );
     });
 
     $(".last_sensor_ip").each( function() {
