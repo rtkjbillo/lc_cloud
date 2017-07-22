@@ -85,7 +85,7 @@ class StatelessActor ( Actor ):
         self.log( "sent for tasking: %s" % ( str(cmdsAndArgs), ) )
 
     def tag( self, aid, tag, ttl = ( 60 * 60 * 24 * 365 ) ):
-        self._tagging.shoot( 'set_tag', { 'tag' : tag, 'ttl' : ttl, 'sid' : AgentId( aid ).sensor_id, 'by' : self._cat } )
+        self._tagging.shoot( 'add_tags', { 'tag' : tag, 'ttl' : ttl, 'sid' : AgentId( aid ).sensor_id, 'by' : self._cat } )
 
     def _process( self, msg ):
         newDetects = Detects()

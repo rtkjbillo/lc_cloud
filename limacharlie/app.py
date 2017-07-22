@@ -1258,7 +1258,9 @@ class Capabilities ( AuthenticatedPage ):
         elif params.nameToRem is not None and params.nameToRem != '':
             resp = capabilities.request( 'unload', { 'user_defined_name' : params.nameToRem } )
 
-        if not resp.isSuccess:
+        if resp is None:
+            session.notice = 'Error: missing parameters'
+        elif not resp.isSuccess:
             session.notice = 'Error: %s' % resp
 
         redirectTo( 'capabilities' )
