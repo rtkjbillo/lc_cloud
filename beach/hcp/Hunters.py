@@ -346,7 +346,7 @@ class Hunter ( Actor ):
     def getVTReport( self, fileHash ):
         report = None
         mdReport = []
-        resp = self.VirusTotal.request( 'get_report', { 'hash' : fileHash, 'no_cache' : True } )
+        resp = self.VirusTotal.request( 'get_report', { 'hash' : fileHash, 'cache_only' : True } )
         if resp.isSuccess and resp.data[ 'report' ] is not None:
             report = resp.data[ 'report' ]
             for av, res in report.items():
