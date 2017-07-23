@@ -98,6 +98,7 @@ class DeploymentManager( Actor ):
         self.handle( 'get_profiles', self.get_profiles )
         self.handle( 'get_supported_events', self.get_supported_events )
         self.handle( 'get_capabilities', self.get_capabilities )
+        self.handle( 'del_sensor', self.del_sensor )
 
         self.metricsUrl = resources.get( 'metrics_url', 'https://limacharlie.io/metrics/opensource' )
         self.schedule( ( 60 * 60 ) + random.randint( 0, 60 * 60 ) , self.sendMetricsIfEnabled )
@@ -763,3 +764,12 @@ We believe this sharing policy strikes a good balance between privacy and inform
             return ( True, { 'capabilities' : info[ 1 ] } )
 
         return ( False, 'not found' )
+
+    def del_sensor( self, msg ):
+        req = msg.data
+
+        sid = AgentId( req[ 'sid' ] ).sensor_id
+
+        self.db.execute( 'DELETE FROM sensor_states WHERE sid = %s', ( sid, ) )
+
+        return ( True, )

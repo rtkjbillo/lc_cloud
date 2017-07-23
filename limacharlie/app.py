@@ -85,6 +85,7 @@ urls = (
     '/obj_instance', 'ObjInstance',
     '/add_tag', 'AddTag',
     '/del_tag', 'DelTag',
+    '/del_sensor', 'DelSensor',
 )
 
 ADMIN_OID = None
@@ -340,12 +341,9 @@ def isOrgAllowed( oid ):
 
 def isSensorAllowed( aid ):
     aid = AgentId( aid )
-    if aid.org_id is not None:
-        return isOrgAllowed( aid.org_id )
-    else:
-        info = model.request( 'get_sensor_info', { 'id_or_host' : str( aid ) } )
-        if info.isSuccess:
-            return isOrgAllowed( AgentId( info.data[ 'id' ] ).org_id )
+    info = model.request( 'get_sensor_info', { 'id_or_host' : str( aid ) } )
+    if info.isSuccess:
+        return isOrgAllowed( AgentId( info.data[ 'id' ] ).org_id )
     return False
 
 def getOrgName( oid ):
@@ -1676,6 +1674,30 @@ class DelTag ( AuthenticatedPage ):
             return { 'success' : True }
         else:
             raise web.HTTPError( '503 Service Unavailable: %s' % str( resp ) )
+
+class DelSensor ( AuthenticatedPage ):
+    def doPOST( self ):
+        params = web.input( sid = None )
+
+        try:
+            sid = AgentId( params.sid ).sensor_id
+        except:
+            sid = None
+
+        if sid is None:
+            session.notice = 'Invalid sid to delete provided.'
+            redirectTo( '' )
+
+        if not isSensorAllowed( sid ):
+            raise web.HTTPError( '401 Unauthorized' )
+
+        resp = deployment.request( 'del_sensor', { 'sid' : sid } )
+        if resp.isSuccess:
+            session.notice = 'Sensor deleted.'
+        else:
+            session.notice = str( resp )
+        redirectTo( 'sensors' )
+
 
 #==============================================================================
 #   CARDS

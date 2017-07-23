@@ -39,6 +39,12 @@ $def with ( aid, hostname, orgName, tags )
             </span>
           </td>
         </tr>
+        <tr>
+          <form action="/del_sensor" method="POST">
+            <input type="hidden" name="sid" value="$aid.sensor_id"/>
+            <button class="mdl-button mdl-button--colored mdl-js-button mdl-js-ripple-effect mdl-button--raised" style="float: right; background-color: red;"onclick="return confirm('Are you sure you want to delete this sensor?');">Delete Sensor</button>
+          </form>
+        </tr>
       </tbody>
     </table>
   </div>
