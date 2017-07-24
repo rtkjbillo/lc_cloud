@@ -29,7 +29,7 @@ HcpModuleId = Actor.importLib( 'utils/hcp_helpers', 'HcpModuleId' )
 
 def audited( f ):
     def wrapped( self, *args, **kwargs ):
-        self.auditor.shoot( 'audit', { 'data' : args[ 0 ].data, 'cmd' : args[ 0 ].req } )
+        self.auditor.shoot( 'record', { 'data' : args[ 0 ].data, 'cmd' : args[ 0 ].req } )
         r = f( self, *args, **kwargs )
         return r
     return wrapped
