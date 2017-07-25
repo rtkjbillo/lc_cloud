@@ -44,6 +44,13 @@ printStep( 'Updating repo and upgrading existing components.',
     os.system( 'apt-get update -y' ),
     os.system( 'apt-get upgrade -y' ) )
 
+printStep( 'Upgrade max number of file descriptors.',
+    os.system( 'echo "* - nofile 102400" >> /etc/security/limits.conf' ),
+    os.system( 'echo "root - nofile 102400" >> /etc/security/limits.conf' ),
+    os.system( 'echo "session required pam_limits.so" >> /etc/pam.d/common-session' ),
+    os.system( 'echo "fs.file-max = 102400" >> /etc/sysctl.conf'),
+    os.system( 'sysctl -p' ) )
+
 printStep( 'Installing some basic packages required for Beach (mainly).',
     os.system( 'apt-get install openssl python-pip python-dev debconf-utils python-m2crypto python-pexpect autoconf libtool git flex byacc bison unzip -y' ) )
 
@@ -128,3 +135,5 @@ printStep( 'Redirect port 80 and 443 to 9090 so we can run as non-root.',
            os.system( 'echo iptables-persistent iptables-persistent/autosave_v4 boolean true | sudo debconf-set-selections' ),
            os.system( 'echo iptables-persistent iptables-persistent/autosave_v6 boolean true | sudo debconf-set-selections' ),
            os.system( 'apt-get install iptables-persistent -y' ) )
+
+print( "Finished successfully installed, the limit on open files adjustment requires a restart." )
