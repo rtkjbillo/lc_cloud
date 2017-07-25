@@ -434,7 +434,7 @@ class rpcm( object ):
         ip = self._consume( '>I' )
         
         if None != ip:
-            ip = socket.inet_ntoa( struct.pack( '<I', ip ) )
+            ip = socket.inet_ntoa( struct.pack( '>I', ip ) )
         
         return ip
     
