@@ -1,7 +1,7 @@
 $def with ( detect, hostcache, orgNames, investigations )
 <div class="mdl-card mdl-cell mdl-cell--12-col mdl-shadow--4dp">
   <div class="mdl-card__title">
-    <h4 class="mdl-card__title-text">$detect[ 3 ] @ $hostcache.get( detect[ 2 ], detect[ 2 ] ) ( $orgNames[ str( AgentId( detect[ 2 ] ).org_id ) ] )</h4>
+    <h4 class="mdl-card__title-text">$detect[ 3 ] @ $hostcache.get( detect[ 2 ], detect[ 2 ] ) ( $( ' / '.join( [ orgNames[ str( AgentId( x ).org_id ) ] for x in detect[ 2 ].split( ' / ' ) ] ) ) )</h4>
   </div>
   <div class="mdl-card__supporting-text" style="position: relative; ">
     <pre class="code" style="border: 1px solid black;">$json.dumps( detect[ 5 ], indent = 4 )</pre>
