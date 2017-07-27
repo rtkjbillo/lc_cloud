@@ -1225,7 +1225,7 @@ class Detects ( AuthenticatedPage ):
             sensors = [ x for x in detect[ 2 ].split( ' / ' ) ]
             hostcache.update( getHostnames( sensors ) )
             info = model.request( 'get_detect', { 'id' : detect[ 1 ], 'with_inv' : True } )
-            investigations = []
+            investigations = {}
             if info.isSuccess:
                 investigations = info.data[ 'inv' ]
             cards.append( renderAlone.card_detect( detect, hostcache, orgNames, investigations ) )
