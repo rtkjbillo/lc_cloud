@@ -53,29 +53,39 @@ class BlinkModel( Actor ):
 
     def refreshAlexa( self ):
         alexaActor = self.getActorHandle( 'analytics/alexadns' )
-        info = alexaActor.request( 'get_list', {} )
-        if info.isSuccess:
-            i = 0
-            newAlexa = {}
-            for domain in info.data[ 'domains' ]:
-                i += 1
-                newAlexa[ domain ] = i
-            self.alexa = newAlexa
-
         try:
-            tld.update_tld_names()
-        except:
-            pass
+            info = alexaActor.request( 'get_list', {} )
+            if info.isSuccess:
+                i = 0
+                newAlexa = {}
+                for domain in info.data[ 'domains' ]:
+                    i += 1
+                    newAlexa[ domain ] = i
+                self.alexa = newAlexa
 
-        self.delay( 60 * 60 * 24, self.refreshAlexa )
+            try:
+                tld.update_tld_names()
+            except:
+                pass
+
+            self.delay( 60 * 60 * 24, self.refreshAlexa )
+        except:
+            raise
+        finally:
+            alexaActor.close()
 
     def refreshMalwareDomains( self ):
         mdActor = self.getActorHandle( 'analytics/malwaredomains' )
-        info = mdActor.request( 'get_list', {} )
-        if info.isSuccess:
-            self.malwaredomains = info.data[ 'domains' ]
+        try:
+            info = mdActor.request( 'get_list', {} )
+            if info.isSuccess:
+                self.malwaredomains = info.data[ 'domains' ]
 
-        self.delay( 60 * 60 * 24, self.refreshMalwareDomains )
+            self.delay( 60 * 60 * 24, self.refreshMalwareDomains )
+        except:
+            raise
+        finally:
+            mdActor.close()
 
     def getAlexaTag( self, domain ):
         if domain is None: return None
