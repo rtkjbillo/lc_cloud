@@ -55,7 +55,10 @@ class EventObjectExtractor:
         if type( fromAgent ) is not AgentId:
             fromAgent = AgentId( fromAgent )
 
-        cls._extractors[ eventType ]( eventType, eventRoot, fromAgent, objects )
+        try:
+            cls._extractors[ eventType ]( eventType, eventRoot, fromAgent, objects )
+        except:
+            raise InvalidObjectException( 'event contained invalid objects: %s' % str( event ) )
 
         cls._convertToNormalForm( objects, not fromAgent.isWindows() )
 
@@ -140,22 +143,19 @@ class EventObjectExtractor:
     def _addObj( cls, root, objects, o, oType ):
         if type( o ) is not int:
             if o is None or 0 == len( o ) or 10240 < len( o ):
-                raise InvalidObjectException( 'unexpected obj len: %s ( %s ), rest of objects: %s ::: %s' % ( o, oType, str( objects ), str( root ) ) )
-                return
+                raise InvalidObjectException()
         objects[ 'obj' ].setdefault( oType, Set() ).add( o )
 
     @classmethod
     def _addRel( cls, root, objects, parent, parentType, child, childType ):
         if type( parent ) is not int:
             if parent is None or 10240 < len( parent ):
-                raise InvalidObjectException( 'unexpected rel parent len: %s ( %s ), %s ( %s ) rest of objecs: %s ::: %s' % ( parent, parentType, child, childType, str( objects ), str( root ) ) )
-                return
+                raise InvalidObjectException()
             elif 0 == len( parent ):
                 return
         if type( child ) is not int:
             if child is None or 10240 < len( parent ):
-                raise InvalidObjectException( 'unexpected rel child len: %s ( %s ), %s ( %s ) rest of objects: %s ::: %s' % ( child, childType, parent, parentType, str( objects ), str( root ) ) )
-                return
+                raise InvalidObjectException()
             elif 0 == len( child ):
                 return
         objects[ 'rel' ].setdefault( ( parentType, childType ), Set() ).add( ( parent, child ) )
@@ -237,6 +237,9 @@ class EventObjectExtractor:
             if filePath is None:
                 filePath = cRoot.get( 'base.EXECUTABLE', None )
         h = cRoot.get( 'base.HASH', None )
+
+        if '' == filePath:
+            filePath = None
 
         if filePath is not None:
             cls._addObj( cRoot, objects, filePath, ObjectTypes.MODULE_NAME )
