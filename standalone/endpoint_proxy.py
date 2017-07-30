@@ -22,39 +22,49 @@ class LcEndpointProxy ( StreamServer ):
 
     def handle( self, source, address ):
         global currentEndpoints
-        if 0 == len( currentEndpoints ): return
-
-        print( "Connection from %s" % str( address ) )
-
         try:
-        	source.setsockopt( socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1 )
-        	source.setsockopt( socket.IPPROTO_TCP, socket.TCP_KEEPIDLE, 5 )
-        	source.setsockopt( socket.IPPROTO_TCP, socket.TCP_KEEPINTVL, 10 )
-        	source.setsockopt( socket.IPPROTO_TCP, socket.TCP_KEEPCNT, 2 )
-        except:
-        	print( "Failed to set keepalive on source connection" )
+            if 0 == len( currentEndpoints ): return
 
-        try:
-            dest = create_connection( random.sample( currentEndpoints, 1 )[ 0 ] )
-        except:
-        	print( "Failed to connect to EndpointProcessor" )
-        else:
+            print( "Connection from %s" % str( address ) )
+
             try:
-                dest.setsockopt( socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1 )
-                dest.setsockopt( socket.IPPROTO_TCP, socket.TCP_KEEPIDLE, 5 )
-                dest.setsockopt( socket.IPPROTO_TCP, socket.TCP_KEEPINTVL, 10 )
-                dest.setsockopt( socket.IPPROTO_TCP, socket.TCP_KEEPCNT, 2 )
+            	source.setsockopt( socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1 )
+            	source.setsockopt( socket.IPPROTO_TCP, socket.TCP_KEEPIDLE, 5 )
+            	source.setsockopt( socket.IPPROTO_TCP, socket.TCP_KEEPINTVL, 10 )
+            	source.setsockopt( socket.IPPROTO_TCP, socket.TCP_KEEPCNT, 2 )
             except:
-                print( "Failed to set keepalive on dest connection" )
+            	print( "Failed to set keepalive on source connection" )
 
-            # Send a small connection header that contains the original
-            # source of the connection.
-            connectionHeaders = msgpack.packb( address )
-            dest.sendall( struct.pack( '!I', len( connectionHeaders ) ) )
-            dest.sendall( connectionHeaders )
-                
-            gevent.joinall( ( gevent.spawn( forward, source, dest, self ),
-                              gevent.spawn( forward, dest, source, self ) ) )
+            try:
+                dest = create_connection( random.sample( currentEndpoints, 1 )[ 0 ] )
+            except:
+            	print( "Failed to connect to EndpointProcessor" )
+            else:
+                try:
+                    try:
+                        dest.setsockopt( socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1 )
+                        dest.setsockopt( socket.IPPROTO_TCP, socket.TCP_KEEPIDLE, 5 )
+                        dest.setsockopt( socket.IPPROTO_TCP, socket.TCP_KEEPINTVL, 10 )
+                        dest.setsockopt( socket.IPPROTO_TCP, socket.TCP_KEEPCNT, 2 )
+                    except:
+                        print( "Failed to set keepalive on dest connection" )
+
+                    # Send a small connection header that contains the original
+                    # source of the connection.
+                    connectionHeaders = msgpack.packb( address )
+                    dest.sendall( struct.pack( '!I', len( connectionHeaders ) ) )
+                    dest.sendall( connectionHeaders )
+                        
+                    gevent.joinall( ( gevent.spawn( forward, source, dest, self ),
+                                      gevent.spawn( forward, dest, source, self ) ) )
+                except:
+                    raise
+                finally:
+                    dest.close()
+        except:
+            raise
+        finally:
+            source.close()
 
 def forward( source, dest, server ):
     buff = bytearray( 4096 )
@@ -67,9 +77,6 @@ def forward( source, dest, server ):
             dest.sendall( mv_buffer[ : nReceived ] )
     except:
     	pass
-    finally:
-        source.close()
-        dest.close()
 
 def updateEndpoints( endpointActors, nextUpdate ):
     global currentEndpoints
