@@ -55,18 +55,14 @@ class LcEndpointProxy ( StreamServer ):
                     dest.sendall( struct.pack( '!I', len( connectionHeaders ) ) )
                     dest.sendall( connectionHeaders )
                         
-                    gevent.joinall( ( gevent.spawn( forward, source, dest, self ),
-                                      gevent.spawn( forward, dest, source, self ) ) )
-                except:
-                    raise
+                    gevent.joinall( ( gevent.spawn( forward, source, dest, address, self ),
+                                      gevent.spawn( forward, dest, source, address, self ) ) )
                 finally:
                     dest.close()
-        except:
-            raise
         finally:
             source.close()
 
-def forward( source, dest, server ):
+def forward( source, dest, address, server ):
     buff = bytearray( 4096 )
     mv_buffer = memoryview( buff )
     try:
@@ -77,6 +73,17 @@ def forward( source, dest, server ):
             dest.sendall( mv_buffer[ : nReceived ] )
     except:
     	pass
+    finally:
+        print( "Closed from %s" % str( address ) )
+        try:
+            source.close()
+        except:
+            pass
+        try:
+            dest.close()
+        except:
+            pass
+        server = None
 
 def updateEndpoints( endpointActors, nextUpdate ):
     global currentEndpoints
