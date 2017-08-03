@@ -109,7 +109,7 @@ def _xm_( o, path, isWildcardDepth = False ):
         result = []
         for elem in o:
             if _isDynamicType( elem ):
-                result += _xm_( elem, tokens )
+                result += _xm_( elem, tokens, isWildcardDepth )
 
     return result
 
