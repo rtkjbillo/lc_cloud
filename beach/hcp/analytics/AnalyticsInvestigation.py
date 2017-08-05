@@ -13,8 +13,6 @@
 # limitations under the License.
 
 from beach.actor import Actor
-AgentId = Actor.importLib( '../utils/hcp_helpers', 'AgentId' )
-
 import time
 
 class AnalyticsInvestigation( Actor ):

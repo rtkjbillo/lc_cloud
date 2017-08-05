@@ -13,7 +13,6 @@
 # limitations under the License.
 
 from beach.actor import Actor
-import time
 import urllib2
 import json
 

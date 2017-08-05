@@ -31,6 +31,8 @@ CassDb = Actor.importLib( './hcp_databases', 'CassDb' )
 CassPool = Actor.importLib( './hcp_databases', 'CassPool' )
 
 def ObjectNormalForm( objName, objType, isCaseSensitive = False ):
+    if type( objType ) is not int:
+        objType = ObjectTypes.forward[ objType ]
     caseSensitiveTypes = ( ObjectTypes.AUTORUNS,
                            ObjectTypes.CMD_LINE,
                            ObjectTypes.FILE_NAME,
@@ -58,6 +60,8 @@ def ObjectNormalForm( objName, objType, isCaseSensitive = False ):
     return objName
 
 def ObjectKey( objName, objType ):
+    if type( objType ) is not int:
+        objType = ObjectTypes.forward[ objType ]
     k = hashlib.sha256( '%s/%s' % ( objName, objType ) ).hexdigest()
     return k
 
@@ -600,6 +604,8 @@ class Host( object ):
                         event = self._db.getOne( 'SELECT event FROM events WHERE eventid = %s', ( record[ 2 ], ) )
                         if event is not None:
                             record = ( record[ 0 ], record[ 1 ], record[ 2 ], event[ 0 ] )
+                        else:
+                            record = ( record[ 0 ], record[ 1 ], record[ 2 ], None )
 
                     yield record
             else:

@@ -20,7 +20,6 @@ Mutex = Actor.importLib( '../utils/hcp_helpers', 'Mutex' )
 import urllib2
 import json
 import tempfile
-import json
 
 class CapabilityManager( Actor ):
     def init( self, parameters, resources ):

@@ -143,6 +143,7 @@ class StatefulActor ( Actor ):
     def _garbageCollectOldMachines( self ):
         for shard in self._compiled_machines.keys():
             for machine in self._compiled_machines[ shard ]:
+                print( "%s/%s: %d" % ( shard, machine._descriptor.detectName, len( machine._history ) ) )
                 if self._machine_activity[ machine ] < time.time() - self._machine_ttl:
                     del( self._machine_activity[ machine ] )
                     self._compiled_machines[ shard ].remove( machine )

@@ -14,14 +14,6 @@
 
 from beach.actor import Actor
 from sets import Set
-import hashlib
-import base64
-import uuid
-import msgpack
-import sys
-import time
-import re
-import time_uuid
 AgentId = Actor.importLib( './hcp_helpers', 'AgentId' )
 _ = Actor.importLib( 'Symbols', 'Symbols' )()
 HbsCollectorId = Actor.importLib( './hcp_helpers', 'HbsCollectorId' )

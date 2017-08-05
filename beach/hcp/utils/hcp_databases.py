@@ -25,7 +25,6 @@ epoch = datetime.datetime.utcfromtimestamp( 0 )
 
 
 from cassandra.cluster import Cluster
-import traceback
 from cassandra.query import SimpleStatement
 from cassandra import ConsistencyLevel
 from cassandra.query import ValueSequence

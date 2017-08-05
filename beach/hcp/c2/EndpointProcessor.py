@@ -29,9 +29,16 @@ import traceback
 import time
 import tempfile
 import netifaces
-rpcm = Actor.importLib( 'utils/rpcm', 'rpcm' )
-rList = Actor.importLib( 'utils/rpcm', 'rList' )
-rSequence = Actor.importLib( 'utils/rpcm', 'rSequence' )
+try:
+    # Try to import any onboarded versions first.
+    # Users may cythonize rpcm for performance.
+    import rpcm
+    from rpcm import rList
+    from rpcm import rSequence
+except:
+    rpcm = Actor.importLib( 'utils/rpcm', 'rpcm' )
+    rList = Actor.importLib( 'utils/rpcm', 'rList' )
+    rSequence = Actor.importLib( 'utils/rpcm', 'rSequence' )
 AgentId = Actor.importLib( 'utils/hcp_helpers', 'AgentId' )
 HcpModuleId = Actor.importLib( 'utils/hcp_helpers', 'HcpModuleId' )
 Symbols = Actor.importLib( 'Symbols', 'Symbols' )()

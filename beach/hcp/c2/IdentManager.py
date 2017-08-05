@@ -13,7 +13,6 @@
 # limitations under the License.
 
 from beach.actor import Actor
-import traceback
 import hashlib
 import time
 import uuid
