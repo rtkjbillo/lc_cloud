@@ -477,7 +477,7 @@ class AgentId( object ):
         self.architecture = None
         self.platform = None
 
-        if type( seq ) is rSequence or type( seq ) is dict:
+        if issubclass( type( seq ), dict ):
             self.sensor_id = seq.get( 'base.HCP_SENSOR_ID', seq.get( 'sensor_id', None ) )
             self.org_id = seq.get( 'base.HCP_ORG_ID', seq.get( 'org_id', None ) )
             self.ins_id = seq.get( 'base.HCP_INSTALLER_ID', seq.get( 'ins_id', None ) )
@@ -571,7 +571,7 @@ class AgentId( object ):
             self.architecture = seq.architecture
             self.platform = seq.platform
         else:
-            raise Exception( 'invalid agentid: %s' % str( seq ) )
+            raise Exception( 'invalid agentid (%s): %s' % ( type( seq ), str( seq ) ) )
 
     def asWhere( self ):
         filt = []

@@ -32,7 +32,7 @@ import netifaces
 try:
     # Try to import any onboarded versions first.
     # Users may cythonize rpcm for performance.
-    import rpcm
+    from rpcm import rpcm
     from rpcm import rList
     from rpcm import rSequence
 except:
