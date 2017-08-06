@@ -365,11 +365,6 @@ class HostObjects( object ):
                     else:
                         if ts >= within:
                             yield ( row[ 0 ], row[ 1 ], ts )
-            if within is None and isLocalCloudOnly is not True:
-                ts = 0
-                for row in self._db.execute( 'SELECT id, plat, nloc FROM ref_loc WHERE id IN %s', ( ids, ) ):
-                    for i in range( 1, row[ 2 ] if row[ 2 ] < 100000 else 100000 ):
-                        yield ( row[ 0 ], 'ff.ff.%x.%x' % ( i, row[ 1 ] ), ts )
 
     def children( self, types = None ):
         withType = ''

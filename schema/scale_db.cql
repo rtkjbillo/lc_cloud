@@ -238,15 +238,6 @@ CREATE TABLE last_events
   PRIMARY KEY( sid, type )
 ) WITH compaction = { 'class' : 'LeveledCompactionStrategy' } AND gc_grace_seconds = 86400;
 
-CREATE TABLE ref_loc
-(
-  id varchar,
-  plat int,
-  nloc int,
-
-  PRIMARY KEY( id, plat )
-) WITH compaction = { 'class' : 'LeveledCompactionStrategy' } AND gc_grace_seconds = 86400;
-
 CREATE TABLE detects
 (
   did varchar,
