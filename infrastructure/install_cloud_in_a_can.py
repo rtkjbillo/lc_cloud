@@ -52,7 +52,7 @@ printStep( 'Upgrade max number of file descriptors.',
     os.system( 'sysctl -p' ) )
 
 printStep( 'Installing some basic packages required for Beach (mainly).',
-    os.system( 'apt-get install openssl python-pip python-dev debconf-utils libssl-dev python-m2crypto python-pexpect autoconf libtool git flex byacc bison unzip -y' ) )
+    os.system( 'apt-get install screen openssl python-pip python-dev debconf-utils libssl-dev python-m2crypto python-pexpect autoconf libtool git flex byacc bison unzip -y' ) )
 
 print( 'Download prefixtree (expected to fail).' )
 os.system( 'pip download prefixtree' )
