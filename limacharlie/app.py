@@ -342,7 +342,7 @@ def isOrgAllowed( oid ):
 def isSensorAllowed( aid ):
     aid = AgentId( aid )
     info = model.request( 'get_sensor_info', { 'id_or_host' : str( aid ) } )
-    if info.isSuccess:
+    if info.isSuccess and info.data.get( 'id', None ):
         return isOrgAllowed( AgentId( info.data[ 'id' ] ).org_id )
     return False
 
