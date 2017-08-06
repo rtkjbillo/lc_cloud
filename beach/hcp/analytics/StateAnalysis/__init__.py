@@ -16,6 +16,8 @@ from beach.actor import Actor
 _x_ = Actor.importLib( '../../utils/hcp_helpers', '_x_' )
 
 class StateEvent ( object ):
+    __slots__ = [ 'event', 'routing', 'mtd' ]
+
     def __init__( self, routing, event, mtd ):
         self.event = event
         self.routing = routing
@@ -66,6 +68,8 @@ class StateMachineDescriptor ( object ):
         self._debugLog( '@%s %s->%s ===> %s ( %s )' % ( currentState, transitionIndex, transition.toState, isSuccess, flags ) )
 
 class _StateMachineContext( object ):
+    __slots__ = [ '_descriptor', '_currentState', '_history', '_indexes' ]
+
     def __init__( self, descriptor ):
         self._descriptor = descriptor
         self._currentState = 0

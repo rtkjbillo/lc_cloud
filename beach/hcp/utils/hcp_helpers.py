@@ -43,6 +43,8 @@ import uuid
 import hmac, base64, struct, hashlib, time, string, random
 
 class Event ( object ):
+    __slots__ = [ '_event' ]
+
     def __init__( self ):
         self._event = gevent.event.Event()
 
@@ -55,23 +57,24 @@ class Event ( object ):
     def clear( self ):
         return self._event.clear()
 
+def _isDynamicType( e ):
+    eType = type( e )
+    return issubclass( eType, dict ) or issubclass( eType, list ) or issubclass( eType, tuple )
+
+def _isListType( e ):
+    eType = type( e )
+    return issubclass( eType, list ) or issubclass( eType, tuple )
+
+def _isSeqType( e ):
+    eType = type( e )
+    return issubclass( eType, dict )
+
 def _xm_( o, path, isWildcardDepth = False ):
-    def _isDynamicType( e ):
-        eType = type( e )
-        return issubclass( eType, dict ) or issubclass( eType, list ) or issubclass( eType, tuple )
-
-    def _isListType( e ):
-        eType = type( e )
-        return issubclass( eType, list ) or issubclass( eType, tuple )
-
-    def _isSeqType( e ):
-        eType = type( e )
-        return issubclass( eType, dict )
-
     result = []
     oType = type( o )
 
-    if type( path ) is str or type( path ) is unicode:
+    pathType = type( path )
+    if pathType is str or pathType is unicode:
         tokens = [ x for x in path.split( '/' ) if x != '' ]
     else:
         tokens = path
@@ -477,7 +480,9 @@ class AgentId( object ):
         self.architecture = None
         self.platform = None
 
-        if issubclass( type( seq ), dict ):
+        seqType = type( seq )
+
+        if issubclass( seqType, dict ):
             self.sensor_id = seq.get( 'base.HCP_SENSOR_ID', seq.get( 'sensor_id', None ) )
             self.org_id = seq.get( 'base.HCP_ORG_ID', seq.get( 'org_id', None ) )
             self.ins_id = seq.get( 'base.HCP_INSTALLER_ID', seq.get( 'ins_id', None ) )
@@ -504,7 +509,7 @@ class AgentId( object ):
             if self.platform is not None:
                 self.platform = int( self.platform )
                 
-        elif type( seq ) is str or type( seq ) is unicode or type( seq ) is uuid.UUID:
+        elif seqType is str or seqType is unicode or seqType is uuid.UUID:
             seq = str( seq )
             matches = self.re_agent_id.match( seq )
             if matches is not None:
@@ -531,7 +536,7 @@ class AgentId( object ):
                     self.architecture = int( matches[ 4 ], 16 ) if int( matches[ 4 ], 16 ) != 0 else None
             else:
                 raise Exception( 'invalid agentid: %s' % str( seq ) )
-        elif type( seq ) is list or type( seq ) is tuple:
+        elif seqType is list or seqType is tuple:
             if 1 == len( seq ):
                 self.sensor_id = seq[ 0 ]
                 if '0' == self.sensor_id or self.empty_uuid == self.sensor_id:
@@ -564,14 +569,14 @@ class AgentId( object ):
                     self.architecture = int( self.architecture )
                 if self.platform is not None:
                     self.platform = int( self.platform )
-        elif type( seq ) is AgentId:
+        elif seqType is AgentId:
             self.sensor_id = seq.sensor_id
             self.org_id = seq.org_id
             self.ins_id = seq.ins_id
             self.architecture = seq.architecture
             self.platform = seq.platform
         else:
-            raise Exception( 'invalid agentid (%s): %s' % ( type( seq ), str( seq ) ) )
+            raise Exception( 'invalid agentid (%s): %s' % ( seqType, str( seq ) ) )
 
     def asWhere( self ):
         filt = []

@@ -31,7 +31,8 @@ CassDb = Actor.importLib( './hcp_databases', 'CassDb' )
 CassPool = Actor.importLib( './hcp_databases', 'CassPool' )
 
 def ObjectNormalForm( objName, objType, isCaseSensitive = False ):
-    if type( objType ) is not int:
+    oType = type( objType )
+    if oType is not int and oType is not None:
         objType = ObjectTypes.forward[ objType ]
     caseSensitiveTypes = ( ObjectTypes.AUTORUNS,
                            ObjectTypes.CMD_LINE,

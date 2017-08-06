@@ -298,12 +298,12 @@ class rpcm( object ):
             
             #self._printTrace( 'parsed element header: %s / %s' % ( expected_tag, expected_typ ) )
             
-            if( ( expected_tag is None or str( tag  )== str( expected_tag ) ) and
+            if( ( expected_tag is None or tag == str( expected_tag ) ) and
                 ( expected_typ is None or str( typ ) == str( expected_typ ) ) ):
                 if typ in self._typeParsers:
                     if self._isHumanReadable and self._symbols is not None:
-                        if str( tag ) in self._symbols:
-                            tag = self._symbols[ str( tag ) ]
+                        if tag in self._symbols:
+                            tag = self._symbols[ tag ]
                             #self._printTrace( 'tag lookup yielded: %s' % tag )
                         else:
                             #self._printTrace( 'tag lookup not found' )
@@ -321,7 +321,7 @@ class rpcm( object ):
                                 strtyp = typ
                             value = { 'type' : strtyp, 'tag' : tag, 'value' : value }
                         
-                        result = { str( tag ) : value }
+                        result = { tag : value }
                     except:
                         #self._printDebug( traceback.format_exc() )
                         result = None
@@ -371,15 +371,16 @@ class rpcm( object ):
     def _json_to_rpcm( self, j ):
         res = None
         
-        if type( j ) is list:
+        jType = type( j )
+        if jType is list:
             res = rList()
             
             for elem in j:
                 res.append( self._json_to_rpcm( elem ) )
                 
-        elif type( j ) is dict and ( 'tag' in j and 'type' in j and 'value' in j ):
+        elif jType is dict and ( 'tag' in j and 'type' in j and 'value' in j ):
             res = j
-        elif type( j ) is dict:
+        elif jType is dict:
             res = rSequence()
             
             for tag, val in j.iteritems():
@@ -401,10 +402,10 @@ class rpcm( object ):
             number = self._consume( '>H' )
         elif self.RPCM_RU32 == typ or self.RPCM_POINTER_32  == typ:
             number = self._consume( '>I' )
-        elif( self.RPCM_RU64 == typ or
-              self.RPCM_TIMESTAMP == typ or
-              self.RPCM_POINTER_64  == typ or
-              self.RPCM_TIMEDELTA == typ ):
+        elif typ in ( self.RPCM_RU64,
+                      self.RPCM_TIMESTAMP,
+                      self.RPCM_POINTER_64,
+                      self.RPCM_TIMEDELTA ):
             number = self._consume( '>Q' )
         
         return number
@@ -466,7 +467,7 @@ class rpcm( object ):
             else:
                 s = rSequence()
             
-            for n in range( 0, nElements ):
+            for n in xrange( 0, nElements ):
                 #self._printTrace( 'parsing element in set' )
                 
                 tmpElem = self._deserialise_element( expected_tag, expected_typ )
@@ -515,10 +516,10 @@ class rpcm( object ):
             number = struct.pack( '>H', int( value ) )
         elif self.RPCM_RU32 == typ or self.RPCM_POINTER_32  == typ:
             number = struct.pack( '>I', int( value ) )
-        elif( self.RPCM_RU64 == typ or
-              self.RPCM_TIMESTAMP == typ or
-              self.RPCM_POINTER_64  == typ or
-              self.RPCM_TIMEDELTA == typ ):
+        elif typ in ( self.RPCM_RU64,
+                      self.RPCM_TIMESTAMP,
+                      self.RPCM_POINTER_64,
+                      self.RPCM_TIMEDELTA ):
             number = struct.pack( '>Q', int( value ) )
         
         return number
@@ -640,7 +641,8 @@ class rpcm( object ):
         self._symbols = symbolsDict
 
     def loadJson( self, jStr ):
-        if type( jStr ) is str or type( jStr ) is unicode:
+        jStrType = type( jStr )
+        if jStrType is str or jStrType is unicode:
             j = json.loads( jStr )
         else:
             j = jStr
