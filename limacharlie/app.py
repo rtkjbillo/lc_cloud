@@ -175,7 +175,8 @@ renderAlone = web.template.render( 'templates', globals = { 'session' : session,
                                                             'sorted' : sorted,
                                                             'md' : doMarkdown,
                                                             'hash' : lambda x: hashlib.sha256(x).hexdigest(),
-                                                            'type' : type } )
+                                                            'type' : type },
+                                                cache = False )
 eventRender = web.template.render( 'templates/custom_events', globals = { 'json' : json,
                                                                           'msTsToTime' : msTsToTime,
                                                                           '_x_' : _x_,
