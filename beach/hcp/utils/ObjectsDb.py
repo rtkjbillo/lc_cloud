@@ -27,8 +27,11 @@ chunks = Actor.importLib( './hcp_helpers', 'chunks' )
 tsToTime = Actor.importLib( './hcp_helpers', 'tsToTime' )
 timeToTs = Actor.importLib( './hcp_helpers', 'timeToTs' )
 normalAtom = Actor.importLib( './hcp_helpers', 'normalAtom' )
-CassDb = Actor.importLib( './hcp_databases', 'CassDb' )
-CassPool = Actor.importLib( './hcp_databases', 'CassPool' )
+try:
+    CassDb = Actor.importLib( './hcp_databases', 'CassDb' )
+    CassPool = Actor.importLib( './hcp_databases', 'CassPool' )
+except:
+    print( "cassandra not installed, some functionality won't work" )
 
 def ObjectNormalForm( objName, objType, isCaseSensitive = False ):
     if objType is not None and type( objType ) is not int:
