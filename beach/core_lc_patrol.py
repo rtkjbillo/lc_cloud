@@ -62,7 +62,8 @@ Patrol( 'DeploymentManager',
                                 'slackrep/20546efe-0f84-46f2-b9ca-f17bf5997075',
                                 'hunter/8e0f55c0-6593-4747-9d02-a4937fa79517',
                                 'webhookoutput/4738d18b-4c0c-412c-89e4-b6ecb00904a1',
-                                'capabilitymanager/4fe13a22-0ca1-4e1f-aa33-20f045db2fb6' ],
+                                'capabilitymanager/4fe13a22-0ca1-4e1f-aa33-20f045db2fb6',
+                                'enrollment/a3bebbb0-00e2-4345-990b-4c36a40b475e' ],
             'isIsolated' : True,
             'strategy' : 'repulsion' } )
 
@@ -232,7 +233,7 @@ Patrol( 'EnrollmentManager',
         actorArgs = ( 'c2/EnrollmentManager',
                       'c2/enrollments/1.0' ),
         actorKwArgs = {
-            'resources' : {},
+            'resources' : { 'deployment' : 'c2/deploymentmanager' },
             'parameters' : { 'db' : SCALE_DB,
                              'rate_limit_per_sec' : 200,
                              'max_concurrent' : 5,

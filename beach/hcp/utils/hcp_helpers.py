@@ -775,6 +775,9 @@ class HcpOperations:
     SET_HCP_ID = 3
     SET_GLOBAL_TIME = 4
     QUIT = 5
+    UPGRADE = 6
+    SET_HCP_CONF = 7
+    DISCONNECT = 8
 
 class PooledResource( object ):
     def __init__( self, resourceFactoryFunc, maxResources = None ):

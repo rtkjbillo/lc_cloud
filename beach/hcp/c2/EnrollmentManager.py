@@ -32,7 +32,13 @@ class EnrollmentManager( Actor ):
 
         self.db.start()
 
+        self.deploymentManager = self.getActorHandle( resources[ 'deployment' ], nRetries = 3, timeout = 10 )
+
         self.installers = Set()
+        self.c2Key = None
+        self.rootKey = None
+        self.primary = ( None, None )
+        self.secondary = ( None, None )
 
         self.schedule( 3600, self.loadRules )
 
@@ -45,6 +51,20 @@ class EnrollmentManager( Actor ):
 
     def loadRules( self, msg = None ):
         newRules = []
+
+        resp = self.deploymentManager.request( 'get_c2_cert', {} )
+        if resp.isSuccess:
+            self.c2Key = resp.data[ 'cert' ]
+
+        resp = self.deploymentManager.request( 'get_root_cert', {} )
+        if resp.isSuccess:
+            self.rootKey = resp.data[ 'pub' ]
+
+        resp = self.deploymentManager.request( 'get_global_config', {} )
+        if resp.isSuccess:
+            self.primary = ( resp.data[ 'global/primary' ], resp.data[ 'global/primary_port' ] )
+            self.secondary = ( resp.data[ 'global/secondary' ], resp.data[ 'global/secondary_port' ] )
+
         for row in self.db.execute( 'SELECT oid, iid FROM hcp_installers' ):
             self.installers.add( ( row[ 0 ], row[ 1 ] ) )
 
@@ -74,7 +94,12 @@ class EnrollmentManager( Actor ):
 
         enrollmentToken = self.getTokenFor( aid )
 
-        return ( True, { 'aid' : aid, 'token' : enrollmentToken } )
+        return ( True, { 'aid' : aid, 
+                         'token' : enrollmentToken, 
+                         'c2_key' : self.c2Key, 
+                         'root_key' : self.rootKey,
+                         'primary' : self.primary,
+                         'secondary' : self.secondary } )
 
     def authorize( self, msg ):
         req = msg.data

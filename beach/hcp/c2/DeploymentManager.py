@@ -94,6 +94,7 @@ class DeploymentManager( Actor ):
         self.handle( 'set_config', self.set_config )
         self.handle( 'deploy_org', self.deploy_org )
         self.handle( 'get_c2_cert', self.get_c2_cert )
+        self.handle( 'get_root_cert', self.get_root_cert )
         self.handle( 'update_profile', self.update_profile )
         self.handle( 'get_profiles', self.get_profiles )
         self.handle( 'get_supported_events', self.get_supported_events )
@@ -694,6 +695,16 @@ We believe this sharing policy strikes a good balance between privacy and inform
         req = msg.data
 
         info = self.db.getOne( 'SELECT conf, value FROM configs WHERE conf = %s', ( 'key/c2', ) )
+
+        if info is not None:
+            return ( True, self.unpackKey( info[ 1 ] ) )
+
+        return ( False, 'not found' )
+
+    def get_root_cert( self, msg ):
+        req = msg.data
+
+        info = self.db.getOne( 'SELECT conf, value FROM configs WHERE conf = %s', ( 'key/root', ) )
 
         if info is not None:
             return ( True, self.unpackKey( info[ 1 ] ) )
