@@ -1,3 +1,7 @@
+function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
 function copyToClipboard(element) {
     var $temp = $("<input>");
     $("body").append($temp);
@@ -157,59 +161,91 @@ function update_status(isLive){
 }
 
 $(function() {
-	$(".click-to-copy")
-		.click( function(){ 
-			copyToClipboard( $(this) );
-			$(this).css('cursor', 'pointer')
-				   .addClass( 'mdl-badge mdl-badge--overlap' )
-				   .attr( 'data-badge', 'copied' );
-			var that = this;
-			setTimeout( function(){ $(that).removeClass( 'mdl-badge mdl-badge--overlap' ).removeAttr( 'data-badge' ); }, 5000 ); 
-		} );
-
-	$(".online_status").each( function() {
-		var sid = $(this).attr('sid');
-		var rate = Number($(this).attr('rate'));
-		if( isNaN( rate ) )
-		{
-			rate = 5;
-		}
-		do_refresh_online(this, sid, rate);
-	});
-
-	$(".last_sensor_ip").each( function() {
-		var sid = $(this).attr('sid');
-		var rate = Number($(this).attr('rate'));
-		if( isNaN( rate ) )
-		{
-			rate = 30;
-		}
-		do_refresh_ip(this, sid, rate);
-	});
-
-	$(".last_sensor_events").each( function() {
-		var sid = $(this).attr('sid');
-		var rate = Number($(this).attr('rate'));
-		if( isNaN( rate ) )
-		{
-			rate = 10;
-		}
-		do_refresh_lastevents(this, sid, rate);
-	});
-
-	$(".last_sensor_changes").each( function() {
-		var sid = $(this).attr('sid');
-		var rate = Number($(this).attr('rate'));
-		if( isNaN( rate ) )
-		{
-			rate = 30;
-		}
-		do_refresh_lastchanges(this, sid, rate);
-	});
-
-
+	lc_init_handlers();
 	display_ct();
 });
+
+function lc_init_handlers() {
+    $(".click-to-copy")
+        .click( function(){ 
+            copyToClipboard( $(this) );
+            $(this).css('cursor', 'pointer')
+                   .addClass( 'mdl-badge mdl-badge--overlap' )
+                   .attr( 'data-badge', 'copied' );
+            var that = this;
+            setTimeout( function(){ $(that).removeClass( 'mdl-badge mdl-badge--overlap' ).removeAttr( 'data-badge' ); }, 5000 ); 
+        } );
+
+    $(".online_status").each( function() {
+        var sid = $(this).attr('sid');
+        var rate = Number($(this).attr('rate'));
+        if( isNaN( rate ) )
+        {
+            rate = 5;
+        }
+        do_refresh_online(this, sid, rate);
+        
+        // Some pages have a high number of status checks
+        // so we delay each one by a small value to indirectly
+        // limit the number of checks per second.
+        sleep( 1000 / 10 );
+    });
+
+    $(".last_sensor_ip").each( function() {
+        var sid = $(this).attr('sid');
+        var rate = Number($(this).attr('rate'));
+        if( isNaN( rate ) )
+        {
+            rate = 30;
+        }
+        do_refresh_ip(this, sid, rate);
+    });
+
+    $(".last_sensor_events").each( function() {
+        var sid = $(this).attr('sid');
+        var rate = Number($(this).attr('rate'));
+        if( isNaN( rate ) )
+        {
+            rate = 10;
+        }
+        do_refresh_lastevents(this, sid, rate);
+    });
+
+    $(".last_sensor_changes").each( function() {
+        var sid = $(this).attr('sid');
+        var rate = Number($(this).attr('rate'));
+        if( isNaN( rate ) )
+        {
+            rate = 30;
+        }
+        do_refresh_lastchanges(this, sid, rate);
+    });
+
+    $(".mdl-chip--deletable .mdl-chip__action").each( function() {
+        $(this).click(function(){
+            var chip = $(this).parent();
+            $.post("/del_tag", { sid: chip.attr('sid'),
+                                 tag: chip.attr('tag') });
+            chip.remove();
+        });
+    });
+    $(".add_tag").each( function() {
+        $(this).keypress(function(e){
+            if( e.which == 13) {
+                $.post("/add_tag", { sid: $(this).attr('sid'),
+                                     tag: this.value });
+                $("#tags_" + $(this).attr('sid')).append(
+                    '<span class="mdl-chip mdl-chip--deletable" style="background-color: rgba(255, 0, 0, 0.52);" sid="' + $(this).attr('sid') + '" tag="' + this.value + '">'
+                       + '<span class="mdl-chip__text">' + this.value + '</span>'
+                       + '<button type="button" class="mdl-chip__action"><i class="material-icons">cancel</i></button>'
+                     + '</span>'
+                );
+                this.value = '';
+                lc_init_handlers();
+            }
+        });
+    });
+}
 
 function msTsToTime( ts ) {
     var t = new Date( ts );

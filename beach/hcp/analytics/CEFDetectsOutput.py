@@ -13,8 +13,6 @@
 # limitations under the License.
 
 from beach.actor import Actor
-_x_ = Actor.importLib( '../utils/hcp_helpers', '_x_' )
-_xm_ = Actor.importLib( '../utils/hcp_helpers', '_xm_' )
 Host = Actor.importLib( '../utils/ObjectsDb', 'Host' )
 BEAdmin = Actor.importLib( '../admin_lib', 'BEAdmin' )
 

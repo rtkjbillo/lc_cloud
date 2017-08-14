@@ -14,14 +14,6 @@
 
 from beach.actor import Actor
 from sets import Set
-import hashlib
-import base64
-import uuid
-import msgpack
-import sys
-import time
-import re
-import time_uuid
 AgentId = Actor.importLib( './hcp_helpers', 'AgentId' )
 _ = Actor.importLib( 'Symbols', 'Symbols' )()
 HbsCollectorId = Actor.importLib( './hcp_helpers', 'HbsCollectorId' )
@@ -396,6 +388,7 @@ class SensorConfig( object ):
         profile.collectors[ HbsCollectorId.EXFIL ].addExfil( _.notification.FILE_TYPE_ACCESSED )
         profile.collectors[ HbsCollectorId.EXFIL ].addExfil( _.notification.EXISTING_PROCESS )
         profile.collectors[ HbsCollectorId.EXFIL ].addExfil( _.notification.SELF_TEST_RESULT )
+        profile.collectors[ HbsCollectorId.EXFIL ].addExfil( _.notification.ONGOING_IDENTITY )
         profile.collectors[ HbsCollectorId.FILE_TYPE_TRACKER ].addExtension( 1, ".doc" )
         profile.collectors[ HbsCollectorId.FILE_TYPE_TRACKER ].addExtension( 1, ".docm" )
         profile.collectors[ HbsCollectorId.FILE_TYPE_TRACKER ].addExtension( 1, ".docx" )
@@ -490,6 +483,7 @@ class SensorConfig( object ):
         profile.collectors[ HbsCollectorId.EXFIL ].addExfil( _.notification.FILE_TYPE_ACCESSED )
         profile.collectors[ HbsCollectorId.EXFIL ].addExfil( _.notification.EXISTING_PROCESS )
         profile.collectors[ HbsCollectorId.EXFIL ].addExfil( _.notification.SELF_TEST_RESULT )
+        profile.collectors[ HbsCollectorId.EXFIL ].addExfil( _.notification.ONGOING_IDENTITY )
         profile.collectors[ HbsCollectorId.FILE_TRACKER ].disableModified()
 
         return profile
@@ -551,6 +545,7 @@ class SensorConfig( object ):
         profile.collectors[ HbsCollectorId.EXFIL ].addExfil( _.notification.FILE_TYPE_ACCESSED )
         profile.collectors[ HbsCollectorId.EXFIL ].addExfil( _.notification.EXISTING_PROCESS )
         profile.collectors[ HbsCollectorId.EXFIL ].addExfil( _.notification.SELF_TEST_RESULT )
+        profile.collectors[ HbsCollectorId.EXFIL ].addExfil( _.notification.ONGOING_IDENTITY )
         profile.collectors[ HbsCollectorId.FILE_TYPE_TRACKER ].disable()
 
         return profile

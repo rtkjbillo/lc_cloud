@@ -1,7 +1,7 @@
 $def with ( aid, hostname, after, before )
 <div class="mdl-card mdl-cell mdl-cell--12-col mdl-shadow--4dp">
   <div class="mdl-card__title">
-    <h4 class="mdl-card__title-text">Sensors Traffic: $hostname</h4><div class="mdl-layout-spacer"></div><i class="material-icons update_status" style="color:red;">compare_arrows</i>
+    <h4 class="mdl-card__title-text">Sensor Traffic: $hostname</h4><div class="mdl-layout-spacer"></div><i class="material-icons update_status" style="color:red;">compare_arrows</i>
   </div>
   <div class="mdl-card__supporting-text">
     <div class="mdl-selectfield mdl-js-selectfield mdl-selectfield--floating-label">
@@ -36,6 +36,7 @@ $def with ( aid, hostname, after, before )
     <button class="mdl-button mdl-button--colored mdl-js-button mdl-js-ripple-effect mdl-button--raised" onclick="return set_time_range();">Apply Time Range</button>
     <button class="mdl-button mdl-button--colored mdl-js-button mdl-js-ripple-effect mdl-button--raised" onclick="return download_time_range();">Download Time Range</button>
     <br/><br/>
+    <center><div class="mdl-spinner mdl-js-spinner is-active" id="host_loading" style="visibility: hidden;"></div></center>
     <table class="mdl-data-table mdl-js-data-table mdl-shadow--2dp" style="width: 100%;">
       <tbody id="timeline">
       </tbody>
@@ -142,9 +143,11 @@ $def with ( aid, hostname, after, before )
                         after : from_time,
                         before : to_time
                    }).done(function(data){
+                        jQuery('#host_loading').css('visibility', 'hidden');
                         add_to_timeline(data);
                         update_status(true);})
                      .fail(function(){
+                        jQuery('#host_loading').css('visibility', 'hidden');
                         add_to_timeline([]);
                         update_status(false);});
       future.error(function(jqXHR, textStatus, errorThrown){jQuery('#timeline').parent().after(jQuery('<div>').html('<center><h1><div style="color:red;">ERROR: ' + errorThrown + '</div></h1></center>'))});
@@ -176,6 +179,7 @@ $def with ( aid, hostname, after, before )
       }
       from_time = after;
       to_time = before;
+      jQuery('#host_loading').css('visibility', 'visible');
       jQuery('#timeline').empty();
       all_events = {};
       do_refresh_timeline();

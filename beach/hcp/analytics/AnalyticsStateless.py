@@ -26,7 +26,9 @@ class AnalyticsStateless( Actor ):
         self.allConsumer = self.getActorHandleGroup( resources[ 'all' ],
                                                      timeout = 30,
                                                      nRetries = 3 )
-        self.outputs = self.getActorHandleGroup( resources[ 'output' ] )
+        self.outputs = self.getActorHandleGroup( resources[ 'output' ],
+                                                 timeout = 1200,
+                                                 nRetries = 3 )
 
         self.handle( 'analyze', self.analyze )
 

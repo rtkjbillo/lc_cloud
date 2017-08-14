@@ -13,15 +13,7 @@
 # limitations under the License.
 
 from beach.actor import Actor
-import traceback
-import hashlib
 import time
-import ipaddress
-CassDb = Actor.importLib( 'utils/hcp_databases', 'CassDb' )
-CassPool = Actor.importLib( 'utils/hcp_databases', 'CassPool' )
-rpcm = Actor.importLib( 'utils/rpcm', 'rpcm' )
-rList = Actor.importLib( 'utils/rpcm', 'rList' )
-rSequence = Actor.importLib( 'utils/rpcm', 'rSequence' )
 AgentId = Actor.importLib( 'utils/hcp_helpers', 'AgentId' )
 
 class SensorDirectory( Actor ):
@@ -66,7 +58,7 @@ class SensorDirectory( Actor ):
         else:
             # Sensor must have just gone offline and we got a race condition.
             pass
-        self.log( '%s transfered %d new bytes.' % ( aid.sensor_id, newBytes ) )
+        #self.log( '%s transfered %d new bytes.' % ( aid.sensor_id, newBytes ) )
         return ( True, )
 
     def getEndpoint( self, msg ):

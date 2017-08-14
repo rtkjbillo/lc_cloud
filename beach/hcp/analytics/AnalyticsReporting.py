@@ -15,7 +15,6 @@
 from beach.actor import Actor
 import msgpack
 import base64
-import random
 import json
 import time_uuid
 AgentId = Actor.importLib( 'utils/hcp_helpers', 'AgentId' )

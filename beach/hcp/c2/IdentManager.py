@@ -13,7 +13,6 @@
 # limitations under the License.
 
 from beach.actor import Actor
-import traceback
 import hashlib
 import time
 import uuid
@@ -38,6 +37,7 @@ class IdentManager( Actor ):
         self.audit = self.getActorHandle( resources[ 'auditing' ] )
         self.page = self.getActorHandle( resources[ 'paging' ] )
         self.deployment = self.getActorHandle( resources[ 'deployment' ] )
+        self.enrollments = self.getActorHandle( resources[ 'enrollments' ] )
 
         resp = self.deployment.request( 'get_global_config', {} )
         if resp.isSuccess:
@@ -90,6 +90,9 @@ class IdentManager( Actor ):
         email = req[ 'email' ].lower()
         password = req[ 'password' ]
         totp = req[ 'totp' ]
+
+        if 0 == len( email ) or 0 == len( password ):
+            return ( True, { 'is_authenticated' : False } )
 
         isAuthenticated = False
         info = self.db.getOne( 'SELECT uid, email, salt, salted_password, is_deleted, must_change_password, confirmation_token, totp_secret FROM user_info WHERE email = %s', 
@@ -221,6 +224,7 @@ class IdentManager( Actor ):
                          ( oid, name, ttl_events, ttl_long_obj, ttl_short_obj, ttl_atoms, ttl_detections ) )
 
         self.audit.shoot( 'record', { 'oid' : self.admin_oid, 'etype' : 'org_create', 'msg' : 'Org %s ( %s ) created by %s.' % ( name, oid, byUser ) } )
+        self.enrollments.broadcast( 'reload' )
 
         return ( True, { 'is_created' : True, 'oid' : oid } )
 
@@ -394,10 +398,12 @@ class IdentManager( Actor ):
         token = msg.data[ 'token' ]
         email = msg.data[ 'email' ].lower()
 
-        info = self.db.getOne( 'SELECT uid, confirmation_token FROM user_info WHERE email = %s', ( email, ) )
+        info = self.db.getOne( 'SELECT uid, confirmation_token, must_change_password FROM user_info WHERE email = %s', ( email, ) )
 
-        if info is None or ( info[ 1 ] != token and '' != info[ 1 ] ):
+        if info is None or not info[ 2 ]:
             return ( True, { 'confirmed' : False } )
+        elif info[ 1 ] != token and '' != info[ 1 ]:
+            return ( True, { 'confirmed' : True, 'uid' : info[ 0 ] } )
         else:
             self.db.execute( 'UPDATE user_info SET confirmation_token = \'\' WHERE email = %s', ( email, ) )
             return ( True, { 'confirmed' : True, 'uid' : info[ 0 ] } )

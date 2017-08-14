@@ -47,7 +47,8 @@ Patrol( 'DeploymentManager',
         actorKwArgs = {
             'resources' : { 'auditing' : 'c2/audit',
                             'paging' : 'paging',
-                            'admin' : 'c2/admin' },
+                            'admin' : 'c2/admin',
+                            'sensordir' : 'c2/sensordir/' },
             'parameters' : { 'db' : SCALE_DB,
                              'rate_limit_per_sec' : 200,
                              'max_concurrent' : 5,
@@ -59,10 +60,12 @@ Patrol( 'DeploymentManager',
                                 'beacon/09ba97ab-5557-4030-9db0-1dbe7f2b9cfd',
                                 'identmanager/f5c3a323-50e5-412a-b711-0e30d8284aa1',
                                 'slackrep/20546efe-0f84-46f2-b9ca-f17bf5997075',
-                                'hunter/8e0f55c0-6593-4747-9d02-a4937fa79517' ],
-            'n_concurrent' : 5,
+                                'hunter/8e0f55c0-6593-4747-9d02-a4937fa79517',
+                                'webhookoutput/4738d18b-4c0c-412c-89e4-b6ecb00904a1',
+                                'capabilitymanager/4fe13a22-0ca1-4e1f-aa33-20f045db2fb6',
+                                'enrollment/a3bebbb0-00e2-4345-990b-4c36a40b475e' ],
             'isIsolated' : True,
-            'strategy' : 'random' } )
+            'strategy' : 'repulsion' } )
 
 #######################################
 # SensorDirectory
@@ -86,10 +89,49 @@ Patrol( 'SensorDirectory',
             'trustedIdents' : [ 'beacon/09ba97ab-5557-4030-9db0-1dbe7f2b9cfd',
                                 'taskingproxy/794729aa-1ef5-4930-b377-48dda7b759a5',
                                 'slackrep/20546efe-0f84-46f2-b9ca-f17bf5997075',
-                                'lc/0bf01f7e-62bd-4cc4-9fec-4c52e82eb903' ],
-            'n_concurrent' : 5,
+                                'lc/0bf01f7e-62bd-4cc4-9fec-4c52e82eb903',
+                                'deploymentmanagager/afd2a4e5-3319-4c1c-bef7-dc4456d7a235',
+                                'taggingmanagager/693bfd35-80ca-42e1-b0c6-44ef5b27fb59' ],
             'isIsolated' : False,
-            'strategy' : 'random' } )
+            'strategy' : 'repulsion' } )
+
+
+#######################################
+# TaggingManager
+# This actor is responsible for 
+# managing tagging of sensors.
+# Parameters:
+# db: the Cassandra seed nodes to
+#    connect to for storage.
+# rate_limit_per_sec: number of db ops
+#    per second, limiting to avoid
+#    db overload since C* is bad at that.
+# max_concurrent: number of concurrent
+#    db queries.
+# block_on_queue_size: stop queuing after
+#    n number of items awaiting ingestion.
+#######################################
+Patrol( 'TaggingManager',
+        initialInstances = 1,
+        maxInstances = None,
+        relaunchOnFailure = True,
+        onFailureCall = None,
+        scalingFactor = 5000,
+        actorArgs = ( 'c2/TaggingManager',
+                      [ 'c2/taggingmanager/1.0' ] ),
+        actorKwArgs = {
+            'resources' : { 'sensordir' : 'c2/sensordir/',
+                            'admin' : 'c2/admin' },
+            'parameters' : { 'db' : SCALE_DB,
+                             'rate_limit_per_sec' : 200,
+                             'max_concurrent' : 5,
+                             'block_on_queue_size' : 100 },
+            'secretIdent' : 'taggingmanagager/693bfd35-80ca-42e1-b0c6-44ef5b27fb59',
+            'trustedIdents' : [ 'lc/0bf01f7e-62bd-4cc4-9fec-4c52e82eb903',
+                                'beacon/09ba97ab-5557-4030-9db0-1dbe7f2b9cfd',
+                                'analysis/01e9a19d-78e1-4c37-9a6e-37cb592e3897' ],
+            'isIsolated' : True,
+            'strategy' : 'repulsion' } )
 
 #######################################
 # StateUpdater
@@ -124,9 +166,8 @@ Patrol( 'StateUpdater',
                              'block_on_queue_size' : 100 },
             'secretIdent' : 'stateupdater/d3c521c6-d5c6-4726-9b0c-84d0ac356409',
             'trustedIdents' : [ 'beacon/09ba97ab-5557-4030-9db0-1dbe7f2b9cfd' ],
-            'n_concurrent' : 5,
             'isIsolated' : True,
-            'strategy' : 'random' } )
+            'strategy' : 'repulsion' } )
 
 #######################################
 # AuditManager
@@ -163,9 +204,8 @@ Patrol( 'AuditManager',
                                 'identmanager/f5c3a323-50e5-412a-b711-0e30d8284aa1',
                                 'dataexporter/dbf240e5-e8df-46ac-8b5e-356a291fdd40',
                                 'deploymentmanagager/afd2a4e5-3319-4c1c-bef7-dc4456d7a235' ],
-            'n_concurrent' : 5,
             'isIsolated' : True,
-            'strategy' : 'random' } )
+            'strategy' : 'repulsion' } )
 
 #######################################
 # EnrollmentManager
@@ -193,7 +233,7 @@ Patrol( 'EnrollmentManager',
         actorArgs = ( 'c2/EnrollmentManager',
                       'c2/enrollments/1.0' ),
         actorKwArgs = {
-            'resources' : {},
+            'resources' : { 'deployment' : 'c2/deploymentmanager' },
             'parameters' : { 'db' : SCALE_DB,
                              'rate_limit_per_sec' : 200,
                              'max_concurrent' : 5,
@@ -201,10 +241,10 @@ Patrol( 'EnrollmentManager',
                              'enrollment_token' : '595f06f1-49cf-48fe-8410-8706dc469116' },
             'secretIdent' : 'enrollment/a3bebbb0-00e2-4345-990b-4c36a40b475e',
             'trustedIdents' : [ 'beacon/09ba97ab-5557-4030-9db0-1dbe7f2b9cfd',
-                                'admin/dde768a4-8f27-4839-9e26-354066c8540e' ],
-            'n_concurrent' : 5,
+                                'admin/dde768a4-8f27-4839-9e26-354066c8540e',
+                                'identmanager/f5c3a323-50e5-412a-b711-0e30d8284aa1' ],
             'isIsolated' : True,
-            'strategy' : 'random' } )
+            'strategy' : 'repulsion' } )
 
 #######################################
 # TaskingProxy
@@ -228,9 +268,8 @@ Patrol( 'TaskingProxy',
             'trustedIdents' : [ 'autotasking/a6cd8d9a-a90c-42ec-bd60-0519b6fb1f64',
                                 'admin/dde768a4-8f27-4839-9e26-354066c8540e',
                                 'persistenttasking/54158388-2b0b-47c0-9642-f90835b5057b' ],
-            'n_concurrent' : 5,
             'isIsolated' : False,
-            'strategy' : 'random' } )
+            'strategy' : 'repulsion' } )
 
 #######################################
 # ModuleManager
@@ -265,9 +304,8 @@ Patrol( 'ModuleManager',
             'secretIdent' : 'modulemanager/1ecf1cd3-044d-434d-9134-b9b2c976ccad',
             'trustedIdents' : [ 'beacon/09ba97ab-5557-4030-9db0-1dbe7f2b9cfd',
                                 'admin/dde768a4-8f27-4839-9e26-354066c8540e' ],
-            'n_concurrent' : 5,
             'isIsolated' : True,
-            'strategy' : 'random' } )
+            'strategy' : 'repulsion' } )
 
 #######################################
 # AdminEndpoint
@@ -306,9 +344,8 @@ Patrol( 'AdminEndpoint',
             'secretIdent' : 'admin/dde768a4-8f27-4839-9e26-354066c8540e',
             'trustedIdents' : [ 'cli/955f6e63-9119-4ba6-a969-84b38bfbcc05',
                                 'deploymentmanagager/afd2a4e5-3319-4c1c-bef7-dc4456d7a235' ],
-            'n_concurrent' : 5,
             'isIsolated' : True,
-            'strategy' : 'random' } )
+            'strategy' : 'repulsion' } )
 
 #######################################
 # HbsProfileManager
@@ -343,9 +380,8 @@ Patrol( 'HbsProfileManager',
             'secretIdent' : 'hbsprofilemanager/8326405a-0698-4a91-9b30-d4ef9e4b9926',
             'trustedIdents' : [ 'beacon/09ba97ab-5557-4030-9db0-1dbe7f2b9cfd',
                                 'admin/dde768a4-8f27-4839-9e26-354066c8540e' ],
-            'n_concurrent' : 5,
             'isIsolated' : True,
-            'strategy' : 'random' } )
+            'strategy' : 'repulsion' } )
 
 #######################################
 # IdentManager
@@ -373,6 +409,7 @@ Patrol( 'IdentManager',
         actorKwArgs = {
             'resources' : { 'auditing' : 'c2/audit',
                             'paging' : 'paging',
+                            'enrollments' : 'c2/enrollments',
                             'deployment' : 'c2/deploymentmanager' },
             'parameters' : { 'db' : SCALE_DB,
                              'rate_limit_per_sec' : 200,
@@ -382,10 +419,10 @@ Patrol( 'IdentManager',
             'trustedIdents' : [ 'lc/0bf01f7e-62bd-4cc4-9fec-4c52e82eb903',
                                 'analysis/038528f5-5135-4ca8-b79f-d6b8ffc53bf5',
                                 'reporting/9ddcc95e-274b-4a49-a003-c952d12049b8',
-                                'slackrep/20546efe-0f84-46f2-b9ca-f17bf5997075' ],
-            'n_concurrent' : 5,
+                                'slackrep/20546efe-0f84-46f2-b9ca-f17bf5997075',
+                                'webhookoutput/4738d18b-4c0c-412c-89e4-b6ecb00904a1' ],
             'isIsolated' : True,
-            'strategy' : 'random' } )
+            'strategy' : 'repulsion' } )
 
 ###############################################################################
 # Analysis Intake
@@ -447,7 +484,6 @@ Patrol( 'AutoTasking',
             'trustedIdents' : [ 'analysis/01e9a19d-78e1-4c37-9a6e-37cb592e3897',
                                 'hunter/8e0f55c0-6593-4747-9d02-a4937fa79517',
                                 'slackrep/20546efe-0f84-46f2-b9ca-f17bf5997075' ],
-            'n_concurrent' : 5,
             'isIsolated' : True } )
 
 #######################################
@@ -475,8 +511,7 @@ Patrol( 'AnalyticsIntake',
             'parameters' : {},
             'secretIdent' : 'intake/6058e556-a102-4e51-918e-d36d6d1823db',
             'trustedIdents' : [ 'beacon/09ba97ab-5557-4030-9db0-1dbe7f2b9cfd' ],
-            'n_concurrent' : 5,
-        'strategy' : 'random' } )
+        'strategy' : 'repulsion' } )
 
 #######################################
 # AnalyticsInvestigation
@@ -500,8 +535,7 @@ Patrol( 'AnalyticsInvestigation',
             'resources' : { 'investigations' : 'analytics/inv_id/%s' },
             'parameters' : { 'ttl' : ( 60 * 60 * 24 ) },
             'secretIdent' : 'analysis/01e9a19d-78e1-4c37-9a6e-37cb592e3897',
-            'trustedIdents' : [ 'intake/6058e556-a102-4e51-918e-d36d6d1823db' ],
-            'n_concurrent' : 5 } )
+            'trustedIdents' : [ 'intake/6058e556-a102-4e51-918e-d36d6d1823db' ] } )
 
 #######################################
 # HuntsManager
@@ -523,8 +557,7 @@ Patrol( 'HuntsManager',
             'parameters' : {},
             'secretIdent' : 'huntsmanager/d666cbc3-38d5-4086-b9ce-c543625ee45c',
             'trustedIdents' : [ 'hunter/8e0f55c0-6593-4747-9d02-a4937fa79517',
-                                'slackrep/20546efe-0f84-46f2-b9ca-f17bf5997075' ],
-            'n_concurrent' : 5 } )
+                                'slackrep/20546efe-0f84-46f2-b9ca-f17bf5997075' ] } )
 
 #######################################
 # AnalyticsModeling
@@ -555,7 +588,7 @@ Patrol( 'AnalyticsModeling',
         actorKwArgs = {
             'resources' : { 'identmanager' : 'c2/identmanager' },
             'parameters' : { 'db' : SCALE_DB,
-                             'rate_limit_per_sec' : 1000,
+                             'rate_limit_per_sec' : 5000,
                              'max_concurrent' : 5,
                              'block_on_queue_size' : 200000,
                              'retention_raw_events' : ( 60 * 60 * 24 * 14 ),
@@ -565,9 +598,8 @@ Patrol( 'AnalyticsModeling',
                              'retention_explorer' : ( 60 * 60 * 24 * 30 ) },
             'secretIdent' : 'analysis/038528f5-5135-4ca8-b79f-d6b8ffc53bf5',
             'trustedIdents' : [ 'intake/6058e556-a102-4e51-918e-d36d6d1823db' ],
-            'n_concurrent' : 5,
             'isIsolated' : True,
-            'strategy' : 'random' } )
+            'strategy' : 'repulsion' } )
 
 #######################################
 # ModelView
@@ -606,10 +638,10 @@ Patrol( 'AnalyticsModelView',
                                 'dataexporter/dbf240e5-e8df-46ac-8b5e-356a291fdd40',
                                 'reporting/9ddcc95e-274b-4a49-a003-c952d12049b8',
                                 'slackrep/20546efe-0f84-46f2-b9ca-f17bf5997075',
+                                'analysis/01e9a19d-78e1-4c37-9a6e-37cb592e3897',
                                 'autotasking/a6cd8d9a-a90c-42ec-bd60-0519b6fb1f64' ],
-            'n_concurrent' : 5,
             'isIsolated' : True,
-            'strategy' : 'random' } )
+            'strategy' : 'repulsion' } )
 
 #######################################
 # PagingActor
@@ -637,8 +669,7 @@ Patrol( 'PagingActor',
             'trustedIdents' : [ 'reporting/9ddcc95e-274b-4a49-a003-c952d12049b8',
                                 'lc/0bf01f7e-62bd-4cc4-9fec-4c52e82eb903',
                                 'identmanager/f5c3a323-50e5-412a-b711-0e30d8284aa1' ],
-            'n_concurrent' : 5,
-            'strategy' : 'random' } )
+            'strategy' : 'repulsion' } )
 
 #######################################
 # DataExporter
@@ -661,9 +692,8 @@ Patrol( 'DataExporter',
             'parameters' : {},
             'secretIdent' : 'dataexporter/dbf240e5-e8df-46ac-8b5e-356a291fdd40',
             'trustedIdents' : [ 'lc/0bf01f7e-62bd-4cc4-9fec-4c52e82eb903' ],
-            'n_concurrent' : 5,
             'isIsolated' : True,
-            'strategy' : 'random' } )
+            'strategy' : 'repulsion' } )
 
 #######################################
 # VirusTotalActor
@@ -694,8 +724,31 @@ Patrol( 'VirusTotalActor',
                              'ttl' : ( 60 * 60 * 24 ) },
             'secretIdent' : 'vt/8299a488-7fff-4511-a311-76e6600b4a7a',
             'trustedIdents' : [ 'analysis/01e9a19d-78e1-4c37-9a6e-37cb592e3897',
-                                'hunter/8e0f55c0-6593-4747-9d02-a4937fa79517' ],
-            'n_concurrent' : 50 } )
+                                'hunter/8e0f55c0-6593-4747-9d02-a4937fa79517' ] } )
+
+#######################################
+# GeoLocationActor
+# This actor IP address geolocation.
+# Parameters:
+#
+#######################################
+Patrol( 'GeoLocationActor',
+        initialInstances = 1,
+        maxInstances = None,
+        relaunchOnFailure = True,
+        onFailureCall = None,
+        scalingFactor = 10000,
+        actorArgs = ( 'analytics/GeoLocationActor',
+                      'analytics/geolocation/1.0' ),
+        actorKwArgs = {
+            'resources' : {},
+            'parameters' : {},
+            'secretIdent' : 'geolocation/649a9dd2-bfba-46d1-8247-bbd1096703ca',
+            'trustedIdents' : [ 'analysis/01e9a19d-78e1-4c37-9a6e-37cb592e3897',
+                                'hunter/8e0f55c0-6593-4747-9d02-a4937fa79517',
+                                'blink/6babf560-88db-403d-a5f6-3689397e0104',
+                                'lc/0bf01f7e-62bd-4cc4-9fec-4c52e82eb903' ],
+            'isIsolated' : False } )
 
 #######################################
 # AlexaDNS
@@ -719,8 +772,7 @@ Patrol( 'AlexaDNS',
             'secretIdent' : 'alexadns/e1527553-815b-4dd5-8a40-708a287605b4',
             'trustedIdents' : [ 'analysis/01e9a19d-78e1-4c37-9a6e-37cb592e3897',
                                 'hunter/8e0f55c0-6593-4747-9d02-a4937fa79517',
-                                'blink/6babf560-88db-403d-a5f6-3689397e0104' ],
-            'n_concurrent' : 10 } )
+                                'blink/6babf560-88db-403d-a5f6-3689397e0104' ] } )
 
 #######################################
 # MalwareDomains
@@ -744,8 +796,7 @@ Patrol( 'MalwareDomains',
             'secretIdent' : 'malwaredomains/d7e813ef-e47d-479c-a56e-0190cad45c25',
             'trustedIdents' : [ 'analysis/01e9a19d-78e1-4c37-9a6e-37cb592e3897',
                                 'hunter/8e0f55c0-6593-4747-9d02-a4937fa79517',
-                                'blink/6babf560-88db-403d-a5f6-3689397e0104' ],
-            'n_concurrent' : 10 } )
+                                'blink/6babf560-88db-403d-a5f6-3689397e0104' ]} )
 
 #######################################
 # AnalyticsStateless
@@ -767,8 +818,7 @@ Patrol( 'AnalyticsStateless',
                             'specific' : 'analytics/stateless/%s/%s/' },
             'parameters' : {},
             'secretIdent' : 'analysis/01e9a19d-78e1-4c37-9a6e-37cb592e3897',
-            'trustedIdents' : [ 'intake/6058e556-a102-4e51-918e-d36d6d1823db' ],
-            'n_concurrent' : 5 } )
+            'trustedIdents' : [ 'intake/6058e556-a102-4e51-918e-d36d6d1823db' ] } )
 
 #######################################
 # AnalyticsStateful
@@ -788,8 +838,7 @@ Patrol( 'AnalyticsStateful',
             'resources' : { 'modules' : 'analytics/stateful/modules/%s/' },
             'parameters' : {},
             'secretIdent' : 'analysis/01e9a19d-78e1-4c37-9a6e-37cb592e3897',
-            'trustedIdents' : [ 'intake/6058e556-a102-4e51-918e-d36d6d1823db' ],
-            'n_concurrent' : 5 } )
+            'trustedIdents' : [ 'intake/6058e556-a102-4e51-918e-d36d6d1823db' ] } )
 
 #######################################
 # AnalyticsReporting
@@ -832,7 +881,6 @@ Patrol( 'AnalyticsReporting',
             'trustedIdents' : [ 'analysis/01e9a19d-78e1-4c37-9a6e-37cb592e3897',
                                 'hunter/8e0f55c0-6593-4747-9d02-a4937fa79517',
                                 'lc/0bf01f7e-62bd-4cc4-9fec-4c52e82eb903' ],
-            'n_concurrent' : 5,
             'isIsolated' : True } )
 
 #######################################
@@ -850,7 +898,7 @@ Patrol( 'CapabilityManager',
         actorArgs = ( 'analytics/CapabilityManager',
                       'analytics/capabilitymanager/1.0' ),
         actorKwArgs = {
-            'resources' : {},
+            'resources' : { 'deployment' : 'c2/deploymentmanager' },
             'parameters' : { 'scale' : 50,
                              'detect_secret_ident' : 'analysis/01e9a19d-78e1-4c37-9a6e-37cb592e3897',
                              'hunter_secret_ident' : 'hunter/8e0f55c0-6593-4747-9d02-a4937fa79517',
@@ -858,8 +906,7 @@ Patrol( 'CapabilityManager',
                              'hunter_trusted_ident' : 'analysis/01e9a19d-78e1-4c37-9a6e-37cb592e3897' },
             'secretIdent' : 'capabilitymanager/4fe13a22-0ca1-4e1f-aa33-20f045db2fb6',
             'trustedIdents' : [ 'hunter/8e0f55c0-6593-4747-9d02-a4937fa79517',
-                                'lc/0bf01f7e-62bd-4cc4-9fec-4c52e82eb903' ],
-            'n_concurrent' : 5 } )
+                                'lc/0bf01f7e-62bd-4cc4-9fec-4c52e82eb903' ] } )
 
 #######################################
 # BlinkModel
@@ -892,9 +939,8 @@ Patrol( 'BlinkModel',
                              'block_on_queue_size' : 100 },
             'secretIdent' : 'blink/6babf560-88db-403d-a5f6-3689397e0104',
             'trustedIdents' : [ 'lc/0bf01f7e-62bd-4cc4-9fec-4c52e82eb903' ],
-            'n_concurrent' : 5,
             'isIsolated' : True,
-            'strategy' : 'random' } )
+            'strategy' : 'repulsion' } )
 
 #######################################
 # EndpointProcessor
@@ -925,32 +971,22 @@ Patrol( 'EndpointProcessor',
                             'sensordir' : 'c2/sensordir/',
                             'module_tasking' : 'c2/modulemanager',
                             'hbs_profiles' : 'c2/hbsprofilemanager',
-                            'deployment' : 'c2/deploymentmanager' },
-            'parameters' : { 'handler_interface' : 'eth1' },
+                            'deployment' : 'c2/deploymentmanager',
+                            'tagging' : 'c2/taggingmanager' },
+            'parameters' : { 'handler_interface' : 'eth1',
+                             'sensor_max_qps' : 30 },
             'secretIdent' : 'beacon/09ba97ab-5557-4030-9db0-1dbe7f2b9cfd',
             'trustedIdents' : [ 'taskingproxy/794729aa-1ef5-4930-b377-48dda7b759a5',
                                 'endpointproxy/8e7a890b-8016-4396-b012-aec73d055dd6' ],
-            'n_concurrent' : 5,
             'isIsolated' : False,
-            'strategy' : 'random' } )
+            'strategy' : 'repulsion' } )
 
 #######################################
 # SlackRep
 # This actor receives Detecs from the
 # stateless and stateful detection
-# actors and ingest them into the
-# reporting pipeline.
+# actors and reports them on Slack.
 # Parameters:
-# db: the Cassandra seed nodes to
-#    connect to for storage.
-# rate_limit_per_sec: number of db ops
-#    per second, limiting to avoid
-#    db overload since C* is bad at that.
-# max_concurrent: number of concurrent
-#    db queries.
-# block_on_queue_size: stop queuing after
-#    n number of items awaiting ingestion.
-# paging_dest: email addresses to page.
 #######################################
 Patrol( 'SlackRep',
         initialInstances = 1,
@@ -960,7 +996,7 @@ Patrol( 'SlackRep',
         scalingFactor = 10000,
         actorArgs = ( 'analytics/SlackRep',
                       [ 'analytics/slackrep/1.0',
-                        'analytics/output/detects' ] ),
+                        'analytics/output/detects/slack' ] ),
         actorKwArgs = {
             'resources' : { 'modeling' : 'models',
                             'auditing' : 'c2/audit',
@@ -974,5 +1010,55 @@ Patrol( 'SlackRep',
             'secretIdent' : 'slackrep/20546efe-0f84-46f2-b9ca-f17bf5997075',
             'trustedIdents' : [ 'reporting/9ddcc95e-274b-4a49-a003-c952d12049b8',
                                 'analysis/01e9a19d-78e1-4c37-9a6e-37cb592e3897' ],
-            'n_concurrent' : 5,
             'isIsolated' : True } )
+
+#######################################
+# FileEventsOutput
+# This actor receives Detecs from the
+# stateless and stateful detection
+# actors and reports them to a log file.
+# Parameters:.
+#######################################
+Patrol( 'FileEventsOutput',
+        initialInstances = 1,
+        maxInstances = 1,
+        relaunchOnFailure = True,
+        onFailureCall = None,
+        scalingFactor = 10000,
+        actorArgs = ( 'analytics/FileEventsOutput',
+                      [ 'analytics/fileeventsoutput/1.0',
+                        'analytics/output/detects/fileevent',
+                        'analytics/output/events/fileevent' ] ),
+        actorKwArgs = {
+            'resources' : {},
+            'parameters' : {},
+            'secretIdent' : 'fileeventsoutput/9a6e2317-db95-4a93-b815-b3c1aaecf527',
+            'trustedIdents' : [ 'reporting/9ddcc95e-274b-4a49-a003-c952d12049b8',
+                                'analysis/01e9a19d-78e1-4c37-9a6e-37cb592e3897' ],
+            'isIsolated' : False } )
+
+#######################################
+# WebHookOutput
+# This actor receives Detecs from the
+# stateless and stateful detection
+# actors and reports them to a per org
+# webhook.
+# Parameters:.
+#######################################
+Patrol( 'WebHookOutput',
+        initialInstances = 1,
+        maxInstances = 1,
+        relaunchOnFailure = True,
+        onFailureCall = None,
+        scalingFactor = 10000,
+        actorArgs = ( 'analytics/WebHookOutput',
+                      [ 'analytics/webhookoutput/1.0',
+                        'analytics/output/detects/webhookoutput' ] ),
+        actorKwArgs = {
+            'resources' : { 'deployment' : 'c2/deploymentmanager',
+                            'identmanager' : 'c2/identmanager' },
+            'parameters' : {},
+            'secretIdent' : 'webhookoutput/4738d18b-4c0c-412c-89e4-b6ecb00904a1',
+            'trustedIdents' : [ 'reporting/9ddcc95e-274b-4a49-a003-c952d12049b8',
+                                'analysis/01e9a19d-78e1-4c37-9a6e-37cb592e3897' ],
+            'isIsolated' : False } )

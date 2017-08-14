@@ -37,7 +37,8 @@ class AnalyticsModeling( Actor ):
         self.db = CassPool( self._db,
                             rate_limit_per_sec = parameters[ 'rate_limit_per_sec' ],
                             maxConcurrent = parameters[ 'max_concurrent' ],
-                            blockOnQueueSize = parameters[ 'block_on_queue_size' ] )
+                            blockOnQueueSize = parameters[ 'block_on_queue_size' ],
+                            withStats = True )
         #self.db = self._db
 
         self.ignored_objects = [ ObjectTypes.STRING,
@@ -53,7 +54,7 @@ class AnalyticsModeling( Actor ):
 
         self.org_ttls = {}
         if 'identmanager' in resources:
-            self.identmanager = self.getActorHandle( resources[ 'identmanager' ] )
+            self.identmanager = self.getActorHandle( resources[ 'identmanager' ], timeout = 30 )
         else:
             self.identmanager = None
             self.log( 'using default ttls' )
@@ -76,18 +77,31 @@ class AnalyticsModeling( Actor ):
         self.stmt_obj_batch_loc = self.ingestStatement( 'UPDATE loc USING TTL ? SET last = ? WHERE sid = ? AND otype = ? AND id = ?' )
         self.stmt_obj_batch_id = self.ingestStatement( 'INSERT INTO loc_by_id ( id, sid, last ) VALUES ( ?, ?, ? ) USING TTL ?' )
         self.stmt_obj_batch_type = self.ingestStatement( 'INSERT INTO loc_by_type ( d256, otype, id, sid ) VALUES ( ?, ?, ?, ? ) USING TTL ?' )
-        self.stmt_obj_org = self.ingestStatement( 'INSERT INTO obj_org ( id, oid ) VALUES ( ?, ? ) USING TTL ?' )
+        self.stmt_obj_org = self.ingestStatement( 'INSERT INTO obj_org ( id, oid, ts, sid, eid ) VALUES ( ?, ?, ?, ?, ? ) USING TTL ?' )
 
         self.stmt_atoms_children = self.ingestStatement( 'INSERT INTO atoms_children ( atomid, child, eid ) VALUES ( ?, ?, ? ) USING TTL ?' )
         self.stmt_atoms_lookup = self.ingestStatement( 'INSERT INTO atoms_lookup ( atomid, eid ) VALUES ( ?, ? ) USING TTL ?' )
 
         self.db.start()
         self.processedCounter = 0
+        self.nWrites = 0
+        self.lastReport = time.time()
         self.handle( 'analyze', self.analyze )
+        self.statFrameSeconds = 600
+        self.delay( self.statFrameSeconds, self.reportStats )
 
     def deinit( self ):
         self.db.stop()
         self._db.shutdown()
+
+    def reportStats( self ):
+        now = time.time()
+        self.log( "Enqueued/sec: %s, Write/sec: %s" % ( float( self.nWrites ) / ( now - self.lastReport ),
+                                                        float( self.db.qCounter ) / ( now - self.lastReport ) ) )
+        self.nWrites = 0
+        self.db.qCounter = 0
+        self.lastReport = now
+        self.delay( self.statFrameSeconds, self.reportStats )
 
     def ingestStatement( self, statement ):
         stmt = self.db.prepare( statement )
@@ -114,7 +128,7 @@ class AnalyticsModeling( Actor ):
                      'detections' : self.default_ttl_detections }
         return ttls
 
-    def _ingestObjects( self, ttls, sid, ts, objects, relations, oid ):
+    def _ingestObjects( self, ttls, sid, ts, objects, relations, oid, eid ):
         ts = datetime.datetime.fromtimestamp( ts )
 
         for relType, relVals in relations.iteritems():
@@ -138,6 +152,7 @@ class AnalyticsModeling( Actor ):
                                                                          relType[ 0 ],
                                                                          ObjectKey( relVal[ 0 ], relType[ 0 ] ),
                                                                          ttl ) ) )
+                self.nWrites += 2
 
         for objType, objVals in objects.iteritems():
             for objVal in objVals:
@@ -149,10 +164,11 @@ class AnalyticsModeling( Actor ):
                     ttl = ttls[ 'long_obj' ]
 
                 self.db.execute_async( self.stmt_obj_batch_man.bind( ( k, objVal, objType, ttl ) ) )
-                self.db.execute_async( self.stmt_obj_org.bind( ( k, oid, ttl ) ) )
+                self.db.execute_async( self.stmt_obj_org.bind( ( k, oid, ts, sid, eid, min( ttl, ttls[ 'events' ] ) ) ) )
                 self.db.execute_async( self.stmt_obj_batch_loc.bind( ( ttl, ts, sid, objType, k ) ) )
                 self.db.execute_async( self.stmt_obj_batch_id.bind( ( k, sid, ts, ttl ) ) )
                 self.db.execute_async( self.stmt_obj_batch_type.bind( ( random.randint( 0, 256 ), objType, k, sid, ttl ) ) )
+                self.nWrites += 5
 
 
     def analyze( self, msg ):
@@ -207,6 +223,8 @@ class AnalyticsModeling( Actor ):
                                                       sid,
                                                       routing[ 'event_type' ] ) ) )
 
+        self.nWrites += 5
+
         this_atom = _x_( event, '?/hbs.THIS_ATOM' )
         parent_atom = _x_( event, '?/hbs.PARENT_ATOM' )
         null_atom = "\x00" * 16
@@ -235,12 +253,14 @@ class AnalyticsModeling( Actor ):
             self.db.execute_async( self.stmt_atoms_lookup.bind( ( this_atom,
                                                                   eid,
                                                                   ttls[ 'atoms' ] ) ) )
+            self.nWrites += 1
 
         if this_atom is not None and parent_atom is not None:
             self.db.execute_async( self.stmt_atoms_children.bind( ( parent_atom,
                                                                     this_atom if this_atom is not None else uuid.UUID( bytes = null_atom ),
                                                                     eid,
                                                                     ttls[ 'atoms' ] ) ) )
+            self.nWrites += 1
 
         inv_id = _x_( event, '?/hbs.INVESTIGATION_ID' )
         if inv_id is not None and inv_id != '':
@@ -249,6 +269,8 @@ class AnalyticsModeling( Actor ):
                                                                    eid,
                                                                    routing[ 'event_type' ],
                                                                    ttls[ 'detections' ] ) ) )
+            self.nWrites += 1
+
         new_objects = mtd[ 'obj' ]
         new_relations = mtd[ 'rel' ]
 
@@ -260,6 +282,6 @@ class AnalyticsModeling( Actor ):
                     del( new_relations[ k ] )
 
         if 0 != len( new_objects ) or 0 != len( new_relations ):
-            self._ingestObjects( ttls, sid, ts, new_objects, new_relations, agent.org_id )
+            self._ingestObjects( ttls, sid, ts, new_objects, new_relations, agent.org_id, eid )
         #self.log( 'finished storing objects %s: %s / %s' % ( routing[ 'event_type' ], len( new_objects ), len( new_relations )) )
         return ( True, )

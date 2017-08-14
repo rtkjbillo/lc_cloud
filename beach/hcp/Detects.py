@@ -19,6 +19,7 @@ import time
 StateMachine = Actor.importLib( 'analytics/StateAnalysis', 'StateMachine' )
 StateEvent = Actor.importLib( 'analytics/StateAnalysis', 'StateEvent' )
 CreateOnAccess = Actor.importLib( 'utils/hcp_helpers', 'CreateOnAccess' )
+AgentId = Actor.importLib( 'utils/hcp_helpers', 'AgentId' )
 
 def GenerateDetectReport( nthReport, agentid, msgIds, cat, detect, summary = '', priority = None ):
     if type( msgIds ) is not tuple and type( msgIds ) is not list:
@@ -58,6 +59,8 @@ class StatelessActor ( Actor ):
         self._detects = CreateOnAccess( self.getActorHandleGroup, 
                                         resources.get( 'detects', 'analytics/detects/%s' ) % self._cat,
                                         timeout = 30 )
+        self._models = CreateOnAccess( self.getActorHandle, 'models', timeout = 30 )
+        self._tagging = CreateOnAccess( self.getActorHandle, 'c2/taggingmanager', timeout = 30 )
         self.handle( 'process', self._process )
 
     def task( self, dest, cmdsAndArgs, expiry = None, inv_id = None ):
@@ -80,6 +83,9 @@ class StatelessActor ( Actor ):
 
         self._tasking.shoot( 'task', data, key = dest )
         self.log( "sent for tasking: %s" % ( str(cmdsAndArgs), ) )
+
+    def tag( self, aid, tag, ttl = ( 60 * 60 * 24 * 365 ) ):
+        self._tagging.shoot( 'add_tags', { 'tag' : tag, 'ttl' : ttl, 'sid' : AgentId( aid ).sensor_id, 'by' : self._cat } )
 
     def _process( self, msg ):
         newDetects = Detects()
@@ -137,6 +143,7 @@ class StatefulActor ( Actor ):
     def _garbageCollectOldMachines( self ):
         for shard in self._compiled_machines.keys():
             for machine in self._compiled_machines[ shard ]:
+                print( "%s/%s: %d" % ( shard, machine._descriptor.detectName, len( machine._history ) ) )
                 if self._machine_activity[ machine ] < time.time() - self._machine_ttl:
                     del( self._machine_activity[ machine ] )
                     self._compiled_machines[ shard ].remove( machine )

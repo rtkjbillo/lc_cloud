@@ -132,3 +132,6 @@ class EventInterpreter( object ):
 
 	def __str__( self ):
 		return '%s( %s )' % ( self.name(), self.key() )
+
+	def getTimestamp( self ):
+		return _x_( self.event, '?/base.TIMESTAMP' )

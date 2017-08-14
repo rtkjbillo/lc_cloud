@@ -105,9 +105,6 @@ class FileEventsOutput( Actor ):
         return ( True, )
 
     def reportDetectOrInv( self, msg ):
-        msg.data[ 'hostnames' ] = map( lambda x: Host( x ).getHostName(), 
-                                       msg.data[ 'source' ].split( ' / ' ) )
-
         record = msg.data
 
         record = self.sanitizeJson( record )

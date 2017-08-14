@@ -57,6 +57,9 @@ class ModelView( Actor ):
         self.handle( 'get_atoms_from_root', self.get_atoms_from_root )
         self.handle( 'get_backend_config', self.get_backend_config )
         self.handle( 'get_installer', self.get_installer )
+        self.handle( 'get_sensor_bandwidth', self.get_sensor_bandwidth )
+        self.handle( 'get_ip_usage', self.get_ip_usage )
+        self.handle( 'get_obj_instances', self.get_obj_instances )
 
     def deinit( self ):
         Host.closeDatabase()
@@ -371,8 +374,8 @@ class ModelView( Actor ):
 
     def get_atoms_from_root( self, msg ):
         tmp_atoms = msg.data[ 'id' ]
-        depth = msg.data.get( 'depth', 5 )
-        maxAtoms = msg.data.get( 'max_atoms', 100 )
+        depth = msg.data.get( 'depth', 10 )
+        maxAtoms = msg.data.get( 'max_atoms', 1000 )
         withRouting = msg.data.get( 'with_routing', False )
         atoms = []
         
@@ -422,3 +425,27 @@ class ModelView( Actor ):
 
         return ( True, data )
 
+    def get_sensor_bandwidth( self, msg ):
+        sid = msg.data[ 'sid' ]
+        after = msg.data.get( 'after', int( time.time() - ( 60 * 60 * 24 * 1 ) ) )
+
+        usage = Host( sid ).getBandwidthUsage( after = after )
+
+        return ( True, { 'usage' : usage } )
+
+    def get_ip_usage( self, msg ):
+        oid = msg.data[ 'oid' ]
+        ip = msg.data[ 'ip' ]
+        after = msg.data.get( 'after', None )
+        before = msg.data.get( 'before', None )
+
+        usage = Host.getHostsUsingIp( ip, after = after, before = before, inOrgs = oid )
+
+        return ( True, { 'usage' : usage } )
+
+    def get_obj_instances( self, msg ):
+        orgs = self.asUuidList( msg.data[ 'orgs' ] )
+
+        instances = [ x for x in HostObjects( msg.data[ 'oid' ] ).events( oid = orgs ) ]
+
+        return ( True, { 'instances' : instances } )

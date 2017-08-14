@@ -3,7 +3,7 @@ $var title = 'Capabilities'
 
 
 $if is_admin:
-    <div class="mdl-card mdl-cell mdl-cell--4-col mdl-shadow--4dp">
+    <div class="mdl-card mdl-cell mdl-cell--4-col mdl-shadow--4dp std_height">
       <div class="mdl-card__title">
         <h4 class="mdl-card__title-text">Load Capability</h4>
         <button class="mdl-button mdl-js-button mdl-js-ripple-effect help-dialog" style="position: absolute; right: 0;">
@@ -22,20 +22,23 @@ $if is_admin:
           <i class="material-icons">help</i>
         </button>
       </div>
-      <div class="mdl-card__supporting-text" style="position: relative; ">
+      <div class="mdl-card__supporting-text" style="position: relative;">
         <form method="POST" id="form_add_cap">
             <div class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label">
                 <input class="mdl-textfield__input" type="text" id="urlToAdd" name="urlToAdd"/>
                 <label class="mdl-textfield__label" for="urlToAdd">URL</label>
             </div>
+            <br/>
             <div class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label">
                 <textarea class="mdl-textfield__input" type="text" rows= "3" id="contentToAdd" name="contentToAdd" ></textarea>
                 <label class="mdl-textfield__label" for="urlToAdd">Patrol Content</label>
             </div>
+            <br/>
             <div class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label">
                 <input class="mdl-textfield__input" type="text" id="nameToAdd" name="nameToAdd"/>
                 <label class="mdl-textfield__label" for="nameToAdd">Name</label>
             </div>
+            <br/>
             <div class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label">
                 <textarea class="mdl-textfield__input" type="text" rows= "3" id="argsToAdd" name="argsToAdd" ></textarea>
                 <label class="mdl-textfield__label" for="urlToAdd">Arguments (JSON)</label>
@@ -49,7 +52,7 @@ $if is_admin:
       </div>
     </div>
 
-    <div class="mdl-card mdl-cell mdl-cell--4-col mdl-shadow--4dp">
+    <div class="mdl-card mdl-cell mdl-cell--4-col mdl-shadow--4dp std_height">
       <div class="mdl-card__title">
         <h4 class="mdl-card__title-text">Unload Capability</h4>
         <button class="mdl-button mdl-js-button mdl-js-ripple-effect help-dialog" style="position: absolute; right: 0;">

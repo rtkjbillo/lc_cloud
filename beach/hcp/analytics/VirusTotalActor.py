@@ -21,7 +21,7 @@ CreateOnAccess = Actor.importLib( '../utils/hcp_helpers', 'CreateOnAccess' )
 
 class VirusTotalActor ( Actor ):
     def init( self, parameters, resources ):
-        self.deploymentManager = CreateOnAccess( self.getActorHandle, resources[ 'deployment' ], timeout = 30 )
+        self.deploymentManager = CreateOnAccess( self.getActorHandle, resources[ 'deployment' ], nRetries = 3, timeout = 30 )
         self.key = parameters.get( '_key', None )
         
         # Maximum number of queries per minute
@@ -39,7 +39,7 @@ class VirusTotalActor ( Actor ):
 
         self.vtMutex = Mutex()
 
-        self.Model = self.getActorHandle( resources[ 'modeling' ], timeout = 3, nRetries = 1 )
+        self.Model = self.getActorHandle( resources[ 'modeling' ], timeout = 3, nRetries = 3 )
 
         # Cache size
         self.cache_size = parameters.get( 'cache_size', 5000 )
@@ -47,7 +47,6 @@ class VirusTotalActor ( Actor ):
         self.cache = RingCache( maxEntries = self.cache_size, isAutoAdd = False )
 
         self.stats = [ 0, 0, 0, 0 ]
-        self.schedule( 60 * 60, self.wipeStats )
         self.schedule( 60 * 60, self.reportStats )
 
         self.handle( 'get_report', self.getReport )
@@ -73,6 +72,7 @@ class VirusTotalActor ( Actor ):
 
     def reportStats( self ):
         self.log( "VT Stats - Total: %s, Lvl1Cache: %s, Lvl2Cache: %s, VTAPI: %s" % tuple( self.stats ) )
+        self.wipeStats()
 
     def getReportFromCache( self, fileHash ):
         report = False
@@ -112,6 +112,7 @@ class VirusTotalActor ( Actor ):
         if fileHash is None: return ( False, 'missing hash' )
 
         isNoCache = msg.data.get( 'no_cache', False )
+        isCacheOnly = msg.data.get( 'cache_only', False )
 
         if not all( x in "1234567890abcdef" for x in fileHash.lower() ) and len( fileHash ) in [ 32, 40, 64 ]:
             fileHash = fileHash.encode( 'hex' )
@@ -123,7 +124,7 @@ class VirusTotalActor ( Actor ):
             report = self.getReportFromCache( fileHash )
         else:
             report = False
-        if report is False:
+        if report is False or isCacheOnly:
             report = None
             vtReport = None
             nRetry = 3

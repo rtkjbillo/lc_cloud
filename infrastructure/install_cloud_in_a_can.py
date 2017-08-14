@@ -36,13 +36,6 @@ Return Values: %s
         print( 'Stopping execution since this step failed.' )
         sys.exit(-1)
 
-printStep( 'Upgrade max number of file descriptors.',
-           os.system( 'echo "* - nofile 1024000" >> /etc/security/limits.conf' ),
-           os.system( 'echo "root - nofile 1024000" >> /etc/security/limits.conf' ),
-           os.system( 'echo "session required pam_limits.so" >> /etc/pam.d/common-session' ),
-           os.system( 'echo "fs.file-max = 1024000" >> /etc/sysctl.conf'),
-           os.system( 'sysctl -p' ) )
-
 printStep( 'Turn off systemd broadcast.',
            os.system( 'echo "ForwardToWall=no" >> /etc/systemd/journald.conf' ),
            os.system( 'systemctl restart systemd-journald' ) )
@@ -51,8 +44,15 @@ printStep( 'Updating repo and upgrading existing components.',
     os.system( 'apt-get update -y' ),
     os.system( 'apt-get upgrade -y' ) )
 
+printStep( 'Upgrade max number of file descriptors.',
+    os.system( 'echo "* - nofile 102400" >> /etc/security/limits.conf' ),
+    os.system( 'echo "root - nofile 102400" >> /etc/security/limits.conf' ),
+    os.system( 'echo "session required pam_limits.so" >> /etc/pam.d/common-session' ),
+    os.system( 'echo "fs.file-max = 102400" >> /etc/sysctl.conf'),
+    os.system( 'sysctl -p' ) )
+
 printStep( 'Installing some basic packages required for Beach (mainly).',
-    os.system( 'apt-get install openssl python-pip python-dev debconf-utils python-m2crypto python-pexpect autoconf libtool git flex byacc bison unzip -y' ) )
+    os.system( 'apt-get install screen openssl python-pip python-dev debconf-utils libssl-dev python-m2crypto python-pexpect autoconf libtool git flex byacc bison unzip -y' ) )
 
 print( 'Download prefixtree (expected to fail).' )
 os.system( 'pip download prefixtree' )
@@ -135,3 +135,5 @@ printStep( 'Redirect port 80 and 443 to 9090 so we can run as non-root.',
            os.system( 'echo iptables-persistent iptables-persistent/autosave_v4 boolean true | sudo debconf-set-selections' ),
            os.system( 'echo iptables-persistent iptables-persistent/autosave_v6 boolean true | sudo debconf-set-selections' ),
            os.system( 'apt-get install iptables-persistent -y' ) )
+
+print( "Finished successfully installed, the limit on open files adjustment requires a restart." )

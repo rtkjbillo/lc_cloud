@@ -55,7 +55,10 @@ class EventObjectExtractor:
         if type( fromAgent ) is not AgentId:
             fromAgent = AgentId( fromAgent )
 
-        cls._extractors[ eventType ]( eventType, eventRoot, fromAgent, objects )
+        try:
+            cls._extractors[ eventType ]( eventType, eventRoot, fromAgent, objects )
+        except:
+            raise InvalidObjectException( 'event contained invalid objects: %s' % str( event ) )
 
         cls._convertToNormalForm( objects, not fromAgent.isWindows() )
 
@@ -140,56 +143,40 @@ class EventObjectExtractor:
     def _addObj( cls, root, objects, o, oType ):
         if type( o ) is not int:
             if o is None or 0 == len( o ) or 10240 < len( o ):
-                raise InvalidObjectException( 'unexpected obj len: %s ( %s ), rest of objects: %s ::: %s' % ( o, oType, str( objects ), str( root ) ) )
-                return
+                raise InvalidObjectException()
         objects[ 'obj' ].setdefault( oType, Set() ).add( o )
 
     @classmethod
     def _addRel( cls, root, objects, parent, parentType, child, childType ):
         if type( parent ) is not int:
-            if parent is None or 0 == len( parent ) or 10240 < len( parent ):
-                raise InvalidObjectException( 'unexpected rel parent len: %s ( %s ), %s ( %s ) rest of objecs: %s ::: %s' % ( parent, parentType, child, childType, str( objects ), str( root ) ) )
+            if parent is None or 10240 < len( parent ):
+                raise InvalidObjectException()
+            elif 0 == len( parent ):
                 return
         if type( child ) is not int:
-            if child is None or 0 == len( child ) or 10240 < len( parent ):
-                raise InvalidObjectException( 'unexpected rel child len: %s ( %s ), %s ( %s ) rest of objects: %s ::: %s' % ( child, childType, parent, parentType, str( objects ), str( root ) ) )
+            if child is None or 10240 < len( parent ):
+                raise InvalidObjectException()
+            elif 0 == len( child ):
                 return
         objects[ 'rel' ].setdefault( ( parentType, childType ), Set() ).add( ( parent, child ) )
 
     @classmethod
     def _extractProcessInfo( cls, fromAgent, objects, procRoot ):
         exePath = procRoot.get( 'base.FILE_PATH', None )
-        exe = None
         if exePath is not None and '' != exePath:
-            exe = exeFromPath( exePath, agent = fromAgent )
-
-            cls._addObj( procRoot, objects, exePath, ObjectTypes.FILE_PATH )
-            cls._addObj( procRoot, objects, exe, ObjectTypes.PROCESS_NAME )
-            cls._addRel( procRoot, objects, exe, ObjectTypes.PROCESS_NAME, exePath, ObjectTypes.FILE_PATH )
+            cls._addObj( procRoot, objects, exePath, ObjectTypes.PROCESS_NAME )
             cmdLine = procRoot.get( 'base.COMMAND_LINE', None )
             if cmdLine is not None:
                 cls._addObj( procRoot, objects, cmdLine, ObjectTypes.CMD_LINE )
-                cls._addRel( procRoot, objects, exe, ObjectTypes.PROCESS_NAME, cmdLine, ObjectTypes.CMD_LINE )
-        return exe
+                cls._addRel( procRoot, objects, exePath, ObjectTypes.PROCESS_NAME, cmdLine, ObjectTypes.CMD_LINE )
+        return exePath
 
     @classmethod
     def _extractModuleInfo( cls, fromAgent, objects, modRoot ):
         modPath = modRoot.get( 'base.FILE_PATH', None )
-        modName = modRoot.get( 'base.MODULE_NAME', None )
-        mod = modName if modName is not None else exeFromPath( modPath, agent = fromAgent )
-        memSize = modRoot.get( 'base.MEMORY_SIZE', None )
 
-        if modName is not None:
-            cls._addObj( modRoot, objects, modName, ObjectTypes.MODULE_NAME )
-
-        if modPath is not None and '' != modPath:
-            cls._addObj( modRoot, objects, modPath, ObjectTypes.FILE_PATH )
-            cls._addRel( modRoot, objects, mod, ObjectTypes.MODULE_NAME, modPath, ObjectTypes.FILE_PATH )
-
-        if memSize is not None:
-            cls._addObj( modRoot, objects, memSize, ObjectTypes.MODULE_SIZE )
-            if mod is not None:
-                cls._addRel( modRoot, objects, mod, ObjectTypes.MODULE_NAME, memSize, ObjectTypes.MODULE_SIZE )
+        if modPath is not None:
+            cls._addObj( modRoot, objects, modPath, ObjectTypes.MODULE_NAME )
 
         return mod
 
@@ -230,6 +217,7 @@ class EventObjectExtractor:
         reg = aRoot.get( 'base.REGISTRY_KEY', None )
         path = aRoot.get( 'base.FILE_PATH', None )
         h = aRoot.get( 'base.HASH', None )
+        autorun = None
         if path is not None and '' != path:
             autorun = path
         elif reg is not None:
@@ -248,22 +236,22 @@ class EventObjectExtractor:
             filePath = cRoot.get( 'base.DLL', None )
             if filePath is None:
                 filePath = cRoot.get( 'base.EXECUTABLE', None )
-        fileName = exeFromPath( filePath, agent = fromAgent )
         h = cRoot.get( 'base.HASH', None )
 
+        if '' == filePath:
+            filePath = None
+
         if filePath is not None:
-            cls._addObj( cRoot, objects, filePath, ObjectTypes.FILE_PATH )
-            cls._addObj( cRoot, objects, fileName, ObjectTypes.MODULE_NAME )
-            cls._addRel( cRoot, objects, fileName, ObjectTypes.MODULE_NAME, filePath, ObjectTypes.FILE_PATH )
+            cls._addObj( cRoot, objects, filePath, ObjectTypes.MODULE_NAME )
 
         if h is not None:
             cls._addObj( cRoot, objects, h, ObjectTypes.FILE_HASH )
-            if fileName is not None:
-                cls._addRel( cRoot, objects, fileName, ObjectTypes.MODULE_NAME, h, ObjectTypes.FILE_HASH )
+            if filePath is not None:
+                cls._addRel( cRoot, objects, filePath, ObjectTypes.MODULE_NAME, h, ObjectTypes.FILE_HASH )
 
-        sig = cRoot.get( 'base.SIGNATURE', None )
-        if sig is not None:
-            issuer = sig.get( 'base.CERT_ISSUER', None )
-            if issuer is not None:
-                cls._addObj( cRoot, objects, issuer, ObjectTypes.CERT_ISSUER )
-                cls._addRel( cRoot, objects, fileName, ObjectTypes.MODULE_NAME, issuer, ObjectTypes.CERT_ISSUER )
+        #sig = cRoot.get( 'base.SIGNATURE', None )
+        #if sig is not None:
+        #    issuer = sig.get( 'base.CERT_ISSUER', None )
+        #    if issuer is not None and filePath is not None:
+        #        cls._addObj( cRoot, objects, issuer, ObjectTypes.CERT_ISSUER )
+        #        cls._addRel( cRoot, objects, filePath, ObjectTypes.MODULE_NAME, issuer, ObjectTypes.CERT_ISSUER )
