@@ -323,7 +323,7 @@ but the information tuple ( PROCESS_NAME, explorer.exe, "seen on 3000 hosts" ) I
 
 However, Object sharing to other users of the Service is done on a if-seen-by-organization basis. This means that "explorer.exe" will only be visible to a User if that User is a member of an Organization that has observed that process on one of its sensors. 
 
-Therefore, you running "some_unique_exrcutable_to_you.exe" on one of your sensors, where that executable is unique and has never been observed anywhere else, will not result in the sharing of the existence of the executable with Users not member of your Organization. 
+Therefore, you running "some_unique_executable_to_you.exe" on one of your sensors, where that executable is unique and has never been observed anywhere else, will not result in the sharing of the existence of the executable with Users not member of your Organization. 
 
 We believe this sharing policy strikes a good balance between privacy and information sharing between users of the Service allowing for a better visibility and investigative power.
             '''
