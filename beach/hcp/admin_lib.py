@@ -92,6 +92,15 @@ class BEAdmin( object ):
     
     def hcp_delInstaller( self, oid, iid, hash ):
         return self._query( 'hcp.remove_installer', { 'oid' : oid, 'iid' : iid, 'hash' : hash } )
+
+    def hcp_getWhitelist( self, oid = None, iid = None ):
+        return self._query( 'hcp.get_whitelist', { 'oid' : oid, 'iid' : iid } )
+    
+    def hcp_addWhitelist( self, oid, iid, bootstrap ):
+        return self._query( 'hcp.add_whitelist', { 'oid' : oid, 'iid' : iid, 'bootstrap' : bootstrap } )
+    
+    def hcp_delWhitelist( self, oid, iid ):
+        return self._query( 'hcp.remove_whitelist', { 'oid' : oid, 'iid' : iid } )
     
     def hbs_getProfiles( self, oid = [] ):
         return self._query( 'hbs.get_profiles', { 'oid' : oid } )

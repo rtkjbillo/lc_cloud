@@ -26,8 +26,8 @@ AgentId = Actor.importLib( 'utils/hcp_helpers', 'AgentId' )
 
 class WebHookOutput( Actor ):
     def init( self, parameters, resources ):
-        self.deploymentManager = self.getActorHandle( resources[ 'deployment' ], timeout = 30 )
-        self.identManager = self.getActorHandle( resources[ 'identmanager' ], timeout = 30 )
+        self.deploymentManager = self.getActorHandle( resources[ 'deployment' ], nRetries = 3, timeout = 30 )
+        self.identManager = self.getActorHandle( resources[ 'identmanager' ], nRetries = 3, timeout = 30 )
 
         self.hooks = {}
 

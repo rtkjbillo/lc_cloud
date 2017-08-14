@@ -17,8 +17,6 @@ import M2Crypto
 import hashlib
 import base64
 
-
-
 class Signing( object ):
     
     def __init__( self, privateKey ):
@@ -44,7 +42,6 @@ class Signing( object ):
         pem = '-----BEGIN RSA PRIVATE KEY-----\n%s\n-----END RSA PRIVATE KEY-----\n' % encoded
         
         return pem
-    
 
 if __name__ == '__main__':
     import sys

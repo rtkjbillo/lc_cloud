@@ -41,6 +41,7 @@ except:
     rSequence = Actor.importLib( 'utils/rpcm', 'rSequence' )
 AgentId = Actor.importLib( 'utils/hcp_helpers', 'AgentId' )
 HcpModuleId = Actor.importLib( 'utils/hcp_helpers', 'HcpModuleId' )
+Signing = Actor.importLib( 'signing', 'Signing' )
 Symbols = Actor.importLib( 'Symbols', 'Symbols' )()
 HcpOperations = Actor.importLib( 'utils/hcp_helpers', 'HcpOperations' )
 LimitedQPSBuffer = Actor.importLib( 'utils/hcp_helpers', 'LimitedQPSBuffer' )
@@ -137,6 +138,9 @@ class _ClientContext( object ):
 
 class EndpointProcessor( Actor ):
     def init( self, parameters, resources ):
+        self.isOpen = True
+        self.nConnected = 0
+
         self.handlerPortStart = parameters.get( 'handler_port_start', 10000 )
         self.handlerPortEnd = parameters.get( 'handler_port_end', 20000 )
         self.bindAddress = parameters.get( 'handler_address', '0.0.0.0' )
@@ -215,6 +219,25 @@ class EndpointProcessor( Actor ):
         if self.server is not None:
             self.server.close()
 
+    def drain( self ):
+        # Stop accepting new connections.
+        if self.server is not None:
+            self.server.close()
+
+        # Ask all the clients to nicely disconnect.
+        for aid, c in self.currentClients.items():
+            try:
+                c.sendFrame( HcpModuleId.HCP,
+                             ( rSequence().addInt8( Symbols.base.OPERATION, 
+                                                    HcpOperations.DISCONNECT ), ) )
+            except:
+                pass
+
+        # Wait for everyone to be out.
+        while 0 != self.nConnected:
+            self.log( "still %d clients connected" % self.nConnected )
+            self.sleep( 5 )
+
     def startServer( self ):
         if self.server is not None:
             self.server.close()
@@ -254,6 +277,10 @@ class EndpointProcessor( Actor ):
     # Client Handling
     #==========================================================================
     def handleNewClient( self, socket, address ):
+        if not self.isOpen: return
+
+        self.nConnected += 1
+
         aid = None
         tmpBytesReceived = 0
         bufferedOutput = None
@@ -298,14 +325,24 @@ class EndpointProcessor( Actor ):
                     raise DisconnectException( 'Sensor could not be enrolled, come back later' )
                 aid = AgentId( resp.data[ 'aid' ] )
                 enrollmentToken = resp.data[ 'token' ]
+                confBuffer = resp.data[ 'conf' ]
+                confBufferSig = resp.data[ 'conf_sig' ]
                 self.log( 'Sending sensor enrollment to %s' % aid.asString() )
                 c.sendFrame( HcpModuleId.HCP,
                              ( rSequence().addInt8( Symbols.base.OPERATION, 
+                                                    HcpOperations.SET_HCP_CONF )
+                                          .addBuffer( Symbols.hcp.CONFIGURATION, 
+                                                      confBuffer )
+                                          .addBuffer( Symbols.base.SIGNATURE, 
+                                                      confBufferSig ),
+                               rSequence().addInt8( Symbols.base.OPERATION, 
                                                     HcpOperations.SET_HCP_ID )
                                           .addSequence( Symbols.base.HCP_IDENT, 
                                                         aid.toJson() )
                                           .addBuffer( Symbols.hcp.ENROLLMENT_TOKEN, 
-                                                      enrollmentToken ), ) )
+                                                      enrollmentToken ) ) )
+                confBuffer = None
+                confBufferSig = None
             else:
                 enrollmentToken = headers.get( 'hcp.ENROLLMENT_TOKEN', None )
                 resp = self.enrollmentManager.request( 'authorize', { 'aid' : aid.asString(), 
@@ -394,6 +431,7 @@ class EndpointProcessor( Actor ):
                 bufferedOutput.close()
                 if 0 != qSize:
                     self.log( 'Queue for %s finished flushing' % aid.asString() )
+            self.nConnected -= 1
 
     def handlerHcp( self, c, messages ):
         for message in messages:

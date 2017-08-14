@@ -37,33 +37,13 @@ HcpModuleId = Actor.importLib( 'utils/hcp_helpers', 'HcpModuleId' )
 HbsCollectorId = Actor.importLib( 'utils/hcp_helpers', 'HbsCollectorId' )
 SensorConfig = Actor.importLib( 'utils/SensorConfig', 'SensorConfig' )
 AgentId = Actor.importLib( 'utils/hcp_helpers', 'AgentId' )
+Signing = Actor.importLib( 'signing', 'Signing' )
 Symbols = Actor.importLib( 'Symbols', 'Symbols' )()
 
-class Signing( object ):
-    
-    def __init__( self, privateKey ):
-        self.pri_key = None
-        if not privateKey.startswith( '-----BEGIN RSA PRIVATE KEY-----' ):
-            privateKey = self.der2pem( privateKey )
-            
-        self.pri_key = M2Crypto.RSA.load_key_string( privateKey )
-    
-    
-    def sign( self, buff ):
-        sig = None
-        h = hashlib.sha256( buff ).digest()
-        
-        sig = self.pri_key.private_encrypt( h, M2Crypto.RSA.pkcs1_padding )
-        
-        return sig
-    
-    def der2pem( self, der ):
-        encoded = base64.b64encode( der )
-        encoded = [ encoded[ i : i + 64 ] for i in range( 0, len( encoded ), 64 ) ]
-        encoded = '\n'.join( encoded )
-        pem = '-----BEGIN RSA PRIVATE KEY-----\n%s\n-----END RSA PRIVATE KEY-----\n' % encoded
-        
-        return pem
+# This is the key also defined in the sensor as _HCP_DEFAULT_STATIC_STORE_KEY
+# and used with the same algorithm as obfuscationLib
+OBFUSCATION_KEY = "\xFA\x75\x01"
+STATIC_STORE_MAX_SIZE = 1024 * 50
 
 class DeploymentManager( Actor ):
     def init( self, parameters, resources ):
@@ -410,21 +390,16 @@ We believe this sharing policy strikes a good balance between privacy and inform
             self.db.execute( 'INSERT INTO configs ( conf, value ) VALUES ( %s, %s )', ( 'global/deployment_id', str(uuid.uuid4()) ) )
             self.audit.shoot( 'record', { 'oid' : self.admin_oid, 'etype' : 'conf_change', 'msg' : 'Setting metrics upload.' } )
 
+    def obfuscate( self, buffer, key ):
+        obf = BytesIO()
+        index = 0
+        for hx in buffer:
+            obf.write( chr( ( ( ord( key[ index % len( key ) ] ) ^ ( index % 255 ) ) ^ ( STATIC_STORE_MAX_SIZE % 255 ) ) ^ ord( hx ) ) )
+            index = index + 1
+        return obf.getvalue()
+
     def setSensorConfig( self, sensor, config ):
-        # This is the key also defined in the sensor as _HCP_DEFAULT_STATIC_STORE_KEY
-        # and used with the same algorithm as obfuscationLib
-        OBFUSCATION_KEY = "\xFA\x75\x01"
-        STATIC_STORE_MAX_SIZE = 1024 * 50
-
-        def obfuscate( buffer, key ):
-            obf = BytesIO()
-            index = 0
-            for hx in buffer:
-                obf.write( chr( ( ( ord( key[ index % len( key ) ] ) ^ ( index % 255 ) ) ^ ( STATIC_STORE_MAX_SIZE % 255 ) ) ^ ord( hx ) ) )
-                index = index + 1
-            return obf.getvalue()
-
-        config = obfuscate( rpcm().serialise( config ), OBFUSCATION_KEY )
+        config = self.obfuscate( rpcm().serialise( config ), OBFUSCATION_KEY )
 
         magic = "\xFA\x57\xF0\x0D" + ( "\x00" * ( len( config ) - 4 ) )
 
@@ -546,6 +521,25 @@ We believe this sharing policy strikes a good balance between privacy and inform
             if not resp.isSuccess:
                 self.log( 'error loading new installer for %s' % oid )
                 return False
+
+        bootstrap = ( rSequence().addStringA( _.hcp.PRIMARY_URL, primaryDomain )
+                                 .addInt16( _.hcp.PRIMARY_PORT, primaryPort )
+                                 .addStringA( _.hcp.SECONDARY_URL, secondaryDomain )
+                                 .addInt16( _.hcp.SECONDARY_PORT, secondaryPort )
+                                 .addSequence( _.base.HCP_IDENT, rSequence().addBuffer( _.base.HCP_ORG_ID, oid.bytes )
+                                                                            .addBuffer( _.base.HCP_INSTALLER_ID, iid.bytes )
+                                                                            .addBuffer( _.base.HCP_SENSOR_ID, uuid.UUID( '00000000-0000-0000-0000-000000000000' ).bytes )
+                                                                            .addInt32( _.base.HCP_PLATFORM, 0 )
+                                                                            .addInt32( _.base.HCP_ARCHITECTURE, 0 ) )
+                                 .addBuffer( _.hcp.ROOT_PUBLIC_KEY, rootPub ) )
+        bootstrap = base64.b64encode( rpcm().serialise( bootstrap ) )
+        self.log( "BOOTSTRAP: %s" % bootstrap )
+        resp = self.admin.request( 'hcp.add_whitelist', { 'oid' : oid, 
+                                                          'iid' : iid, 
+                                                          'bootstrap' : bootstrap } )
+        if not resp.isSuccess:
+            self.log( 'error loading new whitelist for %s' % oid )
+            return False
 
         resp =  self.admin.request( 'hcp.remove_tasking', { 'oid' : oid } )
         if not resp.isSuccess:

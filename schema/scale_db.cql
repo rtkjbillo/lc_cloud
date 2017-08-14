@@ -119,6 +119,14 @@ CREATE TABLE hcp_installers(
   PRIMARY KEY( oid, iid, ihash )
 ) WITH compaction = { 'class' : 'SizeTieredCompactionStrategy' } AND gc_grace_seconds = 86400;
 
+CREATE TABLE hcp_whitelist(
+  oid uuid,
+  iid uuid,
+  bootstrap varchar,
+  created timestamp,
+  PRIMARY KEY( oid, iid )
+) WITH compaction = { 'class' : 'SizeTieredCompactionStrategy' } AND gc_grace_seconds = 86400;
+
 CREATE TABLE hbs_profiles(
   aid varchar,
   cprofile blob,

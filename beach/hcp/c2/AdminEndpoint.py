@@ -54,6 +54,9 @@ class AdminEndpoint( Actor ):
         self.handle( 'hcp.get_installers', self.cmd_hcp_getInstallers )
         self.handle( 'hcp.add_installer', self.cmd_hcp_addInstaller )
         self.handle( 'hcp.remove_installer', self.cmd_hcp_delInstaller )
+        self.handle( 'hcp.get_whitelist', self.cmd_hcp_getWhitelist )
+        self.handle( 'hcp.add_whitelist', self.cmd_hcp_addWhitelist )
+        self.handle( 'hcp.remove_whitelist', self.cmd_hcp_delWhitelist )
         self.handle( 'hbs.set_profile', self.cmd_hbs_addProfile )
         self.handle( 'hbs.get_profiles', self.cmd_hbs_getProfiles )
         self.handle( 'hbs.del_profile', self.cmd_hbs_delProfile )
@@ -297,6 +300,63 @@ class AdminEndpoint( Actor ):
 
         return ( True, )
 
+    @audited
+    def cmd_hcp_getWhitelist( self, msg ):
+        installers = []
+        data = { 'installers' : installers }
+
+        oid = msg.data.get( 'oid', None )
+        iid = msg.data.get( 'iid', None )
+
+        filters = []
+        filterValues = []
+        if oid is not None:
+            filters.append( 'oid = %s' )
+            filterValues.append( uuid.UUID( oid ) )
+            if iid is not None:
+                filters.append( 'iid = %s' )
+                filterValues.append( uuid.UUID( iid ) )
+
+        filters = ' AND '.join( filters )
+        if 0 != len( filters ):
+            filters = ' WHERE ' + filters
+
+        for row in self.db.execute( 'SELECT oid, iid, created, bootstrap FROM hcp_whitelist%s' % filters, filterValues ):
+            installers.append( { 'oid' : row[ 0 ],
+                                 'iid' : row[ 1 ],
+                                 'bootstrap' : row[ 3 ],
+                                 'created' : row[ 2 ] } )
+
+        return ( True, data )
+
+    @audited
+    def cmd_hcp_addWhitelist( self, msg ):
+        oid = uuid.UUID( msg.data[ 'oid' ] )
+        iid = uuid.UUID( msg.data[ 'iid' ] )
+        bootstrap = msg.data[ 'bootstrap' ]
+
+        self.db.execute( 'INSERT INTO hcp_whitelist ( oid, iid, created, bootstrap ) VALUES ( %s, %s, dateOf( now() ), %s )',
+                         ( oid, iid, bootstrap ) )
+
+        self.delay( 5, self.enrollments.broadcast, 'reload', {} )
+
+        return ( True, { 'oid' : oid, 'iid' : iid } )
+
+    @audited
+    def cmd_hcp_delWhitelist( self, msg ):
+        oid = uuid.UUID( msg.data[ 'oid' ] )
+        iid = uuid.UUID( msg.data[ 'iid' ] ) if msg.data.get( 'iid', None ) is not None else None
+
+        if iid is not None:
+            self.db.execute( 'DELETE FROM hcp_whitelist WHERE oid = %s AND iid = %s',
+                             ( oid, iid ) )
+        else:
+            self.db.execute( 'DELETE FROM hcp_whitelist WHERE oid = %s',
+                             ( oid, ) )
+
+        self.delay( 5, self.enrollments.broadcast, 'reload', {} )
+
+        return ( True, )
 
     @audited
     def cmd_hbs_getProfiles( self, msg ):
