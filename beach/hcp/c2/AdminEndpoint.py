@@ -302,8 +302,8 @@ class AdminEndpoint( Actor ):
 
     @audited
     def cmd_hcp_getWhitelist( self, msg ):
-        installers = []
-        data = { 'installers' : installers }
+        whitelist = []
+        data = { 'whitelist' : whitelist }
 
         oid = msg.data.get( 'oid', None )
         iid = msg.data.get( 'iid', None )
@@ -322,10 +322,10 @@ class AdminEndpoint( Actor ):
             filters = ' WHERE ' + filters
 
         for row in self.db.execute( 'SELECT oid, iid, created, bootstrap FROM hcp_whitelist%s' % filters, filterValues ):
-            installers.append( { 'oid' : row[ 0 ],
-                                 'iid' : row[ 1 ],
-                                 'bootstrap' : row[ 3 ],
-                                 'created' : row[ 2 ] } )
+            whitelist.append( { 'oid' : row[ 0 ],
+                                'iid' : row[ 1 ],
+                                'bootstrap' : row[ 3 ],
+                                'created' : row[ 2 ] } )
 
         return ( True, data )
 

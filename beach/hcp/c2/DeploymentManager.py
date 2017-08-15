@@ -495,11 +495,7 @@ We believe this sharing policy strikes a good balance between privacy and inform
 
         for binName, binary in sensorPackage.iteritems():
             if binName.startswith( 'hcp_' ):
-                patched = self.setSensorConfig( binary, hcpConfig )
-                if 'osx' in binName and osxAppBundle is not None:
-                    patched = self.generateOsxAppBundle( binName, patched, osxAppBundle )
-                    binName = '%s.tar.gz' % binName
-                installersToLoad[ binName ] = patched
+                installersToLoad[ binName ] = binary
             elif binName.startswith( 'hbs_' ) and 'release' in binName:
                 patched = self.setSensorConfig( binary, hbsConfig )
                 hbsToLoad[ binName ] = ( patched, signing.sign( patched ), hashlib.sha256( patched ).hexdigest() )
@@ -533,6 +529,12 @@ We believe this sharing policy strikes a good balance between privacy and inform
                                                                             .addInt32( _.base.HCP_ARCHITECTURE, 0 ) )
                                  .addBuffer( _.hcp.ROOT_PUBLIC_KEY, rootPub ) )
         bootstrap = base64.b64encode( rpcm().serialise( bootstrap ) )
+
+        resp = self.admin.request( 'hcp.remove_whitelist', { 'oid' : oid } )
+        if not resp.isSuccess:
+            self.log( 'error wiping previous whitelist for %s' % oid )
+            return False
+
         self.log( "BOOTSTRAP: %s" % bootstrap )
         resp = self.admin.request( 'hcp.add_whitelist', { 'oid' : oid, 
                                                           'iid' : iid, 

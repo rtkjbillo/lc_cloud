@@ -405,14 +405,17 @@ class ModelView( Actor ):
         if oids is not None:
             info[ 'hcp_installers' ] = {}
             info[ 'hbs_profiles' ] = {}
+            info[ 'hcp_whitelist' ] = {}
             for oid in oids:
                 info[ 'hcp_installers' ][ oid ] = self.admin.hcp_getInstallers( oid = oid ).data
                 info[ 'hbs_profiles' ][ oid ] = self.admin.hbs_getProfiles( oid = oid ).data
+                info[ 'hcp_whitelist' ][ oid ] = self.admin.hcp_getWhitelist( oid = oid ).data
         else:
             info[ 'hcp_installers' ] = self.admin.hcp_getInstallers().data
             info[ 'hcp_taskings' ] = self.admin.hcp_getTaskings().data
             info[ 'hcp_modules' ] = self.admin.hcp_getModules().data
             info[ 'hbs_profiles' ] = self.admin.hbs_getProfiles().data
+            info[ 'hcp_whitelist' ] = self.admin.hcp_getWhitelist().data
 
 
         return ( True, info )
