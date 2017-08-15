@@ -39,7 +39,7 @@ class VirusTotalActor ( Actor ):
 
         self.vtMutex = Mutex()
 
-        self.Model = self.getActorHandle( resources[ 'modeling' ], timeout = 10, nRetries = 3 )
+        self.Model = self.getActorHandle( resources[ 'modeling' ], timeout = 10, nRetries = 5 )
 
         # Cache size
         self.cache_size = parameters.get( 'cache_size', 5000 )

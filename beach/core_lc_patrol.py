@@ -511,7 +511,8 @@ Patrol( 'AnalyticsIntake',
             'parameters' : {},
             'secretIdent' : 'intake/6058e556-a102-4e51-918e-d36d6d1823db',
             'trustedIdents' : [ 'beacon/09ba97ab-5557-4030-9db0-1dbe7f2b9cfd' ],
-        'strategy' : 'repulsion' } )
+            'strategy' : 'repulsion',
+            'is_drainable' : True } )
 
 #######################################
 # AnalyticsInvestigation
@@ -599,7 +600,8 @@ Patrol( 'AnalyticsModeling',
             'secretIdent' : 'analysis/038528f5-5135-4ca8-b79f-d6b8ffc53bf5',
             'trustedIdents' : [ 'intake/6058e556-a102-4e51-918e-d36d6d1823db' ],
             'isIsolated' : True,
-            'strategy' : 'repulsion' } )
+            'strategy' : 'repulsion',
+            'is_drainable' : True } )
 
 #######################################
 # ModelView
@@ -641,7 +643,8 @@ Patrol( 'AnalyticsModelView',
                                 'analysis/01e9a19d-78e1-4c37-9a6e-37cb592e3897',
                                 'autotasking/a6cd8d9a-a90c-42ec-bd60-0519b6fb1f64' ],
             'isIsolated' : True,
-            'strategy' : 'repulsion' } )
+            'strategy' : 'repulsion',
+            'is_drainable' : True } )
 
 #######################################
 # PagingActor
@@ -818,7 +821,8 @@ Patrol( 'AnalyticsStateless',
                             'specific' : 'analytics/stateless/%s/%s/' },
             'parameters' : {},
             'secretIdent' : 'analysis/01e9a19d-78e1-4c37-9a6e-37cb592e3897',
-            'trustedIdents' : [ 'intake/6058e556-a102-4e51-918e-d36d6d1823db' ] } )
+            'trustedIdents' : [ 'intake/6058e556-a102-4e51-918e-d36d6d1823db' ],
+            'is_drainable' : True } )
 
 #######################################
 # AnalyticsStateful
@@ -838,7 +842,8 @@ Patrol( 'AnalyticsStateful',
             'resources' : { 'modules' : 'analytics/stateful/modules/%s/' },
             'parameters' : {},
             'secretIdent' : 'analysis/01e9a19d-78e1-4c37-9a6e-37cb592e3897',
-            'trustedIdents' : [ 'intake/6058e556-a102-4e51-918e-d36d6d1823db' ] } )
+            'trustedIdents' : [ 'intake/6058e556-a102-4e51-918e-d36d6d1823db' ],
+            'is_drainable' : True } )
 
 #######################################
 # AnalyticsReporting
@@ -979,7 +984,8 @@ Patrol( 'EndpointProcessor',
             'trustedIdents' : [ 'taskingproxy/794729aa-1ef5-4930-b377-48dda7b759a5',
                                 'endpointproxy/8e7a890b-8016-4396-b012-aec73d055dd6' ],
             'isIsolated' : False,
-            'strategy' : 'repulsion' } )
+            'strategy' : 'repulsion',
+            'is_drainable' : True } )
 
 #######################################
 # SlackRep
