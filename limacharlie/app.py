@@ -755,6 +755,7 @@ class Manage ( AuthenticatedPage ):
 
         installers = info.data[ 'hcp_installers' ]
         profiles = info.data[ 'hbs_profiles' ]
+        whitelist = info.data[ 'hcp_whitelist' ]
 
         info = audit.request( 'get_log', { 'oid' : session.orgs, 'limit' : 20 } )
         if not info.isSuccess:
@@ -762,7 +763,7 @@ class Manage ( AuthenticatedPage ):
 
         logs = info.data[ 'logs' ]
 
-        return render.manage( installers, profiles, getOrgNames(), logs )
+        return render.manage( installers, profiles, getOrgNames(), logs, whitelist )
 
 class Installer ( AuthenticatedPage ):
     @fileDownload

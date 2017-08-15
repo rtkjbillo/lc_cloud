@@ -1,4 +1,4 @@
-$def with ( installers, profiles, orgNames, logs )
+$def with ( installers, profiles, orgNames, logs, whitelist )
 $var title = 'Manage'
 <center><h4 style="color: red;">By using this service, downloading installers and installing sensors, you understand and agree to the service policy as outlined <a href="/policy">HERE</a></h4></center>
 $for oid, installerList in installers.iteritems():
@@ -44,17 +44,34 @@ $for oid, installerList in installers.iteritems():
         </tbody>
       </table>
       <br/>
+
+      $for wlInfo in whitelist[ oid ][ 'whitelist' ]:
+        <table class="mdl-data-table mdl-js-data-table mdl-shadow--2dp" style="width: 100%;">
+          <thead>
+            <tr>
+              <th class="mdl-data-table__cell--non-numeric">Installation Key</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="mdl-data-table__cell--non-numeric click-to-copy" style="word-break: break-all; font-family: monospace; white-space: normal;">
+                $wlInfo[ 'bootstrap' ]
+              </td>
+            </tr>
+          </tbody>
+        </table>
+        <br/>
       <hr/>
       <center>
         <strong><i>
           Installers must run as Administrator or root users.
         </i></strong>
         <br/><br/>
-        <strong>On Windows</strong>, double-click on the installer.
+        <strong>On Windows</strong>, execute the installer on an administrator command prompt with the argument <i>-i InsallationKey</i>, where the InstallationKey is the one displayed above.
         <br/>
-        <strong>On macOS</strong>, download the installer ending in ".tar.gz", double-click to decompress, double-click on resulting app.
+        <strong>On MacOS</strong>, execute the installer in a root terminal with the argument <i>-i InsallationKey</i>, where the InstallationKey is the one displayed above.
         <br/>
-        <strong>On Linux</strong>, the binary is not an installer to let you use whatever "bootstrap" system you want to use. The '-h' command line parameter to see its options.
+        <strong>On Linux</strong>, the binary is not an installer to let you use whatever "bootstrap" system you want to use. Running it with <i>-d InstallationKey</i>, where the InstallationKey is the one displayed above, will permit it to enroll.
       </center>
     </div>
     <div class="mdl-card__actions mdl-card--border">

@@ -201,9 +201,11 @@ class CapabilityManager( Actor ):
         categories = []
         secretIdent = None
         trustedIdents = None
+        isDrainable = False
         if 'stateless' == summary[ 'type' ]:
             secretIdent = self.detectSecretIdent
             trustedIdents = self.detectTrustedIdent
+            isDrainable = True
             for feed in summary[ 'feeds' ]:
                 for platform in summary[ 'platform' ]:
                     categories.append( 'analytics/stateless/%s/%s/%s/%s' %  ( platform, 
@@ -234,7 +236,8 @@ class CapabilityManager( Actor ):
                                  'secretIdent' : secretIdent,
                                  'trustedIdents' : trustedIdents,
                                  'n_concurrent' : summary.get( 'n_concurrent', 5 ),
-                                 'isIsolated' : summary.get( 'isIsolated', False ) } )
+                                 'isIsolated' : summary.get( 'isIsolated', False ),
+                                 'is_drainable' : isDrainable } )
 
         self.loadedDetections[ userDefinedName ] = summary
         
