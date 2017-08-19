@@ -243,32 +243,6 @@ class DeploymentManager( Actor ):
             packages = { name: zipPackage.read( name ) for name in zipPackage.namelist() }
         return packages
 
-    def generateOsxAppBundle( self, binName, binary, osxAppBundle ):
-        workingDir = tempfile.mkdtemp()
-        bundlePath = os.path.join( workingDir, 'bundle.tar.gz' )
-        appName = 'limacharlie.app'
-        appDir = os.path.join( workingDir, appName )
-        finalBundle = '%s.app.tar.gz' % os.path.join( workingDir, binName )
-        with open( bundlePath, 'wb' ) as f:
-            f.write( osxAppBundle )
-        
-        if 0 != os.system( 'tar xzf %s -C %s' % ( bundlePath, workingDir ) ):
-            raise Exception( 'error expanding osx app bundle on disk' )
-
-        with open( os.path.join( appDir, 'Contents', 'MacOS', 'rphcp' ), 'wb' ) as f:
-            f.write( binary )
-
-        if 0 != os.system( 'chmod +x %s' % ( os.path.join( appDir, 'Contents', 'MacOS', 'rphcp' ), ) ):
-            raise Exception( 'error setting osx app as executable' )
-
-        if 0 != os.system( 'tar zcf %s -C %s %s' % ( finalBundle, workingDir, appName ) ):
-            raise Exception( 'error tar-ing osx app bundle on disk' )
-
-        with open( finalBundle, 'rb' ) as f:
-            binary = f.read()
-
-        return binary
-
     def genDefaultsIfNotPresent( self ):
         isNeedDefaults = False
 
@@ -411,7 +385,7 @@ We believe this sharing policy strikes a good balance between privacy and inform
         return sensor
 
 
-    def genBinariesForOrg( self, sensorPackage, oid, osxAppBundle = None ):
+    def genBinariesForOrg( self, sensorPackage, oid ):
         rootPub = None
         rootPri = None
         hbsPub = None
@@ -535,7 +509,6 @@ We believe this sharing policy strikes a good balance between privacy and inform
             self.log( 'error wiping previous whitelist for %s' % oid )
             return False
 
-        self.log( "BOOTSTRAP: %s" % bootstrap )
         resp = self.admin.request( 'hcp.add_whitelist', { 'oid' : oid, 
                                                           'iid' : iid, 
                                                           'bootstrap' : bootstrap } )
@@ -671,7 +644,7 @@ We believe this sharing policy strikes a good balance between privacy and inform
         if 0 == len( packages ):
             return ( False, 'no binaries in package or no package configured' )
 
-        if not self.genBinariesForOrg( packages, oid, osxAppBundle = self.readRelativeFile( 'resources/osx_app_bundle.tar.gz' ) ):
+        if not self.genBinariesForOrg( packages, oid ):
             return ( False, 'error generating binaries for org' )
 
         if not isSkipProfiles:
