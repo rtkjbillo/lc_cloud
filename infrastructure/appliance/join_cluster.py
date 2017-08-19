@@ -1,3 +1,4 @@
+#! /usr/bin/python
 # Copyright 2017 Google, Inc
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -17,10 +18,19 @@ import sys
 import argparse
 import yaml
 import time
+import socket
+from sets import Set
 
 ORIGINAL_DIR = os.getcwd()
 ROOT_DIR = os.path.join( os.path.abspath( os.path.dirname( os.path.realpath( __file__ ) ) ), '..', '..', '..' )
 os.chdir( ROOT_DIR )
+
+def getLocalIp():
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    s.connect(("8.8.8.8", 80))
+    ip = s.getsockname()[0]
+    s.close()
+    return ip
 
 if __name__ == '__main__':
     if 0 != os.geteuid():
@@ -31,7 +41,6 @@ if __name__ == '__main__':
 
     parser.add_argument( '-a', '--address',
                          type = str,
-                         required = True,
                          dest = 'address',
                          action = 'append',
                          default = [],
@@ -39,12 +48,17 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
 
+    # Always add ourselves to this list.
+    addresses = Set( args.address )
+    addresses.add( getLocalIp() )
+    addresses = list( addresses )
+
     # Read the Cassandra config.
     with open( '/etc/cassandra/cassandra.yaml', 'rb' ) as f:
         cassConf = yaml.load( f.read() )
 
     # Add the seed node.
-    cassConf[ 'seed_provider' ][ 0 ][ 'parameters' ][ 0 ][ 'seeds' ] = ','.join( args.address )
+    cassConf[ 'seed_provider' ][ 0 ][ 'parameters' ][ 0 ][ 'seeds' ] = ','.join( addresses )
 
     # Write the custom config where Cassandra expects it.
     with open( '/etc/cassandra/cassandra.yaml', 'wb' ) as f:
@@ -54,13 +68,19 @@ if __name__ == '__main__':
     with open( './cloud/beach/lc_local.yaml', 'rb' ) as f:
         beachConf = yaml.load( f.read() )
 
-    beachConf[ 'seed_nodes' ] = args.address
+    beachConf[ 'seed_nodes' ] = addresses
 
     # And we use lc_appliance.yaml for our config.
     with open( './cloud/beach/lc_appliance.yaml', 'wb' ) as f:
         f.write( yaml.dump( beachConf ) )
 
+    # Restart Cassandra to use new seeds.
     os.system( 'service cassandra restart' )
+    print( "...restarting cassandra, standby." )
     time.sleep( 20 )
 
-    print( "FINISHED JOINING CLUSTER AT: %s" % ( str( args.address ), ) )
+    # We save a yaml file with the seeds to be optionally used by other components.
+    with open( '../lc_appliance_cluster.yaml', 'wb' ) as f:
+        f.write( yaml.dump( { 'seeds' : addresses } ) )
+
+    print( "FINISHED JOINING CLUSTER AT: %s" % ( str( addresses ), ) )

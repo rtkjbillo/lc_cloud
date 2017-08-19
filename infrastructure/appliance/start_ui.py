@@ -22,24 +22,27 @@ ORIGINAL_DIR = os.getcwd()
 ROOT_DIR = os.path.join( os.path.abspath( os.path.dirname( os.path.realpath( __file__ ) ) ), '..', '..', '..' )
 os.chdir( ROOT_DIR )
 BEACH_CONFIG = os.path.join( ROOT_DIR, 'cloud', 'beach', 'lc_appliance.yaml' )
+CORE_PATROL = os.path.join( ROOT_DIR, 'cloud', 'beach', 'appliance_lc_patrol.py' )
 
 if __name__ == '__main__':
     if 0 == os.geteuid():
         print( "This script should not run as root." )
         sys.exit(1)
 
-    parser = argparse.ArgumentParser( description = 'Start the LC appliance as a normal node.' )
+    parser = argparse.ArgumentParser( description = 'Start the LC UI component on this appliance.' )
 
     args = parser.parse_args()
 
-    # Start the Beach node manager.
-    os.system( 'screen -S beach -d -m python -m beach.hostmanager %s --log-level 10' % BEACH_CONFIG )
+    os.system( 'screen -S dashboard_beach -d -m python -m beach.dashboard 8080 %s'% ( BEACH_CONFIG, ) )
 
-    # Start the reverse proxy for sensors.
-    os.system( 'screen -S proxy -d -m python %s -c %s -l 0.0.0.0:9090'% ( os.path.join( ROOT_DIR,
-                                                                                        'cloud',
-                                                                                        'standalone',
-                                                                                        'endpoint_proxy.py' ),
-                                                                          BEACH_CONFIG, ) )
+    os.system( 'screen -S patrol -d -m python -m beach.patrol %s %s --realm hcp --set-scale 10' % ( BEACH_CONFIG,
+                                                                                                    CORE_PATROL ) )
+
+    os.system( 'screen -S web -d -m python %s 8888'% ( os.path.join( ROOT_DIR,
+                                                                     'cloud',
+                                                                     'limacharlie',
+                                                                     'app.py' ) ) )
+
+    os.system( 'screen -S rest -d -m python -m beach.restbridge 8889 %s hcp'% ( BEACH_CONFIG, ) )
 
     print( "DONE STARTING APPLIANCE AS NORMAL NODE" )

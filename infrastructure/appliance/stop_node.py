@@ -14,32 +14,24 @@
 # limitations under the License.
 
 import os
+import sys
 import argparse
-import socket
+import yaml
 
 ORIGINAL_DIR = os.getcwd()
 ROOT_DIR = os.path.join( os.path.abspath( os.path.dirname( os.path.realpath( __file__ ) ) ), '..', '..', '..' )
 os.chdir( ROOT_DIR )
-
-def getLocalIp():
-    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    s.connect(("8.8.8.8", 80))
-    ip = s.getsockname()[0]
-    s.close()
-    return ip
+BEACH_CONFIG = os.path.join( ROOT_DIR, 'cloud', 'beach', 'lc_appliance.yaml' )
 
 if __name__ == '__main__':
-    if 0 != os.geteuid():
-        print( "This script needs to be executing as root, use sudo." )
-        sys.exit(1)
+	if 0 == os.geteuid():
+		print( "This script should not run as root." )
+		sys.exit(1)
 
-    localIp = getLocalIp()
+	parser = argparse.ArgumentParser( description = 'Stop the LC appliance.' )
 
-    parser = argparse.ArgumentParser( description = 'Initialize this node as the first node of a new cluster.' )
+	args = parser.parse_args()
 
-    args = parser.parse_args()
+	os.system( './cloud/infrastructure/stop_cloud_in_a_can.sh' )
 
-    os.system( 'python ./cloud/infrastructure/appliance/join_cluster.py -a %s' % localIp )
-    os.system( 'cqlsh %s -f ./cloud/schema/scale_db.cql' % ( localIp, ) )
-
-    print( "FINISHED INITIALIZING CLUSTER" )
+	print( "DONE STOPPING APPLIANCE" )
