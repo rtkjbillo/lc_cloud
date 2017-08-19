@@ -31,14 +31,14 @@ import json
 import re
 import time
 import urllib
-from hcp_helpers import AgentId
-from hcp_helpers import _x_
-from hcp_helpers import _xm_
-from hcp_helpers import normalAtom
-from hcp_helpers import InvestigationNature
-from hcp_helpers import InvestigationConclusion
-from hcp_helpers import HbsCollectorId
-from EventInterpreter import EventInterpreter
+from utils.hcp_helpers import AgentId
+from utils.hcp_helpers import _x_
+from utils.hcp_helpers import _xm_
+from utils.hcp_helpers import normalAtom
+from utils.hcp_helpers import InvestigationNature
+from utils.hcp_helpers import InvestigationConclusion
+from utils.hcp_helpers import HbsCollectorId
+from utils.EventInterpreter import EventInterpreter
 import markdown
 import markdown.extensions.tables
 
