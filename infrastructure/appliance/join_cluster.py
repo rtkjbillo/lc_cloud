@@ -46,6 +46,12 @@ if __name__ == '__main__':
                          default = [],
                          help = 'The IP address of an existing node to join, this can be repeated to seed with multiple nodes.' )
 
+    parser.add_argument( '--no-restart',
+                         dest = 'isNoRestart',
+                         action = 'store_true',
+                         default = False,
+                         help = 'Do not restart subsystems if this flag is present.' )
+
     args = parser.parse_args()
 
     # Always add ourselves to this list.
@@ -75,9 +81,10 @@ if __name__ == '__main__':
         f.write( yaml.dump( beachConf ) )
 
     # Restart Cassandra to use new seeds.
-    os.system( 'service cassandra restart' )
-    print( "...restarting cassandra, standby." )
-    time.sleep( 20 )
+    if not args.isNoRestart:
+        os.system( 'service cassandra restart' )
+        print( "...restarting cassandra, standby." )
+        time.sleep( 20 )
 
     # We save a yaml file with the seeds to be optionally used by other components.
     with open( '../lc_appliance_cluster.yaml', 'wb' ) as f:
