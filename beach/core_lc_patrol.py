@@ -775,7 +775,10 @@ Patrol( 'AlexaDNS',
             'secretIdent' : 'alexadns/e1527553-815b-4dd5-8a40-708a287605b4',
             'trustedIdents' : [ 'analysis/01e9a19d-78e1-4c37-9a6e-37cb592e3897',
                                 'hunter/8e0f55c0-6593-4747-9d02-a4937fa79517',
-                                'blink/6babf560-88db-403d-a5f6-3689397e0104' ] } )
+                                'blink/6babf560-88db-403d-a5f6-3689397e0104' ],
+            'isIsolated' : True,
+            'strategy' : 'repulsion',
+            'is_drainable' : True } )
 
 #######################################
 # MalwareDomains
@@ -799,7 +802,10 @@ Patrol( 'MalwareDomains',
             'secretIdent' : 'malwaredomains/d7e813ef-e47d-479c-a56e-0190cad45c25',
             'trustedIdents' : [ 'analysis/01e9a19d-78e1-4c37-9a6e-37cb592e3897',
                                 'hunter/8e0f55c0-6593-4747-9d02-a4937fa79517',
-                                'blink/6babf560-88db-403d-a5f6-3689397e0104' ]} )
+                                'blink/6babf560-88db-403d-a5f6-3689397e0104' ],
+            'isIsolated' : True,
+            'strategy' : 'repulsion',
+            'is_drainable' : True } )
 
 #######################################
 # AnalyticsStateless
@@ -945,7 +951,8 @@ Patrol( 'BlinkModel',
             'secretIdent' : 'blink/6babf560-88db-403d-a5f6-3689397e0104',
             'trustedIdents' : [ 'lc/0bf01f7e-62bd-4cc4-9fec-4c52e82eb903' ],
             'isIsolated' : True,
-            'strategy' : 'repulsion' } )
+            'strategy' : 'repulsion',
+            'is_drainable' : True } )
 
 #######################################
 # EndpointProcessor
