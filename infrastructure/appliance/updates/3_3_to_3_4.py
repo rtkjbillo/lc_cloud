@@ -20,7 +20,7 @@ import yaml
 import socket
 
 ORIGINAL_DIR = os.getcwd()
-ROOT_DIR = os.path.join( os.path.abspath( os.path.dirname( os.path.realpath( __file__ ) ) ), '..', '..', '..' )
+ROOT_DIR = os.path.join( os.path.abspath( os.path.dirname( os.path.realpath( __file__ ) ) ), '..', '..', '..', '..' )
 os.chdir( ROOT_DIR )
 
 def getLocalIp():
