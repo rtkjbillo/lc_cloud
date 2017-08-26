@@ -1,5 +1,5 @@
 - name: site-1
   url: http://127.0.0.1:8889
   ident: lc/0bf01f7e-62bd-4cc4-9fec-4c52e82eb903
-  timeout: 3600
+  timeout: 60
   secret:

@@ -34,6 +34,7 @@ import msgpack
 from functools import wraps
 import itertools
 import uuid
+from collections import OrderedDict
 
 ###############################################################################
 # CUSTOM EXCEPTIONS
@@ -59,10 +60,48 @@ def sanitizeJson( o, summarized = False ):
 
     return o
 
+class RingCache( object ):
+    def __init__( self, maxEntries = 100, isAutoAdd = False ):
+        self.max = maxEntries
+        self.d = OrderedDict()
+        self.isAutoAdd = isAutoAdd
+    
+    def add( self, k, v = None ):
+        if self.max <= len( self.d ):
+            self.d.popitem( last = False )
+        if k in self.d:
+            del( self.d[ k ] )
+        self.d[ k ] = v
+    
+    def get( self, k ):
+        return self.d[ k ]
+    
+    def remove( self, k ):
+        del( self.d[ k ] )
+    
+    def __contains__( self, k ):
+        if k in self.d:
+            v = self.d[ k ]
+            del( self.d[ k ] )
+            self.d[ k ] = v
+            return True
+        else:
+            if self.isAutoAdd:
+                self.add( k )
+            return False
+    
+    def __len__( self ):
+        return len( self.d )
+    
+    def __repr__( self ):
+        return self.d.__repr__()
 
 ###############################################################################
 # PAGE DECORATORS
 ###############################################################################
+def dumpJson( data ):
+    return json.dumps( data, indent = 2 )
+
 def jsonApi( f ):
     ''' Decorator to basic exception handling on function. '''
     @wraps( f )
@@ -70,9 +109,9 @@ def jsonApi( f ):
         web.header( 'Content-Type', 'application/json' )
         r = f( *args, **kwargs )
         try:
-            return json.dumps( r )
+            return dumpJson( r )
         except:
-            return json.dumps( { 'error' : str( r ) } )
+            return dumpJson( { 'error' : str( r ) } )
     return wrapped
 
 def msgpackApi( f ):
@@ -89,7 +128,7 @@ def msgpackApi( f ):
 
 def jsonData( data ):
     web.header( 'Content-Type', 'application/json' )
-    return json.dumps( data )
+    return dumpJson( data )
 
 def msgpackData( data ):
     web.header( 'Content-Type', 'application/msgpack' )
@@ -98,14 +137,28 @@ def msgpackData( data ):
 def getOrgs():
     orgs = querySites( 'c2/identmanager', 'get_org_info', 
                        queryData = { 'include_all' : True },
-                       siteProc = lambda res, ctx: dict( [ ( x[ 1 ], x[ 0 ] ) for x in res[ 'orgs' ] ] ), 
+                       siteProc = lambda res, ctx, site: dict( [ ( x[ 1 ], x[ 0 ] ) for x in res[ 'orgs' ] ] ), 
                        qProc = lambda res, ctx: reduce( lambda x, y: x.update( y ) or x, res, {} ) )
     return orgs
+
+def firstMatching( results, matcher ):
+    for result in results:
+        if matcher( result ):
+            return result
+    return None
+
+def getSiteFor( sid ):
+    sensorInfo = querySites( 'models', 'get_sensor_info', 
+                             queryData = { 'id_or_host' : sid },
+                             siteProc = lambda res, ctx, site: ( res, site ), 
+                             qProc = lambda res, ctx: firstMatching( res, lambda x: 0 != len( x[ 0 ] ) ) )
+    return sensorInfo
+
 
 ###############################################################################
 # SITES COMMS
 ###############################################################################
-def defaultSiteProc( result, qContext ):
+def defaultSiteProc( result, qContext, site ):
     return result
 
 def defaultQueryProc( results, qContext ):
@@ -118,11 +171,11 @@ def querySite( queryCat, queryAction, queryData, siteProc, site, qContext ):
               '_action' : queryAction }
     if site[ 'secret' ] is not None and '' != site[ 'secret' ]:
         qData[ '_secret' ] = site[ 'secret' ]
-    qData[ '_json_data' ] = json.dumps( sanitizeJson( queryData ) )
+    qData[ '_json_data' ] = dumpJson( sanitizeJson( queryData ) )
     u = urllib2.urlopen( '%s/%s' % (site[ 'url' ], queryCat ), urllib.urlencode( qData ) )
     resp = msgpack.unpackb( u.read() )
     u.close()
-    return siteProc( resp, qContext )
+    return siteProc( resp, qContext, site )
 
 def querySites( queryCat, queryAction, queryData = {}, siteProc = defaultSiteProc, qProc = defaultQueryProc ):
     global sites
@@ -153,10 +206,10 @@ class Status:
     def GET( self ):
         statuses = {}
         statuses[ 'sensors_online' ] = querySites( 'c2/sensordir', 'get_dir', 
-                                                    siteProc = lambda res, ctx: len( res[ 'dir' ] ), 
+                                                    siteProc = lambda res, ctx, site: len( res[ 'dir' ] ), 
                                                     qProc = lambda res, ctx: sum( res ) )
         statuses[ 'sensors_total' ] = querySites( 'models', 'list_sensors', 
-                                                  siteProc = lambda res, ctx: len( res ), 
+                                                  siteProc = lambda res, ctx, site: len( res ), 
                                                   qProc = lambda res, ctx: sum( res ) )
         return statuses
 
@@ -181,9 +234,47 @@ class FindIp:
 
         usage = querySites( 'models', 'get_ip_usage', 
                             queryData = { 'ip' : params.ip, 'oid' : getOrgs().keys() },
-                            siteProc = lambda res, ctx: res[ 'usage' ], 
+                            siteProc = lambda res, ctx, site: res[ 'usage' ], 
                             qProc = lambda res, ctx: [ x for x in itertools.chain( res ) ] )
         return usage
+
+# This is a waterhose feed from a single sensor, it streams traffic as json.
+class Traffic:
+    def GET( self ):
+        web.header( 'Content-Type', 'application/json' )
+        params = web.input( sid = None )
+
+        sensorInfo = getSiteFor( params.sid )
+        if sensorInfo is None:
+            raise web.HTTPError( '404 Not Found: sensor not found' )
+
+        sensorInfo, site = sensorInfo
+
+        print( "Found sensor at site: %s" % site[ 'name' ] )
+
+        after = int( time.time() - 5 )
+        eventCache = RingCache( maxEntries = 100, isAutoAdd = True )
+        
+        while True:
+            now = int( time.time() )
+            newest = 0
+            res = querySite( 'models', 'get_timeline', 
+                             { 'id' : sensorInfo[ 'id' ],
+                               'is_include_content' : True,
+                               'after' : after }, defaultSiteProc, site, {} )
+
+            for r in res[ 'events' ]:
+                if r[ 2 ] not in eventCache:
+                    yield dumpJson( sanitizeJson( r[ 3 ] ) )
+                eventTime = int( r[ 0 ] / 1000 )
+                if eventTime < now + 30 and eventTime > newest:
+                    newest = eventTime
+
+            if 0 != newest:
+                after = newest - 1
+            gevent.sleep( 2 )
+
+
 
 ###############################################################################
 # BOILER PLATE
@@ -207,7 +298,8 @@ if __name__ == '__main__':
              r'/status', 'Status',
              r'/orgs', 'Orgs',
              r'/global_configs', 'GlobalConfigs',
-             r'/find_ip', 'FindIp', )
+             r'/find_ip', 'FindIp',
+             r'/traffic', 'Traffic', )
     web.config.debug = False
     app = web.application( urls, globals() )
 
