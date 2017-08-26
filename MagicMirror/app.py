@@ -182,7 +182,6 @@ def mergeObj( results ):
 
     return merged
 
-
 ###############################################################################
 # SITES COMMS
 ###############################################################################
@@ -278,8 +277,6 @@ class Traffic:
 
         sensorInfo, site = sensorInfo
 
-        print( "Found sensor at site: %s" % site[ 'name' ] )
-
         after = int( time.time() - 5 )
         eventCache = RingCache( maxEntries = 100, isAutoAdd = True )
         
@@ -329,6 +326,25 @@ class ShowObj:
                               qProc = lambda res, ctx: mergeObj( res ) )
         return objects
 
+class AtomsFromRoot:
+    @jsonApi
+    def GET( self ):
+        params = web.input( atom = None, max_depth = 5, max_atoms = 1000, with_routing = False )
+
+        if params.atom is None:
+            raise web.HTTPError( '400 Bad Request: atom required' )
+
+        atoms = querySites( 'models', 'get_atoms_from_root', 
+                              queryData = { 'id' : params.atom, 
+                                            'depth' : params.max_depth,
+                                            'max_atoms' : params.max_atoms,
+                                            'with_routing' : params.with_routing },
+                              qProc = lambda res, ctx: firstMatching( res, lambda x: 0 != len( x ) ) )
+
+        return atoms
+
+
+
 
 ###############################################################################
 # BOILER PLATE
@@ -355,7 +371,8 @@ if __name__ == '__main__':
              r'/find_ip', 'FindIp',
              r'/traffic', 'Traffic',
              r'/find_obj', 'FindObj',
-             r'/show_obj', 'ShowObj', )
+             r'/show_obj', 'ShowObj',
+             r'/atoms_from_root', 'AtomsFromRoot', )
     web.config.debug = False
     app = web.application( urls, globals() )
 
