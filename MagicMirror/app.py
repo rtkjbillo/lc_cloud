@@ -154,6 +154,34 @@ def getSiteFor( sid ):
                              qProc = lambda res, ctx: firstMatching( res, lambda x: 0 != len( x[ 0 ] ) ) )
     return sensorInfo
 
+def mergeObj( results ):
+    merged = { 'olocs' : [],
+               'locs' : {},
+               'rlocs' : {},
+               'parents' : {},
+               'children' : {} }
+
+    for result in results:
+        merged[ 'id' ] = result[ 'id' ]
+        merged[ 'oname' ] = result[ 'oname' ]
+        merged[ 'host' ] = result[ 'host' ]
+        merged[ 'otype' ] = result[ 'otype' ]
+        merged[ 'olocs' ] += result[ 'olocs' ]
+        for parent in result[ 'parents' ]:
+            merged[ 'parents' ][ parent[ 0 ] ] = parent
+        for child in result[ 'children' ]:
+            merged[ 'children' ][ child[ 0 ] ] = child
+        for loc, v in result[ 'locs' ].iteritems():
+            merged[ 'locs' ].setdefault( loc, 0 )
+            merged[ 'locs' ][ loc ] += v
+        for k, v in result[ 'rlocs' ].iteritems():
+            merged[ 'rlocs' ].setdefault( k, 0 )
+            merged[ 'rlocs' ][ k ] += v
+    merged[ 'parents' ] = merged[ 'parents' ].values()
+    merged[ 'children' ] = merged[ 'children' ].values()
+
+    return merged
+
 
 ###############################################################################
 # SITES COMMS
@@ -274,6 +302,32 @@ class Traffic:
                 after = newest - 1
             gevent.sleep( 2 )
 
+class FindObj:
+    @jsonApi
+    def GET( self ):
+        params = web.input( name = None )
+
+        if params.name is None:
+            raise web.HTTPError( '400 Bad Request: name required' )
+
+        objects = querySites( 'models', 'get_obj_list', 
+                              queryData = { 'name' : params.name },
+                              siteProc = lambda res, ctx, site: dict( [ ( x[ 0 ], ( x[ 1 ], x[ 2 ] ) ) for x in res[ 'objects' ] ] ), 
+                              qProc = lambda res, ctx: reduce( lambda x, y: x.update( y ) or x, res, {} ) )
+        return objects
+
+class ShowObj:
+    @jsonApi
+    def GET( self ):
+        params = web.input( id = None )
+
+        if params.id is None:
+            raise web.HTTPError( '400 Bad Request: id required' )
+
+        objects = querySites( 'models', 'get_obj_view', 
+                              queryData = { 'id' : params.id },
+                              qProc = lambda res, ctx: mergeObj( res ) )
+        return objects
 
 
 ###############################################################################
@@ -299,7 +353,9 @@ if __name__ == '__main__':
              r'/orgs', 'Orgs',
              r'/global_configs', 'GlobalConfigs',
              r'/find_ip', 'FindIp',
-             r'/traffic', 'Traffic', )
+             r'/traffic', 'Traffic',
+             r'/find_obj', 'FindObj',
+             r'/show_obj', 'ShowObj', )
     web.config.debug = False
     app = web.application( urls, globals() )
 
