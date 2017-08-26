@@ -32,11 +32,8 @@ import json
 import yaml
 import msgpack
 from functools import wraps
-
-
-REST_IDENT = 'lc/0bf01f7e-62bd-4cc4-9fec-4c52e82eb903'
-REST_TIMEOUT = 60 * 60
-REST_SECRET = None
+import itertools
+import uuid
 
 ###############################################################################
 # CUSTOM EXCEPTIONS
@@ -98,6 +95,13 @@ def msgpackData( data ):
     web.header( 'Content-Type', 'application/msgpack' )
     return msgpack.packb( data )
 
+def getOrgs():
+    orgs = querySites( 'c2/identmanager', 'get_org_info', 
+                       queryData = { 'include_all' : True },
+                       siteProc = lambda res, ctx: dict( [ ( x[ 1 ], x[ 0 ] ) for x in res[ 'orgs' ] ] ), 
+                       qProc = lambda res, ctx: reduce( lambda x, y: x.update( y ) or x, res, {} ) )
+    return orgs
+
 ###############################################################################
 # SITES COMMS
 ###############################################################################
@@ -114,7 +118,7 @@ def querySite( queryCat, queryAction, queryData, siteProc, site, qContext ):
               '_action' : queryAction }
     if site[ 'secret' ] is not None and '' != site[ 'secret' ]:
         qData[ '_secret' ] = site[ 'secret' ]
-    qData.update( queryData )
+    qData[ '_json_data' ] = json.dumps( sanitizeJson( queryData ) )
     u = urllib2.urlopen( '%s/%s' % (site[ 'url' ], queryCat ), urllib.urlencode( qData ) )
     resp = msgpack.unpackb( u.read() )
     u.close()
@@ -124,7 +128,7 @@ def querySites( queryCat, queryAction, queryData = {}, siteProc = defaultSitePro
     global sites
     p = gevent.pool.Pool()
     ctx = {}
-
+    
     siteResults = [ x for x in p.imap_unordered( lambda x: querySite( queryCat, queryAction, queryData, siteProc, x, ctx ), sites ) ]
     
     return qProc( siteResults, ctx )
@@ -133,6 +137,11 @@ def querySites( queryCat, queryAction, queryData = {}, siteProc = defaultSitePro
 ###############################################################################
 # PAGES
 ###############################################################################
+class Index:
+    @jsonApi
+    def GET( self ):
+        return urls
+
 class Sites:
     @jsonApi
     def GET( self ):
@@ -142,8 +151,39 @@ class Sites:
 class Status:
     @jsonApi
     def GET( self ):
-        statuses = querySites( 'c2/deploymentmanager', 'get_global_config' )
+        statuses = {}
+        statuses[ 'sensors_online' ] = querySites( 'c2/sensordir', 'get_dir', 
+                                                    siteProc = lambda res, ctx: len( res[ 'dir' ] ), 
+                                                    qProc = lambda res, ctx: sum( res ) )
+        statuses[ 'sensors_total' ] = querySites( 'models', 'list_sensors', 
+                                                  siteProc = lambda res, ctx: len( res ), 
+                                                  qProc = lambda res, ctx: sum( res ) )
         return statuses
+
+class Orgs:
+    @jsonApi
+    def GET( self ):
+        return getOrgs()
+
+class GlobalConfigs:
+    @jsonApi
+    def GET( self ):
+        globalConfigs = querySites( 'c2/deploymentmanager', 'get_global_config' )
+        return globalConfigs
+
+class FindIp:
+    @jsonApi
+    def GET( self ):
+        params = web.input( ip = None )
+
+        if params.ip is None:
+            raise web.HTTPError( '400 Bad Request: ip required' )
+
+        usage = querySites( 'models', 'get_ip_usage', 
+                            queryData = { 'ip' : params.ip, 'oid' : getOrgs().keys() },
+                            siteProc = lambda res, ctx: res[ 'usage' ], 
+                            qProc = lambda res, ctx: [ x for x in itertools.chain( res ) ] )
+        return usage
 
 ###############################################################################
 # BOILER PLATE
@@ -162,8 +202,12 @@ if __name__ == '__main__':
     with open( args.configFile, 'rb' ) as f:
         sites = yaml.load( f.read() )
 
-    urls = ( r'/sites', 'Sites',
-             r'/status', 'Status' )
+    urls = ( r'/', 'Index',
+             r'/sites', 'Sites',
+             r'/status', 'Status',
+             r'/orgs', 'Orgs',
+             r'/global_configs', 'GlobalConfigs',
+             r'/find_ip', 'FindIp', )
     web.config.debug = False
     app = web.application( urls, globals() )
 
