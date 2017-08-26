@@ -43,8 +43,9 @@ class EnrollmentManager( Actor ):
         self.db.start()
 
         self.deploymentManager = self.getActorHandle( resources[ 'deployment' ], nRetries = 3, timeout = 10 )
+        self.tagging = self.getActorHandle( resources[ 'tagging' ], timeout = 10, nRetries = 3 )
 
-        self.installers = Set()
+        self.installers = {}
         self.c2Key = None
         self.rootKey = None
         self.primary = ( None, None )
@@ -80,10 +81,11 @@ class EnrollmentManager( Actor ):
             self.secondary = ( resp.data[ 'global/secondary' ], resp.data[ 'global/secondary_port' ] )
 
         for row in self.db.execute( 'SELECT oid, iid FROM hcp_installers' ):
-            self.installers.add( ( row[ 0 ], row[ 1 ] ) )
+            self.installers[ ( row[ 0 ], row[ 1 ] ) ] = ( '', [] )
 
-        for row in self.db.execute( 'SELECT oid, iid FROM hcp_whitelist' ):
-            self.installers.add( ( row[ 0 ], row[ 1 ] ) )
+        for row in self.db.execute( 'SELECT oid, iid, description, tags FROM hcp_whitelist' ):
+            tags = ( row[ 3 ] if row[ 3 ] is not None else '' ).split( ',' )
+            self.installers[ ( row[ 0 ], row[ 1 ] ) ] = ( row[ 2 ], tags )
 
     def getTokenFor( self, aid ):
         h = hmac.new( self.enrollmentKey, aid.asString(), hashlib.sha256 )
@@ -102,7 +104,9 @@ class EnrollmentManager( Actor ):
 
         aid = AgentId( req[ 'aid' ] )
 
-        if ( aid.org_id, aid.ins_id ) not in self.installers:
+        installerInfo = self.installers.get( ( aid.org_id, aid.ins_id ), None )
+
+        if installerInfo is None:
             return ( True, { 'aid' : None } )
 
         extIp = req[ 'public_ip' ]
@@ -134,6 +138,11 @@ class EnrollmentManager( Actor ):
         conf = self.rpcm.serialise( conf )
         conf = self.obfuscate( conf, OBFUSCATION_KEY )
         confSig = self.signing.sign( conf )
+
+        # Now apply all tags associated with that installer id.
+        desc, tags = installerInfo
+        if 0 != len( tags ):
+            self.tagging.shoot( 'add_tags', { 'sid' : aid.sensor_id, 'tag' : tags, 'ttl' : 60 * 60 * 24 * 365 * 20, 'by' : 'enroll' } )
 
         return ( True, { 'aid' : aid, 
                          'token' : enrollmentToken, 

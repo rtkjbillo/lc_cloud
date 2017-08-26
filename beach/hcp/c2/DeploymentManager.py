@@ -80,6 +80,8 @@ class DeploymentManager( Actor ):
         self.handle( 'get_supported_events', self.get_supported_events )
         self.handle( 'get_capabilities', self.get_capabilities )
         self.handle( 'del_sensor', self.del_sensor )
+        self.handle( 'set_installer_info', self.set_installer_info )
+        self.handle( 'del_installer', self.del_installer )
 
         self.metricsUrl = resources.get( 'metrics_url', 'https://limacharlie.io/metrics/opensource' )
         self.schedule( ( 60 * 60 ) + random.randint( 0, 60 * 60 ) , self.sendMetricsIfEnabled )
@@ -447,18 +449,6 @@ We believe this sharing policy strikes a good balance between privacy and inform
 
         _ = Symbols
 
-        hcpConfig = ( rSequence().addStringA( _.hcp.PRIMARY_URL, primaryDomain )
-                                 .addInt16( _.hcp.PRIMARY_PORT, primaryPort )
-                                 .addStringA( _.hcp.SECONDARY_URL, secondaryDomain )
-                                 .addInt16( _.hcp.SECONDARY_PORT, secondaryPort )
-                                 .addSequence( _.base.HCP_IDENT, rSequence().addBuffer( _.base.HCP_ORG_ID, oid.bytes )
-                                                                            .addBuffer( _.base.HCP_INSTALLER_ID, iid.bytes )
-                                                                            .addBuffer( _.base.HCP_SENSOR_ID, uuid.UUID( '00000000-0000-0000-0000-000000000000' ).bytes )
-                                                                            .addInt32( _.base.HCP_PLATFORM, 0 )
-                                                                            .addInt32( _.base.HCP_ARCHITECTURE, 0 ) )
-                                 .addBuffer( _.hcp.C2_PUBLIC_KEY, c2Cert )
-                                 .addBuffer( _.hcp.ROOT_PUBLIC_KEY, rootPub ) )
-
         hbsConfig = ( rSequence().addBuffer( _.hbs.ROOT_PUBLIC_KEY, hbsPub ) )
 
         signing = Signing( rootPri )
@@ -491,30 +481,6 @@ We believe this sharing policy strikes a good balance between privacy and inform
             if not resp.isSuccess:
                 self.log( 'error loading new installer for %s' % oid )
                 return False
-
-        bootstrap = ( rSequence().addStringA( _.hcp.PRIMARY_URL, primaryDomain )
-                                 .addInt16( _.hcp.PRIMARY_PORT, primaryPort )
-                                 .addStringA( _.hcp.SECONDARY_URL, secondaryDomain )
-                                 .addInt16( _.hcp.SECONDARY_PORT, secondaryPort )
-                                 .addSequence( _.base.HCP_IDENT, rSequence().addBuffer( _.base.HCP_ORG_ID, oid.bytes )
-                                                                            .addBuffer( _.base.HCP_INSTALLER_ID, iid.bytes )
-                                                                            .addBuffer( _.base.HCP_SENSOR_ID, uuid.UUID( '00000000-0000-0000-0000-000000000000' ).bytes )
-                                                                            .addInt32( _.base.HCP_PLATFORM, 0 )
-                                                                            .addInt32( _.base.HCP_ARCHITECTURE, 0 ) )
-                                 .addBuffer( _.hcp.ROOT_PUBLIC_KEY, rootPub ) )
-        bootstrap = base64.b64encode( rpcm().serialise( bootstrap ) )
-
-        resp = self.admin.request( 'hcp.remove_whitelist', { 'oid' : oid } )
-        if not resp.isSuccess:
-            self.log( 'error wiping previous whitelist for %s' % oid )
-            return False
-
-        resp = self.admin.request( 'hcp.add_whitelist', { 'oid' : oid, 
-                                                          'iid' : iid, 
-                                                          'bootstrap' : bootstrap } )
-        if not resp.isSuccess:
-            self.log( 'error loading new whitelist for %s' % oid )
-            return False
 
         resp =  self.admin.request( 'hcp.remove_tasking', { 'oid' : oid } )
         if not resp.isSuccess:
@@ -751,5 +717,103 @@ We believe this sharing policy strikes a good balance between privacy and inform
         sid = AgentId( req[ 'sid' ] ).sensor_id
 
         self.db.execute( 'DELETE FROM sensor_states WHERE sid = %s', ( sid, ) )
+
+        return ( True, )
+
+    def set_installer_info( self, msg ):
+        req = msg.data
+
+        oid = uuid.UUID( req[ 'oid' ] )
+        iid = req.get( 'iid', None )
+        tags = req.get( 'tags', [] )
+        desc = req.get( 'desc', '' )
+
+        if iid is None:
+            # This should be a brand new installer whitelist entry.
+            iid = uuid.uuid4()
+        else:
+            # This entry should already exist.
+            resp = self.admin.request( 'hcp.get_whitelist', { 'oid' : oid, 
+                                                              'iid' : iid, } )
+            if not resp.isSuccess:
+                return ( False, resp.error )
+
+            if 0 == len( resp.data[ 'whitelist' ] ):
+                return ( False, 'unknown installer' )
+
+            iid = uuid.UUID( iid )
+
+        info = self.db.getOne( 'SELECT value FROM configs WHERE conf = %s', ( 'key/root', ) )
+        if not info or not info[ 0 ]:
+            self.log( 'failed to get root key' )
+            return ( False, 'error getting root key' )
+
+        rootKey = self.unpackKey( info[ 0 ] )
+        rootPub = rootKey[ 'pubDer' ]
+        rootPri = rootKey[ 'priDer' ]
+        del( rootKey )
+
+        info = self.db.getOne( 'SELECT value FROM configs WHERE conf = %s', ( 'global/primary', ) )
+        if not info or not info[ 0 ]:
+            self.log( 'failed to get primary domain' )
+            return ( False, 'error getting primary domain' )
+
+        primaryDomain = info[ 0 ]
+
+        info = self.db.getOne( 'SELECT value FROM configs WHERE conf = %s', ( 'global/primary_port', ) )
+        if not info or not info[ 0 ]:
+            self.log( 'failed to get primary port' )
+            return ( False, 'error getting primary port' )
+
+        primaryPort = int( info[ 0 ] )
+
+        info = self.db.getOne( 'SELECT value FROM configs WHERE conf = %s', ( 'global/secondary', ) )
+        if not info or not info[ 0 ]:
+            self.log( 'failed to get secondary domain' )
+            return ( False, 'error getting secondary domain' )
+
+        secondaryDomain = info[ 0 ]
+
+        info = self.db.getOne( 'SELECT value FROM configs WHERE conf = %s', ( 'global/secondary_port', ) )
+        if not info or not info[ 0 ]:
+            self.log( 'failed to get secondary port' )
+            return ( False, 'error getting secondary port' )
+
+        secondaryPort = int( info[ 0 ] )
+
+        _ = Symbols
+
+        bootstrap = ( rSequence().addStringA( _.hcp.PRIMARY_URL, primaryDomain )
+                                 .addInt16( _.hcp.PRIMARY_PORT, primaryPort )
+                                 .addStringA( _.hcp.SECONDARY_URL, secondaryDomain )
+                                 .addInt16( _.hcp.SECONDARY_PORT, secondaryPort )
+                                 .addSequence( _.base.HCP_IDENT, rSequence().addBuffer( _.base.HCP_ORG_ID, oid.bytes )
+                                                                            .addBuffer( _.base.HCP_INSTALLER_ID, iid.bytes )
+                                                                            .addBuffer( _.base.HCP_SENSOR_ID, uuid.UUID( '00000000-0000-0000-0000-000000000000' ).bytes )
+                                                                            .addInt32( _.base.HCP_PLATFORM, 0 )
+                                                                            .addInt32( _.base.HCP_ARCHITECTURE, 0 ) )
+                                 .addBuffer( _.hcp.ROOT_PUBLIC_KEY, rootPub ) )
+        bootstrap = base64.b64encode( rpcm().serialise( bootstrap ) )
+
+        resp = self.admin.request( 'hcp.add_whitelist', { 'oid' : oid, 
+                                                          'iid' : iid, 
+                                                          'bootstrap' : bootstrap,
+                                                          'description' : desc,
+                                                          'tags' : tags } )
+        if not resp.isSuccess:
+            return ( False, resp.error )
+
+        return ( True, { 'oid' : oid, 'iid' : iid } )
+
+    def del_installer( self, msg ):
+        req = msg.data
+
+        oid = req[ 'oid' ]
+        iid = req[ 'iid' ]
+
+        resp = self.admin.request( 'hcp.remove_whitelist', { 'oid' : oid, 'iid' : iid } )
+
+        if not resp.isSuccess:
+            return ( False, resp.error )
 
         return ( True, )

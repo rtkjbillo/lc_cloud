@@ -321,11 +321,14 @@ class AdminEndpoint( Actor ):
         if 0 != len( filters ):
             filters = ' WHERE ' + filters
 
-        for row in self.db.execute( 'SELECT oid, iid, created, bootstrap FROM hcp_whitelist%s' % filters, filterValues ):
+        for row in self.db.execute( 'SELECT oid, iid, created, bootstrap, description, tags FROM hcp_whitelist%s' % filters, filterValues ):
+            tags = ( row[ 5 ] if row[ 5 ] is not None else '' ).split( ',' )
             whitelist.append( { 'oid' : row[ 0 ],
                                 'iid' : row[ 1 ],
                                 'bootstrap' : row[ 3 ],
-                                'created' : row[ 2 ] } )
+                                'created' : row[ 2 ],
+                                'description' : row[ 4 ],
+                                'tags' : tags } )
 
         return ( True, data )
 
@@ -334,9 +337,11 @@ class AdminEndpoint( Actor ):
         oid = uuid.UUID( msg.data[ 'oid' ] )
         iid = uuid.UUID( msg.data[ 'iid' ] )
         bootstrap = msg.data[ 'bootstrap' ]
+        description = msg.data.get( 'description', '' )
+        tags = ','.join( msg.data.get( 'tags', [] ) )
 
-        self.db.execute( 'INSERT INTO hcp_whitelist ( oid, iid, created, bootstrap ) VALUES ( %s, %s, dateOf( now() ), %s )',
-                         ( oid, iid, bootstrap ) )
+        self.db.execute( 'INSERT INTO hcp_whitelist ( oid, iid, created, bootstrap, description, tags ) VALUES ( %s, %s, dateOf( now() ), %s, %s, %s )',
+                         ( oid, iid, bootstrap, description, tags ) )
 
         self.delay( 5, self.enrollments.broadcast, 'reload', {} )
 

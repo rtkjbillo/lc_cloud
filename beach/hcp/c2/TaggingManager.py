@@ -57,7 +57,7 @@ class TaggingManager( Actor ):
 
         hosts = self.hostList( req[ 'sid' ] )
         tags = self.tagList( req[ 'tag' ] )
-        ttl = req.get( 'tlt', 60 * 60 * 24 * 365 )
+        ttl = req.get( 'ttl', 60 * 60 * 24 * 365 )
         by = req.get( 'by', '' )
 
         endpointCache = {}

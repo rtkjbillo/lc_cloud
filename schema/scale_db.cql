@@ -123,6 +123,8 @@ CREATE TABLE hcp_whitelist(
   oid uuid,
   iid uuid,
   bootstrap varchar,
+  description varchar,
+  tags varchar,
   created timestamp,
   PRIMARY KEY( oid, iid )
 ) WITH compaction = { 'class' : 'SizeTieredCompactionStrategy' } AND gc_grace_seconds = 86400;

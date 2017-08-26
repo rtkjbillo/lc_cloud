@@ -44,23 +44,6 @@ $for oid, installerList in installers.iteritems():
         </tbody>
       </table>
       <br/>
-
-      $for wlInfo in whitelist[ oid ][ 'whitelist' ]:
-        <table class="mdl-data-table mdl-js-data-table mdl-shadow--2dp" style="width: 100%;">
-          <thead>
-            <tr>
-              <th class="mdl-data-table__cell--non-numeric">Installation Key</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td class="mdl-data-table__cell--non-numeric click-to-copy" style="word-break: break-all; font-family: monospace; white-space: normal;">
-                $wlInfo[ 'bootstrap' ]
-              </td>
-            </tr>
-          </tbody>
-        </table>
-        <br/>
       <hr/>
       <center>
         <strong><i>
@@ -72,6 +55,52 @@ $for oid, installerList in installers.iteritems():
         <strong>On MacOS</strong>, execute the installer in a root terminal with the argument <i>-i InsallationKey</i>, where the InstallationKey is the one displayed above.
         <br/>
         <strong>On Linux</strong>, the binary is not an installer to let you use whatever "bootstrap" system you want to use. Running it with <i>-d InstallationKey</i>, where the InstallationKey is the one displayed above, will permit it to enroll.
+      </center>
+      <hr/>
+      <br/>
+      <table class="mdl-data-table mdl-js-data-table mdl-shadow--2dp" style="width: 100%;">
+        <thead>
+          <tr>
+            <th class="mdl-data-table__cell--non-numeric">Installation Key</th>
+            <th class="mdl-data-table__cell--non-numeric">Description</th>
+            <th class="mdl-data-table__cell--non-numeric">Tags</th>
+          </tr>
+        </thead>
+        <tbody>
+            $for wlInfo in whitelist[ oid ][ 'whitelist' ]:
+              <form action="/set_installer_info" method="POST">
+              <input type="hidden" name="oid" value="$oid"/>
+              <input type="hidden" name="iid" value="$wlInfo[ 'iid' ]"/>
+                <tr>
+                  <td class="mdl-data-table__cell--non-numeric click-to-copy" style="word-break: break-all; font-family: monospace; white-space: normal;">
+                    $wlInfo[ 'bootstrap' ]
+                  </td>
+                  <td class="mdl-data-table__cell--non-numeric">
+                    <div class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label">
+                      <input class="mdl-textfield__input" type="text" id="desc_$oid" name="desc" value="$wlInfo[ 'description' ]">
+                      <label class="mdl-textfield__label" for="desc_$oid">Description</label>
+                    </div>
+                  </td>
+                  <td class="mdl-data-table__cell--non-numeric">
+                    <div class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label">
+                      <input class="mdl-textfield__input" type="text" id="tags_$oid" name="tags" value="$','.join( wlInfo[ 'tags' ] )">
+                      <label class="mdl-textfield__label" for="tags_$oid">Tags, comma separated</label>
+                    </div>
+                    <br/>
+                    <input type="submit" value="Update" class="mdl-button mdl-js-button mdl-button--raised"/>
+                    &nbsp;
+                    <input type="submit" value="Delete" formaction="/del_installer" class="mdl-button mdl-js-button mdl-button--raised"/>
+                  </td>
+                </tr>
+              </form>
+        </tbody>
+      </table>
+      <br/>
+      <center>
+        <form action="/set_installer_info" method="POST">
+          <input type="hidden" name="oid" value="$oid"/>
+          <input type="submit" value="Create Installation Key" class="mdl-button mdl-js-button mdl-button--raised"/>
+        </form>
       </center>
     </div>
     <div class="mdl-card__actions mdl-card--border">

@@ -86,6 +86,8 @@ urls = (
     '/add_tag', 'AddTag',
     '/del_tag', 'DelTag',
     '/del_sensor', 'DelSensor',
+    '/set_installer_info', 'SetInstallerInfo',
+    '/del_installer', 'DelInstaller',
 )
 
 ADMIN_OID = None
@@ -692,6 +694,9 @@ class Profile ( AuthenticatedPage ):
                 res = deployment.request( 'deploy_org', { 'oid' : oid } )
                 if res.isSuccess:
                     session.notice = 'Org created with oid: %s' % oid
+                    res = deployment.request( 'set_installer_info', { 'oid' : oid, 'desc' : 'default', 'tags' : [] } )
+                    if not res.isSuccess:
+                        session.notice = 'Error creating installer key: %s' % res.error
                 else:
                     identmanager.request( 'remove_org', { 'by' : session.email, 'oid' : oid } )
                     session.notice = 'Error deploying org: %s' % res
@@ -1700,6 +1705,69 @@ class DelSensor ( AuthenticatedPage ):
             session.notice = str( resp )
         redirectTo( 'sensors' )
 
+class SetInstallerInfo ( AuthenticatedPage ):
+    def doPOST( self ):
+        params = web.input( oid = None, iid = None, tags = '', desc = '' )
+
+        try:
+            oid = uuid.UUID( params.oid )
+        except:
+            oid = None
+
+        try:
+            if params.iid is not None:
+                iid = uuid.UUID( params.iid )
+            else:
+                # If no IID is present it indicates to create a new one.
+                iid = None
+        except:
+            iid = None
+
+        if oid is None:
+            raise web.HTTPError( '400 Bad Request: oid required' )
+
+        if not isOrgAllowed( oid ):
+            raise web.HTTPError( '401 Unauthorized' )
+
+        tags = [ x.strip() for x in params.tags.split( ',' ) ]
+
+        resp = deployment.request( 'set_installer_info', { 'oid' : oid, 
+                                                           'iid' : iid,
+                                                           'tags' : tags,
+                                                           'desc' : params.desc } )
+        if resp.isSuccess:
+            redirectTo( '/manage' )
+        else:
+            raise web.HTTPError( '503 Service Unavailable: %s' % str( resp ) )
+
+class DelInstaller ( AuthenticatedPage ):
+    def doPOST( self ):
+        params = web.input( oid = None, iid = None )
+
+        try:
+            oid = uuid.UUID( params.oid )
+        except:
+            oid = None
+
+        try:
+            iid = uuid.UUID( params.iid )
+        except:
+            iid = None
+
+        if oid is None:
+            raise web.HTTPError( '400 Bad Request: oid required' )
+
+        if iid is None:
+            raise web.HTTPError( '400 Bad Request: iid required' )
+
+        if not isOrgAllowed( oid ):
+            raise web.HTTPError( '401 Unauthorized' )
+
+        resp = deployment.request( 'del_installer', { 'oid' : oid, 'iid' : iid } )
+        if resp.isSuccess:
+            redirectTo( '/manage' )
+        else:
+            raise web.HTTPError( '503 Service Unavailable: %s' % str( resp ) )
 
 #==============================================================================
 #   CARDS
