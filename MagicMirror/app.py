@@ -343,8 +343,25 @@ class AtomsFromRoot:
 
         return atoms
 
+class FindSensor:
+    @jsonApi
+    def GET( self ):
+        params = web.input( id_or_host = None, tag = None )
 
+        if params.id_or_host is None and params.tag is None:
+            raise web.HTTPError( '400 Bad Request: id_or_host or tag required' )
 
+        if params.id_or_host is not None:
+            sensors = querySites( 'models', 'get_sensor_info', 
+                                  queryData = { 'id_or_host' : params.id_or_host },
+                                  qProc = lambda res, ctx: firstMatching( res, lambda x: 0 != len( x ) ) )
+        elif params.tag is not None:
+            sensors = querySites( 'c2/taggingmanager', 'search_tags', 
+                                  queryData = { 'tag' : params.tag },
+                                  siteProc = lambda res, ctx, site: res[ 'hosts' ],
+                                  qProc = lambda res, ctx: reduce( lambda x, y: x + y, res, [] ) )
+
+        return sensors
 
 ###############################################################################
 # BOILER PLATE
@@ -372,7 +389,8 @@ if __name__ == '__main__':
              r'/traffic', 'Traffic',
              r'/find_obj', 'FindObj',
              r'/show_obj', 'ShowObj',
-             r'/atoms_from_root', 'AtomsFromRoot', )
+             r'/atoms_from_root', 'AtomsFromRoot',
+             r'/find_sensor', 'FindSensor', )
     web.config.debug = False
     app = web.application( urls, globals() )
 

@@ -1654,7 +1654,7 @@ class AddTag ( AuthenticatedPage ):
         resp = tagging.request( 'add_tags', { 'sid' : AgentId( params.sid ).sensor_id, 
                                               'tag' : params.tag,
                                               'by' : session.email,
-                                              'ttl' : ( 60 * 60 * 24 * 365 * 100 ) } )
+                                              'ttl' : ( 60 * 60 * 24 * 365 * 20 ) } )
         if resp.isSuccess:
             return { 'success' : True }
         else:
