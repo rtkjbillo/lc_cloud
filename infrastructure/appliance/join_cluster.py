@@ -84,7 +84,19 @@ if __name__ == '__main__':
     if not args.isNoRestart:
         os.system( 'service cassandra restart' )
         print( "...restarting cassandra, standby." )
-        time.sleep( 20 )
+        # Make sure Cassandra is running.
+        waits = 0
+        while True:
+            if 0 == os.system( 'cqlsh %s -e "desc keyspaces" > /dev/null 2>&1' % getLocalIp() ):
+                print( "Cassandra is running." )
+                break
+            if 300 < waits:
+                print( "Looks like Cassandra is not coming online, check into it (/var/log/cassandra/system.log)." )
+                sys.exit( 1 )
+            if 0 == waits % 5:
+                print( "Waiting for Cassandra to come online." )
+            time.sleep( 1 )
+            waits += 1
 
     # We save a yaml file with the seeds to be optionally used by other components.
     with open( '../lc_appliance_cluster.yaml', 'wb' ) as f:
