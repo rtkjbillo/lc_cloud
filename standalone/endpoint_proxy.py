@@ -93,8 +93,8 @@ def updateEndpoints( endpointActors, nextUpdate ):
     newEndpoints = Set()
     while responses.waitForResults( timeout = 10 ):
         for response in responses.getNewResults():
-            if 'data' in response and 'address' in response[ 'data' ] and 'port' in response[ 'data' ]:
-                newEndpoints.add( ( response[ 'data' ][ 'address' ], response[ 'data' ][ 'port' ] ) )
+            if response.isSuccess and 'address' in response.data and 'port' in response.data:
+                newEndpoints.add( ( response.data[ 'address' ], response.data[ 'port' ] ) )
         if responses.isFinished(): break
 
     currentEndpoints = newEndpoints

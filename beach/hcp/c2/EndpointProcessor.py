@@ -358,6 +358,7 @@ class EndpointProcessor( Actor ):
 
             c.setAid( aid )
             self.currentClients[ aid.sensor_id ] = c
+            self.zSet( 'clients', len( self.currentClients ) )
             newStateMsg = { 'aid' : aid.asString(), 
                             'endpoint' : self.name,
                             'ext_ip' : externalIp,
@@ -421,6 +422,7 @@ class EndpointProcessor( Actor ):
                     self.sensorDir.broadcast( 'dead', newStateMsg )
                     del( newStateMsg )
                 self.log( 'Connection terminated: %s' % aid.asString() )
+                self.zSet( 'clients', len( self.currentClients ) )
             else:
                 self.log( 'Connection terminated: %s:%s' % address )
 
