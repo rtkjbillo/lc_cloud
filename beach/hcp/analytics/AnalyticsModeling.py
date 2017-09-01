@@ -96,11 +96,14 @@ class AnalyticsModeling( Actor ):
 
     def reportStats( self ):
         now = time.time()
-        self.log( "Enqueued/sec: %s, Write/sec: %s" % ( float( self.nWrites ) / ( now - self.lastReport ),
-                                                        float( self.db.qCounter ) / ( now - self.lastReport ) ) )
+        enPerSec = float( self.nWrites ) / ( now - self.lastReport )
+        wrPerSec = float( self.db.qCounter ) / ( now - self.lastReport )
+        self.log( "Enqueued/sec: %s, Write/sec: %s" % ( enPerSec, wrPerSec ) )
         self.nWrites = 0
         self.db.qCounter = 0
         self.lastReport = now
+        self.zSet( 'enqueue_per_sec', enPerSec )
+        self.zSet( 'write_per_sec', wrPerSec )
         self.delay( self.statFrameSeconds, self.reportStats )
 
     def ingestStatement( self, statement ):
