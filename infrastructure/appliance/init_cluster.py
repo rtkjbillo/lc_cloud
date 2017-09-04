@@ -40,7 +40,11 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
 
-    os.system( 'python ./cloud/infrastructure/appliance/join_cluster.py -a %s' % localIp )
-    os.system( 'cqlsh %s -f ./cloud/schema/scale_db.cql' % ( localIp, ) )
+    if 0 != os.system( 'python ./cloud/infrastructure/appliance/join_cluster.py -a %s' % localIp ):
+        print( "! Failed to join cluster." )
+        sys.exit(1)
+    if 0 != os.system( 'cqlsh %s -f ./cloud/schema/scale_db.cql' % ( localIp, ) ):
+        print( "! Failed to initialize db schema." )
+        sys.exit(1)
 
     print( "FINISHED INITIALIZING CLUSTER" )

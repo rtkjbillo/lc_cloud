@@ -34,7 +34,13 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
 
-    os.system( './cloud/infrastructure/appliance/start_node.py' )
-    os.system( './cloud/infrastructure/appliance/start_ui.py' )
+    ret = 0
+
+    if 0 != os.system( './cloud/infrastructure/appliance/start_node.py' ):
+    	print( "! Failed to start node." )
+    	sys.exit(1)
+    if 0 != os.system( './cloud/infrastructure/appliance/start_ui.py' ):
+    	print( "! Failed to start ui." )
+    	sys.exit(1)
 
     print( "DONE STARTING APPLIANCE AS ALL IN ONE CLUSTER" )

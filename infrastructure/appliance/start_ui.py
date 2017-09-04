@@ -33,16 +33,24 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
 
-    os.system( 'screen -S dashboard_beach -d -m python -m beach.dashboard 8080 %s'% ( BEACH_CONFIG, ) )
+    if 0 != os.system( 'screen -S dashboard_beach -d -m python -m beach.dashboard 8080 %s'% ( BEACH_CONFIG, ) ):
+        print( "! Failed to start beach dashboard." )
+        sys.exit(1)
 
-    os.system( 'screen -S patrol -d -m python -m beach.patrol %s %s --realm hcp --set-scale 10' % ( BEACH_CONFIG,
-                                                                                                    CORE_PATROL ) )
+    if 0 != os.system( 'screen -S patrol -d -m python -m beach.patrol %s %s --realm hcp --set-scale 10' % ( BEACH_CONFIG,
+                                                                                                            CORE_PATROL ) ):
+        print( "! Failed to start patrol." )
+        sys.exit(1)
 
-    os.system( 'screen -S web -d -m python %s 8888'% ( os.path.join( ROOT_DIR,
-                                                                     'cloud',
-                                                                     'limacharlie',
-                                                                     'app.py' ) ) )
+    if 0 != os.system( 'screen -S web -d -m python %s 8888'% ( os.path.join( ROOT_DIR,
+                                                                             'cloud',
+                                                                             'limacharlie',
+                                                                             'app.py' ) ) ):
+        print( "! Failed to start web ui." )
+        sys.exit(1)
 
-    os.system( 'screen -S rest -d -m python -m beach.restbridge 8889 %s hcp'% ( BEACH_CONFIG, ) )
+    if 0 != os.system( 'screen -S rest -d -m python -m beach.restbridge 8889 %s hcp'% ( BEACH_CONFIG, ) ):
+        print( "! Failed to start rest bridge." )
+        sys.exit(1)
 
     print( "DONE STARTING APPLIANCE AS NORMAL NODE WITH UI" )

@@ -56,13 +56,17 @@ if __name__ == '__main__':
         waits += 1
 
     # Start the Beach node manager.
-    os.system( 'screen -S beach -d -m python -m beach.hostmanager %s --log-level 10' % BEACH_CONFIG )
+    if 0 != os.system( 'screen -S beach -d -m python -m beach.hostmanager %s --log-level 10' % BEACH_CONFIG ):
+        print( "! Failed to start Beach hostmanager." )
+        sys.exit(1)
 
     # Start the reverse proxy for sensors.
-    os.system( 'screen -S proxy -d -m python %s -c %s -l 0.0.0.0:9090'% ( os.path.join( ROOT_DIR,
-                                                                                        'cloud',
-                                                                                        'standalone',
-                                                                                        'endpoint_proxy.py' ),
-                                                                          BEACH_CONFIG, ) )
+    if 0 != os.system( 'screen -S proxy -d -m python %s -c %s -l 0.0.0.0:9090'% ( os.path.join( ROOT_DIR,
+                                                                                                'cloud',
+                                                                                                'standalone',
+                                                                                                'endpoint_proxy.py' ),
+                                                                                  BEACH_CONFIG, ) ):
+        print( "! Failed to start proxy." )
+        sys.exit(1)
 
     print( "DONE STARTING APPLIANCE AS NORMAL NODE" )
