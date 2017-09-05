@@ -235,6 +235,9 @@ class IdentManager( Actor ):
         oid = uuid.UUID( req[ 'oid' ] )
 
         self.db.execute( 'DELETE FROM org_info WHERE oid = %s', ( oid, ) )
+        self.db.execute( 'DELETE FROM hcp_installers WHERE oid = %s', ( oid, ) )
+        self.db.execute( 'DELETE FROM org_membership WHERE oid = %s', ( oid, ) )
+        self.db.execute( 'DELETE FROM org_sensors WHERE oid = %s', ( oid, ) )
 
         self.audit.shoot( 'record', { 'oid' : self.admin_oid, 'etype' : 'org_remove', 'msg' : 'Org %s removed by %s.' % ( oid, byUser ) } )
 
@@ -370,7 +373,7 @@ class IdentManager( Actor ):
 
         uids = req.get( 'uid', None )
         if uids is not None:
-            uids = self.asUuidList( uid )
+            uids = self.asUuidList( uids )
 
         isAllIncluded = req.get( 'include_all', False )
         isIncludeDeleted = req.get( 'include_deleted', False )

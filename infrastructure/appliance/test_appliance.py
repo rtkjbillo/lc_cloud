@@ -33,6 +33,8 @@ BEACH_CONFIG = os.path.join( ROOT_DIR, 'cloud', 'beach', 'lc_appliance.yaml' )
 
 BEACH = None
 
+ON_FAILURE = []
+
 def getLocalIp():
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     s.connect(("8.8.8.8", 80))
@@ -54,14 +56,21 @@ def printSuccess( msg ):
     print( hdr + ' ' + str( msg ) )
 
 def printFailure( msg, isFatal = True ):
-    global BEACH
+    global ON_FAILURE
     hdr = 'FAILED:'
     if colored is not None:
         hdr = colored( hdr, 'yellow', 'on_red' )
     print( hdr + ' ' + str( msg ) )
     if isFatal:
-        print( "\n" + colored( "APPLIANCE TEST FINISHED WITH FAILURE", 'red' ) + "\n" )
-        BEACH.close()
+        fail = "APPLIANCE TEST FINISHED WITH FAILURE"
+        if colored is not None:
+            fail = colored( fail, 'red' )
+        print( "\n" + fail + "\n" )
+
+        ON_FAILURE.reverse()
+        for func in ON_FAILURE:
+            func()
+
         sys.exit(1)
 
 def handleActorResponse( resp ):
@@ -147,6 +156,7 @@ if __name__ == '__main__':
                 isSuccess = False
                 break
             nActors += 1
+    allActors.close()
 
     if isSuccess:
         printSuccess( 'All actors (%d) responded with their z vars.' % nActors )
@@ -154,5 +164,123 @@ if __name__ == '__main__':
         printFailure( "Some actors failed to respond their z vars." )
 
 
+
+
+
+    printStep( 'CREATE TEST IDENTS' )
+
+    identManager = BEACH.getActorHandle( 'c2/identmanager', 
+                                         ident = 'lc/0bf01f7e-62bd-4cc4-9fec-4c52e82eb903', 
+                                         timeout = 30, 
+                                         nRetries = 1 )
+    resp = identManager.request( 'create_org', { 'name' : '_test_org', 'by' : 'appliance_test' } )
+    handleActorResponse( resp )
+    if resp.isSuccess:
+        printSuccess( 'Test organization created: %s' % resp.data[ 'oid' ] )
+    else:
+        printFailure( "Couldn't create new organization for testing: %s." % resp.error )
+
+    test_oid = resp.data[ 'oid' ]
+
+    def _destroyTestOrg():
+        resp = identManager.request( 'remove_org', { 'oid' : test_oid, 'by' : 'appliance_test' } )
+        handleActorResponse( resp )
+        if resp.isSuccess:
+            printSuccess( 'Test organization removed.' )
+        else:
+            printFailure( "Couldn't remove test organization: %s." % resp.error, isFatal = False )
+
+    ON_FAILURE.append( _destroyTestOrg )
+
+    deploymentManager = BEACH.getActorHandle( 'c2/deploymentmanager', 
+                                              ident = 'lc/0bf01f7e-62bd-4cc4-9fec-4c52e82eb903', 
+                                              timeout = 30, 
+                                              nRetries = 1 )
+    resp = deploymentManager.request( 'deploy_org', { 'oid' : test_oid } )
+    handleActorResponse( resp )
+    if resp.isSuccess:
+        printSuccess( 'Test organization deployed.' )
+    else:
+        printFailure( "Couldn't deploy test organization: %s." % resp.error )
+
+    def _destroyTestUser():
+        resp = identManager.request( 'delete_user', { 'email' : '_test_user@test.org', 'by' : 'appliance_test' } )
+        handleActorResponse( resp )
+        if resp.isSuccess and resp.data[ 'is_deleted' ]:
+            printSuccess( 'Test user removed.' )
+        else:
+            printFailure( "Couldn't remove test user: %s." % resp, isFatal = False )
+
+    ON_FAILURE.append( _destroyTestUser )
+
+    resp = identManager.request( 'create_user', { 'email' : '_test_user@test.org', 
+                                                  'by' : 'appliance_test',
+                                                  'password' : 'letmein' } )
+    handleActorResponse( resp )
+    if resp.isSuccess and resp.data[ 'is_created' ]:
+        printSuccess( 'Test user created: %s' % resp.data[ 'uid' ] )
+    else:
+        printFailure( "Couldn't create new user for testing: %s." % resp )
+
+    test_uid = resp.data[ 'uid' ]
+
+    resp = identManager.request( 'add_user_to_org', { 'email' : '_test_user@test.org', 
+                                                      'by' : 'appliance_test',
+                                                      'oid' : test_oid } )
+    handleActorResponse( resp )
+    if resp.isSuccess and resp.data[ 'is_added' ]:
+        printSuccess( 'Test user added to test organization.' )
+    else:
+        printFailure( "Couldn't add test user to test organization: %s." % resp )
+
+    def _removeUserFromOrg():
+        resp = identManager.request( 'remove_user_from_org', { 'email' : '_test_user@test.org', 
+                                                               'by' : 'appliance_test',
+                                                               'oid' : test_oid } )
+        handleActorResponse( resp )
+        if resp.isSuccess and resp.data[ 'is_removed' ]:
+            printSuccess( 'Test user removed from test organization.' )
+        else:
+            printFailure( "Couldn't remove test user from test organization: %s." % resp, isFatal = False )
+
+    ON_FAILURE.append( _removeUserFromOrg )
+
+
+
+
+
+
+
+    printStep( 'VERIFY IDENTS' )
+
+    resp = identManager.request( 'get_org_info', { 'oid' : test_oid } )
+    handleActorResponse( resp )
+    if resp.isSuccess:
+        printSuccess( 'Test org fetched.' )
+    else:
+        printFailure( "Couldn't fetch test org: %s." % resp.error )
+
+    resp = identManager.request( 'get_user_info', { 'uid' : test_uid } )
+    handleActorResponse( resp )
+    if resp.isSuccess:
+        printSuccess( 'Test user fetched.' )
+    else:
+        printFailure( "Couldn't fetch test user: %s." % resp.error )
+
+    resp = identManager.request( 'get_org_members', { 'oid' : test_oid } )
+    handleActorResponse( resp )
+    if resp.isSuccess and 1 == len( resp.data[ 'orgs' ] ) and 1 == len( resp.data[ 'orgs' ].values() ):
+        printSuccess( 'Test org fetched.' )
+    else:
+        printFailure( "Couldn't fetch test org: %s." % resp.error )
+
+
+
+
+    printStep( 'TEARDOWN' )
+
+    _removeUserFromOrg()
+    _destroyTestUser()
+    _destroyTestOrg()
+
     print( "\n" + colored( "APPLIANCE TEST FINISHED SUCCESSFULLY", 'green' ) + "\n" )
-    BEACH.close()
