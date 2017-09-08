@@ -227,7 +227,7 @@ Patrol( 'AuditManager',
 #######################################
 Patrol( 'EnrollmentManager',
         initialInstances = 1,
-        maxInstances = 1,
+        maxInstances = None,
         relaunchOnFailure = True,
         onFailureCall = None,
         scalingFactor = 1000,
