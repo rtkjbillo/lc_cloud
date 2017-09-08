@@ -47,6 +47,7 @@ class BlinkModel( Actor ):
         self.refreshMalwareDomains()
         self.scopers = {
             "DOMAIN_NAME" : self.scopeDomainName,
+            "IP_ADDRESS" : self.scopeIpAddress,
         }
         self.handle( 'get_host_blink', self.get_host_blink )
         self.handle( 'scope_this', self.scope_this )
@@ -56,7 +57,7 @@ class BlinkModel( Actor ):
         HostObjects.closeDatabase()
 
     def refreshAlexa( self ):
-        alexaActor = self.getActorHandle( 'analytics/alexadns' )
+        alexaActor = self.getActorHandle( 'analytics/alexadns', nRetries = 3, timeout = 30 )
         try:
             info = alexaActor.request( 'get_list', {} )
             if info.isSuccess:
@@ -79,7 +80,7 @@ class BlinkModel( Actor ):
             alexaActor.close()
 
     def refreshMalwareDomains( self ):
-        mdActor = self.getActorHandle( 'analytics/malwaredomains' )
+        mdActor = self.getActorHandle( 'analytics/malwaredomains', nRetries = 3, timeout = 30 )
         try:
             info = mdActor.request( 'get_list', {} )
             if info.isSuccess:
@@ -290,6 +291,8 @@ class BlinkModel( Actor ):
 
             dnsRequests = None
 
+            # We investigate the network connections since we can't scope them
+            # independantly as they're not indexed by default.
             # Get all network activity and connections around the event.
             newConnections = h.getEvents( ofTypes = ( 'notification.NEW_TCP4_CONNECTION', 
                                                       'notification.NEW_UDP4_CONNECTION',
@@ -299,14 +302,27 @@ class BlinkModel( Actor ):
             newSummaries = h.getEvents( ofTypes = 'notification.NETWORK_SUMMARY', after = ts - ( 1 ), before = ts + ( 60 * 5 ), isIncludeContent = True )
 
             # Try to see who made a connection to the resulting IPs afterward.
+            connectingProcesses = Set()
             for eTime, eType, eId, eContent in itertools.chain( newConnections, newSummaries ):
                 eRouting, eData = FluxEvent.decode( eContent, withRouting = True )
                 ips = _xm_( eData, '*/base.IP_ADDRESS' )
                 if ip in ips:
-                    newAtoms.add( EventInterpreter( eData ).getAtom() )
+                    ieData = EventInterpreter( eData )
+                    newAtoms.add( ieData.getAtom() )
+                    connectingProcesses.add( ieData.getParentAtom() )
+
+            # Check every process that has connected.
 
             newConnections = None
             newSummaries = None
+
+        return newCrumbs, newAtoms
+
+    def scopeIpAddress( self, crumb, acl ):
+        newCrumbs = []
+        newAtoms = Set()
+
+        # Right now we don't index IPs as Objects so we can't really investigate independantly.
 
         return newCrumbs, newAtoms
 

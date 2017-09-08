@@ -84,7 +84,7 @@ class EnrollmentManager( Actor ):
             self.installers[ ( row[ 0 ], row[ 1 ] ) ] = ( '', [] )
 
         for row in self.db.execute( 'SELECT oid, iid, description, tags FROM hcp_whitelist' ):
-            tags = ( row[ 3 ] if row[ 3 ] is not None else '' ).split( ',' )
+            tags = [ x for x in ( row[ 3 ] if row[ 3 ] is not None else '' ).split( ',' ) if x != '' ]
             self.installers[ ( row[ 0 ], row[ 1 ] ) ] = ( row[ 2 ], tags )
 
     def getTokenFor( self, aid ):
