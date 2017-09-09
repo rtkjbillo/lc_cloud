@@ -403,6 +403,7 @@ class ModelView( Actor ):
         oids = msg.data.get( 'oid', None )
 
         if oids is not None:
+            oids = self.asUuidList( oids )
             info[ 'hcp_installers' ] = {}
             info[ 'hbs_profiles' ] = {}
             info[ 'hcp_whitelist' ] = {}
