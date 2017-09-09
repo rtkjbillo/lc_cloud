@@ -60,6 +60,7 @@ class IdentManager( Actor ):
         self.handle( 'get_user_membership', self.getUserMembership )
         self.handle( 'get_user_info', self.getUserInfo )
         self.handle( 'confirm_email', self.confirmEmail )
+        self.handle( 'reset_creds', self.resetCredentials )
         
     def deinit( self ):
         pass
@@ -410,6 +411,31 @@ class IdentManager( Actor ):
         else:
             self.db.execute( 'UPDATE user_info SET confirmation_token = \'\' WHERE email = %s', ( email, ) )
             return ( True, { 'confirmed' : True, 'uid' : info[ 0 ] } )
+
+    def resetCredentials( self, msg ):
+        req = msg.data
+
+        email = req[ 'email' ].lower()
+        password = str( uuid.uuid4() )
+        byUser = req[ 'by' ]
+        salt = hashlib.sha256( str( uuid.uuid4() ) ).hexdigest()
+        salted_password = hashlib.sha256( '%s%s' % ( password, salt ) ).hexdigest()
+        confirmationToken = str( uuid.uuid4() )
+
+        otp = TwoFactorAuth( username = email )
+        
+        info = self.db.getOne( 'SELECT uid FROM user_info WHERE email = %s', ( email, ) )
+        if info is None:
+            return ( True, { 'is_reset' : False } )
+
+        self.db.execute( "UPDATE user_info SET is_deleted = false, must_change_password = true, salt = %s, salted_password = %s, totp_secret = %s, confirmation_token = '' WHERE email = %s", 
+                         ( salt, salted_password, otp.getSecret( asOtp = False ), email, ) )
+
+        self.audit.shoot( 'record', { 'oid' : self.admin_oid, 'etype' : 'user_reset', 'msg' : 'User %s credentials reset by %s.' % ( email, byUser ) } )
+
+        return ( True, { 'is_reset' : True, 
+                         'email' : email,
+                         'password' : password } )
 
 class TwoFactorAuth( object ):
     def __init__( self, username = None, secret = None ):
