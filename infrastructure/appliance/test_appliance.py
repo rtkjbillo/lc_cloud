@@ -20,6 +20,9 @@ import argparse
 import yaml
 import socket
 import time
+import tempfile
+import urllib2
+import traceback
 
 try:
     from termcolor import colored
@@ -109,7 +112,7 @@ if __name__ == '__main__':
     BEACH = Beach( BEACH_CONFIG, 'hcp' )
 
     resp = BEACH.getClusterHealth()
-    if 0 != len( resp ):
+    if 0 != len( resp ) and resp.values()[ 0 ] is not None:
         printSuccess( 'Beach cluster is running with %d node(s).' % len( resp ) )
     else:
         printFailure( "Beach cluster doesn't seem to be running." )
@@ -270,11 +273,61 @@ if __name__ == '__main__':
     resp = identManager.request( 'get_org_members', { 'oid' : test_oid } )
     handleActorResponse( resp )
     if resp.isSuccess and 1 == len( resp.data[ 'orgs' ] ) and 1 == len( resp.data[ 'orgs' ].values() ):
-        printSuccess( 'Test org fetched.' )
+        printSuccess( 'Test org member fetched.' )
     else:
         printFailure( "Couldn't fetch test org: %s." % resp.error )
 
 
+
+
+
+    printStep( 'PREPARE SENSOR' )
+
+    resp = deploymentManager.request( 'get_global_config', {} )
+    handleActorResponse( resp )
+    if resp.isSuccess:
+        printSuccess( 'Global deployment config retrieved.' )
+    else:
+        printFailure( "Couldn't fetch global deployment config: %s." % resp.error )
+
+    global_config = resp.data
+
+    resp = deploymentManager.request( 'set_installer_info', { 'oid' : test_oid, 
+                                                              'desc' : 'default', 
+                                                              'tags' : [] } )
+    handleActorResponse( resp )
+    if resp.isSuccess:
+        printSuccess( 'New installer generated for test org.' )
+    else:
+        printFailure( "Couldn't generate new installer for test org: %s." % resp.error )
+
+    modelView = BEACH.getActorHandle( 'models/', 
+                                      ident = 'lc/0bf01f7e-62bd-4cc4-9fec-4c52e82eb903', 
+                                      timeout = 30, 
+                                      nRetries = 1 )
+    resp = modelView.request( 'get_backend_config', { 'oid' : test_oid } )
+    handleActorResponse( resp )
+    if resp.isSuccess:
+        printSuccess( 'Test organization backend config retrieved.' )
+    else:
+        printFailure( "Couldn't fetch backend config for test org: %s." % resp.error )
+
+
+
+    tmpSensorDir = tempfile.mkdtemp()
+    printSuccess( 'Temporary directory for sensor created: %s.' % tmpSensorDir )
+    
+    try:
+        open( os.path.join( tmpSensorDir, 'sensor_pack.zip' ), 'wb' ).write( urllib2.urlopen( global_config[ 'global/sensorpackage' ] ).read() )
+        printSuccess( "Sensor pack downloaded." )
+    except:
+        printFailure( "Couldn't download sensor pack: %s." % traceback.format_exc() )
+
+
+    if 0 == os.system( 'unzip %s -d %s > /dev/null' % ( os.path.join( tmpSensorDir, 'sensor_pack.zip' ), tmpSensorDir ) ):
+        printSuccess( "Sensor pack uncompressed." )
+    else:
+        printFailure( "Failed to uncompress sensor pack." )
 
 
     printStep( 'TEARDOWN' )
