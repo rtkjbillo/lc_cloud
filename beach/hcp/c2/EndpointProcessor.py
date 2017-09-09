@@ -301,6 +301,9 @@ class EndpointProcessor( Actor ):
             hostName = headers.get( 'base.HOST_NAME', None )
             internalIp = headers.get( 'base.IP_ADDRESS', None )
             hcpHash = headers.get( 'base.HASH', None )
+            hcpCrashContext = headers.get( 'hcp.CRASH_CONTEXT', None )
+            if hcpCrashContext is not None:
+                self.zInc( 'cc_received' )
             # Use the address in the client context since it was received from the
             # proxy headers and therefore is the correct original source.
             externalIp = c.address[ 0 ]
