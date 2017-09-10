@@ -14,6 +14,7 @@
 # limitations under the License.
 
 from beach.beach_api import Beach
+import gevent
 import os
 import sys
 import argparse
@@ -23,6 +24,7 @@ import time
 import tempfile
 import urllib2
 import traceback
+import subprocess
 
 try:
     from termcolor import colored
@@ -312,7 +314,11 @@ if __name__ == '__main__':
     else:
         printFailure( "Couldn't fetch backend config for test org: %s." % resp.error )
 
-
+    try:
+        sensorBootstrap = resp.data[ 'hcp_whitelist' ].values()[ 0 ][ 'whitelist' ][ 0 ][ 'bootstrap' ]
+        printSuccess( 'Acquired test org sensor boostrap.' )
+    except:
+        printFailure( "Failed to get test org sensor bootstrap." )
 
     tmpSensorDir = tempfile.mkdtemp()
     printSuccess( 'Temporary directory for sensor created: %s.' % tmpSensorDir )
@@ -328,6 +334,78 @@ if __name__ == '__main__':
         printSuccess( "Sensor pack uncompressed." )
     else:
         printFailure( "Failed to uncompress sensor pack." )
+
+    currentDir = os.getcwd()
+    os.chdir( tmpSensorDir )
+
+    try:
+        sensorFileName = subprocess.check_output( 'ls hcp_linux_x64_debug*', shell = True )
+        sensorFileName = sensorFileName.strip()
+        printSuccess( 'Got linux sensor file name: %s.' % sensorFileName )
+    except:
+        printFailure( "Failed to get linux sensor file name: %s." % traceback.format_exc() )
+
+    if 0 == os.system( 'chmod +x ./%s' % sensorFileName ):
+        printSuccess( 'Linux sensor made executable.' )
+    else:
+        printFailure( "Failed to make linux sensor executable." )
+
+
+    printStep( 'SENSOR TEST RUN' )
+    # Make sure the backend has had time to load the new org's info.
+    time.sleep( 5 )
+    sensorOutput = []
+    proc = subprocess.Popen( [ './%s' % sensorFileName, '-d', sensorBootstrap ], 
+                             shell = False, 
+                             stderr = subprocess.PIPE, 
+                             close_fds = True )
+
+    def _terminateSensor():
+        printSuccess( "Terminating sensor test run." )
+        os.system( 'kill -2 %s' % proc.pid )
+    gevent.spawn_later( 60, _terminateSensor )
+    
+    while True:
+        sensorRet = proc.poll()
+        if sensorRet is not None:
+            break
+        printSuccess( "... getting output from sensor..." )
+        sensorOutput.append( proc.stderr.read() )
+    sensorOutput = ''.join( sensorOutput )
+    if 0 == sensorRet:
+        printSuccess( "Sensor test run terminated cleanly." )
+    else:
+        print( sensorOutput )
+        printFailure( "Sensor reported a failure through exit code: %s." % sensorRet )
+
+    
+    printStep( 'VERIFY SENSOR FEEDBACK' )
+    if args.is_display_responses:
+        print( sensorOutput )
+
+    if 0 == os.system( 'ls hcpcc 2> /dev/null' ):
+        print( sensorOutput )
+        printFailure( "Sensor left a crash counter on disk, probably didn't exit properly." )
+
+    if 'comms channel up with the cloud' in sensorOutput:
+        printSuccess( 'Sensor established comms with the cloud OK.' )
+    else:
+        print( sensorOutput )
+        printFailure( "Sensor wasn't able to establish comms with the cloud." )
+    
+    if 0 == os.system( 'ls hcp > /dev/null 2>&1' ):
+        printSuccess( "Sensor successfully enrolled." )
+    else:
+        print( sensorOutput )
+        printFailure( "Sensor enrolled identity not found on disk, enrollment didn't work as intended." )
+
+    if 0 == os.system( 'ls hcp_conf > /dev/null 2>&1' ):
+        printSuccess( "Sensor successfully received config store." )
+    else:
+        print( sensorOutput )
+        printFailure( "Sensor config store not found on disk, enrollment didn't work as intended." )
+
+    os.chdir( currentDir )
 
 
     printStep( 'TEARDOWN' )
