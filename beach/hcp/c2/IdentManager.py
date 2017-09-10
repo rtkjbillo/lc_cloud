@@ -61,6 +61,7 @@ class IdentManager( Actor ):
         self.handle( 'get_user_info', self.getUserInfo )
         self.handle( 'confirm_email', self.confirmEmail )
         self.handle( 'reset_creds', self.resetCredentials )
+        self.handle( 'set_retention', self.setRetention )
         
     def deinit( self ):
         pass
@@ -436,6 +437,29 @@ class IdentManager( Actor ):
         return ( True, { 'is_reset' : True, 
                          'email' : email,
                          'password' : password } )
+
+    def setRetention( self, msg ):
+        req = msg.data
+
+        oid = uuid.UUID( req[ 'oid' ] )
+        ttl_events = int( req[ 'ttl_events' ] )
+        ttl_short_obj = int( req[ 'ttl_short_obj' ] )
+        ttl_long_obj = int( req[ 'ttl_long_obj' ] )
+        ttl_atoms = int( req[ 'ttl_atoms' ] )
+        ttl_detections = int( req[ 'ttl_detections' ] )
+        
+        info = self.db.getOne( 'SELECT oid FROM org_info WHERE oid = %s', ( oid, ) )
+        if info is None:
+            return ( True, { 'is_set' : False } )
+
+        self.db.execute( "UPDATE org_info SET ttl_events = %s, ttl_short_obj = %s, ttl_long_obj = %s, ttl_atoms = %s, ttl_detections = %s  WHERE oid = %s", 
+                         ( ttl_events, ttl_short_obj, ttl_long_obj, ttl_atoms, ttl_detections, oid, ) )
+
+        self.audit.shoot( 'record', { 'oid' : self.admin_oid, 'etype' : 'set_retention', 'msg' : 'Retention for org %s has been changed.' % ( oid, ) } )
+        self.audit.shoot( 'record', { 'oid' : oid, 'etype' : 'set_retention', 'msg' : 'Retention for org %s has been changed.' % ( oid, ) } )
+
+        return ( True, { 'is_set' : True, 
+                         'oid' : oid } )
 
 class TwoFactorAuth( object ):
     def __init__( self, username = None, secret = None ):
