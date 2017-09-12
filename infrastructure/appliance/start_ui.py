@@ -33,6 +33,12 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
 
+    certPath = os.path.join( ROOT_DIR, 'cloud', 'limacharlie', 'limacharlie.crt' )
+    keyPath = os.path.join( ROOT_DIR, 'cloud', 'limacharlie', 'limacharlie.key' )
+    if not os.path.isfile( certPath ) and not os.path.isfile( keyPath ):
+        if 0 != os.system( 'openssl req -x509 -days 36500 -newkey rsa:4096 -keyout %s -out %s -nodes -sha256 -subj "/C=US/ST=CA/L=Mountain View/O=refractionPOINT/CN=limacharlie.appliance" > /dev/null 2>&1' % ( keyPath, certPath ) ):
+            print( "! Failed to generate self signed certs for web interface." )
+
     if 0 != os.system( 'screen -S dashboard_beach -d -m python -m beach.dashboard 8080 %s'% ( BEACH_CONFIG, ) ):
         print( "! Failed to start beach dashboard." )
         sys.exit(1)
