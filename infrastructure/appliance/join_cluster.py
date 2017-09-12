@@ -112,7 +112,7 @@ if __name__ == '__main__':
         beachConf[ 'interface' ] = args.interface
 
     # And we use lc_appliance.yaml for our config.
-    with open( './cloud/beach/lc_appliance.yaml', 'wb' ) as f:
+    with open( BEACH_CONFIG, 'wb' ) as f:
         f.write( yaml.dump( beachConf ) )
 
     # Restart Cassandra to use new seeds.
