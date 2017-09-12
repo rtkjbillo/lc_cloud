@@ -42,6 +42,17 @@ from utils.EventInterpreter import EventInterpreter
 import markdown
 import markdown.extensions.tables
 
+THIS_PATH = os.path.abspath( os.path.dirname( os.path.realpath( __file__ ) ) )
+THIS_CERT = os.path.join( THIS_PATH, 'limacharlie.crt' )
+THIS_KEY = os.path.join( THIS_PATH, 'limacharlie.key' )
+if os.path.isfile( THIS_CERT ) and os.path.isfile( THIS_KEY ):
+    print( "Using SSL cert/key: %s and %s" % ( THIS_CERT, THIS_KEY ) )
+    from web.wsgiserver import CherryPyWSGIServer
+    CherryPyWSGIServer.ssl_certificate = THIS_CERT
+    CherryPyWSGIServer.ssl_private_key = THIS_KEY
+else:
+    print( "No SSL cert/key at %s and %s so using normal HTTP." % ( THIS_CERT, THIS_KEY ) )
+
 #==============================================================================
 #   SITE DEFINITION
 #==============================================================================
