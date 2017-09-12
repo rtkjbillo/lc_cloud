@@ -19,17 +19,27 @@ import argparse
 import yaml
 import time
 import socket
+import netifaces
 from sets import Set
 
 ORIGINAL_DIR = os.getcwd()
 ROOT_DIR = os.path.join( os.path.abspath( os.path.dirname( os.path.realpath( __file__ ) ) ), '..', '..', '..' )
 os.chdir( ROOT_DIR )
+BEACH_CONFIG = os.path.join( ROOT_DIR, 'cloud', 'beach', 'lc_appliance.yaml' )
 
 def getLocalIp():
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     s.connect(("8.8.8.8", 80))
     ip = s.getsockname()[0]
     s.close()
+    return ip
+
+def getIpv4ForIface( iface ):
+    ip = None
+    try:
+        ip = netifaces.ifaddresses( iface )[ netifaces.AF_INET ][ 0 ][ 'addr' ]
+    except:
+        pass
     return ip
 
 if __name__ == '__main__':
@@ -52,7 +62,22 @@ if __name__ == '__main__':
                          default = False,
                          help = 'Do not restart subsystems if this flag is present.' )
 
+    parser.add_argument( '-i', '--interface',
+                         type = str,
+                         dest = 'interface',
+                         required = False,
+                         default = None,
+                         help = 'The network interface to use as main cluster interface.' )
+
     args = parser.parse_args()
+
+    localIp = getLocalIp()
+
+    if args.interface is not None:
+        localIp = getIpv4ForIface( args.interface )
+        if localIp is None:
+            print( "! Failed to find network interface." )
+            sys.exit( 1 )
 
     # Always add ourselves to this list.
     addresses = Set( args.address )
@@ -66,6 +91,12 @@ if __name__ == '__main__':
     # Add the seed node.
     cassConf[ 'seed_provider' ][ 0 ][ 'parameters' ][ 0 ][ 'seeds' ] = ','.join( addresses )
 
+    # If an interface was specified, set it for Cassandra.
+    if args.interface is not None:
+        cassConf[ 'listen_interface' ] = args.interface
+        cassConf[ 'rpc_interface' ] = args.interface
+
+
     # Write the custom config where Cassandra expects it.
     with open( '/etc/cassandra/cassandra.yaml', 'wb' ) as f:
         f.write( yaml.dump( cassConf ) )
@@ -75,6 +106,10 @@ if __name__ == '__main__':
         beachConf = yaml.load( f.read() )
 
     beachConf[ 'seed_nodes' ] = addresses
+
+    # If an interface was specified, set it for Beach.
+    if args.interface is not None:
+        beachConf[ 'interface' ] = args.interface
 
     # And we use lc_appliance.yaml for our config.
     with open( './cloud/beach/lc_appliance.yaml', 'wb' ) as f:
@@ -87,7 +122,7 @@ if __name__ == '__main__':
         # Make sure Cassandra is running.
         waits = 0
         while True:
-            if 0 == os.system( 'cqlsh %s -e "desc keyspaces" > /dev/null 2>&1' % getLocalIp() ):
+            if 0 == os.system( 'cqlsh %s -e "desc keyspaces" > /dev/null 2>&1' % localIp ):
                 print( "Cassandra is running." )
                 break
             if 300 < waits:

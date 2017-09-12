@@ -90,7 +90,7 @@ printStep( 'Initializing Cassandra schema.',
 
 printStep( 'Installing pip packages for various analytics components.',
     os.system( 'pip install time_uuid cassandra-driver virustotal' ),
-    os.system( 'pip install ipaddress tld pyqrcode pypng' ),
+    os.system( 'pip install ipaddress tld pyqrcode pypng termcolor' ),
     os.system( 'pip install slacker slackclient python-dateutil' ) )
 
 printStep( 'Installing Yara.',

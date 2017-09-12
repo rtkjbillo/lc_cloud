@@ -17,6 +17,7 @@ import os
 import argparse
 import socket
 import sys
+import netifaces
 
 ORIGINAL_DIR = os.getcwd()
 ROOT_DIR = os.path.join( os.path.abspath( os.path.dirname( os.path.realpath( __file__ ) ) ), '..', '..', '..' )
@@ -29,22 +30,46 @@ def getLocalIp():
     s.close()
     return ip
 
+def getIpv4ForIface( iface ):
+    ip = None
+    try:
+        ip = netifaces.ifaddresses( iface )[ netifaces.AF_INET ][ 0 ][ 'addr' ]
+    except:
+        pass
+    return ip
+
 if __name__ == '__main__':
     if 0 != os.geteuid():
         print( "This script needs to be executing as root, use sudo." )
-        sys.exit(1)
+        sys.exit( 1 )
 
     localIp = getLocalIp()
 
     parser = argparse.ArgumentParser( description = 'Initialize this node as the first node of a new cluster.' )
 
+    parser.add_argument( '-i', '--interface',
+                         type = str,
+                         dest = 'interface',
+                         required = False,
+                         default = None,
+                         help = 'The network interface to use as main cluster interface.' )
+
     args = parser.parse_args()
 
-    if 0 != os.system( 'python ./cloud/infrastructure/appliance/join_cluster.py -a %s' % localIp ):
+    joinOpts = ''
+
+    if args.interface is not None:
+        localIp = getIpv4ForIface( args.interface )
+        if localIp is None:
+            print( "! Failed to find network interface." )
+            sys.exit( 1 )
+        joinOpts = ' --interface %s' % args.interface
+
+    if 0 != os.system( 'python ./cloud/infrastructure/appliance/join_cluster.py -a %s%s' % ( localIp, joinOpts ) ):
         print( "! Failed to join cluster." )
-        sys.exit(1)
+        sys.exit( 1 )
     if 0 != os.system( 'cqlsh %s -f ./cloud/schema/scale_db.cql' % ( localIp, ) ):
         print( "! Failed to initialize db schema." )
-        sys.exit(1)
+        sys.exit( 1 )
 
     print( "FINISHED INITIALIZING CLUSTER" )
