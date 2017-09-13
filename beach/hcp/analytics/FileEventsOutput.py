@@ -25,6 +25,7 @@ class FileEventsOutput( Actor ):
     def init( self, parameters, resources ):
         self._output_dir = parameters.get( 'output_dir', '/tmp/lc_out/' )
         self._is_flat = parameters.get( 'is_flat', False )
+        self._use_b64 = parameters.get( 'use_b64', True )
         if not os.path.exists( self._output_dir ):
             self.log( 'output directory does not exist, creating it' )
             os.makedirs( self._output_dir )
@@ -59,7 +60,10 @@ class FileEventsOutput( Actor ):
                 if ( type(o) is str or type(o) is unicode ) and "\x00" in o: raise Exception()
                 json.dumps( o )
             except:
-                o = base64.b64encode( o )
+                if self._use_b64:
+                    o = base64.b64encode( o )
+                else:
+                    o = o.encode( 'hex' )
 
         return o
 
