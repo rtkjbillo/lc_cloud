@@ -166,43 +166,6 @@ def msTsToTime( ts ):
 def doMarkdown( content ):
     return markdown.markdown( content, extensions = [ 'markdown.extensions.tables' ] )
 
-render = _renderWrapper( web.template.render( 'templates', 
-                                              base = 'base', 
-                                              globals = { 'session' : session, 
-                                                          'str' : str, 
-                                                          'msTsToTime' : msTsToTime,
-                                                          'AgentId' : AgentId,
-                                                          'json' : json,
-                                                          'sorted' : sorted,
-                                                          'md' : doMarkdown,
-                                                          'hash' : lambda x: hashlib.sha256(x).hexdigest(),
-                                                          'type' : type },
-                                              cache = False ) )
-renderAlone = web.template.render( 'templates', globals = { 'session' : session, 
-                                                            'str' : str, 
-                                                            'msTsToTime' : msTsToTime,
-                                                            'AgentId' : AgentId,
-                                                            'json' : json,
-                                                            'InvestigationNature' : InvestigationNature,
-                                                            'InvestigationConclusion' : InvestigationConclusion,
-                                                            'sorted' : sorted,
-                                                            'md' : doMarkdown,
-                                                            'hash' : lambda x: hashlib.sha256(x).hexdigest(),
-                                                            'type' : type },
-                                                cache = False )
-eventRender = web.template.render( 'templates/custom_events', globals = { 'json' : json,
-                                                                          'msTsToTime' : msTsToTime,
-                                                                          '_x_' : _x_,
-                                                                          '_xm_' : _xm_,
-                                                                          'AgentId' : AgentId,
-                                                                          'hex' : hex,
-                                                                          'sanitize' : sanitizeJson,
-                                                                          'EventInterpreter' : EventInterpreter,
-                                                                          'sorted' : sorted,
-                                                                          'md' : doMarkdown,
-                                                                          'hash' : lambda x: hashlib.sha256(x).hexdigest(),
-                                                                          'type' : type } )
-
 BEACH_CONFIG_FILE = os.path.join( ROOT_DIRECTORY, 'beach.conf' )
 IDENT = 'lc/0bf01f7e-62bd-4cc4-9fec-4c52e82eb903'
 beach = Beach( BEACH_CONFIG_FILE, realm = 'hcp' )
@@ -226,6 +189,46 @@ if _.isSuccess:
     DOMAIN_NAME = _.data[ 'global/uidomain' ]
 else:
     raise Exception( 'could not fetch admin oid' )
+
+render = _renderWrapper( web.template.render( 'templates', 
+                                              base = 'base', 
+                                              globals = { 'session' : session, 
+                                                          'str' : str, 
+                                                          'msTsToTime' : msTsToTime,
+                                                          'AgentId' : AgentId,
+                                                          'json' : json,
+                                                          'sorted' : sorted,
+                                                          'md' : doMarkdown,
+                                                          'hash' : lambda x: hashlib.sha256(x).hexdigest(),
+                                                          'type' : type,
+                                                          'ADMIN_OID' : ADMIN_OID },
+                                              cache = False ) )
+renderAlone = web.template.render( 'templates', globals = { 'session' : session, 
+                                                            'str' : str, 
+                                                            'msTsToTime' : msTsToTime,
+                                                            'AgentId' : AgentId,
+                                                            'json' : json,
+                                                            'InvestigationNature' : InvestigationNature,
+                                                            'InvestigationConclusion' : InvestigationConclusion,
+                                                            'sorted' : sorted,
+                                                            'md' : doMarkdown,
+                                                            'hash' : lambda x: hashlib.sha256(x).hexdigest(),
+                                                            'type' : type,
+                                                            'ADMIN_OID' : ADMIN_OID },
+                                                cache = False )
+eventRender = web.template.render( 'templates/custom_events', globals = { 'json' : json,
+                                                                          'msTsToTime' : msTsToTime,
+                                                                          '_x_' : _x_,
+                                                                          '_xm_' : _xm_,
+                                                                          'AgentId' : AgentId,
+                                                                          'hex' : hex,
+                                                                          'sanitize' : sanitizeJson,
+                                                                          'EventInterpreter' : EventInterpreter,
+                                                                          'sorted' : sorted,
+                                                                          'md' : doMarkdown,
+                                                                          'hash' : lambda x: hashlib.sha256(x).hexdigest(),
+                                                                          'type' : type,
+                                                                          'ADMIN_OID' : ADMIN_OID } )
 
 def pollBackendAvailability( isOneOff = True ):
     global IS_BACKEND_AVAILABLE
