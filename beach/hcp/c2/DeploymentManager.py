@@ -80,6 +80,7 @@ class DeploymentManager( Actor ):
         self.handle( 'get_supported_events', self.get_supported_events )
         self.handle( 'get_capabilities', self.get_capabilities )
         self.handle( 'del_sensor', self.del_sensor )
+        self.handle( 'refresh_all_installets', self.refresh_all_installets )
         self.handle( 'set_installer_info', self.set_installer_info )
         self.handle( 'del_installer', self.del_installer )
 
@@ -341,10 +342,6 @@ We believe this sharing policy strikes a good balance between privacy and inform
             self.log( 'loading c2 cert' )
             self.db.execute( 'INSERT INTO configs ( conf, value ) VALUES ( %s, %s )', ( 'key/c2', c2Cert ) )
             self.audit.shoot( 'record', { 'oid' : self.admin_oid, 'etype' : 'conf_change', 'msg' : 'New c2 cert generated.' } )
-            
-            self.log( 'loading enrollment secret' )
-            self.db.execute( 'INSERT INTO configs ( conf, value ) VALUES ( %s, %s )', ( 'global/enrollmentsecret', secret ) )
-            self.audit.shoot( 'record', { 'oid' : self.admin_oid, 'etype' : 'conf_change', 'msg' : 'New enrollment secret generated.' } )
 
             self.log( 'loading primary domain and port' )
             self.db.execute( 'INSERT INTO configs ( conf, value ) VALUES ( %s, %s )', ( 'global/primary', primaryDomain ) )
@@ -531,7 +528,6 @@ We believe this sharing policy strikes a good balance between privacy and inform
             'global/secondary' : '',
             'global/primary_port' : '',
             'global/secondary_port' : '',
-            'global/enrollmentsecret' : '',
             'global/sensorpackage' : '',
             'global/paging_user' : '',
             'global/paging_from' : '',
@@ -720,8 +716,27 @@ We believe this sharing policy strikes a good balance between privacy and inform
 
         return ( True, )
 
-    def set_installer_info( self, msg ):
-        req = msg.data
+    def refresh_all_installets( self, msg ):
+        resp = self.admin.request( 'hcp.get_whitelist', {} )
+        if not resp.isSuccess:
+            return ( False, resp.error )
+
+        results = []
+        for entry in resp.data[ 'whitelist' ]:
+            entry[ 'desc' ] = entry[ 'description' ]
+            results.append( self.set_installer_info( None, optEntry = entry ) )
+
+        self.audit.shoot( 'record', { 'oid' : self.admin_oid, 
+                                      'etype' : 'whitelist_refresh', 
+                                      'msg' : 'All installation keys have been refreshed.' } )
+
+        return ( True, results )
+
+    def set_installer_info( self, msg, optEntry = None ):
+        if optEntry is not None:
+            req = optEntry
+        else:
+            req = msg.data
 
         oid = uuid.UUID( req[ 'oid' ] )
         iid = req.get( 'iid', None )

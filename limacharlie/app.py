@@ -1427,7 +1427,6 @@ class Configs ( AuthenticatedAdminPage ):
         global DOMAIN_NAME
         params = web.input( primary_domain = None, primary_port = None,
                             secondary_domain = None, secondary_port = None,
-                            enrollmentsecret = None, 
                             paging_user = None, paging_from = None, paging_password = None,
                             virustotalkey = None, 
                             sensorpackage = None,
@@ -1441,7 +1440,8 @@ class Configs ( AuthenticatedAdminPage ):
             if ( deployment.request( 'set_config', 
                                      { 'conf' : 'global/primary', 'value' : params.primary_domain, 'by' : session.email } ).isSuccess and
                  deployment.request( 'set_config', 
-                                     { 'conf' : 'global/primary_port', 'value' : params.primary_port, 'by' : session.email } ).isSuccess ):
+                                     { 'conf' : 'global/primary_port', 'value' : params.primary_port, 'by' : session.email } ).isSuccess and
+                 deployment.request( 'refresh_all_installets', {} ) ):
                 session.notice = 'Success setting primary domain.'
             else:
                 session.notice = 'Error setting primary domain.'
@@ -1449,16 +1449,11 @@ class Configs ( AuthenticatedAdminPage ):
             if ( deployment.request( 'set_config', 
                                      { 'conf' : 'global/secondary', 'value' : params.secondary_domain, 'by' : session.email } ).isSuccess and
                  deployment.request( 'set_config', 
-                                     { 'conf' : 'global/secondary_port', 'value' : params.secondary_port, 'by' : session.email } ).isSuccess ):
+                                     { 'conf' : 'global/secondary_port', 'value' : params.secondary_port, 'by' : session.email } ).isSuccess and
+                 deployment.request( 'refresh_all_installets', {} ) ):
                 session.notice = 'Success setting secondary domain.'
             else:
                 session.notice = 'Error setting secondary domain.'
-        elif params.enrollmentsecret is not None:
-            if deployment.request( 'set_config', 
-                                   { 'conf' : 'global/enrollmentsecret', 'value' : params.enrollmentsecret, 'by' : session.email } ).isSuccess:
-                session.notice = 'Success setting enrollment secret.'
-            else:
-                session.notice = 'Error setting enrollment secret.'
         elif params.paging_user is not None and params.paging_from is not None and params.paging_password is not None:
             if ( deployment.request( 'set_config', 
                                      { 'conf' : 'global/paging_user', 'value' : params.paging_user, 'by' : session.email } ).isSuccess and
@@ -1747,7 +1742,7 @@ class SetInstallerInfo ( AuthenticatedPage ):
                                                            'tags' : tags,
                                                            'desc' : params.desc } )
         if resp.isSuccess:
-            redirectTo( '/manage' )
+            redirectTo( 'manage' )
         else:
             raise web.HTTPError( '503 Service Unavailable: %s' % str( resp ) )
 
@@ -1776,7 +1771,7 @@ class DelInstaller ( AuthenticatedPage ):
 
         resp = deployment.request( 'del_installer', { 'oid' : oid, 'iid' : iid } )
         if resp.isSuccess:
-            redirectTo( '/manage' )
+            redirectTo( 'manage' )
         else:
             raise web.HTTPError( '503 Service Unavailable: %s' % str( resp ) )
 

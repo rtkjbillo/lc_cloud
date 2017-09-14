@@ -54,28 +54,6 @@ $var title = 'Configurations'
 
 <div class="mdl-card mdl-cell mdl-cell--3-col mdl-shadow--4dp std_height">
   <div class="mdl-card__title">
-    <h2 class="mdl-card__title-text">Enrollment Secret</h2>
-  </div>
-  <div class="mdl-card__supporting-text">
-    <form method="POST" id="form_enrollmentsecret">
-      This is a secret string used to sign and verify sensor's enrollment credentials.<br/>
-      <i>It should not be shared with anyone as it could result in a malicious attacker impersonating sensors.</i>
-      <br/><br/>
-      <div class="mdl-textfield mdl-js-textfield" style="width: 100%;">
-        <input class="mdl-textfield__input" type="password" id="enrollmentsecret" name="enrollmentsecret" value="$configs['global/enrollmentsecret']"/>
-        <label class="mdl-textfield__label" for="enrollmentsecret">Secret</label>
-      </div>
-    </form>
-  </div>
-  <div class="mdl-card__actions mdl-card--border">
-    <center>
-      <button class="mdl-button mdl-button--colored mdl-js-button mdl-js-ripple-effect mdl-button--raised" type="submit" form="form_enrollmentsecret" name="action" value="leave" onclick="return confirm('Are you sure you want to update the enrollment secret?');">Update</button>
-    </center>
-  </div>
-</div>
-
-<div class="mdl-card mdl-cell mdl-cell--3-col mdl-shadow--4dp std_height">
-  <div class="mdl-card__title">
     <h2 class="mdl-card__title-text">Paging Email Account</h2>
   </div>
   <div class="mdl-card__supporting-text">
