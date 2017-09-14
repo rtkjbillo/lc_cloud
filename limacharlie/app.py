@@ -604,7 +604,8 @@ class Profile ( AuthenticatedPage ):
             if confInfo.isSuccess:
                 org_configs[ ( org[ 0 ], org[ 1 ] ) ] = confInfo.data
             extra_cards.append( card_org_membership( org[ 0 ], org[ 1 ] ) )
-            extra_cards.append( card_org_retention( org[ 0 ], org[ 1 ], org[ 2 ] ) )
+            if str( ADMIN_OID ) != str( org[ 1 ] ):
+                extra_cards.append( card_org_retention( org[ 0 ], org[ 1 ], org[ 2 ] ) )
         return render.profile( orgs, all_orgs, extra_cards, all_users, org_configs )
 
     def doGET( self ):
