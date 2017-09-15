@@ -20,6 +20,7 @@ Mutex = Actor.importLib( '../utils/hcp_helpers', 'Mutex' )
 import urllib2
 import json
 import tempfile
+import traceback
 
 class CapabilityManager( Actor ):
     def init( self, parameters, resources ):
@@ -150,9 +151,11 @@ class CapabilityManager( Actor ):
                     url = 'file://%s' % tmpPatrol.name
                     tmpPatrol.close()
 
-            capability = urllib2.urlopen( url ).read()
-
-            summary = self.getDetectionMtdFromContent( capability )
+            try:
+                capability = urllib2.urlopen( url ).read()
+                summary = self.getDetectionMtdFromContent( capability )
+            except:
+                return ( False, traceback.format_exc() )
             self.storedConf[ userDefinedName ] = tmpStoredConf
             try:
                 if summary is not None:
