@@ -56,10 +56,9 @@ class DeploymentManager( Actor ):
 
         self.db.start()
 
-        self.audit = self.getActorHandle( resources[ 'auditing' ] )
-        self.page = self.getActorHandle( resources[ 'paging' ] )
-        self.admin = self.getActorHandle( resources[ 'admin' ] )
-        self.sensorDir = self.getActorHandle( resources[ 'sensordir' ] )
+        self.audit = self.getActorHandle( resources[ 'auditing' ], timeout = 30, nRetries = 3 )
+        self.admin = self.getActorHandle( resources[ 'admin' ], timeout = 30, nRetries = 3 )
+        self.sensorDir = self.getActorHandle( resources[ 'sensordir' ], timeout = 30, nRetries = 3 )
 
         self.genDefaultsIfNotPresent()
 

@@ -46,7 +46,7 @@ class AnalyticsInvestigation( Actor ):
         routing_inv_id = inv_id.split( '//' )[ 0 ]
 
         if routing_inv_id not in self.handleCache:
-            handle = self.getActorHandle( self.invPath % routing_inv_id )
+            handle = self.getActorHandle( self.invPath % routing_inv_id, timeout = 30, nRetries = 2 )
             self.handleCache[ routing_inv_id ] = handle
             self.handleTtl[ routing_inv_id ] = int( time.time() )
         else:

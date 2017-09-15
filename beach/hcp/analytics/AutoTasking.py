@@ -41,7 +41,7 @@ class AutoTasking( Actor ):
         self.sensor_qph = parameters.get( 'sensor_qph', 50 )
         self.global_qph = parameters.get( 'global_qph', 200 )
         self.allowed_commands = Set( parameters.get( 'allowed', [] ) )
-        self.model = self.getActorHandle( resources[ 'modeling' ] )
+        self.model = self.getActorHandle( resources[ 'modeling' ], timeout = 10, nRetries = 3 )
         self.handle( 'task', self.handleTasking )
         self.sensor_stats = {}
         self.global_stats = 0

@@ -34,10 +34,10 @@ class IdentManager( Actor ):
 
         self.db.start()
 
-        self.audit = self.getActorHandle( resources[ 'auditing' ] )
-        self.page = self.getActorHandle( resources[ 'paging' ] )
-        self.deployment = self.getActorHandle( resources[ 'deployment' ] )
-        self.enrollments = self.getActorHandle( resources[ 'enrollments' ] )
+        self.audit = self.getActorHandle( resources[ 'auditing' ], timeout = 30, nRetries = 3 )
+        self.page = self.getActorHandle( resources[ 'paging' ], timeout = 30, nRetries = 3 )
+        self.deployment = self.getActorHandle( resources[ 'deployment' ], timeout = 30, nRetries = 3 )
+        self.enrollments = self.getActorHandle( resources[ 'enrollments' ], timeout = 30, nRetries = 3 )
 
         resp = self.deployment.request( 'get_global_config', {} )
         if resp.isSuccess:

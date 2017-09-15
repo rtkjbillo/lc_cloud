@@ -18,7 +18,7 @@ RingCache = Actor.importLib( 'utils/hcp_helpers', 'RingCache' )
 class TaskingProxy( Actor ):
     def init( self, parameters, resources ):
         self.cachedEndpoints = RingCache( maxEntries = 1000 )
-        self.sensorDir = self.getActorHandle( resources[ 'sensor_dir' ] )
+        self.sensorDir = self.getActorHandle( resources[ 'sensor_dir' ], timeout = 30, nRetries = 3 )
         self.handle( 'task', self.task )
 
     def deinit( self ):
@@ -33,7 +33,7 @@ class TaskingProxy( Actor ):
             if resp.isSuccess:
                 endpoint = resp.data[ 'endpoint' ]
                 if endpoint is not None:
-                    endpoint = self.getActorHandle( '_ACTORS/%s' % endpoint )
+                    endpoint = self.getActorHandle( '_ACTORS/%s' % endpoint, timeout = 30, nRetries = 3 )
                     self.cachedEndpoints.add( aid, endpoint )
         return endpoint
 

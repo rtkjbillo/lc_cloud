@@ -27,8 +27,8 @@ AgentId = Actor.importLib( '../utils/hcp_helpers', 'AgentId' )
 
 class DataExporter( Actor ):
     def init( self, parameters, resources ):
-        self.model = self.getActorHandle( resources[ 'models' ] )
-        self.audit = self.getActorHandle( resources[ 'auditing' ] )
+        self.model = self.getActorHandle( resources[ 'models' ], timeout = 600, nRetries = 1 )
+        self.audit = self.getActorHandle( resources[ 'auditing' ], timeout = 10, nRetries = 3 )
         self.handle( 'export_sensor', self.exportSensor )
         
     def deinit( self ):

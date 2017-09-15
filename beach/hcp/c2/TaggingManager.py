@@ -23,7 +23,7 @@ class TaggingManager( Actor ):
         self.admin = self.getActorHandle( resources[ 'admin' ] )
         Host.setDatabase( self.admin, parameters[ 'db' ] )
 
-        self.sensorDir = self.getActorHandle( resources[ 'sensordir' ] )
+        self.sensorDir = self.getActorHandle( resources[ 'sensordir' ], timeout = 30, nRetries = 3 )
 
         self.handle( 'get_tags', self.getTags )
         self.handle( 'add_tags', self.addTags )
@@ -78,7 +78,7 @@ class TaggingManager( Actor ):
                 if endpointId is not None:
                     hEndpoint = endpointCache.get( endpointId, None )
                     if hEndpoint is None:
-                        endpoint = self.getActorHandle( '_ACTORS/%s' % endpointId )
+                        endpoint = self.getActorHandle( '_ACTORS/%s' % endpointId, timeout = 30, nRetries = 3 )
                         endpointCache[ endpointId ] = endpoint
                     if hEndpoint is not None:
                         hEndpoint.shoot( 'add_tag', { 'sid' : host.sid, 'tag' : tag } )
@@ -113,7 +113,7 @@ class TaggingManager( Actor ):
                 if endpointId is not None:
                     hEndpoint = endpointCache.get( endpointId, None )
                     if hEndpoint is None:
-                        endpoint = self.getActorHandle( '_ACTORS/%s' % endpointId )
+                        endpoint = self.getActorHandle( '_ACTORS/%s' % endpointId, timeout = 30, nRetries = 3 )
                         endpointCache[ endpointId ] = endpoint
                     if hEndpoint is not None:
                         hEndpoint.shoot( 'del_tag', { 'sid' : host.sid, 'tag' : tag } )
