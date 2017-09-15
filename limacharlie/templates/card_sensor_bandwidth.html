@@ -15,11 +15,15 @@ $def with ( aid, hostname )
   chart_bandwidth = new CanvasJS.Chart("bandwidth_chart", {
       zoomEnabled : true,
       panEnabled : true,
+      toolTip: {
+          content: "<i><b>{x}</b></i><br/>{y} KB",
+      },
       title : {
           text : "Sensor Bandwidth"
       },
       axisX:{
           title: "Time",
+          valueFormatString: "YYYY/MM/DD HH:mm:ss"
       },
 
        axisY:{
@@ -37,7 +41,7 @@ $def with ( aid, hostname )
     if( 0 != dataPoints.length )
     {
         chart_data_bandwidth[ 0 ] = { legendText: "$aid.sensor_id",
-                                      type: 'area',
+                                      type: 'line',
                                       showInLegend: true,
                                       xValueType: "dateTime",
                                       dataPoints: dataPoints };
