@@ -30,15 +30,17 @@ KeyValueStore = Actor.importLib( '../utils/ObjectsDb', 'KeyValueStore' )
 AgentId = Actor.importLib( '../utils/hcp_helpers', 'AgentId' )
 _xm_ = Actor.importLib( '../utils/hcp_helpers', '_xm_' )
 _x_ = Actor.importLib( '../utils/hcp_helpers', '_x_' )
+CassDb = Actor.importLib( '../utils/hcp_databases', 'CassDb' )
 
 class ModelView( Actor ):
     def init( self, parameters, resources ):
         self.admin = BEAdmin( self._beach_config_path, None )
-        Host.setDatabase( self.admin, parameters[ 'scale_db' ] )
-        HostObjects.setDatabase( parameters[ 'scale_db' ] )
-        Reporting.setDatabase( parameters[ 'scale_db' ] )
-        KeyValueStore.setDatabase( parameters[ 'scale_db' ] )
-        Atoms.setDatabase( parameters[ 'scale_db' ] )
+        self.db = CassDb( parameters[ 'scale_db' ], 'hcp_analytics', quorum = False, backoffConsistency = True )
+        Host.setDatabase( self.admin, self.db )
+        HostObjects.setDatabase( self.db )
+        Reporting.setDatabase( self.db )
+        KeyValueStore.setDatabase( self.db )
+        Atoms.setDatabase( self.db )
         self.handle( 'get_timeline', self.get_timeline )
         self.handle( 'get_sensor_info', self.get_sensor_info )
         self.handle( 'get_obj_list', self.get_obj_list )
@@ -65,6 +67,7 @@ class ModelView( Actor ):
         Host.closeDatabase()
         HostObjects.closeDatabase()
         Reporting.closeDatabase()
+        self.db.close()
 
     def asUuidList( self, elem ):
         if type( elem ) not in ( list, tuple ):

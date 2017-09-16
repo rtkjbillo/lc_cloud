@@ -183,16 +183,22 @@ def _makeUuid( val ):
 
 class HostObjects( object ):
     _db = None
+    _isDbShared = False
     _idRe = re.compile( '^[a-zA-Z0-9]{64}$' )
     _queryChunks = 200
 
     @classmethod
-    def setDatabase( cls, url, backoffConsistency = True ):
-        cls._db = CassDb( url, 'hcp_analytics', quorum = False, backoffConsistency = backoffConsistency )
+    def setDatabase( cls, urlOrInstance, backoffConsistency = True ):
+        if type( urlOrInstance ) in ( list, tuple, str, unicode ):
+            cls._db = CassDb( urlOrInstance, 'hcp_analytics', quorum = False, backoffConsistency = backoffConsistency )
+        else:
+            cls._db = urlOrInstance
+            cls._isDbShared = True
 
     @classmethod
     def closeDatabase( cls ):
-        cls._db.shutdown()
+        if not cls._isDbShared:
+            cls._db.shutdown()
 
     @classmethod
     def onHosts( cls, hosts, types = [], within = None ):
@@ -426,15 +432,21 @@ class Host( object ):
 
     _be = None
     _db = None
+    _isDbShared = False
 
     @classmethod
-    def setDatabase( cls, beInstance, cassUrl, backoffConsistency = True ):
+    def setDatabase( cls, beInstance, urlOrInstance, backoffConsistency = True ):
         cls._be = beInstance
-        cls._db = CassDb( cassUrl, 'hcp_analytics', quorum = True, backoffConsistency = backoffConsistency )
+        if type( urlOrInstance ) in ( list, tuple, str, unicode ):
+            cls._db = CassDb( urlOrInstance, 'hcp_analytics', quorum = False, backoffConsistency = backoffConsistency )
+        else:
+            cls._db = urlOrInstance
+            cls._isDbShared = True
 
     @classmethod
     def closeDatabase( cls ):
-        cls._db.shutdown()
+        if not cls._isDbShared:
+            cls._db.shutdown()
 
     @classmethod
     def getHostsMatching( cls, mask = None, hostname = None ):
@@ -718,14 +730,20 @@ class FluxEvent( object ):
 
 class Reporting( object ):
     _db = None
+    _isDbShared = False
 
     @classmethod
-    def setDatabase( cls, cassUrl ):
-        cls._db = CassDb( cassUrl, 'hcp_analytics', consistencyOne = True )
+    def setDatabase( cls, urlOrInstance, backoffConsistency = True ):
+        if type( urlOrInstance ) in ( list, tuple, str, unicode ):
+            cls._db = CassDb( urlOrInstance, 'hcp_analytics', quorum = False, backoffConsistency = backoffConsistency )
+        else:
+            cls._db = urlOrInstance
+            cls._isDbShared = True
 
     @classmethod
     def closeDatabase( cls ):
-        cls._db.shutdown()
+        if not cls._isDbShared:
+            cls._db.shutdown()
 
     @classmethod
     def getDetects( cls, oid = None, before = None, after = None, limit = None, id = None ):
@@ -799,19 +817,25 @@ class Reporting( object ):
 
 class KeyValueStore( object ):
     _db = None
+    _isDbShared = False
     _keySelect = None
     _keySet = None
     _keyTouch = None
 
     @classmethod
-    def setDatabase( cls, cassUrl ):
-        cls._db = CassDb( cassUrl, 'hcp_analytics', consistencyOne = True )
+    def setDatabase( cls, urlOrInstance, backoffConsistency = True ):
+        if type( urlOrInstance ) in ( list, tuple, str, unicode ):
+            cls._db = CassDb( urlOrInstance, 'hcp_analytics', quorum = False, backoffConsistency = backoffConsistency )
+        else:
+            cls._db = urlOrInstance
+            cls._isDbShared = True
         cls._keySet = cls._db.prepare( 'INSERT INTO keyvalue ( k, c, v, cts ) VALUES ( ?, ?, ?, dateOf(now()) ) USING TTL ?' )
         cls._keySelect = cls._db.prepare( 'SELECT v, cts FROM keyvalue WHERE k = ? AND c = ?' )
 
     @classmethod
     def closeDatabase( cls ):
-        cls._db.shutdown()
+        if not cls._isDbShared:
+            cls._db.shutdown()
 
     @classmethod
     def setKey( cls, cat, k, v, ttl = ( 60 * 60 * 24 * 30 ) ):
@@ -827,16 +851,22 @@ class KeyValueStore( object ):
 
 class Atoms ( object ):
     _db = None
+    _isDbShared = False
     _atomSelect = None
     _queryChunks = 200
 
     @classmethod
-    def setDatabase( cls, cassUrl ):
-        cls._db = CassDb( cassUrl, 'hcp_analytics', consistencyOne = True )
+    def setDatabase( cls, urlOrInstance, backoffConsistency = True ):
+        if type( urlOrInstance ) in ( list, tuple, str, unicode ):
+            cls._db = CassDb( urlOrInstance, 'hcp_analytics', quorum = False, backoffConsistency = backoffConsistency )
+        else:
+            cls._db = urlOrInstance
+            cls._isDbShared = True
 
     @classmethod
     def closeDatabase( cls ):
-        cls._db.shutdown()
+        if not cls._isDbShared:
+            cls._db.shutdown()
 
     def __init__( self, ids ):
         self._ids = []
