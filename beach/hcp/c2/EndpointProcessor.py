@@ -510,6 +510,7 @@ class EndpointProcessor( Actor ):
                         'ext_ip' : c.ext_ip,
                         'moduleid' : HcpModuleId.HBS,
                         'event_type' : message.keys()[ 0 ],
+                        'event_time' : message.values()[ 0 ].get( 'base.TIMESTAMP', None),
                         'event_id' : uuid.uuid4(),
                         'tags' : c.tags }
             invId = message.values()[ 0 ].get( 'hbs.INVESTIGATION_ID', None )
