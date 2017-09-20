@@ -17,6 +17,9 @@ EventObjectExtractor = Actor.importLib( '../utils/EventObjectExtractor', 'EventO
 
 class AnalyticsIntake( Actor ):
     def init( self, parameters, resources ):
+        self.modelingLevel = 10
+        self.deploymentmanager = self.getActorHandle( resources[ 'deployment' ], timeout = 30, nRetries = 3 )
+        self.refreshConfigs()
         self.handle( 'analyze', self.analyze )
         self.analytics_stateless = self.getActorHandle( resources[ 'stateless' ], timeout = 30, nRetries = 3 )
         self.analytics_stateful = self.getActorHandle( resources[ 'stateful' ], timeout = 30, nRetries = 3 )
@@ -28,6 +31,18 @@ class AnalyticsIntake( Actor ):
 
     def deinit( self ):
         pass
+
+    def refreshConfigs( self ):
+        resp = self.deploymentmanager.request( 'get_global_config', {} )
+        if not resp.isSuccess:
+            self.logCritical( "could not get global configs: %s" % resp )
+        elif 'global/modeling_level' not in resp.data:
+            self.log( "modeling level config not set, assuming full" )
+        else:
+            self.modelingLevel = resp.data[ 'global/modeling_level' ]
+
+        self.delay( 60 * 5, self.refreshConfigs )
+
 
     def _extractObjects( self, message ):
         routing, event = message
@@ -48,10 +63,11 @@ class AnalyticsIntake( Actor ):
             event = self._extractObjects( event )
 
             # Send the events to actual analysis
-            self.analytics_modeling.shoot( 'analyze', event )
+            if 0 != self.modelingLevel:
+                self.analytics_modeling.shoot( 'analyze', event )
+                self.async_builder.shoot( 'analyze', event )
             self.analytics_stateless.shoot( 'analyze', event )
             self.analytics_stateful.shoot( 'analyze', event )
-            self.async_builder.shoot( 'analyze', event )
 
             routing, rawEvent, mtd = event
             if 'investigation_id' in routing:

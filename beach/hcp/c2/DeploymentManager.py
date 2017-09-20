@@ -362,6 +362,10 @@ We believe this sharing policy strikes a good balance between privacy and inform
             self.db.execute( 'INSERT INTO configs ( conf, value ) VALUES ( %s, %s )', ( 'global/deployment_id', str(uuid.uuid4()) ) )
             self.audit.shoot( 'record', { 'oid' : self.admin_oid, 'etype' : 'conf_change', 'msg' : 'Setting metrics upload.' } )
 
+            self.log( 'loading modeling level' )
+            self.db.execute( 'INSERT INTO configs ( conf, value ) VALUES ( %s, %s )', ( 'global/modeling_level', 'full' ) )
+            self.audit.shoot( 'record', { 'oid' : self.admin_oid, 'etype' : 'conf_change', 'msg' : 'Setting modeling level.' } )
+
     def obfuscate( self, buffer, key ):
         obf = BytesIO()
         index = 0
@@ -540,12 +544,16 @@ We believe this sharing policy strikes a good balance between privacy and inform
             'global/policy' : '',
             'global/send_metrics' : '0',
             'global/deployment_id' : '',
+            'global/modeling_level' : 10,
         }
 
         info = self.db.execute( 'SELECT conf, value FROM configs WHERE conf IN %s', ( globalConf.keys(), ) )
 
         for row in info:
             globalConf[ row[ 0 ] ] = row[ 1 ]
+
+        # Make sure the configs that need to be integers are always integers
+        globalConf[ 'global/modeling_level' ] = int( globalConf[ 'global/modeling_level' ] )
 
         return ( True, globalConf )
 
@@ -572,7 +580,7 @@ We believe this sharing policy strikes a good balance between privacy and inform
         value = req[ 'value' ]
         byUser = req[ 'by' ]
 
-        info = self.db.execute( 'UPDATE configs SET value = %s WHERE conf = %s', ( value, conf ) )
+        info = self.db.execute( 'UPDATE configs SET value = %s WHERE conf = %s', ( str( value ), conf ) )
 
         try:
             oid = uuid.UUID( conf.split( '/' )[ 0 ] )

@@ -33,6 +33,10 @@ ObjectKey = Actor.importLib( '../utils/ObjectsDb', 'ObjectKey' )
 
 class AnalyticsModeling( Actor ):
     def init( self, parameters, resources ):
+        self.modelingLevel = 10
+        self.deploymentmanager = self.getActorHandle( resources[ 'deployment' ], timeout = 30, nRetries = 3 )
+        self.refreshConfigs()
+
         self._db = CassDb( parameters[ 'db' ], 'hcp_analytics', consistencyOne = True )
         self.db = CassPool( self._db,
                             rate_limit_per_sec = parameters[ 'rate_limit_per_sec' ],
@@ -93,6 +97,17 @@ class AnalyticsModeling( Actor ):
     def deinit( self ):
         self.db.stop()
         self._db.shutdown()
+
+    def refreshConfigs( self ):
+        resp = self.deploymentmanager.request( 'get_global_config', {} )
+        if not resp.isSuccess:
+            self.logCritical( "could not get global configs: %s" % resp )
+        elif 'global/modeling_level' not in resp.data:
+            self.log( "modeling level config not set, assuming full" )
+        else:
+            self.modelingLevel = resp.data[ 'global/modeling_level' ]
+
+        self.delay( 60 * 5, self.refreshConfigs )
 
     def reportStats( self ):
         now = time.time()
