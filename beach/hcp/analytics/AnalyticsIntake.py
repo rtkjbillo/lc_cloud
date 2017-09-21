@@ -39,7 +39,10 @@ class AnalyticsIntake( Actor ):
         elif 'global/modeling_level' not in resp.data:
             self.log( "modeling level config not set, assuming full" )
         else:
-            self.modelingLevel = resp.data[ 'global/modeling_level' ]
+            newLevel = resp.data[ 'global/modeling_level' ]
+            if self.modelingLevel != newLevel:
+                self.log( "modeling level changed from %s to %s" % ( self.modelingLevel, newLevel ) )
+            self.modelingLevel = newLevel
 
         self.delay( 60 * 5, self.refreshConfigs )
 

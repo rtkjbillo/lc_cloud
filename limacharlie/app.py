@@ -559,6 +559,8 @@ class Dashboard ( AuthenticatedPage ):
         if session.is_admin:
             mergedSensors = {}
             for oid, sensors in getAllSensors( isAllOrgs = True ).iteritems():
+                if oid is None:
+                    continue
                 for sid, sensor in sensors.iteritems():
                     sensor[ 'realtime' ] = True if str( AgentId( sensor[ 'aid' ] ).sensor_id ) in allLiveDir else False
                     mergedSensors[ sid ] = sensor
@@ -571,6 +573,8 @@ class Dashboard ( AuthenticatedPage ):
         if info.isSuccess:
             welcomeMessage = info.data[ 'global/whatsnew' ]
         for oid, sensors in orgSensors.iteritems():
+            if oid == ADMIN_OID:
+                continue
             for sid, sensor in sensors.iteritems():
                 sensor[ 'realtime' ] = True if str( AgentId( sensor[ 'aid' ] ).sensor_id ) in allLiveDir else False
             cards.insert( 1, card_sensor_stats( orgNames[ str( oid ) ], sensors, str( oid ) ) )

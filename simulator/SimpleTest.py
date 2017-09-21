@@ -84,6 +84,12 @@ parser.add_argument( '--with-startup-traffic',
                      default = False,
                      action = 'store_true',
                      help = 'generates simulated traffic for each sensor, including initial startup spike, if specified' )
+parser.add_argument( '--with-basic-traffic',
+                     required = False,
+                     dest = 'with_basic_traffic',
+                     default = False,
+                     action = 'store_true',
+                     help = 'generates simulated traffic at a constant rate of of 10 event per sensor per second' )
 
 args = parser.parse_args()
 
@@ -268,6 +274,8 @@ for sensorInfo in CONF:
         virtSensor.scheduleEvent( 50, generateTerminateProcessEvent(), plusOrMinusNSeconds = 20 )
         virtSensor.scheduleEvent( 100, generateNetworkSummaryEvent(), plusOrMinusNSeconds = 40 )
         virtSensor.scheduleEvent( 60, generateUserObservedEvent(), plusOrMinusNSeconds = 600, upToNEvents = 10 )
+    if args.with_basic_traffic:
+        virtSensor.scheduleEvent( 0.1, generateNewProcessEvent() )
 
     gevent.sleep( START_OFFSET )
 
@@ -306,6 +314,8 @@ for i in range( 0, NUM_SENSORS_OSX + NUM_SENSORS_WIN + NUM_SENSORS_LIN ):
         virtSensor.scheduleEvent( 50, generateTerminateProcessEvent(), plusOrMinusNSeconds = 20 )
         virtSensor.scheduleEvent( 100, generateNetworkSummaryEvent(), plusOrMinusNSeconds = 40 )
         virtSensor.scheduleEvent( 60, generateUserObservedEvent(), plusOrMinusNSeconds = 600, upToNEvents = 10 )
+    if args.with_basic_traffic:
+        virtSensor.scheduleEvent( 0.1, generateNewProcessEvent() )
 
     gevent.sleep( START_OFFSET )
 

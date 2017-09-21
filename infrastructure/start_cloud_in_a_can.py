@@ -106,7 +106,7 @@ print( """
 To access the web UI go to http://%s:8888
 The logs are stored in /var/log/syslog
 Starting and stopping the cloud:
-    - python %s/cloud/infrastructure/install_cloud_in_a_can.py
+    - python %s/cloud/infrastructure/start_cloud_in_a_can.py
     - %s/cloud/infrastructure/stop_cloud_in_a_can.sh
 ===============================================================================
 """ % ( getLocalIp(), root, root ) )

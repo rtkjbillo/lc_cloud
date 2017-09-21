@@ -149,44 +149,48 @@ class AnalyticsModeling( Actor ):
     def _ingestObjects( self, ttls, sid, ts, objects, relations, oid, eid ):
         ts = datetime.datetime.fromtimestamp( ts )
 
-        for relType, relVals in relations.iteritems():
-            for relVal in relVals:
-                objects.setdefault( ObjectTypes.RELATION, [] ).append( RelationName( relVal[ 0 ],
-                                                                                     relType[ 0 ],
-                                                                                     relVal[ 1 ],
-                                                                                     relType[ 1 ] ) )
+        if 10 <= self.modelingLevel:
+            for relType, relVals in relations.iteritems():
+                for relVal in relVals:
+                    objects.setdefault( ObjectTypes.RELATION, [] ).append( RelationName( relVal[ 0 ],
+                                                                                         relType[ 0 ],
+                                                                                         relVal[ 1 ],
+                                                                                         relType[ 1 ] ) )
 
-                if relType[ 0 ] in self.temporary_objects or relType[ 1 ] in self.temporary_objects:
-                    ttl = ttls[ 'short_obj' ]
-                else:
-                    ttl = ttls[ 'long_obj' ]
+                    if relType[ 0 ] in self.temporary_objects or relType[ 1 ] in self.temporary_objects:
+                        ttl = ttls[ 'short_obj' ]
+                    else:
+                        ttl = ttls[ 'long_obj' ]
 
-                self.db.execute_async( self.stmt_rel_batch_parent.bind( ( ObjectKey( relVal[ 0 ], relType[ 0 ] ),
-                                                                          relType[ 1 ],
-                                                                          ObjectKey( relVal[ 1 ], relType[ 1 ] ),
-                                                                          ttl ) ) )
+                    self.db.execute_async( self.stmt_rel_batch_parent.bind( ( ObjectKey( relVal[ 0 ], relType[ 0 ] ),
+                                                                              relType[ 1 ],
+                                                                              ObjectKey( relVal[ 1 ], relType[ 1 ] ),
+                                                                              ttl ) ) )
 
-                self.db.execute_async( self.stmt_rel_batch_child.bind( ( ObjectKey( relVal[ 1 ], relType[ 1 ] ),
-                                                                         relType[ 0 ],
-                                                                         ObjectKey( relVal[ 0 ], relType[ 0 ] ),
-                                                                         ttl ) ) )
-                self.nWrites += 2
+                    self.db.execute_async( self.stmt_rel_batch_child.bind( ( ObjectKey( relVal[ 1 ], relType[ 1 ] ),
+                                                                             relType[ 0 ],
+                                                                             ObjectKey( relVal[ 0 ], relType[ 0 ] ),
+                                                                             ttl ) ) )
+                    self.nWrites += 2
 
-        for objType, objVals in objects.iteritems():
-            for objVal in objVals:
-                k = ObjectKey( objVal, objType )
+        if 7 <= self.modelingLevel:
+            for objType, objVals in objects.iteritems():
+                for objVal in objVals:
+                    k = ObjectKey( objVal, objType )
 
-                if objType in self.temporary_objects:
-                    ttl = ttls[ 'short_obj' ]
-                else:
-                    ttl = ttls[ 'long_obj' ]
+                    if objType in self.temporary_objects:
+                        ttl = ttls[ 'short_obj' ]
+                    else:
+                        ttl = ttls[ 'long_obj' ]
 
-                self.db.execute_async( self.stmt_obj_batch_man.bind( ( k, objVal, objType, ttl ) ) )
-                self.db.execute_async( self.stmt_obj_org.bind( ( k, oid, ts, sid, eid, min( ttl, ttls[ 'events' ] ) ) ) )
-                self.db.execute_async( self.stmt_obj_batch_loc.bind( ( ttl, ts, sid, objType, k ) ) )
-                self.db.execute_async( self.stmt_obj_batch_id.bind( ( k, sid, ts, ttl ) ) )
-                self.db.execute_async( self.stmt_obj_batch_type.bind( ( random.randint( 0, 256 ), objType, k, sid, ttl ) ) )
-                self.nWrites += 5
+                    self.db.execute_async( self.stmt_obj_batch_man.bind( ( k, objVal, objType, ttl ) ) )
+                    self.db.execute_async( self.stmt_obj_org.bind( ( k, oid, ts, sid, eid, min( ttl, ttls[ 'events' ] ) ) ) )
+                    self.db.execute_async( self.stmt_obj_batch_loc.bind( ( ttl, ts, sid, objType, k ) ) )
+                    self.db.execute_async( self.stmt_obj_batch_id.bind( ( k, sid, ts, ttl ) ) )
+                    self.nWrites += 4
+                    if 8 <= self.modelingLevel:
+                        self.db.execute_async( self.stmt_obj_batch_type.bind( ( random.randint( 0, 256 ), objType, k, sid, ttl ) ) )
+                        self.nWrites += 1
 
 
     def analyze( self, msg ):
@@ -217,89 +221,98 @@ class AnalyticsModeling( Actor ):
 
         eid = uuid.UUID( routing[ 'event_id' ] )
 
-        self.db.execute_async( self.stmt_events.bind( ( eid,
-                                                        base64.b64encode( msgpack.packb( { 'routing' : routing, 'event' : event } ) ),
-                                                        sid,
-                                                        ttls[ 'events' ] ) ) )
+        if 1 < self.modelingLevel:
+            self.db.execute_async( self.stmt_events.bind( ( eid,
+                                                            base64.b64encode( msgpack.packb( { 'routing' : routing, 'event' : event } ) ),
+                                                            sid,
+                                                            ttls[ 'events' ] ) ) )
 
-        self.db.execute_async( self.stmt_timeline.bind( ( sid,
-                                                          time_uuid.TimeUUID.with_timestamp( ts ),
-                                                          eid,
-                                                          routing[ 'event_type' ],
-                                                          ttls[ 'events' ] ) ) )
+            self.db.execute_async( self.stmt_timeline.bind( ( sid,
+                                                              time_uuid.TimeUUID.with_timestamp( ts ),
+                                                              eid,
+                                                              routing[ 'event_type' ],
+                                                              ttls[ 'events' ] ) ) )
+            self.nWrites += 2
 
         self.db.execute_async( self.stmt_timeline_by_type.bind( ( sid,
                                                                   time_uuid.TimeUUID.with_timestamp( ts ),
                                                                   eid,
                                                                   routing[ 'event_type' ],
                                                                   ttls[ 'events' ] ) ) )
+        self.nWrites += 1
 
-        self.db.execute_async( self.stmt_recent.bind( ( ttls[ 'events' ], sid, ) ) )
+        if 3 <= self.modelingLevel:
+            self.db.execute_async( self.stmt_recent.bind( ( ttls[ 'events' ], sid, ) ) )
+            self.nWrites += 1
 
-        self.db.execute_async( self.stmt_last.bind( ( ttls[ 'events' ],
-                                                      eid,
-                                                      sid,
-                                                      routing[ 'event_type' ] ) ) )
+        if 2 <= self.modelingLevel:
+            self.db.execute_async( self.stmt_last.bind( ( ttls[ 'events' ],
+                                                          eid,
+                                                          sid,
+                                                          routing[ 'event_type' ] ) ) )
+            self.nWrites += 1
 
-        self.nWrites += 5
+        if 5 <= self.modelingLevel:
+            this_atom = _x_( event, '?/hbs.THIS_ATOM' )
+            parent_atom = _x_( event, '?/hbs.PARENT_ATOM' )
+            null_atom = "\x00" * 16
 
-        this_atom = _x_( event, '?/hbs.THIS_ATOM' )
-        parent_atom = _x_( event, '?/hbs.PARENT_ATOM' )
-        null_atom = "\x00" * 16
-
-        if this_atom is not None:
-            if this_atom == null_atom:
-                this_atom = None
-            else:
-                try:
-                    this_atom = uuid.UUID( bytes = str( this_atom ) )
-                except:
-                    self.log( 'invalid atom: %s / %s ( %s )' % ( this_atom, type( this_atom ), traceback.format_exc() ) )
+            if this_atom is not None:
+                if this_atom == null_atom:
                     this_atom = None
+                else:
+                    try:
+                        this_atom = uuid.UUID( bytes = str( this_atom ) )
+                    except:
+                        self.log( 'invalid atom: %s / %s ( %s )' % ( this_atom, type( this_atom ), traceback.format_exc() ) )
+                        this_atom = None
 
-        if parent_atom is not None:
-            if parent_atom == null_atom:
-                parent_atom = None
-            else:
-                try:
-                    parent_atom = uuid.UUID( bytes = str( parent_atom ) )
-                except:
-                    self.log( 'invalid atom: %s / %s ( %s )' % ( parent_atom, type( parent_atom ), traceback.format_exc() ) )
+            if parent_atom is not None:
+                if parent_atom == null_atom:
                     parent_atom = None
+                else:
+                    try:
+                        parent_atom = uuid.UUID( bytes = str( parent_atom ) )
+                    except:
+                        self.log( 'invalid atom: %s / %s ( %s )' % ( parent_atom, type( parent_atom ), traceback.format_exc() ) )
+                        parent_atom = None
 
-        if this_atom is not None:
-            self.db.execute_async( self.stmt_atoms_lookup.bind( ( this_atom,
-                                                                  eid,
-                                                                  ttls[ 'atoms' ] ) ) )
-            self.nWrites += 1
+            if this_atom is not None:
+                self.db.execute_async( self.stmt_atoms_lookup.bind( ( this_atom,
+                                                                      eid,
+                                                                      ttls[ 'atoms' ] ) ) )
+                self.nWrites += 1
 
-        if this_atom is not None and parent_atom is not None:
-            self.db.execute_async( self.stmt_atoms_children.bind( ( parent_atom,
-                                                                    this_atom if this_atom is not None else uuid.UUID( bytes = null_atom ),
-                                                                    eid,
-                                                                    ttls[ 'atoms' ] ) ) )
-            self.nWrites += 1
+            if this_atom is not None and parent_atom is not None:
+                self.db.execute_async( self.stmt_atoms_children.bind( ( parent_atom,
+                                                                        this_atom if this_atom is not None else uuid.UUID( bytes = null_atom ),
+                                                                        eid,
+                                                                        ttls[ 'atoms' ] ) ) )
+                self.nWrites += 1
 
-        inv_id = _x_( event, '?/hbs.INVESTIGATION_ID' )
-        if inv_id is not None and inv_id != '':
-            self.db.execute_async( self.stmt_investigation.bind( ( inv_id.upper().split( '//' )[ 0 ],
-                                                                   time_uuid.TimeUUID.with_timestamp( ts ),
-                                                                   eid,
-                                                                   routing[ 'event_type' ],
-                                                                   ttls[ 'detections' ] ) ) )
-            self.nWrites += 1
+        if 2 <= self.modelingLevel:
+            inv_id = _x_( event, '?/hbs.INVESTIGATION_ID' )
+            if inv_id is not None and inv_id != '':
+                self.db.execute_async( self.stmt_investigation.bind( ( inv_id.upper().split( '//' )[ 0 ],
+                                                                       time_uuid.TimeUUID.with_timestamp( ts ),
+                                                                       eid,
+                                                                       routing[ 'event_type' ],
+                                                                       ttls[ 'detections' ] ) ) )
+                self.nWrites += 1
 
-        new_objects = mtd[ 'obj' ]
-        new_relations = mtd[ 'rel' ]
+        # Only deal with Objects at level 7 and above.
+        if 7 <= self.modelingLevel:
+            new_objects = mtd[ 'obj' ]
+            new_relations = mtd[ 'rel' ]
 
-        for ignored in self.ignored_objects:
-            if ignored in new_objects:
-                del( new_objects[ ignored ] )
-            for k in new_relations.keys():
-                if ignored in k:
-                    del( new_relations[ k ] )
+            for ignored in self.ignored_objects:
+                if ignored in new_objects:
+                    del( new_objects[ ignored ] )
+                for k in new_relations.keys():
+                    if ignored in k:
+                        del( new_relations[ k ] )
 
-        if 0 != len( new_objects ) or 0 != len( new_relations ):
-            self._ingestObjects( ttls, sid, ts, new_objects, new_relations, agent.org_id, eid )
-        #self.log( 'finished storing objects %s: %s / %s' % ( routing[ 'event_type' ], len( new_objects ), len( new_relations )) )
+            if 0 != len( new_objects ) or 0 != len( new_relations ):
+                self._ingestObjects( ttls, sid, ts, new_objects, new_relations, agent.org_id, eid )
+            #self.log( 'finished storing objects %s: %s / %s' % ( routing[ 'event_type' ], len( new_objects ), len( new_relations )) )
         return ( True, )
