@@ -1537,6 +1537,8 @@ class SensorConfigs ( AuthenticatedPage ):
         supportedEvents = info.data
 
         for oid in session.orgs:
+            if oid == ADMIN_OID:
+                continue
             info = deployment.request( 'get_profiles', { 'oid' : oid, 'is_human_readable' : True } )
 
             if not info.isSuccess:
