@@ -108,7 +108,7 @@ class IdentManager( Actor ):
         if confirmationToken is not None and confirmationToken != '':
             return ( True, { 'is_authenticated' : False, 'needs_confirmation' : True } )
 
-        if hashlib.sha256( '%s%s' % ( password, salt ) ).hexdigest() != salted_password:
+        if hashlib.sha256( '%s%s' % ( password, str( salt ) ) ).hexdigest() != salted_password:
             return ( True, { 'is_authenticated' : False } )
 
         if not must_change_password:
