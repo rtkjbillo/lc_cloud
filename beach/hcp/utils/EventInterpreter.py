@@ -13,6 +13,9 @@
 # limitations under the License.
 
 from beach.actor import Actor
+import re
+import ipaddress
+import traceback
 _x_ = Actor.importLib( './hcp_helpers', '_x_' )
 _xm_ = Actor.importLib( './hcp_helpers', '_xm_' )
 exeFromPath = Actor.importLib( './hcp_helpers', 'exeFromPath' )
@@ -135,3 +138,122 @@ class EventInterpreter( object ):
 
 	def getTimestamp( self ):
 		return _x_( self.event, '?/base.TIMESTAMP' )
+
+class EventDSL( object ):
+	def __init__( self, event, isCaseSensitive = False ):
+		self._event = event
+		try:
+			self._eventType = event.keys()[ 0 ]
+		except:
+			self._eventType = None
+		self._reFlags = 0 if isCaseSensitive else re.IGNORECASE
+		self._ops = { 'path' : lambda e, v: _x_( e, '?/base.FILE_PATH' ) == v,
+					  'pathEndsWith' : lambda e, v: _x_( e, '?/base.FILE_PATH' ).endswith( v ),
+					  'pathStartsWith' : lambda e, v: _x_( e, '?/base.FILE_PATH' ).startswith( v ),
+					  'pathMatches' : lambda v: re.match( v, _x_( self._event, '?/base.FILE_PATH' ), self._reFlags ),
+					  'commandLine' : lambda e, v: _x_( e, '?/base.COMMAND_LINE' ) == v,
+					  'commandLineEndsWith' : lambda e, v: _x_( e, '?/base.COMMAND_LINE' ).endswith( v ),
+					  'commandLineStartsWith' : lambda e, v: _x_( e, '?/base.COMMAND_LINE' ).startswith( v ),
+					  'commandLineMatches' : lambda v: re.match( v, _x_( self._event, '?/base.COMMAND_LINE' ), self._reFlags ),
+					  'user' : lambda e, v: _x_( e, '?/base.USER_NAME' ) == v,
+					  'userEndsWith' : lambda e, v: _x_( e, '?/base.USER_NAME' ).endswith( v ),
+					  'userStartsWith' : lambda e, v: _x_( e, '?/base.USER_NAME' ).startswith( v ),
+					  'userMatches' : lambda v: re.match( v, _x_( self._event, '?/base.USER_NAME' ), self._reFlags ),
+					  'domain' : lambda e, v: _x_( e, '?/base.DOMAIN_NAME' ) == v,
+					  'domainEndsWith' : lambda e, v: _x_( e, '?/base.DOMAIN_NAME' ).endswith( v ),
+					  'domainStartsWith' : lambda e, v: _x_( e, '?/base.DOMAIN_NAME' ).startswith( v ),
+					  'domainMatches' : lambda v: re.match( v, _x_( self._event, '?/base.DOMAIN_NAME' ), re.IGNORECASE ),
+					  'cname' : lambda e, v: _x_( e, '?/base.CNAME' ) == v,
+					  'cnameEndsWith' : lambda e, v: _x_( e, '?/base.CNAME' ).endswith( v ),
+					  'cnameStartsWith' : lambda e, v: _x_( e, '?/base.CNAME' ).startswith( v ),
+					  'cnameMatches' : lambda v: re.match( v, _x_( self._event, '?/base.CNAME' ), re.IGNORECASE ),
+					  'ip' : lambda e, v: _x_( e, '?/base.IP_ADDRESS' ) == v,
+					  'ipEndsWith' : lambda e, v: _x_( e, '?/base.IP_ADDRESS' ).endswith( v ),
+					  'ipStartsWith' : lambda e, v: _x_( e, '?/base.IP_ADDRESS' ).startswith( v ),
+					  'ipMatches' : lambda v: re.match( v, _x_( self._event, '?/base.IP_ADDRESS' ), re.IGNORECASE ),
+					  'hash' : lambda e, v: _x_( e, '?/base.HASH' ).encode( 'hex' ).lower() == v.lower(),
+					  'userId' : lambda e, v: _x_( e, '?/base.USER_ID' ) == v,
+					  'dstIpIn' : lambda e, v: ipaddress.ip_address( unicode( _x_( e, 'base.DESTINATION/base.IP_ADDRESS' ) ) ) in ipaddress.ip_network( unicode( v ) ),
+					  'srcIpIn' : lambda e, v: ipaddress.ip_address( unicode( _x_( e, 'base.SOURCE/base.IP_ADDRESS' ) ) ) in ipaddress.ip_network( unicode( v ) ),
+					  'dstPort' : lambda e, v: _x_( e, 'base.DESTINATION/base.PORT' ) == v,
+					  'srcPort' : lambda e, v: _x_( e, 'base.SOURCE/base.PORT' ) == v,
+					  'isOutgoing' : lambda e, v: _x_( e, 'base.IS_OUTGOING' ) is v }
+
+	def Event( self, **kwargs ):
+		if isinstance( self._event, dict ):
+			e = self._event
+			for k, v in kwargs.iteritems():
+				try:
+					if not self._ops[ k ]( e, v ):
+						return False
+				except:
+					print( traceback.format_exc() )
+					return False
+			return True
+		elif isinstance( self._event, list ):
+			for e in self._event:
+				isMatch = True
+				for k, v in kwargs.iteritems():
+					try:
+						if not self._ops[ k ]( e, v ):
+							isMatch = False
+							break
+					except:
+						print( traceback.format_exc() )
+						isMatch = False
+						break
+				if isMatch:
+					return True
+			return False
+
+	def Process( self, **kwargs ):
+		if self._eventType in ( 'notification.EXISTING_PROCESS', 
+								'notification.NEW_PROCESS' ):
+			return self.Event( **kwargs )
+		elif self._eventType in ( 'notification.NETWORK_SUMMARY', ):
+			subEvent = _x_( self._event, '?/base.PROCESS' )
+			if subEvent is None:
+				return False
+			tmpEvent = EventDSL( { "_" : subEvent } )
+			return tmpEvent.Event( **kwargs )
+		return False
+
+	def ParentProcess( self, **kwargs ):
+		if self._eventType in ( 'notification.EXISTING_PROCESS', 
+								'notification.NEW_PROCESS' ):
+			subEvent = self._event.get( 'base.PARENT', None )
+			if subEvent is None:
+				return False
+			tmpEvent = EventDSL( { "_" : subEvent } )
+			return tmpEvent.Event( **kwargs )
+		elif self._eventType in ( 'notification.NETWORK_SUMMARY', ):
+			subEvent = _x_( self._event, '?/base.PROCESS/base.PARENT' )
+			if subEvent is None:
+				return False
+			tmpEvent = EventDSL( { "_" : subEvent } )
+		return False
+
+	def Dns( self, **kwargs ):
+		if 'notification.DNS_REQUEST' == self._eventType:
+			return self.Event( **kwargs )
+		return False
+
+	def Hash( self, **kwargs ):
+		if self._eventType in ( 'notification.CODE_IDENTITY', 
+								'notification.ONGOING_IDENTITY' ):
+			return self.Event( **kwargs )
+		return False
+
+	def NetworkSummary( self, **kwargs ):
+		if 'notification.NETWORK_SUMMARY' == self._eventType:
+			return self.Event( **kwargs )
+		return False
+
+	def Connections( self, **kwargs ):
+		if self._eventType in ( 'notification.NETWORK_SUMMARY', ):
+			subEvent = _xm_( self._event, '?/base.PROCESS/base.NETWORK_ACTIVITY' )
+			if subEvent is None:
+				return False
+			tmpEvent = EventDSL( subEvent )
+			return tmpEvent.Event( **kwargs )
+		return False
