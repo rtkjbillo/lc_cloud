@@ -13,13 +13,56 @@
 # limitations under the License.
 
 from beach.actor import Actor
+import traceback
 EventDSL = Actor.importLib( '../utils/EventInterpreter', 'EventDSL' )
 AgentId = Actor.importLib( '../utils/hcp_helpers', 'AgentId' )
 
+class SensorContext( object ):
+    def __init__( self, fromActor, aid ):
+        self._actor = fromActor
+        self.aid = AgentId( aid )
+
+    def task( self, cmdsAndArgs, expiry = None, inv_id = None ):
+        '''Send a task manually to a sensor
+
+        :param cmdAndArgs: tuple of arguments (like the CLI) of the task
+        :param expiry: number of seconds before the task is not valid anymore
+        :param inv_id: investigation id to associate the tasking and reply to
+        '''
+
+        self._actor.log( "sent for tasking: %s" % ( str( cmdsAndArgs ), ) )
+        dest = str( self.aid )
+        if type( cmdsAndArgs[ 0 ] ) not in ( tuple, list ):
+            cmdsAndArgs = ( cmdsAndArgs, )
+        data = { 'dest' : dest, 'tasks' : cmdsAndArgs }
+
+        if expiry is not None:
+            data[ 'expiry' ] = expiry
+        if inv_id is not None:
+            data[ 'inv_id' ] = inv_id
+
+        self._actor.tasking.shoot( 'task', data, key = dest )
+
+    def tag( self, tag, ttl = ( 60 * 60 * 24 * 365 ) ):
+        self._actor.log( "sent for tagging: %s" % tag )
+        self._actor.tagging.shoot( 'add_tags', 
+                                   { 'tag' : tag, 
+                                     'ttl' : ttl, 
+                                     'sid' : self.aid.sensor_id, 
+                                     'by' : 'QuickDetectHost' } )
+
+
 class QuickDetectHost( Actor ):
     def init( self, parameters, resources ):
-        self.log( "starting" )
         self.rules = {}
+
+        self.models = self.getActorHandle( resources[ 'modeling' ], timeout = 30, nRetries = 3 )
+        self.tagging = self.getActorHandle( resources[ 'tagging' ], timeout = 30, nRetries = 3 )
+        self.reporting = self.getActorHandle( resources[ 'report' ], timeout = 30, nRetries = 3 )
+        self.tasking = self.getActorHandle( resources[ 'autotasking' ], 
+                                             mode = 'affinity',
+                                             timeout = 60,
+                                             nRetries = 1 )
 
         self.handle( 'add_rule', self.addRule )
         self.handle( 'del_rule', self.delRule )
@@ -32,13 +75,26 @@ class QuickDetectHost( Actor ):
         req = msg.data
         name = req[ 'name' ]
         rule = req[ 'rule' ]
-        action = req.get( 'action', None )
+        action = req[ 'action' ]
         if name in self.rules:
             return ( False, 'rule already exists' )
-        self.rules[ name ] = { 'name' : name, 
-                               'rule' : eval( 'lambda event, routing: ( %s )' % ( rule, ), {}, {} ),
-                               'action' : action }
-        self.log( "Added rule %s." % name )
+
+        env = {}
+        env[ "locals" ]   = None
+        env[ "globals" ]  = None
+        env[ "__name__" ] = None
+        env[ "__file__" ] = None
+        env[ "__builtins__" ] = None
+
+        try:
+            self.rules[ name ] = { 'name' : name, 
+                                   'rule' : eval( 'lambda event, sensor: ( %s )' % ( rule, ), env, env ),
+                                   'action' : eval( 'lambda event, sensor: ( %s )' % ( action, ), env, env ) }
+            self.log( "Added rule %s." % name )
+        except:
+            exc = traceback.format_exc()
+            self.log( "Error adding rule: %s" % exc )
+            return ( False, exc )
         return ( True, )
 
     def delRule( self, msg ):
@@ -50,23 +106,33 @@ class QuickDetectHost( Actor ):
         self.log( "Removed rule %s." % name )
         return ( True, )
 
+    def checkRule( self, rule, event, sensor ):
+        try:
+            if rule[ 'rule' ]( event, sensor ):
+                self.zInc( 'detections.%s' % rule[ 'name' ] )
+                self.log( "!!! Rule %s matched." % ( rule[ 'name' ], ) )
+                rule[ 'action' ]( event, sensor )
+        except:
+            self.log( "Error evaluating %s: %s" % ( rule[ 'name' ], traceback.format_exc() ) )
+            self.zInc( 'error.%s' % rule[ 'name' ] )
+
     def analyze( self, msg ):
         routing, event, mtd = msg.data
 
-        tmpEvent = EventDSL( event, not AgentId( routing[ 'aid' ] ).isWindows() )
-        for rule in self.rules.values():
-            if rule[ 'rule' ]( tmpEvent, routing ):
-                self.zInc( 'detections.%s' % rule[ 'name' ] )
-                self.log( "!!! Rule %s matched." % ( rule[ 'name' ], ) )
-                if rule[ 'action' ] is not None:
-                    pass
+        sensor = SensorContext( self, routing[ 'aid' ] )
+        tmpEvent = EventDSL( event, not sensor.aid.isWindows() )
+        self.parallelExec( lambda rule: self.checkRule( rule, tmpEvent, sensor ), self.rules.values() )
 
         return ( True, )
 
 
 if __name__ == "__main__":
     print( "Testing actor." )
-    testActor = QuickDetectHost.initTestActor()
+    testActor = QuickDetectHost.initTestActor( resources = { 'modeling' : '', 
+                                                             'tagging' : '', 
+                                                             'detects' : '',
+                                                             'report' : '',
+                                                             'autotasking' : '' } )
     testEvent1 = testActor.mockRequest( ( { 'aid' : '0.0.0.10000000.0' }, 
                                           { "notification.NETWORK_SUMMARY": {
                                                 "hbs.PARENT_ATOM": "d4ccf684-916c-119f-d642-96d5c40a4dcf", 
@@ -164,7 +230,7 @@ if __name__ == "__main__":
 
     res = testActor.addRule( testActor.mockRequest( { 'name' : 'test3', 
                                                       'rule' : r'event.Dns( domainEndsWith = ".google.com" )',
-                                                      'action' : None } ) )
+                                                      'action' : r'sensor.tag( "test_tag" )' } ) )
     assert( res[ 0 ] )
 
     res = testActor.analyze( testEvent2 )
@@ -176,7 +242,7 @@ if __name__ == "__main__":
                                                       'rule' : '''event.Process( pathEndsWith = "Google Chrome Helper" )
                                                                   and
                                                                   event.Connections( srcIpIn = "192.168.6.1/32", dstPort = 1900 )''',
-                                                      'action' : None } ) )
+                                                      'action' : r'sensor.task( [ "file_dir", "." ] )' } ) )
     assert( res[ 0 ] )
 
     res = testActor.analyze( testEvent1 )
