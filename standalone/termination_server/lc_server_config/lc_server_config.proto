@@ -5,6 +5,13 @@ message Config {
 	required EnrollmentRules enrollmentRules = 2;
 	required ModuleRules moduleRules = 3;
 	required ProfileRules profileRules = 4;
+
+	required EndpointUrl primary = 5;
+	required EndpointUrl secondary = 6;
+	required string c2PublicKeyFile = 7;
+	required string rootPublicKeyFile = 8;
+	required string rootPrivateKeyFile = 9;
+
 }
 
 message EnrollmentRules {
@@ -33,4 +40,9 @@ message ModuleRule {
 message ProfileRule {
 	required string aid = 1;
 	required string profileFile = 2;
+}
+
+message EndpointUrl {
+	required string url = 1;
+	required int port = 2;
 }

@@ -117,6 +117,13 @@ type server struct {
 	moduleRules      []ModuleRule
 	profileRules     []ProfileRule
 
+	primary EndpointURL
+	secondary EndpointURL
+
+	c2PublicKey []byte
+	rootPublicKey []byte
+	rootPrivateKey []byte
+
 	online map[hcp.AgentID]Client
 
 	connectChan    chan ConnectMessage
@@ -124,6 +131,11 @@ type server struct {
 	incomingChan   chan TelemetryMessage
 
 	isClosing bool
+}
+
+type EndpointURL struct {
+	url string
+	port uint16
 }
 
 // NewServer creates a new Server instance with the configurations specified in the protobuf.
@@ -202,6 +214,29 @@ func NewServer(config *lcServerConfig.Config) (Server, error) {
 		r.Hash = hash[:]
 
 		s.profileRules = append(s.profileRules, r)
+	}
+
+	srv.primary.url = config.GetPrimary().GetUrl()
+	srv.primary.port = config.GetPrimary().GetPort()
+	srv.secondary.url = config.GetSecondary().GetUrl()
+	srv.secondary.port = config.GetSecondary().GetPort()
+
+	if fileContent, err := ioutil.ReadFile(config.GetC2PublicKeyFile()); err == nil {
+		srv.c2PublicKey = fileContent
+	} else  {
+		return s, err
+	}
+
+	if fileContent, err := ioutil.ReadFile(config.GetRootPublicKeyFile()); err == nil {
+		srv.rootPublicKey = fileContent
+	} else  {
+		return s, err
+	}
+
+	if fileContent, err := ioutil.ReadFile(config.GetRootPrivateKeyFile()); err == nil {
+		srv.rootPrivateKey = fileContent
+	} else  {
+		return s, err
 	}
 
 	s.enrollmentSecret = config.GetSecretEnrollmentToken()
