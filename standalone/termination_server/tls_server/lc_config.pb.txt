@@ -1,0 +1,39 @@
+secretEnrollmentToken: "somethingsecretthiswaycomes"
+
+# Enroll any installer for org 1
+enrollmentRules {
+	rule {
+		oid: "00000000-0000-0000-0000-000000000001"
+		iid: "00000000-0000-0000-0000-000000000001"
+	}
+}
+
+# Windows on any org, installer and sensor
+profileRules {
+	rule {
+		aid: "0.0.0.10000000.0"
+		profileFile: "hbs_passive_win.profile"
+	}
+	rule {
+		aid: "0.0.0.20000000.0"
+		profileFile: "hbs_passive_lin.profile"
+	}
+	rule {
+		aid: "0.0.0.30000000.0"
+		profileFile: "hbs_passive_osx.profile"
+	}
+}
+
+primary {
+	url: "127.0.0.1"
+	port: 443
+}
+
+secondary {
+	url: "rp_c2_dev"
+	port: 443
+}
+
+c2PublicKeyFile: "c2.pub.pem"
+rootPublicKeyFile: "root.pub.der"
+rootPrivateKeyFile: "root.pri.der"

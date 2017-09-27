@@ -1,35 +1,50 @@
+// Copyright 2017 Google, Inc
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//    http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package rpcm
 
 import (
-	"testing"
 	"bytes"
 	"encoding/json"
-	"math/rand"
+	"net"
+	"testing"
+	//"math/rand"
 )
 
 func TestDeepSequence(t *testing.T) {
 	tmpBuff := []byte{0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0A}
 	seq := NewSequence().AddInt8(66, 42).
- 					     AddInt16(67, 43).
-					     AddInt32(68, 44).
-					     AddInt64(69, 45).
-					     AddStringA(400, "cool").
-					     AddStringW(401, "story").
-					     AddBuffer(402, tmpBuff).
-					     AddTimestamp(403, 999).
-					     AddIpv4(404, 0x01020304).
-					     AddIpv6(405, [16]byte{0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x0E, 0x0F}).
-					     AddPointer32(406, 0xAABBCCDD).
-					     AddPointer64(407, 0xAABBCCDD01020304).
-					     AddTimestamp(403, 666)
+		AddInt16(67, 43).
+		AddInt32(68, 44).
+		AddInt64(69, 45).
+		AddStringA(400, "cool").
+		AddStringW(401, "story").
+		AddBuffer(402, tmpBuff).
+		AddTimestamp(403, 999).
+		AddIPv4(404, net.ParseIP("127.0.0.1")).
+		AddIPv6(405, net.ParseIP("8000:7000:6000:5000:4000:3000:2000:1000")).
+		AddPointer32(406, 0xAABBCCDD).
+		AddPointer64(407, 0xAABBCCDD01020304).
+		AddTimestamp(403, 666)
 	seq2 := NewSequence().AddInt8(70, 46).
-				  	      AddInt16(71, 47).
-					      AddPointer32(406, 0xAABBCCDD).
-					      AddPointer64(407, 0xAABBCCDD01020304).
-					      AddTimestamp(403, 666).
-					      AddStringA(400, "another").
-					      AddStringW(401, "bro")
-	list1 := NewList(73, RPCM_RU64)
+		AddInt16(71, 47).
+		AddPointer32(406, 0xAABBCCDD).
+		AddPointer64(407, 0xAABBCCDD01020304).
+		AddTimestamp(403, 666).
+		AddStringA(400, "another").
+		AddStringW(401, "bro")
+	list1 := NewList(73, TypeInt64)
 
 	seq.AddSequence(72, seq2)
 	seq.AddList(74, list1)
@@ -37,14 +52,14 @@ func TestDeepSequence(t *testing.T) {
 	buf := bytes.Buffer{}
 	err := seq.Serialize(&buf)
 	if err != nil {
-		t.Errorf("Serialize failed.")
+		t.Errorf("Serialize failed: %s.", err)
 	}
 	outSeq := NewSequence()
 	err = outSeq.Deserialize(&buf)
 	if err != nil {
-		t.Errorf("Deserialize failed.")
+		t.Errorf("Deserialize failed: %s.", err)
 	}
-	rawJSON := outSeq.ToJson()
+	rawJSON := outSeq.ToJSON()
 	jsonString, err := json.Marshal(rawJSON)
 	if err != nil || jsonString == nil {
 		t.Errorf(err.Error())
@@ -80,6 +95,7 @@ func TestDeepSequence(t *testing.T) {
 	}
 }
 
+/*
 func getRandomBuffer(minSize int, maxSize int) []byte {
 	buf := make([]byte, minSize + rand.Intn(maxSize - minSize))
 	for i := range buf {
@@ -112,7 +128,7 @@ func TestNaming(t *testing.T) {
 		t.Error("Expected RP_TAGS_ACCESS_TIME in ToMachine output with value 99.")
 	}
 
-	asJSON := outSeq.ToJson()
+	asJSON := outSeq.ToJSON()
 	if asJSON == nil {
 		t.Error("ToMachine failed.")
 	}
@@ -134,4 +150,4 @@ func TestFuzz(t *testing.T) {
 			t.Error("Got a valid structure out of random fuzz data, unexpected.")
 		}
 	}
-}
+}*/
