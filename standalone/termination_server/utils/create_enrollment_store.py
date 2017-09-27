@@ -13,7 +13,9 @@
 # limitations under the License.
 
 import argparse
-from hcp.utils.rpcm import *
+from hcp.utils.rpcm import rpcm
+from hcp.utils.rpcm import rSequence
+from hcp.utils.rpcm import rList
 from hcp.Symbols import Symbols
 from hcp.signing import Signing
 import uuid
@@ -21,10 +23,11 @@ import base64
 from io import BytesIO
 
 _ = Symbols()
+rpcm = rpcm()
 
 OBFUSCATION_KEY = "\xFA\x75\x01"
 
-def obfuscate( self, buffer, key ):
+def obfuscate( buffer, key ):
     obf = BytesIO()
     index = 0
     for hx in buffer:
@@ -92,9 +95,9 @@ conf = ( rSequence().addStringA( _.hcp.PRIMARY_URL, arguments.primary[ 0 ] )
                                                                .addInt32( _.base.HCP_ARCHITECTURE, 0 ) )
                     .addBuffer( _.hcp.C2_PUBLIC_KEY, arguments.c2_pub_cert )
                     .addBuffer( _.hcp.ROOT_PUBLIC_KEY, arguments.root_pub_key ) )
-conf = self.rpcm.serialise( conf )
-conf = self.obfuscate( conf, OBFUSCATION_KEY )
-confSig = Signing( arguments.root_pri_key ).sign( conf )
+conf = rpcm.serialise( conf )
+conf = obfuscate( conf, OBFUSCATION_KEY )
+confSig = Signing( arguments.root_pri_key.read() ).sign( conf )
 
 arguments.output_store.write( conf )
 arguments.output_store_sig.write( confSig )
