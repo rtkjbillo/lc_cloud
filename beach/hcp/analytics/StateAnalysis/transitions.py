@@ -44,6 +44,21 @@ def NewProcessWithPrivilege( isRoot ):
             return False
     return _processWithPriv
 
+def NewProcessWithUser( regexp ):
+    try:
+        regexp.match( '' )
+    except:
+        regexp = re.compile( regexp )
+    def _processWithUser( event, history, indexes ):
+        newProcAccount = _x_( event.event, 'notification.NEW_PROCESS/base.USER_NAME' )
+        if newProcAccount is None:
+            newProcAccount = _x_( event.event, 'notification.EXISTING_PROCESS/base.USER_NAME' )
+        if newProcAccount is not None and regexp.match( newProcAccount ):
+            return True
+        else:
+            return False
+    return _processWithUser
+
 def NewDocumentNamed( regexp ):
     try:
         regexp.match( '' )
