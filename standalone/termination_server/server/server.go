@@ -59,6 +59,8 @@ type TelemetryMessage struct {
 type EnrollmentRule struct {
 	OID uuid.UUID
 	IID uuid.UUID
+	Store []byte
+	StoreSig []byte
 }
 
 // ModuleRule represents a module to be loaded on all clients with an AgentID matching the mask.
@@ -117,13 +119,6 @@ type server struct {
 	moduleRules      []ModuleRule
 	profileRules     []ProfileRule
 
-	primary EndpointURL
-	secondary EndpointURL
-
-	c2PublicKey []byte
-	rootPublicKey []byte
-	rootPrivateKey []byte
-
 	online map[hcp.AgentID]Client
 
 	connectChan    chan ConnectMessage
@@ -165,6 +160,16 @@ func NewServer(config *lcServerConfig.Config) (Server, error) {
 			return s, err
 		}
 		if r.IID, err = uuid.Parse(rule.GetIid()); err != nil {
+			return s, err
+		}
+		if fileContent, err := ioutil.ReadFile(rule.GetStoreFile()); err == nil {
+			r.Store = fileContent
+		} else  {
+			return s, err
+		}
+		if fileContent, err := ioutil.ReadFile(rule.GetStoreSigFile()); err == nil {
+			r.StoreSig = fileContent
+		} else  {
 			return s, err
 		}
 		s.enrollmentRules = append(s.enrollmentRules, r)
@@ -214,29 +219,6 @@ func NewServer(config *lcServerConfig.Config) (Server, error) {
 		r.Hash = hash[:]
 
 		s.profileRules = append(s.profileRules, r)
-	}
-
-	s.primary.url = config.GetPrimary().GetUrl()
-	s.primary.port = uint16(config.GetPrimary().GetPort())
-	s.secondary.url = config.GetSecondary().GetUrl()
-	s.secondary.port = uint16(config.GetSecondary().GetPort())
-
-	if fileContent, err := ioutil.ReadFile(config.GetC2PublicKeyFile()); err == nil {
-		s.c2PublicKey = fileContent
-	} else  {
-		return s, err
-	}
-
-	if fileContent, err := ioutil.ReadFile(config.GetRootPublicKeyFile()); err == nil {
-		s.rootPublicKey = fileContent
-	} else  {
-		return s, err
-	}
-
-	if fileContent, err := ioutil.ReadFile(config.GetRootPrivateKeyFile()); err == nil {
-		s.rootPrivateKey = fileContent
-	} else  {
-		return s, err
 	}
 
 	s.enrollmentSecret = config.GetSecretEnrollmentToken()
