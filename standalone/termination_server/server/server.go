@@ -216,25 +216,25 @@ func NewServer(config *lcServerConfig.Config) (Server, error) {
 		s.profileRules = append(s.profileRules, r)
 	}
 
-	srv.primary.url = config.GetPrimary().GetUrl()
-	srv.primary.port = config.GetPrimary().GetPort()
-	srv.secondary.url = config.GetSecondary().GetUrl()
-	srv.secondary.port = config.GetSecondary().GetPort()
+	s.primary.url = config.GetPrimary().GetUrl()
+	s.primary.port = uint16(config.GetPrimary().GetPort())
+	s.secondary.url = config.GetSecondary().GetUrl()
+	s.secondary.port = uint16(config.GetSecondary().GetPort())
 
 	if fileContent, err := ioutil.ReadFile(config.GetC2PublicKeyFile()); err == nil {
-		srv.c2PublicKey = fileContent
+		s.c2PublicKey = fileContent
 	} else  {
 		return s, err
 	}
 
 	if fileContent, err := ioutil.ReadFile(config.GetRootPublicKeyFile()); err == nil {
-		srv.rootPublicKey = fileContent
+		s.rootPublicKey = fileContent
 	} else  {
 		return s, err
 	}
 
 	if fileContent, err := ioutil.ReadFile(config.GetRootPrivateKeyFile()); err == nil {
-		srv.rootPrivateKey = fileContent
+		s.rootPrivateKey = fileContent
 	} else  {
 		return s, err
 	}

@@ -44,5 +44,5 @@ message ProfileRule {
 
 message EndpointUrl {
 	required string url = 1;
-	required int port = 2;
+	required int32 port = 2;
 }
