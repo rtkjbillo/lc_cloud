@@ -20,6 +20,11 @@ import base64
 
 _ = Symbols()
 
+def urlPort( val ):
+	res = val.split( ':' )
+	res = ( res[ 0 ], int( res[ 1 ] ) )
+	return res
+
 parser = argparse.ArgumentParser( description = 'Create Bootstrap' )
 parser.add_argument( '--root_pub_key',
                      type = argparse.FileType( 'r' ),
@@ -27,12 +32,12 @@ parser.add_argument( '--root_pub_key',
                      help = 'root public key to trust in DER format',
                      dest = 'root_pub_key' )
 parser.add_argument( '--primary',
-                     type = lambda x: x.split( ":" ),
+                     type = urlPort,
                      required = True,
                      help = 'primary destination, domain:port',
                      dest = 'primary' )
 parser.add_argument( '--secondary',
-                     type = lambda x: x.split( ":" ),
+                     type = urlPort,
                      required = True,
                      help = 'secondary destination, domain:port',
                      dest = 'secondary' )
@@ -58,7 +63,7 @@ bootstrap = ( rSequence().addStringA( _.hcp.PRIMARY_URL, arguments.primary[ 0 ] 
                                                                     .addBuffer( _.base.HCP_SENSOR_ID, uuid.UUID( '00000000-0000-0000-0000-000000000000' ).bytes )
                                                                     .addInt32( _.base.HCP_PLATFORM, 0 )
                                                                     .addInt32( _.base.HCP_ARCHITECTURE, 0 ) )
-                         .addBuffer( _.hcp.ROOT_PUBLIC_KEY, arguments.root_pub_key ) )
+                         .addBuffer( _.hcp.ROOT_PUBLIC_KEY, arguments.root_pub_key.read() ) )
 bootstrap = base64.b64encode( rpcm().serialise( bootstrap ) )
 
 print( bootstrap )

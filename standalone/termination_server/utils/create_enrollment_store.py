@@ -35,6 +35,11 @@ def obfuscate( buffer, key ):
         index = index + 1
     return obf.getvalue()
 
+def urlPort( val ):
+    res = val.split( ':' )
+    res = ( res[ 0 ], int( res[ 1 ] ) )
+    return res
+
 parser = argparse.ArgumentParser( description = 'Create Bootstrap' )
 parser.add_argument( '--root_pub_key',
                      type = argparse.FileType( 'r' ),
@@ -52,12 +57,12 @@ parser.add_argument( '--c2_pub_key',
                      help = 'c2 public cert to trust',
                      dest = 'c2_pub_cert' )
 parser.add_argument( '--primary',
-                     type = lambda x: x.split( ":" ),
+                     type = urlPort,
                      required = True,
                      help = 'primary destination, domain:port',
                      dest = 'primary' )
 parser.add_argument( '--secondary',
-                     type = lambda x: x.split( ":" ),
+                     type = urlPort,
                      required = True,
                      help = 'secondary destination, domain:port',
                      dest = 'secondary' )
@@ -93,8 +98,8 @@ conf = ( rSequence().addStringA( _.hcp.PRIMARY_URL, arguments.primary[ 0 ] )
                                                                .addBuffer( _.base.HCP_SENSOR_ID, uuid.UUID( '00000000-0000-0000-0000-000000000000' ).bytes )
                                                                .addInt32( _.base.HCP_PLATFORM, 0 )
                                                                .addInt32( _.base.HCP_ARCHITECTURE, 0 ) )
-                    .addBuffer( _.hcp.C2_PUBLIC_KEY, arguments.c2_pub_cert )
-                    .addBuffer( _.hcp.ROOT_PUBLIC_KEY, arguments.root_pub_key ) )
+                    .addBuffer( _.hcp.C2_PUBLIC_KEY, arguments.c2_pub_cert.read() )
+                    .addBuffer( _.hcp.ROOT_PUBLIC_KEY, arguments.root_pub_key.read() ) )
 conf = rpcm.serialise( conf )
 conf = obfuscate( conf, OBFUSCATION_KEY )
 confSig = Signing( arguments.root_pri_key.read() ).sign( conf )

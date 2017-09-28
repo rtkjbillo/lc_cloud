@@ -5,6 +5,8 @@ enrollmentRules {
 	rule {
 		oid: "00000000-0000-0000-0000-000000000001"
 		iid: "00000000-0000-0000-0000-000000000001"
+		storeFile: "store.dat"
+		storeSigFile: "store.dat.sig"
 	}
 }
 
@@ -24,16 +26,6 @@ profileRules {
 	}
 }
 
-primary {
-	url: "127.0.0.1"
-	port: 443
+moduleRules {
+	
 }
-
-secondary {
-	url: "rp_c2_dev"
-	port: 443
-}
-
-c2PublicKeyFile: "c2.pub.pem"
-rootPublicKeyFile: "root.pub.der"
-rootPrivateKeyFile: "root.pri.der"
