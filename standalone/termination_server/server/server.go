@@ -57,9 +57,9 @@ type TelemetryMessage struct {
 
 // EnrollmentRule represents one pair of OrgID and InstallerID that are whitelisted to be enrolled.
 type EnrollmentRule struct {
-	OID uuid.UUID
-	IID uuid.UUID
-	Store []byte
+	OID      uuid.UUID
+	IID      uuid.UUID
+	Store    []byte
 	StoreSig []byte
 }
 
@@ -128,11 +128,6 @@ type server struct {
 	isClosing bool
 }
 
-type EndpointURL struct {
-	url string
-	port uint16
-}
-
 // NewServer creates a new Server instance with the configurations specified in the protobuf.
 func NewServer(config *lcServerConfig.Config) (Server, error) {
 	var err error
@@ -164,12 +159,12 @@ func NewServer(config *lcServerConfig.Config) (Server, error) {
 		}
 		if fileContent, err := ioutil.ReadFile(rule.GetStoreFile()); err == nil {
 			r.Store = fileContent
-		} else  {
+		} else {
 			return s, err
 		}
 		if fileContent, err := ioutil.ReadFile(rule.GetStoreSigFile()); err == nil {
 			r.StoreSig = fileContent
-		} else  {
+		} else {
 			return s, err
 		}
 		s.enrollmentRules = append(s.enrollmentRules, r)
@@ -304,17 +299,17 @@ func (srv *server) generateEnrollmentToken(aid hcp.AgentID) []byte {
 	return hmacToken.Sum(nil)
 }
 
-func (srv *server) isWhitelistedForEnrollment(oID uuid.UUID, iID uuid.UUID) bool {
+func (srv *server) isWhitelistedForEnrollment(oID uuid.UUID, iID uuid.UUID) (isWhitelisted bool, store []byte, storeSig []byte) {
 	defer srv.mu.RUnlock()
 	srv.mu.RLock()
 
 	for _, rule := range srv.enrollmentRules {
 		if rule.OID == oID && rule.IID == iID {
-			return true
+			return true, rule.Store, rule.StoreSig
 		}
 	}
 
-	return false
+	return false, nil, nil
 }
 
 func (srv *server) enrollClient(c *client) ([]*rpcm.Sequence, error) {
@@ -323,7 +318,10 @@ func (srv *server) enrollClient(c *client) ([]*rpcm.Sequence, error) {
 
 	aID := c.AgentID()
 
-	if !srv.isWhitelistedForEnrollment(aID.OID, aID.IID) {
+	var store, storeSig []byte
+	var isWhitelisted bool
+
+	if isWhitelisted, store, storeSig = srv.isWhitelistedForEnrollment(aID.OID, aID.IID); !isWhitelisted {
 		return nil, fmt.Errorf("server: org or installer not whitelisted: %s / %s", aID.OID, aID.IID)
 	}
 
@@ -332,11 +330,17 @@ func (srv *server) enrollClient(c *client) ([]*rpcm.Sequence, error) {
 
 	enrollmentToken := srv.generateEnrollmentToken(aID)
 
-	// The message to the enrolling client specifies its new SID and the token proving legitimate enrollment.
-	return []*rpcm.Sequence{rpcm.NewSequence().
-		AddInt8(rpcm.RP_TAGS_OPERATION, hcp.CmdSetHCPID).
-		AddSequence(rpcm.RP_TAGS_HCP_IDENT, c.aID.ToSequence()).
-		AddBuffer(rpcm.RP_TAGS_HCP_ENROLLMENT_TOKEN, enrollmentToken)}, nil
+	// The message to the enrolling client specifies its new SID, the token proving legitimate enrollment
+	// and the config store containing destination and keys.
+	return []*rpcm.Sequence{
+		rpcm.NewSequence().
+			AddInt8(rpcm.RP_TAGS_OPERATION, hcp.CmdSetHCPConf).
+			AddBuffer(rpcm.RP_TAGS_HCP_CONFIGURATION, store).
+			AddBuffer(rpcm.RP_TAGS_SIGNATURE, storeSig),
+		rpcm.NewSequence().
+			AddInt8(rpcm.RP_TAGS_OPERATION, hcp.CmdSetHCPID).
+			AddSequence(rpcm.RP_TAGS_HCP_IDENT, c.aID.ToSequence()).
+			AddBuffer(rpcm.RP_TAGS_HCP_ENROLLMENT_TOKEN, enrollmentToken)}, nil
 }
 
 // Get the list of modules the client should have loaded.

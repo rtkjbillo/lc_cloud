@@ -50,6 +50,9 @@ const (
 	CmdSetHCPID      = 3
 	CmdSetGlobalTime = 4
 	CmdQuit          = 5
+	CmdUpgrade       = 6
+	CmdSetHCPConf    = 7
+	CmdDisconnect    = 8
 )
 
 const (
