@@ -291,36 +291,32 @@ func (c *client) processHBSMessage(messages []*rpcm.Sequence) error {
 				return errors.New("server: no HBS profile to load")
 			}
 
-			if currentProfileHash, ok := syncMessage.GetBuffer(rpcm.RP_TAGS_HASH); ok && bytes.Equal(profile.Hash, currentProfileHash) {
-				// The sensor already has the latest profile, no need to check anything else.
-				continue
-			}
+			if currentProfileHash, ok := syncMessage.GetBuffer(rpcm.RP_TAGS_HASH); !ok || !bytes.Equal(profile.Hash, currentProfileHash) {
+				// We need to load the relevant profile from disk and send it to the client.
+				var (
+					profileContent []byte
+					err            error
+				)
+				if profileContent, err = ioutil.ReadFile(profile.ProfileFile); err != nil {
+					return err
+				}
 
-			// We need to load the relevant profile from disk and send it to the client.
-			var (
-				profileContent []byte
-				err            error
-			)
-			if profileContent, err = ioutil.ReadFile(profile.ProfileFile); err != nil {
-				return err
-			}
+				actualHash := sha256.Sum256(profileContent)
+				if !bytes.Equal(actualHash[:], profile.Hash) {
+					return fmt.Errorf("server: profile content seems to have changed")
+				}
 
-			actualHash := sha256.Sum256(profileContent)
-			if !bytes.Equal(actualHash[:], profile.Hash) {
-				return fmt.Errorf("server: profile content seems to have changed")
-			}
+				// The profile is really a List of Sequences to make it more flexible.
+				parsedProfile := rpcm.NewList(0, 0)
+				if err := parsedProfile.Deserialize(bytes.NewBuffer(profileContent)); err != nil {
+					return err
+				}
 
-			// The profile is really a List of Sequences to make it more flexible.
-			parsedProfile := rpcm.NewList(0, 0)
-			if err := parsedProfile.Deserialize(bytes.NewBuffer(profileContent)); err != nil {
-				return err
+				outMessages = append(outMessages, rpcm.NewSequence().
+					AddSequence(rpcm.RP_TAGS_NOTIFICATION_SYNC, rpcm.NewSequence().
+						AddBuffer(rpcm.RP_TAGS_HASH, profile.Hash).
+						AddList(rpcm.RP_TAGS_HBS_CONFIGURATIONS, parsedProfile)))
 			}
-
-			outMessages = append(outMessages, rpcm.NewSequence().
-				AddSequence(rpcm.RP_TAGS_NOTIFICATION_SYNC, rpcm.NewSequence().
-					AddBuffer(rpcm.RP_TAGS_HASH, profile.Hash).
-					AddList(rpcm.RP_TAGS_HBS_CONFIGURATIONS, parsedProfile)))
-			continue
 		}
 
 		var data TelemetryMessage
@@ -329,7 +325,7 @@ func (c *client) processHBSMessage(messages []*rpcm.Sequence) error {
 		c.srv.incomingChan <- data
 	}
 
-	return nil
+	return c.send(hcp.ModuleIDHBS, outMessages)
 }
 
 // Stop tells the client it has disconnected from the server.

@@ -15,7 +15,7 @@
 from beach.actor import Actor
 from sets import Set
 AgentId = Actor.importLib( './hcp_helpers', 'AgentId' )
-_ = Actor.importLib( 'Symbols', 'Symbols' )()
+_ = Actor.importLib( '../Symbols', 'Symbols' )()
 HbsCollectorId = Actor.importLib( './hcp_helpers', 'HbsCollectorId' )
 rSequence = Actor.importLib( './rpcm', 'rSequence' )
 rList = Actor.importLib( './rpcm', 'rList' )
