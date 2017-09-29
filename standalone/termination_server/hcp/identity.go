@@ -209,8 +209,8 @@ func (aid AgentID) ToSequence() *rpcm.Sequence {
 		AddBuffer(rpcm.RP_TAGS_HCP_ORG_ID, aid.OID[:]).
 		AddBuffer(rpcm.RP_TAGS_HCP_INSTALLER_ID, aid.IID[:]).
 		AddBuffer(rpcm.RP_TAGS_HCP_SENSOR_ID, aid.SID[:]).
-		AddInt32(rpcm.RP_TAGS_HCP_ARCHITECTURE, aid.Platform).
-		AddInt32(rpcm.RP_TAGS_HCP_PLATFORM, aid.Architecture)
+		AddInt32(rpcm.RP_TAGS_HCP_ARCHITECTURE, aid.Architecture).
+		AddInt32(rpcm.RP_TAGS_HCP_PLATFORM, aid.Platform)
 
 	return seq
 }
