@@ -168,8 +168,8 @@ func (c *client) ProcessIncoming(moduleID uint8, messages []*rpcm.Sequence) erro
 }
 
 func (c *client) processHCPMessage(messages []*rpcm.Sequence) error {
-	// Get the list of modules that should be loaded on the client.
-	shouldBeLoaded := c.srv.getExpectedModulesFor(c.aID)
+	
+	hasModuleInfo := false
 
 	// The number of modules is always very low so the fact that we determine which modules
 	// should be in n^2 isn't a big deal.
@@ -178,6 +178,8 @@ func (c *client) processHCPMessage(messages []*rpcm.Sequence) error {
 	currentlyLoaded := make([]ModuleRule, 0, 2)
 	for _, message := range messages {
 		if modules, ok := message.GetList(rpcm.RP_TAGS_HCP_MODULES); ok {
+			hasModuleInfo = true
+
 			for _, moduleInfo := range modules.GetSequence(rpcm.RP_TAGS_HCP_MODULE) {
 				var (
 					mod ModuleRule
@@ -192,8 +194,22 @@ func (c *client) processHCPMessage(messages []*rpcm.Sequence) error {
 
 				currentlyLoaded = append(currentlyLoaded, mod)
 			}
+		} else if _, ok = message.GetInt32(rpcm.RP_TAGS_PACKAGE_VERSION); ok {
+			// This is a connection headers.
+		} else {
+			return fmt.Errorf("server: hcp message of unknown format: %+v", message)
 		}
 	}
+
+	// The code below deals with syncing the modules that should be loaded and are loaded.
+	// If this message didn't contain a module list we can't sync. It's likely just the
+	// session header.
+	if !hasModuleInfo {
+		return nil
+	}
+
+	// Get the list of modules that should be loaded on the client.
+	shouldBeLoaded := c.srv.getExpectedModulesFor(c.aID)
 
 	outMessages := make([]*rpcm.Sequence, 0, 5)
 
