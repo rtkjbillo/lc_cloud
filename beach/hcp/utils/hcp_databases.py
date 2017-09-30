@@ -50,8 +50,10 @@ class CassDb( object ):
     def __del__( self ):
         self.shutdown()
 
-    def _logError( self, exception ):
+    def _logError( self, exception, failureCallback, query, params ):
         self.nErrors += 1
+        if failureCallback is not None:
+            failureCallback( query, params )
 
     def _logSuccess( self, rows ):
         self.nSuccess += 1
@@ -73,7 +75,7 @@ class CassDb( object ):
         try:
             res = self.cur.execute( q, realParams )
         except Exception as e:
-            self._logError( e )
+            self._logError( e, None, q, realParams )
             raise
         else:
             self._logSuccess( res )
@@ -92,7 +94,7 @@ class CassDb( object ):
     def prepare( self, query ):
         return self.cur.prepare( query )
 
-    def execute_async( self, query, params = [] ):
+    def execute_async( self, query, params = [], failureCallback = None ):
         if type( query ) is str or type( query ) is unicode:
             query = SimpleStatement( query, consistency_level = self.consistency )
         realParams = []
@@ -102,7 +104,9 @@ class CassDb( object ):
             realParams.append( p )
 
         future = self.cur.execute_async( query, realParams )
-        future.add_callbacks( self._logSuccess, self._logError )
+        future.add_callbacks( callback = self._logSuccess, 
+                              errback = self._logError,
+                              errback_args = ( failureCallback, query, realParams ) )
 
         return future
 

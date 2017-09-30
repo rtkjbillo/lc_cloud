@@ -88,6 +88,12 @@ class AnalyticsModeling( Actor ):
     def deinit( self ):
         self.db.shutdown()
 
+    def logDroppedInsert( self, query, params ):
+        self.logCritical( "Dropped Insert: %s // %s" % ( query, params ) )
+
+    def asyncInsert( self, boundStatement ):
+        self.db.execute_async( boundStatement, failureCallback = self.logDroppedInsert )
+
     def refreshConfigs( self ):
         resp = self.deploymentmanager.request( 'get_global_config', {} )
         if not resp.isSuccess:
@@ -109,6 +115,10 @@ class AnalyticsModeling( Actor ):
         self.lastReport = now
         self.zSet( 'enqueue_per_sec', enPerSec )
         self.zSet( 'write_per_sec', wrPerSec )
+        self.zInc( 'inserts_dropped', self.db.nErrors )
+        if 0 != self.db.nErrors:
+            self.log( "Inserts dropped since last report: %s" % self.db.nErrors )
+            self.db.nErrors = 0
         self.delay( self.statFrameSeconds, self.reportStats )
 
     def ingestStatement( self, statement ):
@@ -151,15 +161,15 @@ class AnalyticsModeling( Actor ):
                     else:
                         ttl = ttls[ 'long_obj' ]
 
-                    self.db.execute_async( self.stmt_rel_batch_parent.bind( ( ObjectKey( relVal[ 0 ], relType[ 0 ] ),
-                                                                              relType[ 1 ],
-                                                                              ObjectKey( relVal[ 1 ], relType[ 1 ] ),
-                                                                              ttl ) ) )
+                    self.asyncInsert( self.stmt_rel_batch_parent.bind( ( ObjectKey( relVal[ 0 ], relType[ 0 ] ),
+                                                                         relType[ 1 ],
+                                                                         ObjectKey( relVal[ 1 ], relType[ 1 ] ),
+                                                                         ttl ) ) )
 
-                    self.db.execute_async( self.stmt_rel_batch_child.bind( ( ObjectKey( relVal[ 1 ], relType[ 1 ] ),
-                                                                             relType[ 0 ],
-                                                                             ObjectKey( relVal[ 0 ], relType[ 0 ] ),
-                                                                             ttl ) ) )
+                    self.asyncInsert( self.stmt_rel_batch_child.bind( ( ObjectKey( relVal[ 1 ], relType[ 1 ] ),
+                                                                        relType[ 0 ],
+                                                                        ObjectKey( relVal[ 0 ], relType[ 0 ] ),
+                                                                        ttl ) ) )
                     self.nWrites += 2
 
         if 7 <= self.modelingLevel:
@@ -172,13 +182,13 @@ class AnalyticsModeling( Actor ):
                     else:
                         ttl = ttls[ 'long_obj' ]
 
-                    self.db.execute_async( self.stmt_obj_batch_man.bind( ( k, objVal, objType, ttl ) ) )
-                    self.db.execute_async( self.stmt_obj_org.bind( ( k, oid, ts, sid, eid, min( ttl, ttls[ 'events' ] ) ) ) )
-                    self.db.execute_async( self.stmt_obj_batch_loc.bind( ( ttl, ts, sid, objType, k ) ) )
-                    self.db.execute_async( self.stmt_obj_batch_id.bind( ( k, sid, ts, ttl ) ) )
+                    self.asyncInsert( self.stmt_obj_batch_man.bind( ( k, objVal, objType, ttl ) ) )
+                    self.asyncInsert( self.stmt_obj_org.bind( ( k, oid, ts, sid, eid, min( ttl, ttls[ 'events' ] ) ) ) )
+                    self.asyncInsert( self.stmt_obj_batch_loc.bind( ( ttl, ts, sid, objType, k ) ) )
+                    self.asyncInsert( self.stmt_obj_batch_id.bind( ( k, sid, ts, ttl ) ) )
                     self.nWrites += 4
                     if 8 <= self.modelingLevel:
-                        self.db.execute_async( self.stmt_obj_batch_type.bind( ( random.randint( 0, 256 ), objType, k, sid, ttl ) ) )
+                        self.asyncInsert( self.stmt_obj_batch_type.bind( ( random.randint( 0, 256 ), objType, k, sid, ttl ) ) )
                         self.nWrites += 1
 
 
@@ -211,34 +221,34 @@ class AnalyticsModeling( Actor ):
         eid = uuid.UUID( routing[ 'event_id' ] )
 
         if 1 < self.modelingLevel:
-            self.db.execute_async( self.stmt_events.bind( ( eid,
-                                                            base64.b64encode( msgpack.packb( { 'routing' : routing, 'event' : event } ) ),
-                                                            sid,
-                                                            ttls[ 'events' ] ) ) )
+            self.asyncInsert( self.stmt_events.bind( ( eid,
+                                                       base64.b64encode( msgpack.packb( { 'routing' : routing, 'event' : event } ) ),
+                                                       sid,
+                                                       ttls[ 'events' ] ) ) )
 
-            self.db.execute_async( self.stmt_timeline.bind( ( sid,
-                                                              time_uuid.TimeUUID.with_timestamp( ts ),
-                                                              eid,
-                                                              routing[ 'event_type' ],
-                                                              ttls[ 'events' ] ) ) )
+            self.asyncInsert( self.stmt_timeline.bind( ( sid,
+                                                         time_uuid.TimeUUID.with_timestamp( ts ),
+                                                         eid,
+                                                         routing[ 'event_type' ],
+                                                         ttls[ 'events' ] ) ) )
             self.nWrites += 2
 
-        self.db.execute_async( self.stmt_timeline_by_type.bind( ( sid,
-                                                                  time_uuid.TimeUUID.with_timestamp( ts ),
-                                                                  eid,
-                                                                  routing[ 'event_type' ],
-                                                                  ttls[ 'events' ] ) ) )
+        self.asyncInsert( self.stmt_timeline_by_type.bind( ( sid,
+                                                             time_uuid.TimeUUID.with_timestamp( ts ),
+                                                             eid,
+                                                             routing[ 'event_type' ],
+                                                             ttls[ 'events' ] ) ) )
         self.nWrites += 1
 
         if 3 <= self.modelingLevel:
-            self.db.execute_async( self.stmt_recent.bind( ( ttls[ 'events' ], sid, ) ) )
+            self.asyncInsert( self.stmt_recent.bind( ( ttls[ 'events' ], sid, ) ) )
             self.nWrites += 1
 
         if 2 <= self.modelingLevel:
-            self.db.execute_async( self.stmt_last.bind( ( ttls[ 'events' ],
-                                                          eid,
-                                                          sid,
-                                                          routing[ 'event_type' ] ) ) )
+            self.asyncInsert( self.stmt_last.bind( ( ttls[ 'events' ],
+                                                     eid,
+                                                     sid,
+                                                     routing[ 'event_type' ] ) ) )
             self.nWrites += 1
 
         if 5 <= self.modelingLevel:
@@ -267,26 +277,26 @@ class AnalyticsModeling( Actor ):
                         parent_atom = None
 
             if this_atom is not None:
-                self.db.execute_async( self.stmt_atoms_lookup.bind( ( this_atom,
-                                                                      eid,
-                                                                      ttls[ 'atoms' ] ) ) )
+                self.asyncInsert( self.stmt_atoms_lookup.bind( ( this_atom,
+                                                                 eid,
+                                                                 ttls[ 'atoms' ] ) ) )
                 self.nWrites += 1
 
             if this_atom is not None and parent_atom is not None:
-                self.db.execute_async( self.stmt_atoms_children.bind( ( parent_atom,
-                                                                        this_atom if this_atom is not None else uuid.UUID( bytes = null_atom ),
-                                                                        eid,
-                                                                        ttls[ 'atoms' ] ) ) )
+                self.asyncInsert( self.stmt_atoms_children.bind( ( parent_atom,
+                                                                   this_atom if this_atom is not None else uuid.UUID( bytes = null_atom ),
+                                                                   eid,
+                                                                   ttls[ 'atoms' ] ) ) )
                 self.nWrites += 1
 
         if 2 <= self.modelingLevel:
             inv_id = _x_( event, '?/hbs.INVESTIGATION_ID' )
             if inv_id is not None and inv_id != '':
-                self.db.execute_async( self.stmt_investigation.bind( ( inv_id.upper().split( '//' )[ 0 ],
-                                                                       time_uuid.TimeUUID.with_timestamp( ts ),
-                                                                       eid,
-                                                                       routing[ 'event_type' ],
-                                                                       ttls[ 'detections' ] ) ) )
+                self.asyncInsert( self.stmt_investigation.bind( ( inv_id.upper().split( '//' )[ 0 ],
+                                                                  time_uuid.TimeUUID.with_timestamp( ts ),
+                                                                  eid,
+                                                                  routing[ 'event_type' ],
+                                                                  ttls[ 'detections' ] ) ) )
                 self.nWrites += 1
 
         # Only deal with Objects at level 7 and above.
