@@ -23,7 +23,6 @@ rSequence = Actor.importLib( 'utils/rpcm', 'rSequence' )
 AgentId = Actor.importLib( 'utils/hcp_helpers', 'AgentId' )
 HbsCollectorId = Actor.importLib( 'utils/hcp_helpers', 'HbsCollectorId' )
 CassDb = Actor.importLib( 'utils/hcp_databases', 'CassDb' )
-CassPool = Actor.importLib( 'utils/hcp_databases', 'CassPool' )
 HcpOperations = Actor.importLib( 'utils/hcp_helpers', 'HcpOperations' )
 HcpModuleId = Actor.importLib( 'utils/hcp_helpers', 'HcpModuleId' )
 
@@ -37,12 +36,7 @@ def audited( f ):
 class AdminEndpoint( Actor ):
     def init( self, parameters, resources ):
         self.symbols = self.importLib( '../Symbols', 'Symbols' )()
-        self._db = CassDb( parameters[ 'db' ], 'hcp_analytics', consistencyOne = True )
-        self.db = CassPool( self._db,
-                            rate_limit_per_sec = parameters[ 'rate_limit_per_sec' ],
-                            maxConcurrent = parameters[ 'max_concurrent' ],
-                            blockOnQueueSize = parameters[ 'block_on_queue_size' ] )
-        self.db.start()
+        self.db = CassDb( parameters[ 'db' ], 'hcp_analytics' )
         self.handle( 'ping', self.ping )
         self.handle( 'hcp.get_agent_states', self.cmd_hcp_getAgentStates )
         self.handle( 'hcp.get_taskings', self.cmd_hcp_getTaskings )
@@ -71,7 +65,7 @@ class AdminEndpoint( Actor ):
         self.persistentTasks = self.getActorHandle( resources[ 'persistent_tasks' ], timeout = 5, nRetries = 3 )
 
     def deinit( self ):
-        pass
+        self.db.shutdown()
 
     def ping( self, msg ):
         return ( True, { 'pong' : time.time() } )

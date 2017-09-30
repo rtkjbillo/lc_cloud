@@ -15,23 +15,16 @@
 from beach.actor import Actor
 import uuid
 CassDb = Actor.importLib( 'utils/hcp_databases', 'CassDb' )
-CassPool = Actor.importLib( 'utils/hcp_databases', 'CassPool' )
 
 class AuditManager( Actor ):
     def init( self, parameters, resources ):
-        self._db = CassDb( parameters[ 'db' ], 'hcp_analytics', consistencyOne = True )
-        self.db = CassPool( self._db,
-                            rate_limit_per_sec = parameters[ 'rate_limit_per_sec' ],
-                            maxConcurrent = parameters[ 'max_concurrent' ],
-                            blockOnQueueSize = parameters[ 'block_on_queue_size' ] )
-
-        self.db.start()
+        self.db = CassDb( parameters[ 'db' ], 'hcp_analytics' )
 
         self.handle( 'record', self.record )
         self.handle( 'get_log', self.getLog )
 
     def deinit( self ):
-        pass
+        self.db.shutdown()
 
     def asUuidList( self, elem ):
         if type( elem ) not in ( list, tuple ):

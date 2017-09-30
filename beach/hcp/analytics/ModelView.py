@@ -35,7 +35,7 @@ CassDb = Actor.importLib( '../utils/hcp_databases', 'CassDb' )
 class ModelView( Actor ):
     def init( self, parameters, resources ):
         self.admin = BEAdmin( self._beach_config_path, None )
-        self.db = CassDb( parameters[ 'scale_db' ], 'hcp_analytics', quorum = False, backoffConsistency = True )
+        self.db = CassDb( parameters[ 'scale_db' ], 'hcp_analytics' )
         Host.setDatabase( self.admin, self.db )
         HostObjects.setDatabase( self.db )
         Reporting.setDatabase( self.db )
@@ -67,7 +67,7 @@ class ModelView( Actor ):
         Host.closeDatabase()
         HostObjects.closeDatabase()
         Reporting.closeDatabase()
-        self.db.close()
+        self.db.shutdown()
 
     def asUuidList( self, elem ):
         if type( elem ) not in ( list, tuple ):

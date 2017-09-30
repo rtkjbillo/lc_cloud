@@ -13,8 +13,6 @@
 # limitations under the License.
 
 from beach.actor import Actor
-CassDb = Actor.importLib( 'utils/hcp_databases', 'CassDb' )
-CassPool = Actor.importLib( 'utils/hcp_databases', 'CassPool' )
 Host = Actor.importLib( 'utils/ObjectsDb', 'Host' )
 AgentId = Actor.importLib( 'utils/hcp_helpers', 'AgentId' )
 

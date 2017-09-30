@@ -19,7 +19,6 @@ import uuid
 from sets import Set
 from io import BytesIO
 CassDb = Actor.importLib( 'utils/hcp_databases', 'CassDb' )
-CassPool = Actor.importLib( 'utils/hcp_databases', 'CassPool' )
 AgentId = Actor.importLib( 'utils/hcp_helpers', 'AgentId' )
 rpcm = Actor.importLib( 'utils/rpcm', 'rpcm' )
 rList = Actor.importLib( 'utils/rpcm', 'rList' )
@@ -34,13 +33,7 @@ OBFUSCATION_KEY = "\xFA\x75\x01"
 class EnrollmentManager( Actor ):
     def init( self, parameters, resources ):
         self.enrollmentKey = parameters.get( 'enrollment_token', 'DEFAULT_HCP_ENROLLMENT_TOKEN' )
-        self._db = CassDb( parameters[ 'db' ], 'hcp_analytics', consistencyOne = True )
-        self.db = CassPool( self._db,
-                            rate_limit_per_sec = parameters[ 'rate_limit_per_sec' ],
-                            maxConcurrent = parameters[ 'max_concurrent' ],
-                            blockOnQueueSize = parameters[ 'block_on_queue_size' ] )
-
-        self.db.start()
+        self.db = CassDb( parameters[ 'db' ], 'hcp_analytics' )
 
         self.deploymentManager = self.getActorHandle( resources[ 'deployment' ], nRetries = 3, timeout = 10 )
         self.tagging = self.getActorHandle( resources[ 'tagging' ], timeout = 10, nRetries = 3 )
@@ -61,7 +54,7 @@ class EnrollmentManager( Actor ):
         self.handle( 'reload', self.loadRules )
 
     def deinit( self ):
-        pass
+        self.db.shutdown()
 
     def loadRules( self, msg = None ):
         newRules = []

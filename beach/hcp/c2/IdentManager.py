@@ -22,17 +22,10 @@ import string
 import struct
 import hmac
 CassDb = Actor.importLib( 'utils/hcp_databases', 'CassDb' )
-CassPool = Actor.importLib( 'utils/hcp_databases', 'CassPool' )
 
 class IdentManager( Actor ):
     def init( self, parameters, resources ):
-        self._db = CassDb( parameters[ 'db' ], 'hcp_analytics', consistencyOne = True )
-        self.db = CassPool( self._db,
-                            rate_limit_per_sec = parameters[ 'rate_limit_per_sec' ],
-                            maxConcurrent = parameters[ 'max_concurrent' ],
-                            blockOnQueueSize = parameters[ 'block_on_queue_size' ] )
-
-        self.db.start()
+        self.db = CassDb( parameters[ 'db' ], 'hcp_analytics' )
 
         self.audit = self.getActorHandle( resources[ 'auditing' ], timeout = 30, nRetries = 3 )
         self.page = self.getActorHandle( resources[ 'paging' ], timeout = 30, nRetries = 3 )
@@ -64,7 +57,7 @@ class IdentManager( Actor ):
         self.handle( 'set_retention', self.setRetention )
         
     def deinit( self ):
-        pass
+        self.db.shutdown()
 
     def genDefaultsIfNotPresent( self ):
         info = self.db.getOne( 'SELECT COUNT(*) FROM user_info' )

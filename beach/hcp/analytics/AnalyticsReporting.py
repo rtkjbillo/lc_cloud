@@ -19,22 +19,15 @@ import json
 import time_uuid
 AgentId = Actor.importLib( 'utils/hcp_helpers', 'AgentId' )
 CassDb = Actor.importLib( '../utils/hcp_databases', 'CassDb' )
-CassPool = Actor.importLib( '../utils/hcp_databases', 'CassPool' )
 CreateOnAccess = Actor.importLib( '../utils/hcp_helpers', 'CreateOnAccess' )
 
 class AnalyticsReporting( Actor ):
     def init( self, parameters, resources ):
-        self._db = CassDb( parameters[ 'db' ], 'hcp_analytics', consistencyOne = True )
-        self.db = CassPool( self._db,
-                            rate_limit_per_sec = parameters[ 'rate_limit_per_sec' ],
-                            maxConcurrent = parameters[ 'max_concurrent' ],
-                            blockOnQueueSize = parameters[ 'block_on_queue_size' ] )
+        self.db = CassDb( parameters[ 'db' ], 'hcp_analytics' )
 
         self.report_stmt_rep = self.db.prepare( 'INSERT INTO detects ( did, gen, source, dtype, events, detect, why ) VALUES ( ?, dateOf( now() ), ?, ?, ?, ?, ? ) USING TTL ?' )
-        self.report_stmt_rep.consistency_level = CassDb.CL_Ingest
 
         self.report_stmt_tl = self.db.prepare( 'INSERT INTO detect_timeline ( oid, ts, did ) VALUES ( ?, now(), ? ) USING TTL ?' )
-        self.report_stmt_tl.consistency_level = CassDb.CL_Ingest
 
         self.new_inv_stmt = self.db.prepare( 'INSERT INTO investigation ( invid, gen, closed, nature, conclusion, why, hunter ) VALUES ( ?, ?, 0, 0, 0, \'\', ? ) USING TTL ?' )
 
@@ -61,7 +54,6 @@ class AnalyticsReporting( Actor ):
             self.identmanager = None
             self.log( 'using default ttls' )
 
-        self.db.start()
         self.handle( 'detect', self.detect )
         self.handle( 'new_inv', self.new_inv )
         self.handle( 'close_inv', self.close_inv )
@@ -79,8 +71,7 @@ class AnalyticsReporting( Actor ):
         self.model = CreateOnAccess( self.getActorHandle, resources[ 'modeling' ], timeout = 30, nRetries = 2 )
 
     def deinit( self ):
-        self.db.stop()
-        self._db.shutdown()
+        self.db.shutdown()
 
     def getOrgTtl( self, oid ):
         ttl = None

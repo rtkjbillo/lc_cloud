@@ -38,7 +38,7 @@ CassDb = Actor.importLib( '../utils/hcp_databases', 'CassDb' )
 class BlinkModel( Actor ):
     def init( self, parameters, resources ):
         self.admin = BEAdmin( self._beach_config_path, None )
-        self.db = CassDb( parameters[ 'scale_db' ], 'hcp_analytics', quorum = False, backoffConsistency = True )
+        self.db = CassDb( parameters[ 'scale_db' ], 'hcp_analytics' )
         Host.setDatabase( self.admin, self.db )
         HostObjects.setDatabase( self.db )
         KeyValueStore.setDatabase( self.db )
@@ -57,7 +57,7 @@ class BlinkModel( Actor ):
     def deinit( self ):
         Host.closeDatabase()
         HostObjects.closeDatabase()
-        self.db.close()
+        self.db.shutdown()
 
     def refreshAlexa( self ):
         alexaActor = self.getActorHandle( 'analytics/alexadns', nRetries = 3, timeout = 30 )

@@ -14,7 +14,6 @@
 
 from beach.actor import Actor
 CassDb = Actor.importLib( 'utils/hcp_databases', 'CassDb' )
-CassPool = Actor.importLib( 'utils/hcp_databases', 'CassPool' )
 AgentId = Actor.importLib( 'utils/hcp_helpers', 'AgentId' )
 RingCache = Actor.importLib( 'utils/hcp_helpers', 'RingCache' )
 
@@ -33,16 +32,10 @@ class TaskingRule( object ):
 class ModuleManager( Actor ):
     def init( self, parameters, resources ):
         self.cacheSize = parameters.get( 'cache_size', 10 )
-    	self._db = CassDb( parameters[ 'db' ], 'hcp_analytics', consistencyOne = True )
-        self.db = CassPool( self._db,
-                            rate_limit_per_sec = parameters[ 'rate_limit_per_sec' ],
-                            maxConcurrent = parameters[ 'max_concurrent' ],
-                            blockOnQueueSize = parameters[ 'block_on_queue_size' ] )
+    	self.db = CassDb( parameters[ 'db' ], 'hcp_analytics' )
 
         self.loadTaskings = self.db.prepare( 'SELECT aid, mid, mhash FROM hcp_module_tasking' )
         self.loadModuleContent = self.db.prepare( 'SELECT mdat, msig FROM hcp_modules WHERE mid = ? AND mhash = ?' )
-
-        self.db.start()
 
         self.taskings = []
         self.moduleCache = RingCache( self.cacheSize )
@@ -53,7 +46,7 @@ class ModuleManager( Actor ):
         self.handle( 'reload', self.reloadTaskings )
 
     def deinit( self ):
-        pass
+        self.db.shutdown()
 
     def getModule( self, mid, mhash ):
         try:

@@ -29,7 +29,6 @@ timeToTs = Actor.importLib( './hcp_helpers', 'timeToTs' )
 normalAtom = Actor.importLib( './hcp_helpers', 'normalAtom' )
 try:
     CassDb = Actor.importLib( './hcp_databases', 'CassDb' )
-    CassPool = Actor.importLib( './hcp_databases', 'CassPool' )
 except:
     print( "cassandra not installed, some functionality won't work" )
 
@@ -188,9 +187,9 @@ class HostObjects( object ):
     _queryChunks = 200
 
     @classmethod
-    def setDatabase( cls, urlOrInstance, backoffConsistency = True ):
+    def setDatabase( cls, urlOrInstance ):
         if type( urlOrInstance ) in ( list, tuple, str, unicode ):
-            cls._db = CassDb( urlOrInstance, 'hcp_analytics', quorum = False, backoffConsistency = backoffConsistency )
+            cls._db = CassDb( urlOrInstance, 'hcp_analytics' )
         else:
             cls._db = urlOrInstance
             cls._isDbShared = True
@@ -435,10 +434,10 @@ class Host( object ):
     _isDbShared = False
 
     @classmethod
-    def setDatabase( cls, beInstance, urlOrInstance, backoffConsistency = True ):
+    def setDatabase( cls, beInstance, urlOrInstance ):
         cls._be = beInstance
         if type( urlOrInstance ) in ( list, tuple, str, unicode ):
-            cls._db = CassDb( urlOrInstance, 'hcp_analytics', quorum = False, backoffConsistency = backoffConsistency )
+            cls._db = CassDb( urlOrInstance, 'hcp_analytics' )
         else:
             cls._db = urlOrInstance
             cls._isDbShared = True
@@ -733,9 +732,9 @@ class Reporting( object ):
     _isDbShared = False
 
     @classmethod
-    def setDatabase( cls, urlOrInstance, backoffConsistency = True ):
+    def setDatabase( cls, urlOrInstance ):
         if type( urlOrInstance ) in ( list, tuple, str, unicode ):
-            cls._db = CassDb( urlOrInstance, 'hcp_analytics', quorum = False, backoffConsistency = backoffConsistency )
+            cls._db = CassDb( urlOrInstance, 'hcp_analytics' )
         else:
             cls._db = urlOrInstance
             cls._isDbShared = True
@@ -823,9 +822,9 @@ class KeyValueStore( object ):
     _keyTouch = None
 
     @classmethod
-    def setDatabase( cls, urlOrInstance, backoffConsistency = True ):
+    def setDatabase( cls, urlOrInstance ):
         if type( urlOrInstance ) in ( list, tuple, str, unicode ):
-            cls._db = CassDb( urlOrInstance, 'hcp_analytics', quorum = False, backoffConsistency = backoffConsistency )
+            cls._db = CassDb( urlOrInstance, 'hcp_analytics' )
         else:
             cls._db = urlOrInstance
             cls._isDbShared = True
@@ -856,9 +855,9 @@ class Atoms ( object ):
     _queryChunks = 200
 
     @classmethod
-    def setDatabase( cls, urlOrInstance, backoffConsistency = True ):
+    def setDatabase( cls, urlOrInstance ):
         if type( urlOrInstance ) in ( list, tuple, str, unicode ):
-            cls._db = CassDb( urlOrInstance, 'hcp_analytics', quorum = False, backoffConsistency = backoffConsistency )
+            cls._db = CassDb( urlOrInstance, 'hcp_analytics' )
         else:
             cls._db = urlOrInstance
             cls._isDbShared = True

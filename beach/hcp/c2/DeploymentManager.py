@@ -29,7 +29,6 @@ from zipfile import ZipFile
 from io import BytesIO
 import random
 CassDb = Actor.importLib( 'utils/hcp_databases', 'CassDb' )
-CassPool = Actor.importLib( 'utils/hcp_databases', 'CassPool' )
 rSequence = Actor.importLib( 'utils/rpcm', 'rSequence' )
 rList = Actor.importLib( 'utils/rpcm', 'rList' )
 rpcm = Actor.importLib( 'utils/rpcm', 'rpcm' )
@@ -48,13 +47,7 @@ STATIC_STORE_MAX_SIZE = 1024 * 50
 class DeploymentManager( Actor ):
     def init( self, parameters, resources ):
         self.beach_api = Beach( self._beach_config_path, realm = 'hcp' )
-        self._db = CassDb( parameters[ 'db' ], 'hcp_analytics', consistencyOne = True )
-        self.db = CassPool( self._db,
-                            rate_limit_per_sec = parameters[ 'rate_limit_per_sec' ],
-                            maxConcurrent = parameters[ 'max_concurrent' ],
-                            blockOnQueueSize = parameters[ 'block_on_queue_size' ] )
-
-        self.db.start()
+        self.db = CassDb( parameters[ 'db' ], 'hcp_analytics' )
 
         self.audit = self.getActorHandle( resources[ 'auditing' ], timeout = 30, nRetries = 3 )
         self.admin = self.getActorHandle( resources[ 'admin' ], timeout = 30, nRetries = 3 )
@@ -87,7 +80,7 @@ class DeploymentManager( Actor ):
         self.schedule( ( 60 * 60 ) + random.randint( 0, 60 * 60 ) , self.sendMetricsIfEnabled )
         
     def deinit( self ):
-        pass
+        self.db.shutdown()
 
     def sendMetricsIfEnabled( self ):
         status, conf = self.get_global_config( None )

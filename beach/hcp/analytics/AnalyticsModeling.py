@@ -23,7 +23,6 @@ import random
 import traceback
 from sets import Set
 CassDb = Actor.importLib( '../utils/hcp_databases', 'CassDb' )
-CassPool = Actor.importLib( '../utils/hcp_databases', 'CassPool' )
 AgentId = Actor.importLib( '../utils/hcp_helpers', 'AgentId' )
 _x_ = Actor.importLib( '../utils/hcp_helpers', '_x_' )
 _xm_ = Actor.importLib( '../utils/hcp_helpers', '_xm_' )
@@ -37,24 +36,17 @@ class AnalyticsModeling( Actor ):
         self.deploymentmanager = self.getActorHandle( resources[ 'deployment' ], timeout = 30, nRetries = 3 )
         self.refreshConfigs()
 
-        self._db = CassDb( parameters[ 'db' ], 'hcp_analytics', consistencyOne = True )
-        self.db = CassPool( self._db,
-                            rate_limit_per_sec = parameters[ 'rate_limit_per_sec' ],
-                            maxConcurrent = parameters[ 'max_concurrent' ],
-                            blockOnQueueSize = parameters[ 'block_on_queue_size' ],
-                            withStats = True )
-        #self.db = self._db
+        self.db = CassDb( parameters[ 'db' ], 'hcp_analytics' )
 
         self.ignored_objects = [ ObjectTypes.STRING,
                                  ObjectTypes.IP_ADDRESS,
                                  ObjectTypes.MODULE_SIZE,
                                  ObjectTypes.STRING,
                                  ObjectTypes.THREADS,
-                                 ObjectTypes.MEM_HEADER_HASH ]
+                                 ObjectTypes.MEM_HEADER_HASH,
+                                 ObjectTypes.DOMAIN_NAME ]
 
-        self.temporary_objects = [ ObjectTypes.CMD_LINE,
-                                   ObjectTypes.DOMAIN_NAME,
-                                   ObjectTypes.PORT ]
+        self.temporary_objects = [ ObjectTypes.PORT ]
 
         self.org_ttls = {}
         if 'identmanager' in resources:
@@ -86,7 +78,6 @@ class AnalyticsModeling( Actor ):
         self.stmt_atoms_children = self.ingestStatement( 'INSERT INTO atoms_children ( atomid, child, eid ) VALUES ( ?, ?, ? ) USING TTL ?' )
         self.stmt_atoms_lookup = self.ingestStatement( 'INSERT INTO atoms_lookup ( atomid, eid ) VALUES ( ?, ? ) USING TTL ?' )
 
-        self.db.start()
         self.processedCounter = 0
         self.nWrites = 0
         self.lastReport = time.time()
@@ -95,8 +86,7 @@ class AnalyticsModeling( Actor ):
         self.delay( self.statFrameSeconds, self.reportStats )
 
     def deinit( self ):
-        self.db.stop()
-        self._db.shutdown()
+        self.db.shutdown()
 
     def refreshConfigs( self ):
         resp = self.deploymentmanager.request( 'get_global_config', {} )
@@ -112,10 +102,10 @@ class AnalyticsModeling( Actor ):
     def reportStats( self ):
         now = time.time()
         enPerSec = float( self.nWrites ) / ( now - self.lastReport )
-        wrPerSec = float( self.db.qCounter ) / ( now - self.lastReport )
+        wrPerSec = float( self.db.nSuccess ) / ( now - self.lastReport )
         self.log( "Enqueued/sec: %s, Write/sec: %s" % ( enPerSec, wrPerSec ) )
         self.nWrites = 0
-        self.db.qCounter = 0
+        self.db.nSuccess = 0
         self.lastReport = now
         self.zSet( 'enqueue_per_sec', enPerSec )
         self.zSet( 'write_per_sec', wrPerSec )
@@ -123,7 +113,6 @@ class AnalyticsModeling( Actor ):
 
     def ingestStatement( self, statement ):
         stmt = self.db.prepare( statement )
-        stmt.consistency_level = CassDb.CL_Ingest
         return stmt
 
     def getOrgTtls( self, oid ):

@@ -14,16 +14,11 @@
 
 from beach.actor import Actor
 CassDb = Actor.importLib( 'utils/hcp_databases', 'CassDb' )
-CassPool = Actor.importLib( 'utils/hcp_databases', 'CassPool' )
 AgentId = Actor.importLib( 'utils/hcp_helpers', 'AgentId' )
 
 class StateUpdater( Actor ):
     def init( self, parameters, resources ):
-        self._db = CassDb( parameters[ 'db' ], 'hcp_analytics', consistencyOne = True )
-        self.db = CassPool( self._db,
-                            rate_limit_per_sec = parameters[ 'rate_limit_per_sec' ],
-                            maxConcurrent = parameters[ 'max_concurrent' ],
-                            blockOnQueueSize = parameters[ 'block_on_queue_size' ] )
+        self.db = CassDb( parameters[ 'db' ], 'hcp_analytics' )
 
         self.recordLive = self.db.prepare( 'UPDATE sensor_states SET alive = dateOf(now()), ext_ip = ?, int_ip = ?, hostname = ?, oid = ?, iid = ?, plat = ?, arch = ? WHERE sid = ?' )
         self.recordHostName = self.db.prepare( 'INSERT INTO sensor_hostnames ( hostname, sid ) VALUES ( ?, ? ) USING TTL %s' % ( 60 * 60 * 24 * 30 ) )
@@ -31,14 +26,12 @@ class StateUpdater( Actor ):
         self.recordTraffic = self.db.prepare( 'INSERT INTO sensor_transfer ( sid, ts, b ) VALUES ( ?, dateOf(now()), ? ) USING TTL %s' % ( 60 * 60 * 24 * 7 ) )
         self.recordStateChange = self.db.prepare( 'INSERT INTO sensor_ip ( oid, sid, ts, ip ) VALUES ( ?, ?, dateOf(now()), ? ) USING TTL %s' % ( 60 * 60 * 24 * 30 ) )
 
-        self.db.start()
-
         self.handle( 'live', self.setLive )
         self.handle( 'dead', self.setDead )
         self.handle( 'transfered', self.addTransfered )
 
     def deinit( self ):
-        pass
+        self.db.shutdown()
 
     def setLive( self, msg ):
         aid = AgentId( msg.data[ 'aid' ] )
