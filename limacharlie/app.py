@@ -99,6 +99,7 @@ urls = (
     '/del_sensor', 'DelSensor',
     '/set_installer_info', 'SetInstallerInfo',
     '/del_installer', 'DelInstaller',
+    '/quick_detects', 'QuickDetects',
 )
 
 ADMIN_OID = None
@@ -171,6 +172,7 @@ IDENT = 'lc/0bf01f7e-62bd-4cc4-9fec-4c52e82eb903'
 beach = Beach( BEACH_CONFIG_FILE, realm = 'hcp' )
 model = beach.getActorHandle( 'models', nRetries = 3, timeout = 30, ident = IDENT )
 capabilities = beach.getActorHandle( 'analytics/capabilitymanager', nRetries = 3, timeout = 300, ident = IDENT )
+quickdetects = beach.getActorHandle( 'analytics/stateless/quickdetect', nRetries = 3, timeout = 300, ident = IDENT )
 sensordir = beach.getActorHandle( 'c2/sensordir', nRetries = 3, timeout = 30, ident = IDENT )
 identmanager = beach.getActorHandle( 'c2/identmanager', nRetries = 3, timeout = 30, ident = IDENT )
 deployment = beach.getActorHandle( 'c2/deploymentmanager', nRetries = 3, timeout = 30, ident = IDENT )
@@ -1784,6 +1786,44 @@ class DelInstaller ( AuthenticatedPage ):
             redirectTo( 'manage' )
         else:
             raise web.HTTPError( '503 Service Unavailable: %s' % str( resp ) )
+
+class QuickDetects ( AuthenticatedPage ):
+    def doPOST( self ):
+        if session.is_admin is not True:
+            session.notice = 'Error: quick detects modifications is limited to administrators.'
+            redirectTo( 'dashboard' )
+
+        params = web.input( nameToAdd = None, ruleToAdd = None, actionToAdd = None, nameToRem = None )
+
+        if params.nameToAdd is not None and params.ruleToAdd is not None and params.actionToAdd is not None:
+            req = quickdetects.request( 'add_rule', { 'name' : params.nameToAdd, 
+                                                      'rule' : params.ruleToAdd,
+                                                      'action' : params.actionToAdd } )
+            if req.isSuccess:
+                quickdetects.broadcast( 'reload_rules', {} )
+                session.notice = 'Successfully added %s' % params.nameToAdd
+            else:
+                session.notice = 'Error adding quick detect: %s' % str( req )
+        elif params.nameToRem is not None:
+            req = quickdetects.request( 'del_rule', { 'name' : params.nameToRem } )
+            if req.isSuccess:
+                quickdetects.broadcast( 'reload_rules', {} )
+                session.notice = 'Successfully removed %s' % params.nameToRem
+            else:
+                session.notice = 'Error removing quick detect: %s' % str( req )
+
+        redirectTo( 'quick_detects' )
+
+    def doGET( self ):
+        params = web.input()
+
+        rules = {}
+
+        rulesReq = quickdetects.request( 'get_rules', {} )
+        if rulesReq.isSuccess:
+            rules.update( rulesReq.data )
+
+        return render.quickdetects( rules = rules, is_admin = session.is_admin )
 
 #==============================================================================
 #   CARDS

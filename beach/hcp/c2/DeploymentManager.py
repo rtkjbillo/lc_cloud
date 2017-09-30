@@ -71,6 +71,7 @@ class DeploymentManager( Actor ):
         self.handle( 'get_profiles', self.get_profiles )
         self.handle( 'get_supported_events', self.get_supported_events )
         self.handle( 'get_capabilities', self.get_capabilities )
+        self.handle( 'get_quick_detects', self.get_quick_detects )
         self.handle( 'del_sensor', self.del_sensor )
         self.handle( 'refresh_all_installets', self.refresh_all_installets )
         self.handle( 'set_installer_info', self.set_installer_info )
@@ -704,6 +705,16 @@ We believe this sharing policy strikes a good balance between privacy and inform
 
         if info is not None:
             return ( True, { 'capabilities' : info[ 1 ] } )
+
+        return ( False, 'not found' )
+
+    def get_quick_detects( self, msg ):
+        req = msg.data
+
+        info = self.db.getOne( 'SELECT conf, value FROM configs WHERE conf = %s', ( 'global/quick_detects', ) )
+
+        if info is not None:
+            return ( True, { 'detects' : info[ 1 ] } )
 
         return ( False, 'not found' )
 

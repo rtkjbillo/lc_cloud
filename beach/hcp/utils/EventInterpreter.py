@@ -16,6 +16,9 @@ from beach.actor import Actor
 import re
 import ipaddress
 import traceback
+import base64
+import json
+import uuid
 _x_ = Actor.importLib( './hcp_helpers', '_x_' )
 _xm_ = Actor.importLib( './hcp_helpers', '_xm_' )
 exeFromPath = Actor.importLib( './hcp_helpers', 'exeFromPath' )
@@ -83,6 +86,24 @@ _eventTypes = {
 							     									 			  _x_( x, '?/base.FILE_PATH' ) ),
 							     lambda x: ( None, None ) ),
 }
+
+def _sanitizeJson( o, summarized = False ):
+    if type( o ) is dict:
+        for k, v in o.iteritems():
+            o[ k ] = _sanitizeJson( v, summarized = summarized )
+    elif type( o ) is list or type( o ) is tuple:
+        o = [ _sanitizeJson( x, summarized = summarized ) for x in o ]
+    elif type( o ) is uuid.UUID:
+        o = str( o )
+    else:
+        try:
+            if ( type(o) is str or type(o) is unicode ) and "\x00" in o: raise Exception()
+            json.dumps( o )
+        except:
+            o = base64.b64encode( o )
+        if summarized is not False and len( str( o ) ) > summarized:
+            o = str( o[ : summarized ] ) + '...'
+    return o
 
 class EventInterpreter( object ):
 	def __init__( self, event = None ):
@@ -178,6 +199,9 @@ class EventDSL( object ):
 					  'dstPort' : lambda e, v: _x_( e, 'base.DESTINATION/base.PORT' ) == v,
 					  'srcPort' : lambda e, v: _x_( e, 'base.SOURCE/base.PORT' ) == v,
 					  'isOutgoing' : lambda e, v: _x_( e, 'base.IS_OUTGOING' ) is v }
+
+	def asJSON( self ):
+		return _sanitizeJson( self._event )
 
 	def Event( self, **kwargs ):
 		if isinstance( self._event, dict ):

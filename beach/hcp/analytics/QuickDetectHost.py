@@ -14,13 +14,16 @@
 
 from beach.actor import Actor
 import traceback
+import json
+import uuid
 EventDSL = Actor.importLib( '../utils/EventInterpreter', 'EventDSL' )
 AgentId = Actor.importLib( '../utils/hcp_helpers', 'AgentId' )
 
 class SensorContext( object ):
-    def __init__( self, fromActor, aid ):
+    def __init__( self, fromActor, routing ):
         self._actor = fromActor
-        self.aid = AgentId( aid )
+        self.aid = AgentId( routing[ 'aid' ] )
+        self.routing = routing
 
     def task( self, cmdsAndArgs, expiry = None, inv_id = None ):
         '''Send a task manually to a sensor
@@ -51,25 +54,76 @@ class SensorContext( object ):
                                      'sid' : self.aid.sensor_id, 
                                      'by' : 'QuickDetectHost' } )
 
+    def isTagged( self, tag ):
+        return tag in self.routing[ 'tags' ]
+
 
 class QuickDetectHost( Actor ):
     def init( self, parameters, resources ):
         self.rules = {}
 
+        self.deploymentmanager = self.getActorHandle( resources[ 'deployment' ], nRetries = 3, timeout = 30 )
         self.models = self.getActorHandle( resources[ 'modeling' ], timeout = 30, nRetries = 3 )
         self.tagging = self.getActorHandle( resources[ 'tagging' ], timeout = 30, nRetries = 3 )
-        self.reporting = self.getActorHandle( resources[ 'report' ], timeout = 30, nRetries = 3 )
+        self.reporting = self.getActorHandle( resources[ 'reporting' ], timeout = 30, nRetries = 3 )
+        self.paging = self.getActorHandle( resources[ 'paging' ], timeout = 60, nRetries = 3 )
         self.tasking = self.getActorHandle( resources[ 'autotasking' ], 
                                              mode = 'affinity',
                                              timeout = 60,
-                                             nRetries = 1 )
+                                             nRetries = 2 )
+
+        self.conf = {}
+        self.reloadRules( None )
 
         self.handle( 'add_rule', self.addRule )
         self.handle( 'del_rule', self.delRule )
-        self.handle( 'analyze', self.analyze )
+        self.handle( 'get_rules', self.getRules )
+        self.handle( 'reload_rules', self.reloadRules )
+        self.handle( 'process', self.analyze )
 
     def deinit( self ):
         pass
+
+    def page( self, to = None, subject = None, data = None ):
+        if to is None: 
+            return False
+
+        if type( data ) is EventDSL:
+            data = data.asJSON()
+
+        resp = self.paging.request( 'page', { 'to' : to, 
+                                              'subject' : subject, 
+                                              'msg' : json.dumps( data, indent = 2 ) } )
+
+        if not resp.isSuccess:
+            self.log( "Failed to page: %s" % str( resp ) )
+
+        return resp.isSuccess
+
+    def compileRule( self, rule ):
+        env = {}
+        env[ "locals" ]   = None
+        env[ "globals" ]  = None
+        env[ "__name__" ] = None
+        env[ "__file__" ] = None
+        env[ "__builtins__" ] = None
+
+        try:
+            rule = { 'name' : rule[ 'name' ], 
+                     'original' : rule[ 'rule' ],
+                     'rule' : eval( 'lambda event, sensor: ( %s )' % ( rule[ 'rule' ], ), env, env ),
+                     'action' : eval( 'lambda event, sensor, report, page: ( %s )' % ( rule[ 'action' ], ), env, env ) }
+            return ( rule, None )
+        except:
+            exc = traceback.format_exc()
+            self.log( "Error compiling rule: %s" % exc )
+            return ( None, exc )
+
+    def saveRules( self ):
+        resp = self.deploymentmanager.request( 'set_config', { 'conf' : 'global/quick_detects', 
+                                                               'value' : json.dumps( self.conf ), 
+                                                               'by' : 'quick_detect_host' } )
+        return resp.isSuccess
 
     def addRule( self, msg ):
         req = msg.data
@@ -79,23 +133,13 @@ class QuickDetectHost( Actor ):
         if name in self.rules:
             return ( False, 'rule already exists' )
 
-        env = {}
-        env[ "locals" ]   = None
-        env[ "globals" ]  = None
-        env[ "__name__" ] = None
-        env[ "__file__" ] = None
-        env[ "__builtins__" ] = None
-
-        try:
-            self.rules[ name ] = { 'name' : name, 
-                                   'rule' : eval( 'lambda event, sensor: ( %s )' % ( rule, ), env, env ),
-                                   'action' : eval( 'lambda event, sensor: ( %s )' % ( action, ), env, env ) }
-            self.log( "Added rule %s." % name )
-        except:
-            exc = traceback.format_exc()
-            self.log( "Error adding rule: %s" % exc )
+        compiled, exc  = self.compileRule( req )
+        if compiled is None:
             return ( False, exc )
-        return ( True, )
+        self.rules[ name ] = compiled
+        self.conf[ name ] = { 'name' : name, 'rule' : rule, 'action' : action }
+
+        return ( self.saveRules(), )
 
     def delRule( self, msg ):
         req = msg.data
@@ -103,28 +147,85 @@ class QuickDetectHost( Actor ):
         if name not in self.rules:
             return ( False, 'rule not found' )
         self.rules.pop( name, None )
+        self.conf.pop( name, None )
         self.log( "Removed rule %s." % name )
-        return ( True, )
+        return ( self.saveRules(), )
 
     def checkRule( self, rule, event, sensor ):
         try:
             if rule[ 'rule' ]( event, sensor ):
+                def report( name = None, content = None ):
+                    if name is None:
+                        return False
+
+                    rep = { 'source' : sensor.aid, 
+                            'msg_ids' : sensor.routing[ 'event_id' ], 
+                            'cat' : name, 
+                            'detect' : event._event, 
+                            'detect_id' : uuid.uuid4(), 
+                            'summary' : 'quick detect: %s' % rule[ 'original' ],
+                            'priority' : 0 }
+
+                    resp = self.reporting.request( 'detect', rep )
+
+                    if not resp.isSuccess:
+                        self.log( "Failed to page: %s" % str( resp ) )
+
+                    return resp.isSuccess
                 self.zInc( 'detections.%s' % rule[ 'name' ] )
                 self.log( "!!! Rule %s matched." % ( rule[ 'name' ], ) )
-                rule[ 'action' ]( event, sensor )
+                rule[ 'action' ]( event, sensor, report, self.page )
         except:
             self.log( "Error evaluating %s: %s" % ( rule[ 'name' ], traceback.format_exc() ) )
             self.zInc( 'error.%s' % rule[ 'name' ] )
 
+    def getRules( self, msg ):
+        return ( True, self.conf )
+
+    def reloadRules( self, msg ):
+        self.log( "Fetching quick detects." )
+        resp = self.deploymentmanager.request( 'get_quick_detects', {} )
+        conf = {}
+        rules = {}
+        errors = []
+        if resp.isSuccess:
+            try:
+                conf = json.loads( resp.data[ 'detects' ] )
+                self.log( "Found %d quick detects." % len( conf ) )
+            except:
+                errors.append( traceback.format_exc() )
+                conf = {}
+        else:
+            self.log( "No capabilities found." )
+
+        for name, ruleInfo in conf.items():
+            compiled, exc  = self.compileRule( ruleInfo )
+            if compiled is None:
+                errors.append( exc )
+            else:
+                rules[ name ] = compiled
+
+        self.rules = rules
+        self.conf = conf
+
+        if 0 != len( errors ):
+            return ( False, errors )
+
+        self.zSet( 'n_rules', len( self.conf ) )
+
+        return ( True, )
+
     def analyze( self, msg ):
+        if 0 == len( self.rules ):
+            return ( True, )
+
         routing, event, mtd = msg.data
 
-        sensor = SensorContext( self, routing[ 'aid' ] )
+        sensor = SensorContext( self, routing )
         tmpEvent = EventDSL( event, not sensor.aid.isWindows() )
         self.parallelExec( lambda rule: self.checkRule( rule, tmpEvent, sensor ), self.rules.values() )
 
         return ( True, )
-
 
 if __name__ == "__main__":
     print( "Testing actor." )

@@ -62,7 +62,8 @@ Patrol( 'DeploymentManager',
                                 'capabilitymanager/4fe13a22-0ca1-4e1f-aa33-20f045db2fb6',
                                 'enrollment/a3bebbb0-00e2-4345-990b-4c36a40b475e',
                                 'intake/6058e556-a102-4e51-918e-d36d6d1823db',
-                                'analysis/038528f5-5135-4ca8-b79f-d6b8ffc53bf5' ],
+                                'analysis/038528f5-5135-4ca8-b79f-d6b8ffc53bf5',
+                                'analysis/01e9a19d-78e1-4c37-9a6e-37cb592e3897' ],
             'isIsolated' : True,
             'strategy' : 'repulsion' } )
 
@@ -642,7 +643,8 @@ Patrol( 'PagingActor',
             'secretIdent' : 'paging/31d29b6a-d455-4df7-a196-aec3104f105d',
             'trustedIdents' : [ 'reporting/9ddcc95e-274b-4a49-a003-c952d12049b8',
                                 'lc/0bf01f7e-62bd-4cc4-9fec-4c52e82eb903',
-                                'identmanager/f5c3a323-50e5-412a-b711-0e30d8284aa1' ],
+                                'identmanager/f5c3a323-50e5-412a-b711-0e30d8284aa1',
+                                'analysis/01e9a19d-78e1-4c37-9a6e-37cb592e3897' ],
             'strategy' : 'repulsion' } )
 
 #######################################
