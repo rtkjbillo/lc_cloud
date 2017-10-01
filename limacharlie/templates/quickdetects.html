@@ -26,17 +26,17 @@ $if is_admin:
       </div>
       <div class="mdl-card__supporting-text" style="position: relative;">
         <form method="POST" id="form_add_detect">
-            <div class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label">
+            <div class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label" style="width: 100%;">
                 <input class="mdl-textfield__input" type="text" id="nameToAdd" name="nameToAdd"/>
                 <label class="mdl-textfield__label" for="nameToAdd">Name</label>
             </div>
             <br/>
-            <div class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label">
+            <div class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label" style="width: 100%;">
                 <input class="mdl-textfield__input" type="text" id="ruleToAdd" name="ruleToAdd"/>
                 <label class="mdl-textfield__label" for="ruleToAdd">Rule</label>
             </div>
             <br/>
-            <div class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label">
+            <div class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label" style="width: 100%;">
                 <input class="mdl-textfield__input" type="text" id="actionToAdd" name="actionToAdd"/>
                 <label class="mdl-textfield__label" for="actionToAdd">Action</label>
             </div>
@@ -63,7 +63,7 @@ $if is_admin:
       </div>
       <div class="mdl-card__supporting-text" style="position: relative; ">
         <form method="POST" id="form_del_detect">
-            <div class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label">
+            <div class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label" style="width: 100%;">
                 <input class="mdl-textfield__input" type="text" id="nameToRem" name="nameToRem"/>
                 <label class="mdl-textfield__label" for="nameToRem">Name</label>
             </div>
@@ -77,14 +77,31 @@ $if is_admin:
     </div>
 
 
-$for name, ruleInfo in rules.iteritems():
-    <div class="mdl-card mdl-cell mdl-cell--12-col mdl-shadow--4dp">
-      <div class="mdl-card__title">
-        <h4 class="mdl-card__title-text">Quick Detect Name: $name</h4>
-      </div>
-      <div class="mdl-card__supporting-text" style="position: relative; ">
-        <pre class="code" style="border: 1px solid black;">$json.dumps( ruleInfo, indent = 2 )</pre>
-      </div>
-      <div class="mdl-card__actions mdl-card--border">
-      </div>
-    </div>
+<div class="mdl-card mdl-cell mdl-cell--12-col mdl-shadow--4dp">
+  <div class="mdl-card__title">
+    <h4 class="mdl-card__title-text">Quick Detect Active Rules</h4>
+  </div>
+  <div class="mdl-card__supporting-text" style="position: relative; ">
+    <table style="width: 100%;" class="mdl-data-table mdl-js-data-table mdl-shadow--2dp">
+      <thead>
+        <th class="mdl-data-table__cell--non-numeric">Rule Name</th>
+        <th class="mdl-data-table__cell--non-numeric">Matching Rule</th>
+        <th class="mdl-data-table__cell--non-numeric">Action</th>
+      </thead>
+      <tbody>
+      $for name, ruleInfo in rules.iteritems():
+        <tr>
+          <td class="mdl-data-table__cell--non-numeric">$name</td>
+          <td class="mdl-data-table__cell--non-numeric click-to-copy">
+            <pre style="text-align: left;"><code>$ruleInfo[ 'rule' ]</code></pre>
+          </td>
+          <td class="mdl-data-table__cell--non-numeric click-to-copy">
+            <pre style="text-align: left;"><code>$ruleInfo[ 'action' ]</code></pre>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="mdl-card__actions mdl-card--border">
+  </div>
+</div>

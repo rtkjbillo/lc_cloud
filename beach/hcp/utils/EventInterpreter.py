@@ -191,7 +191,7 @@ class EventDSL( object ):
 					  'ip' : lambda e, v: _x_( e, '?/base.IP_ADDRESS' ) == v,
 					  'ipEndsWith' : lambda e, v: _x_( e, '?/base.IP_ADDRESS' ).endswith( v ),
 					  'ipStartsWith' : lambda e, v: _x_( e, '?/base.IP_ADDRESS' ).startswith( v ),
-					  'ipMatches' : lambda v: re.match( v, _x_( self._event, '?/base.IP_ADDRESS' ), re.IGNORECASE ),
+					  'ipIn' : lambda v: ipaddress.ip_address( unicode( _x_( e, '?/base.IP_ADDRESS' ) ) ) in ipaddress.ip_network( unicode( v ) ),
 					  'hash' : lambda e, v: _x_( e, '?/base.HASH' ).encode( 'hex' ).lower() == v.lower(),
 					  'userId' : lambda e, v: _x_( e, '?/base.USER_ID' ) == v,
 					  'dstIpIn' : lambda e, v: ipaddress.ip_address( unicode( _x_( e, 'base.DESTINATION/base.IP_ADDRESS' ) ) ) in ipaddress.ip_network( unicode( v ) ),
