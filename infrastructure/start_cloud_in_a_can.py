@@ -18,6 +18,7 @@ import time
 import argparse
 
 root = os.path.join( os.path.abspath( os.path.dirname( __file__ ) ), '..', '..' )
+os.chdir( os.path.abspath( os.path.dirname( __file__ ) ) )
 
 parser = argparse.ArgumentParser()
 parser.add_argument( '-b', '--beach',
@@ -91,3 +92,21 @@ printStep( 'Starting the LC Endpoint Proxy interface on port 9090 (in a screen).
                                                                                'standalone',
                                                                                'endpoint_proxy.py' ),
                                                                  beachCluster, ) ) )
+
+def getLocalIp():
+    import socket
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    s.connect(("8.8.8.8", 80))
+    ip = s.getsockname()[0]
+    s.close()
+    return ip
+
+print( """
+===============================================================================
+To access the web UI go to http://%s:8888
+The logs are stored in /var/log/syslog
+Starting and stopping the cloud:
+    - python %s/cloud/infrastructure/start_cloud_in_a_can.py
+    - %s/cloud/infrastructure/stop_cloud_in_a_can.sh
+===============================================================================
+""" % ( getLocalIp(), root, root ) )

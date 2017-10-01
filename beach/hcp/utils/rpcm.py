@@ -277,10 +277,10 @@ class rpcm( object ):
         try:
             tup = struct.unpack_from( frm, self._data, self._offset )
         except:
-            self._printDebug( traceback.format_exc() )
+            #self._printDebug( traceback.format_exc() )
             tup = None
         
-        if None != tup:
+        if tup is not None:
             self._offset += required
             
             if 1 == len( tup ):
@@ -292,55 +292,59 @@ class rpcm( object ):
         result = None
         
         headers = self._consume( '>IB' )
-        if None != headers:
+        if headers is not None:
             tag = str( headers[ 0 ] )
             typ = headers[ 1 ]
             
-            self._printTrace( 'parsed element header: %s / %s' % ( expected_tag, expected_typ ) )
+            #self._printTrace( 'parsed element header: %s / %s' % ( expected_tag, expected_typ ) )
             
-            if( ( expected_tag == None or str( tag  )== str( expected_tag ) ) and
-                ( expected_typ == None or str( typ ) == str( expected_typ ) ) ):
+            if( ( expected_tag is None or tag == str( expected_tag ) ) and
+                ( expected_typ is None or str( typ ) == str( expected_typ ) ) ):
                 if typ in self._typeParsers:
-                    if self._isHumanReadable and None != self._symbols:
-                        if str( tag ) in self._symbols:
-                            tag = self._symbols[ str( tag ) ]
-                            self._printTrace( 'tag lookup yielded: %s' % tag )
+                    if self._isHumanReadable and self._symbols is not None:
+                        if tag in self._symbols:
+                            tag = self._symbols[ tag ]
+                            #self._printTrace( 'tag lookup yielded: %s' % tag )
                         else:
-                            self._printTrace( 'tag lookup not found' )
+                            #self._printTrace( 'tag lookup not found' )
+                            pass
                             
                     try:
                         value = self._typeParsers[ typ ]( typ )
                         
-                        self._printTrace( 'element parsed yielded value: %s' % value )
+                        #self._printTrace( 'element parsed yielded value: %s' % value )
                         
-                        if None != value and self._isDetailedDeserialize:
+                        if value is not None and self._isDetailedDeserialize:
                             if self._isHumanReadable and typ in self._typeSymbols:
                                 strtyp = self._typeSymbols[ typ ]
                             else:
                                 strtyp = typ
                             value = { 'type' : strtyp, 'tag' : tag, 'value' : value }
                         
-                        result = { str( tag ) : value }
+                        result = { tag : value }
                     except:
-                        self._printDebug( traceback.format_exc() )
+                        #self._printDebug( traceback.format_exc() )
                         result = None
                 else:
-                    self._printDebug( 'unknown type: %d / %d' % ( int( tag ), typ ) )
+                    #self._printDebug( 'unknown type: %d / %d' % ( int( tag ), typ ) )
+                    pass
             else:
-                self._printDebug( 'expected %s/%s but got %s/%s' % ( expected_tag, expected_typ, tag, typ ) )
+                #self._printDebug( 'expected %s/%s but got %s/%s' % ( expected_tag, expected_typ, tag, typ ) )
+                pass
         else:
-            self._printDebug( 'not enough data: %d' % len( self._data ) )
+            #self._printDebug( 'not enough data: %d' % len( self._data ) )
+            pass
         
         return result
     
     def _serialise_element( self, elem ):
         result = None
         
-        if 'tag' in elem and 'type'  in elem and 'value' in elem:
+        if 'tag' in elem and 'type' in elem and 'value' in elem:
             tag = elem[ 'tag' ]
             typ = elem[ 'type' ]
                 
-            if self._isHumanReadable and None != self._symbols:
+            if self._isHumanReadable and self._symbols is not None:
                 if type( tag ) is not int and not tag.isdigit() and str( tag ) in self._symbols:
                     tag = self._symbols[ str( tag ) ]
                 if type( typ ) is not int and not typ.isdigit() and typ in self._typeSymbols:
@@ -353,34 +357,37 @@ class rpcm( object ):
                 if tmpPacked is not None:
                     result += tmpPacked
                 else:
-                    self._printDebug( 'error packing %s with value %s' % ( typ, elem[ 'value' ] ) )
+                    #self._printDebug( 'error packing %s with value %s' % ( typ, elem[ 'value' ] ) )
                     result = None
             else:
-                self._printDebug( 'unknown type: %d / %d' % ( int( elem[ 'tag' ] ), elem[ 'type' ] ) )
+                #self._printDebug( 'unknown type: %d / %d' % ( int( elem[ 'tag' ] ), elem[ 'type' ] ) )
                 result = None
         else:
-            self._printDebug( 'missing information: %s' % json.dumps( elem ) )
+            #self._printDebug( 'missing information: %s' % json.dumps( elem ) )
+            pass
         
         return result
     
     def _json_to_rpcm( self, j ):
         res = None
         
-        if type( j ) is list:
+        jType = type( j )
+        if jType is list:
             res = rList()
             
             for elem in j:
                 res.append( self._json_to_rpcm( elem ) )
                 
-        elif type( j ) is dict and ( 'tag' in j and 'type' in j and 'value' in j ):
+        elif jType is dict and ( 'tag' in j and 'type' in j and 'value' in j ):
             res = j
-        elif type( j ) is dict:
+        elif jType is dict:
             res = rSequence()
             
             for tag, val in j.iteritems():
                 res[ tag ] = self._json_to_rpcm( val )
         else:
-            self._printDebug( 'unexpected structure in json to rpcm: %s' % str( j ) )
+            #self._printDebug( 'unexpected structure in json to rpcm: %s' % str( j ) )
+            pass
         
         return res
     
@@ -395,10 +402,10 @@ class rpcm( object ):
             number = self._consume( '>H' )
         elif self.RPCM_RU32 == typ or self.RPCM_POINTER_32  == typ:
             number = self._consume( '>I' )
-        elif( self.RPCM_RU64 == typ or
-              self.RPCM_TIMESTAMP == typ or
-              self.RPCM_POINTER_64  == typ or
-              self.RPCM_TIMEDELTA == typ ):
+        elif typ in ( self.RPCM_RU64,
+                      self.RPCM_TIMESTAMP,
+                      self.RPCM_POINTER_64,
+                      self.RPCM_TIMEDELTA ):
             number = self._consume( '>Q' )
         
         return number
@@ -407,10 +414,10 @@ class rpcm( object ):
         string = None
         
         size = self._consume( '>I' )
-        if None != size:
+        if size is not None:
             
             string = self._consume( '%ds' % size )
-            if None != string:
+            if string is not None:
                 try:
                     if self.RPCM_STRINGA == typ:
                         if 0 == ord( string[ -1 ] ):
@@ -424,7 +431,7 @@ class rpcm( object ):
                         string = str( string )
                 except:
                     string = None
-                    self._printDebug( traceback.format_exc() )
+                    #self._printDebug( traceback.format_exc() )
         
         return string
     
@@ -433,7 +440,7 @@ class rpcm( object ):
         
         ip = self._consume( '>I' )
         
-        if None != ip:
+        if ip is not None:
             ip = socket.inet_ntoa( struct.pack( '<I', ip ) )
         
         return ip
@@ -452,29 +459,29 @@ class rpcm( object ):
         
         nElements = self._consume( '>I' )
         
-        self._printTrace( 'parsing set, expecting %s elements' % ( nElements, ) )
+        #self._printTrace( 'parsing set, expecting %s elements' % ( nElements, ) )
         
-        if None != nElements:
+        if nElements is not None:
             if isList:
                 s = rList()
             else:
                 s = rSequence()
             
-            for n in range( 0, nElements ):
-                self._printTrace( 'parsing element in set' )
+            for n in xrange( 0, nElements ):
+                #self._printTrace( 'parsing element in set' )
                 
                 tmpElem = self._deserialise_element( expected_tag, expected_typ )
                 
-                if None != tmpElem:
+                if tmpElem is not None:
                     if isList:
-                        self._printTrace( 'adding new element in list' )
+                        #self._printTrace( 'adding new element in list' )
                         s.append( tmpElem.values()[ 0 ] )
                     else:
-                        self._printTrace( 'adding new element to seq' )
+                        #self._printTrace( 'adding new element to seq' )
                         s = rSequence( s.items() + tmpElem.items() )
                 else:
                     s = None
-                    self._printTrace( 'no element could be parsed' )
+                    #self._printTrace( 'no element could be parsed' )
                     break
         
         return s
@@ -486,11 +493,11 @@ class rpcm( object ):
         l = None
         
         headers = self._consume( '>IB' )
-        if None != headers:
+        if headers is not None:
             expected_tag = headers[ 0 ]
             expected_typ = headers[ 1 ]
             
-            self._printTrace( 'parsing list, expecting: %s / %s' % ( expected_tag, expected_typ ) )
+            #self._printTrace( 'parsing list, expecting: %s / %s' % ( expected_tag, expected_typ ) )
             
             l = self._parse_set( self.RPCM_LIST, expected_tag, expected_typ )
         
@@ -509,10 +516,10 @@ class rpcm( object ):
             number = struct.pack( '>H', int( value ) )
         elif self.RPCM_RU32 == typ or self.RPCM_POINTER_32  == typ:
             number = struct.pack( '>I', int( value ) )
-        elif( self.RPCM_RU64 == typ or
-              self.RPCM_TIMESTAMP == typ or
-              self.RPCM_POINTER_64  == typ or
-              self.RPCM_TIMEDELTA == typ ):
+        elif typ in ( self.RPCM_RU64,
+                      self.RPCM_TIMESTAMP,
+                      self.RPCM_POINTER_64,
+                      self.RPCM_TIMEDELTA ):
             number = struct.pack( '>Q', int( value ) )
         
         return number
@@ -530,7 +537,7 @@ class rpcm( object ):
                 string = struct.pack( '>I%ds' % len( value ), len( value ), value )
         except:
             string = None
-            self._printDebug( traceback.format_exc() )
+            #self._printDebug( traceback.format_exc() )
         
         return string
     
@@ -540,7 +547,8 @@ class rpcm( object ):
         try:
             ip = struct.pack( '<I', int( socket.inet_aton( value ).encode( 'hex' ), 16 ) )
         except:
-            self._printDebug( traceback.format_exc() )
+            #self._printDebug( traceback.format_exc() )
+            pass
         
         return ip
     
@@ -567,7 +575,7 @@ class rpcm( object ):
             for elem in values:
                 s += self._serialise_element( elem )
         except:
-            self._printDebug( traceback.format_exc() )
+            #self._printDebug( traceback.format_exc() )
             s = None
         
         return s
@@ -586,7 +594,7 @@ class rpcm( object ):
             if self._isHumanReadable:
                 if type( expected_type ) is not int and not expected_type.isdigit() and expected_type in self._typeSymbols:
                     expected_type = self._typeSymbols[ expected_type ]
-                if type( expected_tag ) is not int and not expected_tag.isdigit() and None != self._symbols and expected_tag in self._symbols:
+                if type( expected_tag ) is not int and not expected_tag.isdigit() and self._symbols is not None and expected_tag in self._symbols:
                     expected_tag = self._symbols[ str( expected_tag ) ]
         l = struct.pack( '>IB', int( expected_tag ), expected_type )
         
@@ -609,13 +617,11 @@ class rpcm( object ):
         
         # The roots are always a Sequence
         if isList:
-            self._printTrace( 'deserialise list' )
+            #self._printTrace( 'deserialise list' )
             return self._parse_list( self.RPCM_LIST )
         else:
-            self._printTrace( 'deserialise seq' )
+            #self._printTrace( 'deserialise seq' )
             return self._parse_sequence( self.RPCM_SEQUENCE )
-        
-        self._isTracing = False
 
     def quickDeserialise( self, buffer, isList = False, isTracing = False ):
         self.setBuffer( buffer )
@@ -635,7 +641,8 @@ class rpcm( object ):
         self._symbols = symbolsDict
 
     def loadJson( self, jStr ):
-        if type( jStr ) is str or type( jStr ) is unicode:
+        jStrType = type( jStr )
+        if jStrType is str or jStrType is unicode:
             j = json.loads( jStr )
         else:
             j = jStr

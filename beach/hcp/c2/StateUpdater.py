@@ -13,36 +13,25 @@
 # limitations under the License.
 
 from beach.actor import Actor
-import traceback
-import hashlib
-import time
-import ipaddress
 CassDb = Actor.importLib( 'utils/hcp_databases', 'CassDb' )
-CassPool = Actor.importLib( 'utils/hcp_databases', 'CassPool' )
-rpcm = Actor.importLib( 'utils/rpcm', 'rpcm' )
-rList = Actor.importLib( 'utils/rpcm', 'rList' )
-rSequence = Actor.importLib( 'utils/rpcm', 'rSequence' )
 AgentId = Actor.importLib( 'utils/hcp_helpers', 'AgentId' )
 
 class StateUpdater( Actor ):
     def init( self, parameters, resources ):
-        self._db = CassDb( parameters[ 'db' ], 'hcp_analytics', consistencyOne = True )
-        self.db = CassPool( self._db,
-                            rate_limit_per_sec = parameters[ 'rate_limit_per_sec' ],
-                            maxConcurrent = parameters[ 'max_concurrent' ],
-                            blockOnQueueSize = parameters[ 'block_on_queue_size' ] )
+        self.db = CassDb( parameters[ 'db' ], 'hcp_analytics' )
 
         self.recordLive = self.db.prepare( 'UPDATE sensor_states SET alive = dateOf(now()), ext_ip = ?, int_ip = ?, hostname = ?, oid = ?, iid = ?, plat = ?, arch = ? WHERE sid = ?' )
         self.recordHostName = self.db.prepare( 'INSERT INTO sensor_hostnames ( hostname, sid ) VALUES ( ?, ? ) USING TTL %s' % ( 60 * 60 * 24 * 30 ) )
         self.recordDead = self.db.prepare( 'UPDATE sensor_states SET dead = dateOf(now()) WHERE sid = ?' )
-
-        self.db.start()
+        self.recordTraffic = self.db.prepare( 'INSERT INTO sensor_transfer ( sid, ts, b ) VALUES ( ?, dateOf(now()), ? ) USING TTL %s' % ( 60 * 60 * 24 * 7 ) )
+        self.recordStateChange = self.db.prepare( 'INSERT INTO sensor_ip ( oid, sid, ts, ip ) VALUES ( ?, ?, dateOf(now()), ? ) USING TTL %s' % ( 60 * 60 * 24 * 30 ) )
 
         self.handle( 'live', self.setLive )
         self.handle( 'dead', self.setDead )
+        self.handle( 'transfered', self.addTransfered )
 
     def deinit( self ):
-        pass
+        self.db.shutdown()
 
     def setLive( self, msg ):
         aid = AgentId( msg.data[ 'aid' ] )
@@ -52,9 +41,17 @@ class StateUpdater( Actor ):
 
         self.db.execute_async( self.recordLive.bind( ( extIp, intIp, hostName, aid.org_id, aid.ins_id, aid.platform, aid.architecture, aid.sensor_id ) ) )
         self.db.execute_async( self.recordHostName.bind( ( hostName.upper(), aid.sensor_id ) ) )
+        self.db.execute_async( self.recordStateChange.bind( ( aid.org_id, aid.sensor_id, extIp ) ) )
+        self.db.execute_async( self.recordStateChange.bind( ( aid.org_id, aid.sensor_id, intIp ) ) )
         return ( True, )
 
     def setDead( self, msg ):
         aid = AgentId( msg.data[ 'aid' ] )
         self.db.execute_async( self.recordDead.bind( ( aid.sensor_id, ) ) )
+        return ( True, )
+
+    def addTransfered( self, msg ):
+        aid = AgentId( msg.data[ 'aid' ] )
+        newBytes = msg.data[ 'bytes_transfered' ]
+        self.db.execute_async( self.recordTraffic.bind( ( aid.sensor_id, newBytes ) ) )
         return ( True, )

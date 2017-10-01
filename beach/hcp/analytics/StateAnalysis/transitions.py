@@ -44,6 +44,21 @@ def NewProcessWithPrivilege( isRoot ):
             return False
     return _processWithPriv
 
+def NewProcessWithUser( regexp ):
+    try:
+        regexp.match( '' )
+    except:
+        regexp = re.compile( regexp )
+    def _processWithUser( event, history, indexes ):
+        newProcAccount = _x_( event.event, 'notification.NEW_PROCESS/base.USER_NAME' )
+        if newProcAccount is None:
+            newProcAccount = _x_( event.event, 'notification.EXISTING_PROCESS/base.USER_NAME' )
+        if newProcAccount is not None and regexp.match( newProcAccount ):
+            return True
+        else:
+            return False
+    return _processWithUser
+
 def NewDocumentNamed( regexp ):
     try:
         regexp.match( '' )
@@ -88,12 +103,14 @@ def RunningPidReset():
         if currentPid is not None:
             proc = indexes[ 'pid' ].get( currentPid, None )
             if proc is not None:
-                for idx in indexes.values():
+                for idx in indexes.itervalues():
                     if type( idx ) is dict:
-                        for idxKey, idxVal in idx.items():
+                        delIdx = None
+                        for idxKey, idxVal in idx.iteritems():
                             if idxVal == proc:
-                                del( idx[ idxKey ] )
+                                delIdx = idxKey
                                 break
+                        if delIdx is not None: del( idx[ delIdx ] )
                 history.remove( proc )
                 return True
 

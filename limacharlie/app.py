@@ -31,16 +31,27 @@ import json
 import re
 import time
 import urllib
-from hcp_helpers import AgentId
-from hcp_helpers import _x_
-from hcp_helpers import _xm_
-from hcp_helpers import normalAtom
-from hcp_helpers import InvestigationNature
-from hcp_helpers import InvestigationConclusion
-from hcp_helpers import HbsCollectorId
-from EventInterpreter import EventInterpreter
+from utils.hcp_helpers import AgentId
+from utils.hcp_helpers import _x_
+from utils.hcp_helpers import _xm_
+from utils.hcp_helpers import normalAtom
+from utils.hcp_helpers import InvestigationNature
+from utils.hcp_helpers import InvestigationConclusion
+from utils.hcp_helpers import HbsCollectorId
+from utils.EventInterpreter import EventInterpreter
 import markdown
 import markdown.extensions.tables
+
+THIS_PATH = os.path.abspath( os.path.dirname( os.path.realpath( __file__ ) ) )
+THIS_CERT = os.path.join( THIS_PATH, 'limacharlie.crt' )
+THIS_KEY = os.path.join( THIS_PATH, 'limacharlie.key' )
+if os.path.isfile( THIS_CERT ) and os.path.isfile( THIS_KEY ):
+    print( "Using SSL cert/key: %s and %s" % ( THIS_CERT, THIS_KEY ) )
+    from web.wsgiserver import CherryPyWSGIServer
+    CherryPyWSGIServer.ssl_certificate = THIS_CERT
+    CherryPyWSGIServer.ssl_private_key = THIS_KEY
+else:
+    print( "No SSL cert/key at %s and %s so using normal HTTP." % ( THIS_CERT, THIS_KEY ) )
 
 #==============================================================================
 #   SITE DEFINITION
@@ -78,6 +89,17 @@ urls = (
     '/blink_data', 'BlinkData',
     '/configs', 'Configs',
     '/sensor_configs', 'SensorConfigs',
+    '/sensor_bandwidth', 'SensorBandwidth',
+    '/sensor_ip_use', 'SensorIpUse',
+    '/find_host', 'FindHost',
+    '/bulk_search', 'BulkSearch',
+    '/obj_instance', 'ObjInstance',
+    '/add_tag', 'AddTag',
+    '/del_tag', 'DelTag',
+    '/del_sensor', 'DelSensor',
+    '/set_installer_info', 'SetInstallerInfo',
+    '/del_installer', 'DelInstaller',
+    '/quick_detects', 'QuickDetects',
 )
 
 ADMIN_OID = None
@@ -145,43 +167,12 @@ def msTsToTime( ts ):
 def doMarkdown( content ):
     return markdown.markdown( content, extensions = [ 'markdown.extensions.tables' ] )
 
-render = _renderWrapper( web.template.render( 'templates', 
-                                              base = 'base', 
-                                              globals = { 'session' : session, 
-                                                          'str' : str, 
-                                                          'msTsToTime' : msTsToTime,
-                                                          'AgentId' : AgentId,
-                                                          'json' : json,
-                                                          'sorted' : sorted,
-                                                          'md' : doMarkdown,
-                                                          'type' : type } ) )
-renderAlone = web.template.render( 'templates', globals = { 'session' : session, 
-                                                            'str' : str, 
-                                                            'msTsToTime' : msTsToTime,
-                                                            'AgentId' : AgentId,
-                                                            'json' : json,
-                                                            'InvestigationNature' : InvestigationNature,
-                                                            'InvestigationConclusion' : InvestigationConclusion,
-                                                            'sorted' : sorted,
-                                                            'md' : doMarkdown,
-                                                            'type' : type } )
-eventRender = web.template.render( 'templates/custom_events', globals = { 'json' : json,
-                                                                          'msTsToTime' : msTsToTime,
-                                                                          '_x_' : _x_,
-                                                                          '_xm_' : _xm_,
-                                                                          'AgentId' : AgentId,
-                                                                          'hex' : hex,
-                                                                          'sanitize' : sanitizeJson,
-                                                                          'EventInterpreter' : EventInterpreter,
-                                                                          'sorted' : sorted,
-                                                                          'md' : doMarkdown,
-                                                                          'type' : type } )
-
 BEACH_CONFIG_FILE = os.path.join( ROOT_DIRECTORY, 'beach.conf' )
 IDENT = 'lc/0bf01f7e-62bd-4cc4-9fec-4c52e82eb903'
 beach = Beach( BEACH_CONFIG_FILE, realm = 'hcp' )
 model = beach.getActorHandle( 'models', nRetries = 3, timeout = 30, ident = IDENT )
 capabilities = beach.getActorHandle( 'analytics/capabilitymanager', nRetries = 3, timeout = 300, ident = IDENT )
+quickdetects = beach.getActorHandle( 'analytics/stateless/quickdetect', nRetries = 3, timeout = 300, ident = IDENT )
 sensordir = beach.getActorHandle( 'c2/sensordir', nRetries = 3, timeout = 30, ident = IDENT )
 identmanager = beach.getActorHandle( 'c2/identmanager', nRetries = 3, timeout = 30, ident = IDENT )
 deployment = beach.getActorHandle( 'c2/deploymentmanager', nRetries = 3, timeout = 30, ident = IDENT )
@@ -190,6 +181,7 @@ page = beach.getActorHandle( 'paging', nRetries = 3, timeout = 30, ident = IDENT
 audit = beach.getActorHandle( 'c2/audit', nRetries = 3, timeout = 10, ident = IDENT )
 reporting = beach.getActorHandle( 'analytics/reporting/', nRetries = 3, timeout = 30, ident = IDENT )
 blink = beach.getActorHandle( 'analytics/blinkmodel/', nRetries = 3, timeout = 60, ident = IDENT )
+tagging = beach.getActorHandle( 'c2/taggingmanager', nRetries = 3, timeout = 5, ident = IDENT )
 
 print( "Fetching deployment global configurations..." )
 _ = deployment.request( 'get_global_config', {} )
@@ -200,12 +192,53 @@ if _.isSuccess:
 else:
     raise Exception( 'could not fetch admin oid' )
 
+render = _renderWrapper( web.template.render( 'templates', 
+                                              base = 'base', 
+                                              globals = { 'session' : session, 
+                                                          'str' : str, 
+                                                          'msTsToTime' : msTsToTime,
+                                                          'AgentId' : AgentId,
+                                                          'json' : json,
+                                                          'sorted' : sorted,
+                                                          'md' : doMarkdown,
+                                                          'hash' : lambda x: hashlib.sha256(x).hexdigest(),
+                                                          'type' : type,
+                                                          'ADMIN_OID' : ADMIN_OID },
+                                              cache = False ) )
+renderAlone = web.template.render( 'templates', globals = { 'session' : session, 
+                                                            'str' : str, 
+                                                            'msTsToTime' : msTsToTime,
+                                                            'AgentId' : AgentId,
+                                                            'json' : json,
+                                                            'InvestigationNature' : InvestigationNature,
+                                                            'InvestigationConclusion' : InvestigationConclusion,
+                                                            'sorted' : sorted,
+                                                            'md' : doMarkdown,
+                                                            'hash' : lambda x: hashlib.sha256(x).hexdigest(),
+                                                            'type' : type,
+                                                            'ADMIN_OID' : ADMIN_OID },
+                                                cache = False )
+eventRender = web.template.render( 'templates/custom_events', globals = { 'json' : json,
+                                                                          'msTsToTime' : msTsToTime,
+                                                                          '_x_' : _x_,
+                                                                          '_xm_' : _xm_,
+                                                                          'AgentId' : AgentId,
+                                                                          'hex' : hex,
+                                                                          'sanitize' : sanitizeJson,
+                                                                          'EventInterpreter' : EventInterpreter,
+                                                                          'sorted' : sorted,
+                                                                          'md' : doMarkdown,
+                                                                          'hash' : lambda x: hashlib.sha256(x).hexdigest(),
+                                                                          'type' : type,
+                                                                          'ADMIN_OID' : ADMIN_OID } )
+
 def pollBackendAvailability( isOneOff = True ):
     global IS_BACKEND_AVAILABLE
     aid = AgentId( '0.0.0.0.0' )
     aid.org_id = ADMIN_OID
     res = model.request( 'list_sensors', { 'aid' : aid }, timeout = 2 )
-    if res.isSuccess:
+    res2 = identmanager.request( 'get_org_info', { 'include_all' : True } )
+    if res.isSuccess and res2.isSuccess:
         IS_BACKEND_AVAILABLE = True
         print( 'Backend available' )
         if not isOneOff:
@@ -214,7 +247,7 @@ def pollBackendAvailability( isOneOff = True ):
         IS_BACKEND_AVAILABLE = False
         print( 'Backend unavailable' )
         if not isOneOff:
-            gevent.spawn_later( 5, pollBackendAvailability, isOneOff = False )
+            gevent.spawn_later( 2, pollBackendAvailability, isOneOff = False )
 
 gevent.spawn( pollBackendAvailability, isOneOff = False )
 
@@ -325,6 +358,13 @@ def isOrgAllowed( oid ):
         return True
     return False
 
+def isSensorAllowed( aid ):
+    aid = AgentId( aid )
+    info = model.request( 'get_sensor_info', { 'id_or_host' : str( aid ) } )
+    if info.isSuccess and info.data.get( 'id', None ):
+        return isOrgAllowed( AgentId( info.data[ 'id' ] ).org_id )
+    return False
+
 def getOrgName( oid ):
     orgs = identmanager.request( 'get_org_info', { 'oid' : oid } )
     res = {}
@@ -359,6 +399,17 @@ def getAllSensors( isAllOrgs = False ):
             for sid, sensor in res.data.iteritems():
                 info.setdefault( AgentId( sensor[ 'aid' ] ).org_id, {} )[ sid ] = sensor
     return info
+
+def getHostnames( sid ):
+    if type( sid ) not in ( list, tuple ):
+        sid = ( sid, )
+    hostnames = {}
+    for s in sid:
+        if s not in hostnames:
+            info = model.request( 'get_sensor_info', { 'id_or_host' : s } )
+            if info.isSuccess:
+                hostnames[ s ] = info.data[ 'hostname' ]
+    return hostnames
 
 def setDownloadFileName( name ):
     web.header( 'Content-Disposition', 'attachment;filename="%s"' % name )
@@ -434,7 +485,8 @@ class ConfirmEmail:
             return renderAlone.error( 'Error confirming email: %s' % info )
 
         if info.data[ 'confirmed' ]  is False:
-            return renderAlone.error( 'Bad email confirmation token.' )
+            session.notice = 'Email already confirmed or bad, login as usual.'
+            redirectTo( 'login' )
 
         session.notice = 'Email confirmed, you can now login.'
 
@@ -509,21 +561,25 @@ class Dashboard ( AuthenticatedPage ):
         if session.is_admin:
             mergedSensors = {}
             for oid, sensors in getAllSensors( isAllOrgs = True ).iteritems():
+                if oid is None:
+                    continue
                 for sid, sensor in sensors.iteritems():
                     sensor[ 'realtime' ] = True if str( AgentId( sensor[ 'aid' ] ).sensor_id ) in allLiveDir else False
                     mergedSensors[ sid ] = sensor
                 if oid not in session.orgs:
-                    cards.append( card_sensor_stats( str( oid ), sensors ) )
-            cards.insert( 0, card_sensor_stats( 'Total', mergedSensors ) )
+                    cards.append( card_sensor_stats( str( oid ), sensors, str( oid ) ) )
+            cards.insert( 0, card_sensor_stats( 'Total', mergedSensors, 'total' ) )
             del( mergedSensors )
         welcomeMessage = ''
         info = deployment.request( 'get_global_config' )
         if info.isSuccess:
             welcomeMessage = info.data[ 'global/whatsnew' ]
         for oid, sensors in orgSensors.iteritems():
+            if oid == ADMIN_OID:
+                continue
             for sid, sensor in sensors.iteritems():
                 sensor[ 'realtime' ] = True if str( AgentId( sensor[ 'aid' ] ).sensor_id ) in allLiveDir else False
-            cards.insert( 1, card_sensor_stats( orgNames[ str( oid ) ], sensors ) )
+            cards.insert( 1, card_sensor_stats( orgNames[ str( oid ) ], sensors, str( oid ) ) )
         return render.dashboard( cards, welcomeMessage )
 
 class Profile ( AuthenticatedPage ):
@@ -554,14 +610,21 @@ class Profile ( AuthenticatedPage ):
             if confInfo.isSuccess:
                 org_configs[ ( org[ 0 ], org[ 1 ] ) ] = confInfo.data
             extra_cards.append( card_org_membership( org[ 0 ], org[ 1 ] ) )
-            extra_cards.append( card_org_retention( org[ 0 ], org[ 1 ], org[ 2 ] ) )
+            if str( ADMIN_OID ) != str( org[ 1 ] ):
+                extra_cards.append( card_org_retention( org[ 0 ], org[ 1 ], org[ 2 ] ) )
         return render.profile( orgs, all_orgs, extra_cards, all_users, org_configs )
 
     def doGET( self ):
         return self.renderProfile()
 
     def doPOST( self ):
-        params = web.input( action = None, orgs = [], email = None, with_key = False, with_profile = False, oid = None, slacktoken = None, slackbottoken = None )
+        params = web.input( action = None, 
+                            orgs = [], 
+                            email = None, 
+                            with_key = False, with_profile = False, 
+                            oid = None, 
+                            slacktoken = None, slackbottoken = None,
+                            webhook_secret = None, webhook_dest = None )
         if params.action is None:
             session.notice = 'Missing action parameter.'
             redirectTo( 'profile' )
@@ -574,7 +637,7 @@ class Profile ( AuthenticatedPage ):
         if 'admin_join' == params.action:
             for oid in params.orgs:
                 res = identmanager.request( 'add_user_to_org', { 'email' : session.email, 'oid' : oid, 'by' : session.email } )
-                if not res.isSuccess: 
+                if not res.isSuccess or not res.data.get( 'is_added', False ): 
                     session.notice = 'Error adding user %s to %s by %s (%s).' % ( session.email, oid, session.email, str( res ) )
                     redirectTo( 'profile' )
                 audit.shoot( 'record', { 'oid' : ADMIN_OID, 'etype' : 'admin_join_org', 'msg' : 'Admin %s admin-joined oid %s.' % ( session.email, oid ) } )
@@ -585,7 +648,7 @@ class Profile ( AuthenticatedPage ):
                 redirectTo( 'profile' )
             for oid in params.orgs:
                 res = identmanager.request( 'add_user_to_org', { 'email' : params.email, 'oid' : oid, 'by' : session.email } )
-                if not res.isSuccess: 
+                if not res.isSuccess or not res.data.get( 'is_added', False ):
                     session.notice = 'Error adding user %s to %s by %s (%s).' % ( params.email, oid, session.email, str( res ) )
                     redirectTo( 'profile' )
             session.notice = 'Success adding %s to orgs' % params.email
@@ -602,7 +665,7 @@ class Profile ( AuthenticatedPage ):
                 redirectTo( 'profile' )
             for oid in params.orgs:
                 res = identmanager.request( 'remove_user_from_org', { 'email' : params.email, 'oid' : oid, 'by' : session.email } )
-                if not res.isSuccess: 
+                if not res.isSuccess or not res.data.get( 'is_removed', False ): 
                     session.notice = 'Error removing user %s from %s by %s (%s).' % ( params.email, oid, session.email, str( res ) )
                     redirectTo( 'profile' )
             session.notice = 'Success removing %s from orgs' % params.email
@@ -616,7 +679,7 @@ class Profile ( AuthenticatedPage ):
                                                                    '',
                                                                    'You can now login at %s with the temporary password: %s' % ( DOMAIN_NAME, tempPassword ),
                                                                    '',
-                                                                   'Confirm your email address by following this link: <a href="http://%s/confirm_email?token=%s&email=%s">http://%s/confirm_email?token=%s&email=%s</a>' % ( DOMAIN_NAME, confirmToken, params.email, DOMAIN_NAME, confirmToken, params.email ),
+                                                                   'Confirm your email address by following this link: <a href="%s/confirm_email?token=%s&email=%s">%s/confirm_email?token=%s&email=%s</a>' % ( DOMAIN_NAME, confirmToken, params.email, DOMAIN_NAME, confirmToken, params.email ),
                                                                    '',
                                                                    'Get help and stay up to date the following ways:',
                                                                    ' - Twitter: @rp_limacharlie',
@@ -637,7 +700,7 @@ class Profile ( AuthenticatedPage ):
                 redirectTo( 'profile' )
         elif 'account_delete' == params.action and session.is_admin:
             res = identmanager.request( 'delete_user', { 'email' : params.email, 'by' : session.email } )
-            if not res.isSuccess:
+            if not res.isSuccess or not res.data.get( 'is_deleted', False ):
                 session.notice = 'Error deleting user: %s' % res
                 redirectTo( 'profile' )
             session.notice = 'Success deleting account %s' % params.email
@@ -652,6 +715,9 @@ class Profile ( AuthenticatedPage ):
                 res = deployment.request( 'deploy_org', { 'oid' : oid } )
                 if res.isSuccess:
                     session.notice = 'Org created with oid: %s' % oid
+                    res = deployment.request( 'set_installer_info', { 'oid' : oid, 'desc' : 'default', 'tags' : [] } )
+                    if not res.isSuccess:
+                        session.notice = 'Error creating installer key: %s' % res.error
                 else:
                     identmanager.request( 'remove_org', { 'by' : session.email, 'oid' : oid } )
                     session.notice = 'Error deploying org: %s' % res
@@ -684,6 +750,19 @@ class Profile ( AuthenticatedPage ):
                 session.notice = 'Error setting Slack bot token for %s: %s.' % ( params.oid, str( res ) )
                 redirectTo( 'profile' )
             session.notice = 'Success setting Slack token for: %s' % params.oid
+        elif 'webhook_update' == params.action:
+            if not isOrgAllowed( uuid.UUID( params.oid ) ):
+                session.notice = 'Permission denied on %s' % oid
+                redirectTo( 'profile' )
+            res = deployment.request( 'set_config', { 'conf' : '%s/webhook_secret' % params.oid, 'value' : params.webhook_secret, 'by' : session.email } )
+            if not res.isSuccess: 
+                session.notice = 'Error setting webhook secret for %s: %s.' % ( params.oid, str( res ) )
+                redirectTo( 'profile' )
+            res = deployment.request( 'set_config', { 'conf' : '%s/webhook_dest' % params.oid, 'value' : params.webhook_dest, 'by' : session.email } )
+            if not res.isSuccess: 
+                session.notice = 'Error setting webhook dest for %s: %s.' % ( params.oid, str( res ) )
+                redirectTo( 'profile' )
+            session.notice = 'Success setting webhook for: %s' % params.oid
         else:
             session.notice = 'Action not supported.'
             redirectTo( 'profile' )
@@ -702,6 +781,7 @@ class Manage ( AuthenticatedPage ):
 
         installers = info.data[ 'hcp_installers' ]
         profiles = info.data[ 'hbs_profiles' ]
+        whitelist = info.data[ 'hcp_whitelist' ]
 
         info = audit.request( 'get_log', { 'oid' : session.orgs, 'limit' : 20 } )
         if not info.isSuccess:
@@ -709,7 +789,7 @@ class Manage ( AuthenticatedPage ):
 
         logs = info.data[ 'logs' ]
 
-        return render.manage( installers, profiles, getOrgNames(), logs )
+        return render.manage( installers, profiles, getOrgNames(), logs, whitelist )
 
 class Installer ( AuthenticatedPage ):
     @fileDownload
@@ -836,9 +916,14 @@ class Sensor ( AuthenticatedPage ):
 
         cards = []
         orgNames = getOrgNames()
-        cards.append( card_sensor_ident( aid, hostname, orgNames[ str( aid.org_id ) ] ) )
+        tags = []
+        resp = tagging.request( 'get_tags', { 'sid' : aid.sensor_id } )
+        if resp.isSuccess:
+            tags = resp.data.get( 'tags', {} ).values()[ 0 ].keys()
+        cards.append( card_sensor_ident( aid, hostname, orgNames[ str( aid.org_id ) ], tags ) )
         cards.append( card_sensor_last( aid, hostname ) )
         cards.append( card_sensor_changes( aid, hostname ) )
+        cards.append( card_sensor_bandwidth( aid, hostname ) )
         cards.append( card_sensor_traffic( aid, hostname, None, None ) )
         return render.sensor( hostname, aid, cards )
 
@@ -1005,30 +1090,51 @@ class Search ( AuthenticatedPage ):
             redirectTo( 'sensor', sid = AgentId( info.data[ 'id' ] ).sensor_id )
 
         info = model.request( 'get_obj_list', { 'name' : params.term } )
-        if info.isSuccess and 0 != len( info.data[ 'objects' ] ):
-            redirectTo( 'objsearch', obj = params.term )
-
-        session.notice = 'Nothing found with this search term.'
-        redirectTo( '' )
+        redirectTo( 'objsearch', obj = params.term )
 
 class ObjSearch ( AuthenticatedPage ):
     def doGET( self ):
+        return self.doSearch()
+
+    def doPOST( self ):
+        return self.doSearch()
+
+    def doSearch( self ):
         params = web.input( obj = None )
 
         if params.obj is None:
             return renderAlone.error( 'need to supply an obj' )
 
-        cards = []
-        info = model.request( 'get_obj_list', { 'name' : params.obj, 'orgs' : session.orgs } )
-        if info.isSuccess and 0 != len( info.data[ 'objects' ] ):
-            for oid, oname, otype in info.data[ 'objects' ]:
-                cards.append( card_objsummary( oid, oname, otype ) )
-        elif not info.isSuccess:
-            session.notice = 'Error searching for object: %s' % str( info )
-        else:
-            session.notice = 'No objects found of that name.'
+        objNames = map( lambda x: x.strip(), params.obj.split( '\n' ) )
+        results = {}
+        for objName in objNames:
+            info = model.request( 'get_obj_list', { 'name' : objName, 'orgs' : session.orgs } )
+            if info.isSuccess and 0 != len( info.data[ 'objects' ] ):
+                for oid, oname, otype in info.data[ 'objects' ]:
+                    results[ oid ] = { 'name' : oname, 'type' : otype, 'locs' : 0, 'glocs' : 0 }
 
-        return render.objsearch( cards )
+        if 0 != len( results ):
+            info = model.request( 'get_obj_loc', { 'objects' : [ ( x[ 1 ][ 'name' ], x[ 1 ][ 'type' ] ) for x in results.iteritems() ] } )
+            if info.isSuccess:
+                for oid, sid, ts in info.data:
+                    results[ oid ][ 'glocs' ] += 1
+                    if isSensorAllowed( sid ):
+                        results[ oid ][ 'locs' ] += 1
+
+        tagInfo = {}
+        hostnames = {}
+        resp = tagging.request( 'search_tags', { 'tag' : params.obj, 'oid' : session.orgs } )
+        if resp.isSuccess:
+            resp = tagging.request( 'get_tags', { 'sid' : resp.data.get( 'hosts', [] ) } )
+            if resp.isSuccess:
+                tagInfo = resp.data.get( 'tags', {} )
+                hostnames = getHostnames( tagInfo.keys() )
+
+        return render.objsearch( results, tagInfo, hostnames )
+
+class BulkSearch ( AuthenticatedPage ):
+    def doGET( self ):
+        return render.bulk_search()
 
 class ObjView ( AuthenticatedPage ):
     def doGET( self ):
@@ -1052,6 +1158,8 @@ class ObjView ( AuthenticatedPage ):
         info = model.request( 'get_obj_view', filt )
         cards = []
         if info.isSuccess and 0 != len( info.data ):
+            hostnames = getHostnames( [ x[ 0 ] for x in info.data[ 'olocs' ] ] )
+
             cards.append( card_object( info.data[ 'id' ], 
                                        info.data[ 'oname' ],
                                        info.data[ 'otype' ],
@@ -1060,7 +1168,8 @@ class ObjView ( AuthenticatedPage ):
                                        info.data[ 'rlocs' ],
                                        info.data[ 'parents' ],
                                        info.data[ 'children' ],
-                                       params.sid ) )
+                                       params.sid,
+                                       hostnames ) )
         elif 0 == len( info.data ):
             session.notice = 'No object found.'
         else:
@@ -1122,7 +1231,6 @@ class Detects ( AuthenticatedPage ):
     def doGET( self ):
         params = web.input( before = None, after = None, is_all = False )
 
-        isAll = False if params.is_all is False else True
         before = int( params.before ) if params.before is not None else None
         after = int( params.after ) if params.after is not None else None
         if after is None and before is None:
@@ -1143,16 +1251,12 @@ class Detects ( AuthenticatedPage ):
         orgNames = getOrgNames()
         for detect in allDetects:
             sensors = [ x for x in detect[ 2 ].split( ' / ' ) ]
-            for sensor in sensors:
-                if sensor not in hostcache:
-                    info = model.request( 'get_sensor_info', { 'id_or_host' : sensor } )
-                    if info.isSuccess:
-                        hostcache[ sensor ] = info.data[ 'hostname' ]
+            hostcache.update( getHostnames( sensors ) )
             info = model.request( 'get_detect', { 'id' : detect[ 1 ], 'with_inv' : True } )
-            investigations = []
+            investigations = {}
             if info.isSuccess:
                 investigations = info.data[ 'inv' ]
-            cards.append( renderAlone.card_detect( detect, hostcache, orgNames, investigations, isAll ) )
+            cards.append( renderAlone.card_detect( detect, hostcache, orgNames, investigations ) )
 
         return render.detects( cards )
 
@@ -1180,7 +1284,9 @@ class Capabilities ( AuthenticatedPage ):
         elif params.nameToRem is not None and params.nameToRem != '':
             resp = capabilities.request( 'unload', { 'user_defined_name' : params.nameToRem } )
 
-        if not resp.isSuccess:
+        if resp is None:
+            session.notice = 'Error: missing parameters'
+        elif not resp.isSuccess:
             session.notice = 'Error: %s' % resp
 
         redirectTo( 'capabilities' )
@@ -1331,7 +1437,6 @@ class Configs ( AuthenticatedAdminPage ):
         global DOMAIN_NAME
         params = web.input( primary_domain = None, primary_port = None,
                             secondary_domain = None, secondary_port = None,
-                            enrollmentsecret = None, 
                             paging_user = None, paging_from = None, paging_password = None,
                             virustotalkey = None, 
                             sensorpackage = None,
@@ -1345,7 +1450,8 @@ class Configs ( AuthenticatedAdminPage ):
             if ( deployment.request( 'set_config', 
                                      { 'conf' : 'global/primary', 'value' : params.primary_domain, 'by' : session.email } ).isSuccess and
                  deployment.request( 'set_config', 
-                                     { 'conf' : 'global/primary_port', 'value' : params.primary_port, 'by' : session.email } ).isSuccess ):
+                                     { 'conf' : 'global/primary_port', 'value' : params.primary_port, 'by' : session.email } ).isSuccess and
+                 deployment.request( 'refresh_all_installets', {} ) ):
                 session.notice = 'Success setting primary domain.'
             else:
                 session.notice = 'Error setting primary domain.'
@@ -1353,16 +1459,11 @@ class Configs ( AuthenticatedAdminPage ):
             if ( deployment.request( 'set_config', 
                                      { 'conf' : 'global/secondary', 'value' : params.secondary_domain, 'by' : session.email } ).isSuccess and
                  deployment.request( 'set_config', 
-                                     { 'conf' : 'global/secondary_port', 'value' : params.secondary_port, 'by' : session.email } ).isSuccess ):
+                                     { 'conf' : 'global/secondary_port', 'value' : params.secondary_port, 'by' : session.email } ).isSuccess and
+                 deployment.request( 'refresh_all_installets', {} ) ):
                 session.notice = 'Success setting secondary domain.'
             else:
                 session.notice = 'Error setting secondary domain.'
-        elif params.enrollmentsecret is not None:
-            if deployment.request( 'set_config', 
-                                   { 'conf' : 'global/enrollmentsecret', 'value' : params.enrollmentsecret, 'by' : session.email } ).isSuccess:
-                session.notice = 'Success setting enrollment secret.'
-            else:
-                session.notice = 'Error setting enrollment secret.'
         elif params.paging_user is not None and params.paging_from is not None and params.paging_password is not None:
             if ( deployment.request( 'set_config', 
                                      { 'conf' : 'global/paging_user', 'value' : params.paging_user, 'by' : session.email } ).isSuccess and
@@ -1416,6 +1517,13 @@ class Configs ( AuthenticatedAdminPage ):
                 session.notice = 'Success setting policy.'
             else:
                 session.notice = 'Error setting policy.'
+        elif params.sendmetrics is not None:
+            sendmetrics = '1' if params.sendmetrics is not None else '0'
+            if deployment.request( 'set_config', 
+                                   { 'conf' : 'global/send_metrics', 'value' : sendmetrics, 'by' : session.email } ).isSuccess:
+                session.notice = 'Success setting metrics upload.'
+            else:
+                session.notice = 'Error setting metrics upload.'
 
         redirectTo( 'configs' )
 
@@ -1431,6 +1539,8 @@ class SensorConfigs ( AuthenticatedPage ):
         supportedEvents = info.data
 
         for oid in session.orgs:
+            if oid == ADMIN_OID:
+                continue
             info = deployment.request( 'get_profiles', { 'oid' : oid, 'is_human_readable' : True } )
 
             if not info.isSuccess:
@@ -1485,11 +1595,241 @@ class SensorConfigs ( AuthenticatedPage ):
 
         redirectTo( 'sensor_configs' )
 
+class SensorBandwidth ( AuthenticatedPage ):
+    @jsonApi
+    def doGET( self ):
+        params = web.input( sensor_id = None )
+
+        if params.sensor_id is None:
+            raise web.HTTPError( '400 Bad Request: sensor id required' )
+
+        info = model.request( 'get_sensor_info', { 'id_or_host' : params.sensor_id } )
+
+        if not isOrgAllowed( AgentId( info.data[ 'id' ] ).org_id ):
+            raise web.HTTPError( '401 Unauthorized' )
+
+        usage = model.request( 'get_sensor_bandwidth', { 'sid' : params.sensor_id } )
+        if not usage.isSuccess:
+            raise web.HTTPError( '503 Service Unavailable: %s' % str( usage ) )
+
+        return usage.data
+
+class SensorIpUse ( AuthenticatedPage ):
+    @jsonApi
+    def doGET( self ):
+        params = web.input( ip = None, before = None, after = None )
+
+        usage = model.request( 'get_ip_usage', { 'ip' : params.ip, 
+                                                 'after' : params.after, 
+                                                 'before' : params.before, 
+                                                 'oid' : session.orgs } )
+        if not usage.isSuccess:
+            raise web.HTTPError( '503 Service Unavailable: %s' % str( usage ) )
+
+        usage.data[ 'usage' ] = sorted( usage.data[ 'usage' ], key = lambda x: x[ 0 ], reverse = True )
+
+        return usage.data
+
+class FindHost ( AuthenticatedPage ):
+    def doGET( self ):
+        params = web.input()
+
+        return render.find_host()
+
+class ObjInstance ( AuthenticatedPage ):
+    def doGET( self ):
+        params = web.input( oid = None )
+
+        if params.oid is None:
+            return renderAlone.error( 'need to supply an oid' )
+
+        instances = model.request( 'get_obj_instances', { 'oid' : params.oid, 'orgs' : session.orgs } )
+
+        if instances.isSuccess and 0 != len( instances.data ) and 0 != len( instances.data[ 'instances' ] ):
+            hostnames = getHostnames( [ x[ 1 ] for x in instances.data[ 'instances' ] ] )
+            return render.obj_instance( instances.data[ 'instances' ], hostnames )
+        elif not instances.isSuccess:
+            session.notice = 'Error fetching instances: %s' % str( instances )
+        else:
+            session.notice = 'No instances found.'
+        
+        redirectTo( '' )
+
+class AddTag ( AuthenticatedPage ):
+    @jsonApi
+    def doPOST( self ):
+        params = web.input( sid = None, tag = None )
+
+        if params.sid is None:
+            raise web.HTTPError( '400 Bad Request: sid required' )
+
+        if params.tag is None:
+            raise web.HTTPError( '400 Bad Request: tag required' )
+
+        if not isSensorAllowed( params.sid ):
+            raise web.HTTPError( '401 Unauthorized' )
+
+        resp = tagging.request( 'add_tags', { 'sid' : AgentId( params.sid ).sensor_id, 
+                                              'tag' : params.tag,
+                                              'by' : session.email,
+                                              'ttl' : ( 60 * 60 * 24 * 365 * 20 ) } )
+        if resp.isSuccess:
+            return { 'success' : True }
+        else:
+            raise web.HTTPError( '503 Service Unavailable: %s' % str( resp ) )
+
+class DelTag ( AuthenticatedPage ):
+    @jsonApi
+    def doPOST( self ):
+        params = web.input( sid = None, tag = None )
+
+        if params.sid is None:
+            raise web.HTTPError( '400 Bad Request: sid required' )
+
+        if params.tag is None:
+            raise web.HTTPError( '400 Bad Request: tag required' )
+
+        if not isSensorAllowed( params.sid ):
+            raise web.HTTPError( '401 Unauthorized' )
+
+        resp = tagging.request( 'del_tags', { 'sid' : AgentId( params.sid ).sensor_id, 
+                                              'tag' : params.tag,
+                                              'by' : session.email } )
+        if resp.isSuccess:
+            return { 'success' : True }
+        else:
+            raise web.HTTPError( '503 Service Unavailable: %s' % str( resp ) )
+
+class DelSensor ( AuthenticatedPage ):
+    def doPOST( self ):
+        params = web.input( sid = None )
+
+        try:
+            sid = AgentId( params.sid ).sensor_id
+        except:
+            sid = None
+
+        if sid is None:
+            session.notice = 'Invalid sid to delete provided.'
+            redirectTo( '' )
+
+        if not isSensorAllowed( sid ):
+            raise web.HTTPError( '401 Unauthorized' )
+
+        resp = deployment.request( 'del_sensor', { 'sid' : sid } )
+        if resp.isSuccess:
+            session.notice = 'Sensor deleted.'
+        else:
+            session.notice = str( resp )
+        redirectTo( 'sensors' )
+
+class SetInstallerInfo ( AuthenticatedPage ):
+    def doPOST( self ):
+        params = web.input( oid = None, iid = None, tags = '', desc = '' )
+
+        try:
+            oid = uuid.UUID( params.oid )
+        except:
+            oid = None
+
+        try:
+            if params.iid is not None:
+                iid = uuid.UUID( params.iid )
+            else:
+                # If no IID is present it indicates to create a new one.
+                iid = None
+        except:
+            iid = None
+
+        if oid is None:
+            raise web.HTTPError( '400 Bad Request: oid required' )
+
+        if not isOrgAllowed( oid ):
+            raise web.HTTPError( '401 Unauthorized' )
+
+        tags = [ x.strip() for x in params.tags.split( ',' ) ]
+
+        resp = deployment.request( 'set_installer_info', { 'oid' : oid, 
+                                                           'iid' : iid,
+                                                           'tags' : tags,
+                                                           'desc' : params.desc } )
+        if resp.isSuccess:
+            redirectTo( 'manage' )
+        else:
+            raise web.HTTPError( '503 Service Unavailable: %s' % str( resp ) )
+
+class DelInstaller ( AuthenticatedPage ):
+    def doPOST( self ):
+        params = web.input( oid = None, iid = None )
+
+        try:
+            oid = uuid.UUID( params.oid )
+        except:
+            oid = None
+
+        try:
+            iid = uuid.UUID( params.iid )
+        except:
+            iid = None
+
+        if oid is None:
+            raise web.HTTPError( '400 Bad Request: oid required' )
+
+        if iid is None:
+            raise web.HTTPError( '400 Bad Request: iid required' )
+
+        if not isOrgAllowed( oid ):
+            raise web.HTTPError( '401 Unauthorized' )
+
+        resp = deployment.request( 'del_installer', { 'oid' : oid, 'iid' : iid } )
+        if resp.isSuccess:
+            redirectTo( 'manage' )
+        else:
+            raise web.HTTPError( '503 Service Unavailable: %s' % str( resp ) )
+
+class QuickDetects ( AuthenticatedPage ):
+    def doPOST( self ):
+        if session.is_admin is not True:
+            session.notice = 'Error: quick detects modifications is limited to administrators.'
+            redirectTo( 'dashboard' )
+
+        params = web.input( nameToAdd = None, ruleToAdd = None, actionToAdd = None, nameToRem = None )
+
+        if params.nameToAdd is not None and params.ruleToAdd is not None and params.actionToAdd is not None:
+            req = quickdetects.request( 'add_rule', { 'name' : params.nameToAdd, 
+                                                      'rule' : params.ruleToAdd,
+                                                      'action' : params.actionToAdd } )
+            if req.isSuccess:
+                quickdetects.broadcast( 'reload_rules', {} )
+                session.notice = 'Successfully added %s' % params.nameToAdd
+            else:
+                session.notice = 'Error adding quick detect: %s' % str( req )
+        elif params.nameToRem is not None:
+            req = quickdetects.request( 'del_rule', { 'name' : params.nameToRem } )
+            if req.isSuccess:
+                quickdetects.broadcast( 'reload_rules', {} )
+                session.notice = 'Successfully removed %s' % params.nameToRem
+            else:
+                session.notice = 'Error removing quick detect: %s' % str( req )
+
+        redirectTo( 'quick_detects' )
+
+    def doGET( self ):
+        params = web.input()
+
+        rules = {}
+
+        rulesReq = quickdetects.request( 'get_rules', {} )
+        if rulesReq.isSuccess:
+            rules.update( rulesReq.data )
+
+        return render.quickdetects( rules = rules, is_admin = session.is_admin )
+
 #==============================================================================
 #   CARDS
 #==============================================================================
-def card_sensor_stats( name, sensors ):
-    return renderAlone.card_sensor_stats( sensors, name )
+def card_sensor_stats( name, sensors, oid ):
+    return renderAlone.card_sensor_stats( sensors, name, oid )
 
 def card_org_membership( name, oid ):
     members = []
@@ -1505,8 +1845,8 @@ def card_org_retention( name, oid, ttls ):
 def card_sensors( name, sensors ):
     return renderAlone.card_sensors( sensors, name )
 
-def card_sensor_ident( aid, hostname, orgName ):
-    return renderAlone.card_sensor_ident( aid, hostname, orgName )
+def card_sensor_ident( aid, hostname, orgName, tags ):
+    return renderAlone.card_sensor_ident( aid, hostname, orgName, tags )
 
 def card_sensor_traffic( aid, hostname, after, before ):
     return renderAlone.card_sensor_traffic( aid, hostname, after, before )
@@ -1520,14 +1860,17 @@ def card_event( event, atom ):
 def card_objsummary( oid, oname, otype ):
     return renderAlone.card_objsummary( oid, oname, otype )
 
-def card_object( oid, oname, otype, olocs, locs, rlocs, parents, children, sid ):
-    return renderAlone.card_object( oid, oname, otype, olocs, locs, rlocs, parents, children, sid )
+def card_object( oid, oname, otype, olocs, locs, rlocs, parents, children, sid, hostnames ):
+    return renderAlone.card_object( oid, oname, otype, olocs, locs, rlocs, parents, children, sid, hostnames )
 
 def card_sensor_last( aid, hostname ):
     return renderAlone.card_sensor_last( aid, hostname )
 
 def card_sensor_changes( aid, hostname ):
     return renderAlone.card_sensor_changes( aid, hostname )
+
+def card_sensor_bandwidth( aid, hostname ):
+    return renderAlone.card_sensor_bandwidth( aid, hostname )
 
 #==============================================================================
 #   START

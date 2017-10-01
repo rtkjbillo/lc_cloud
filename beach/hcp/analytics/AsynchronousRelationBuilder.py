@@ -21,15 +21,10 @@ ObjectTypes = Actor.importLib( '../utils/ObjectsDb', 'ObjectTypes' )
 ObjectNormalForm = Actor.importLib( '../utils/ObjectsDb', 'ObjectNormalForm' )
 AgentId = Actor.importLib( '../utils/hcp_helpers', 'AgentId' )
 CassDb = Actor.importLib( '../utils/hcp_databases', 'CassDb' )
-CassPool = Actor.importLib( '../utils/hcp_databases', 'CassPool' )
 
 class AsynchronousRelationBuilder( Actor ):
     def init( self, parameters, resources ):
-    	self._db = CassDb( parameters[ 'db' ], 'hcp_analytics', consistencyOne = True )
-        self.db = CassPool( self._db,
-                            rate_limit_per_sec = parameters[ 'rate_limit_per_sec' ],
-                            maxConcurrent = parameters[ 'max_concurrent' ],
-                            blockOnQueueSize = parameters[ 'block_on_queue_size' ] )
+    	self.db = CassDb( parameters[ 'db' ], 'hcp_analytics' )
     	# This is a mapping indicating the parent type and 
     	# function generating the object value for each child type.
     	self.mapping = { 'notifcation.NEW_PROCESS' : ( 'notification.NEW_PROCESS', 
@@ -38,7 +33,7 @@ class AsynchronousRelationBuilder( Actor ):
         self.schedule( 60, self.compile )
         
     def deinit( self ):
-        pass
+        self.db.shutdown()
 
     def compile( self ):
     	pass

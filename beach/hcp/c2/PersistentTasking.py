@@ -18,7 +18,6 @@ import hashlib
 import time
 import ipaddress
 CassDb = Actor.importLib( 'utils/hcp_databases', 'CassDb' )
-CassPool = Actor.importLib( 'utils/hcp_databases', 'CassPool' )
 rpcm = Actor.importLib( 'utils/rpcm', 'rpcm' )
 rList = Actor.importLib( 'utils/rpcm', 'rList' )
 rSequence = Actor.importLib( 'utils/rpcm', 'rSequence' )
@@ -26,11 +25,7 @@ AgentId = Actor.importLib( 'utils/hcp_helpers', 'AgentId' )
 
 class PersistentTasking( Actor ):
     def init( self, parameters, resources ):
-        self._db = CassDb( parameters[ 'db' ], 'hcp_analytics', consistencyOne = True )
-        self.db = CassPool( self._db,
-                            rate_limit_per_sec = parameters[ 'rate_limit_per_sec' ],
-                            maxConcurrent = parameters[ 'max_concurrent' ],
-                            blockOnQueueSize = parameters[ 'block_on_queue_size' ] )
+        self.db = CassDb( parameters[ 'db' ], 'hcp_analytics' )
 
         #self.db.start()
 
@@ -38,7 +33,7 @@ class PersistentTasking( Actor ):
         self.handle( 'dead', self.setDead )
 
     def deinit( self ):
-        pass
+        self.db.shutdown()
 
     def setLive( self, msg ):
         aid = AgentId( msg.data[ 'aid' ] )

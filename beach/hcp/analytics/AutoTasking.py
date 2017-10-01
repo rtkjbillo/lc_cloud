@@ -19,7 +19,6 @@ from sets import Set
 HcpCli = Actor.importLib( '../admin_cli', 'HcpCli' )
 ArgumentParserError = Actor.importLib( '../admin_cli', 'ArgumentParserError' )
 CassDb = Actor.importLib( 'utils/hcp_databases', 'CassDb' )
-CassPool = Actor.importLib( 'utils/hcp_databases', 'CassPool' )
 AgentId = Actor.importLib( '../utils/hcp_helpers', 'AgentId' )
 RingCache = Actor.importLib( 'utils/hcp_helpers', 'RingCache' )
 
@@ -28,20 +27,14 @@ class AutoTasking( Actor ):
         self.authToken = parameters.get( 'auth_token', '' )
         self.cmdLogFile = parameters.get( 'log_file', None )
 
-        self._db = CassDb( parameters[ 'db' ], 'hcp_analytics', consistencyOne = True )
-        self.db = CassPool( self._db,
-                            rate_limit_per_sec = parameters[ 'rate_limit_per_sec' ],
-                            maxConcurrent = parameters[ 'max_concurrent' ],
-                            blockOnQueueSize = parameters[ 'block_on_queue_size' ] )
+        self.db = CassDb( parameters[ 'db' ], 'hcp_analytics' )
 
         self.get_key_stmt = self.db.prepare( 'SELECT data FROM hbs_keys WHERE oid = ?' )
-
-        self.db.start()
 
         self.sensor_qph = parameters.get( 'sensor_qph', 50 )
         self.global_qph = parameters.get( 'global_qph', 200 )
         self.allowed_commands = Set( parameters.get( 'allowed', [] ) )
-        self.model = self.getActorHandle( resources[ 'modeling' ] )
+        self.model = self.getActorHandle( resources[ 'modeling' ], timeout = 10, nRetries = 3 )
         self.handle( 'task', self.handleTasking )
         self.sensor_stats = {}
         self.global_stats = 0
@@ -49,7 +42,7 @@ class AutoTasking( Actor ):
         self.schedule( 3600, self.decay )
 
     def deinit( self ):
-        pass
+        self.db.shutdown()
 
     def getCli( self, oid ):
         key = None

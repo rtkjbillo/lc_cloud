@@ -1,0 +1,61 @@
+$def with ( aid, hostname )
+<div class="mdl-card mdl-cell mdl-cell--12-col mdl-shadow--4dp" style="height: 300px;">
+  <div class="mdl-card__title">
+    <h4 class="mdl-card__title-text">Sensor Bandwidth Use: $hostname</h4><div class="mdl-layout-spacer"></div><i class="material-icons update_status" style="color:red;">compare_arrows</i>
+  </div>
+  <div class="mdl-card__supporting-text" style="overflow: scroll;">
+    <div id="bandwidth_chart" style="width:100%; height:100%;"></div>
+  </div>
+  <div class="mdl-card__actions mdl-card--border">
+  </div>
+</div>
+<script type="text/javascript">
+  var chart_data_bandwidth = [];
+  var max_timeline_values = ((60/5)*60*24);
+  chart_bandwidth = new CanvasJS.Chart("bandwidth_chart", {
+      zoomEnabled : true,
+      panEnabled : true,
+      toolTip: {
+          content: "<i><b>{x}</b></i><br/>{y} KB",
+      },
+      title : {
+          text : "Sensor Bandwidth"
+      },
+      axisX:{
+          title: "Time",
+          valueFormatString: "YYYY/MM/DD HH:mm:ss"
+      },
+
+       axisY:{
+          title: "KB",
+      },
+
+      data : chart_data_bandwidth
+  });
+  function update_graph(data) {
+    data = data[ 'usage' ];
+    var dataPoints = [];
+    for (var i = 0; i < data.length; i++) {
+        dataPoints.push( { x : data[ i ][ 0 ], y : Math.round( data[ i ][ 1 ] / 1024 ) } );
+    }
+    if( 0 != dataPoints.length )
+    {
+        chart_data_bandwidth[ 0 ] = { legendText: "$aid.sensor_id",
+                                      type: 'line',
+                                      showInLegend: true,
+                                      xValueType: "dateTime",
+                                      dataPoints: dataPoints };
+        chart_bandwidth.render();
+    }
+  }
+  function get_bandwidth(sid, nSec){
+    jQuery.getJSON( '/sensor_bandwidth',
+          { sensor_id : sid, after : new Date().getTime() } ).done(update_graph);
+  }
+  jQuery(function() {
+    get_bandwidth("$aid.sensor_id", 60 * 60 * 24);
+    setInterval(function(){
+      get_bandwidth("$aid.sensor_id", 60);
+    }, 60000);
+  });
+</script>

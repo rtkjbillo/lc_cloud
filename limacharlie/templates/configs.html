@@ -54,28 +54,6 @@ $var title = 'Configurations'
 
 <div class="mdl-card mdl-cell mdl-cell--3-col mdl-shadow--4dp std_height">
   <div class="mdl-card__title">
-    <h2 class="mdl-card__title-text">Enrollment Secret</h2>
-  </div>
-  <div class="mdl-card__supporting-text">
-    <form method="POST" id="form_enrollmentsecret">
-      This is a secret string used to sign and verify sensor's enrollment credentials.<br/>
-      <i>It should not be shared with anyone as it could result in a malicious attacker impersonating sensors.</i>
-      <br/><br/>
-      <div class="mdl-textfield mdl-js-textfield" style="width: 100%;">
-        <input class="mdl-textfield__input" type="password" id="enrollmentsecret" name="enrollmentsecret" value="$configs['global/enrollmentsecret']"/>
-        <label class="mdl-textfield__label" for="enrollmentsecret">Secret</label>
-      </div>
-    </form>
-  </div>
-  <div class="mdl-card__actions mdl-card--border">
-    <center>
-      <button class="mdl-button mdl-button--colored mdl-js-button mdl-js-ripple-effect mdl-button--raised" type="submit" form="form_enrollmentsecret" name="action" value="leave" onclick="return confirm('Are you sure you want to update the enrollment secret?');">Update</button>
-    </center>
-  </div>
-</div>
-
-<div class="mdl-card mdl-cell mdl-cell--3-col mdl-shadow--4dp std_height">
-  <div class="mdl-card__title">
     <h2 class="mdl-card__title-text">Paging Email Account</h2>
   </div>
   <div class="mdl-card__supporting-text">
@@ -182,7 +160,7 @@ $var title = 'Configurations'
   </div>
   <div class="mdl-card__supporting-text"">
     <form method="POST" id="form_whatsnew">
-      The markdown-formated text you enter here will be displayed in the "What's New" section of the dashboard for all users.
+      The markdown-formatted text you enter here will be displayed in the "What's New" section of the dashboard for all users.
       <br/><br/>
       <div class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label" style="width:100%;">
           <textarea class="mdl-textfield__input" type="text" rows= "3" id="whatsnew" name="whatsnew">$configs['global/whatsnew']</textarea>
@@ -203,9 +181,9 @@ $var title = 'Configurations'
   </div>
   <div class="mdl-card__supporting-text"">
     <form method="POST" id="form_outage">
-      The markdown-formated text that will be displayed to all non-Admin users when you toggle the outage to "on". 
+      The markdown-formatted text that will be displayed to all non-Admin users when you toggle the outage to "on". 
       While the outage is "on", all non-admin users will not be granted access to the web ui and will have the warning displayed to them.
-      This is useful for performing maintenance to the cloud and warning users it is happenning.
+      This is useful for performing maintenance to the cloud and warning users it is happening.
       <br/>
       Outage status is refreshed every 30 seconds.
       <br/><br/>
@@ -243,6 +221,42 @@ $var title = 'Configurations'
   <div class="mdl-card__actions mdl-card--border">
     <center>
       <button class="mdl-button mdl-button--colored mdl-js-button mdl-js-ripple-effect mdl-button--raised" type="submit" form="form_policy" name="action" onclick="return confirm('Are you sure you want to update the policy text?');">Update</button>
+    </center>
+  </div>
+</div>
+
+<div class="mdl-card mdl-cell mdl-cell--4-col mdl-shadow--4dp">
+  <div class="mdl-card__title">
+    <h4 class="mdl-card__title-text">Send Usage Metrics</h4>
+  </div>
+  <div class="mdl-card__supporting-text"">
+    <form method="POST" id="form_metrics">
+      If enabled, the cloud will send anonymous usage metrics to the maintainers. These metrics are:
+      <br/>
+      <ul>
+        <li>
+          Global number of sensors enrolled
+        </li>
+        <li>
+          Global number of sensors online
+        </li>
+        <li>
+          Number of nodes in the Beach cluster
+        </li>
+        <li>
+          Memory and CPU usage of nodes in the Beach cluster
+        </li>
+      </ul>
+      <br/><br/>
+      <label class="mdl-switch mdl-js-switch mdl-js-ripple-effect" for="sendmetrics">
+        <input type="checkbox" value="4" name="sendmetrics" id="sendmetrics" class="mdl-switch__input" $('' if configs['global/send_metrics'] == '0' else 'checked')>
+        <span class="mdl-switch__label">Send usage metrics</span>
+      </label>
+    </form>
+  </div>
+  <div class="mdl-card__actions mdl-card--border">
+    <center>
+      <button class="mdl-button mdl-button--colored mdl-js-button mdl-js-ripple-effect mdl-button--raised" type="submit" form="form_metrics" name="action" onclick="return confirm('Are you sure you want to update the metrics upload?');">Update</button>
     </center>
   </div>
 </div>

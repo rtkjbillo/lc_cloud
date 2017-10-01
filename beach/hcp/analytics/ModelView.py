@@ -30,15 +30,17 @@ KeyValueStore = Actor.importLib( '../utils/ObjectsDb', 'KeyValueStore' )
 AgentId = Actor.importLib( '../utils/hcp_helpers', 'AgentId' )
 _xm_ = Actor.importLib( '../utils/hcp_helpers', '_xm_' )
 _x_ = Actor.importLib( '../utils/hcp_helpers', '_x_' )
+CassDb = Actor.importLib( '../utils/hcp_databases', 'CassDb' )
 
 class ModelView( Actor ):
     def init( self, parameters, resources ):
         self.admin = BEAdmin( self._beach_config_path, None )
-        Host.setDatabase( self.admin, parameters[ 'scale_db' ] )
-        HostObjects.setDatabase( parameters[ 'scale_db' ] )
-        Reporting.setDatabase( parameters[ 'scale_db' ] )
-        KeyValueStore.setDatabase( parameters[ 'scale_db' ] )
-        Atoms.setDatabase( parameters[ 'scale_db' ] )
+        self.db = CassDb( parameters[ 'scale_db' ], 'hcp_analytics' )
+        Host.setDatabase( self.admin, self.db )
+        HostObjects.setDatabase( self.db )
+        Reporting.setDatabase( self.db )
+        KeyValueStore.setDatabase( self.db )
+        Atoms.setDatabase( self.db )
         self.handle( 'get_timeline', self.get_timeline )
         self.handle( 'get_sensor_info', self.get_sensor_info )
         self.handle( 'get_obj_list', self.get_obj_list )
@@ -57,11 +59,15 @@ class ModelView( Actor ):
         self.handle( 'get_atoms_from_root', self.get_atoms_from_root )
         self.handle( 'get_backend_config', self.get_backend_config )
         self.handle( 'get_installer', self.get_installer )
+        self.handle( 'get_sensor_bandwidth', self.get_sensor_bandwidth )
+        self.handle( 'get_ip_usage', self.get_ip_usage )
+        self.handle( 'get_obj_instances', self.get_obj_instances )
 
     def deinit( self ):
         Host.closeDatabase()
         HostObjects.closeDatabase()
         Reporting.closeDatabase()
+        self.db.shutdown()
 
     def asUuidList( self, elem ):
         if type( elem ) not in ( list, tuple ):
@@ -371,8 +377,8 @@ class ModelView( Actor ):
 
     def get_atoms_from_root( self, msg ):
         tmp_atoms = msg.data[ 'id' ]
-        depth = msg.data.get( 'depth', 5 )
-        maxAtoms = msg.data.get( 'max_atoms', 100 )
+        depth = msg.data.get( 'depth', 10 )
+        maxAtoms = msg.data.get( 'max_atoms', 1000 )
         withRouting = msg.data.get( 'with_routing', False )
         atoms = []
         
@@ -400,16 +406,20 @@ class ModelView( Actor ):
         oids = msg.data.get( 'oid', None )
 
         if oids is not None:
+            oids = self.asUuidList( oids )
             info[ 'hcp_installers' ] = {}
             info[ 'hbs_profiles' ] = {}
+            info[ 'hcp_whitelist' ] = {}
             for oid in oids:
                 info[ 'hcp_installers' ][ oid ] = self.admin.hcp_getInstallers( oid = oid ).data
                 info[ 'hbs_profiles' ][ oid ] = self.admin.hbs_getProfiles( oid = oid ).data
+                info[ 'hcp_whitelist' ][ oid ] = self.admin.hcp_getWhitelist( oid = oid ).data
         else:
             info[ 'hcp_installers' ] = self.admin.hcp_getInstallers().data
             info[ 'hcp_taskings' ] = self.admin.hcp_getTaskings().data
             info[ 'hcp_modules' ] = self.admin.hcp_getModules().data
             info[ 'hbs_profiles' ] = self.admin.hbs_getProfiles().data
+            info[ 'hcp_whitelist' ] = self.admin.hcp_getWhitelist().data
 
 
         return ( True, info )
@@ -422,3 +432,27 @@ class ModelView( Actor ):
 
         return ( True, data )
 
+    def get_sensor_bandwidth( self, msg ):
+        sid = msg.data[ 'sid' ]
+        after = msg.data.get( 'after', int( time.time() - ( 60 * 60 * 24 * 1 ) ) )
+
+        usage = Host( sid ).getBandwidthUsage( after = after )
+
+        return ( True, { 'usage' : usage } )
+
+    def get_ip_usage( self, msg ):
+        oid = msg.data[ 'oid' ]
+        ip = msg.data[ 'ip' ]
+        after = msg.data.get( 'after', None )
+        before = msg.data.get( 'before', None )
+
+        usage = Host.getHostsUsingIp( ip, after = after, before = before, inOrgs = oid )
+
+        return ( True, { 'usage' : usage } )
+
+    def get_obj_instances( self, msg ):
+        orgs = self.asUuidList( msg.data[ 'orgs' ] )
+
+        instances = [ x for x in HostObjects( msg.data[ 'oid' ] ).events( oid = orgs ) ]
+
+        return ( True, { 'instances' : instances } )

@@ -62,7 +62,9 @@ class PagingActor( Actor ):
         subject = msg.data.get( 'subject', None )
 
         if toAddr is not None and message is not None and subject is not None:
+            self.log( "Paging %s" % toAddr )
             self.sendPage( toAddr, subject, message )
+            self.zInc( "n_sent" )
             return ( True, )
         else:
             return ( False, )
@@ -73,7 +75,7 @@ class PagingActor( Actor ):
         msg = MIMEMultipart( 'alternative' )
         dest = ', '.join( dest )
         content_text = message
-        content_html = message.replace( '\n', '<br/>' )
+        content_html = message.replace( '\n', '<br/>' ).replace( ' ', '&nbsp;' ).replace( '\t', '&nbsp;&nbsp;' )
 
         msg[ 'To' ] = dest
         msg[ 'From' ] = self.fromAddr if self.fromAddr is not None else self.user

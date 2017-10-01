@@ -69,6 +69,8 @@ $for card in extra_cards:
   $:card
 
 $for orgInfo, orgConf in org_configs.iteritems():
+  $if str( ADMIN_OID ) == str( orgInfo[ 1 ] ):
+    $continue
   <div class="mdl-card mdl-cell mdl-cell--4-col mdl-shadow--4dp std_height">
     <div class="mdl-card__title">
       <h2 class="mdl-card__title-text">Slack App: $orgInfo[ 0 ]</h2>
@@ -92,6 +94,33 @@ $for orgInfo, orgConf in org_configs.iteritems():
     <div class="mdl-card__actions mdl-card--border">
       <center>
         <button class="mdl-button mdl-button--colored mdl-js-button mdl-js-ripple-effect mdl-button--raised" type="submit" form="form_slack_token_$orgInfo[ 1 ]" name="action" value="slack_update" onclick="return confirm('Are you sure you want to update the Slack app token?');">Update Token</button>
+      </center>
+    </div>
+  </div>
+
+  <div class="mdl-card mdl-cell mdl-cell--4-col mdl-shadow--4dp std_height">
+    <div class="mdl-card__title">
+      <h2 class="mdl-card__title-text">Webhook: $orgInfo[ 0 ]</h2>
+    </div>
+    <div class="mdl-card__supporting-text">
+      <form method="POST" id="form_webhook_$orgInfo[ 1 ]">
+        Instructions on how to setup the webhook for your community are found <a href="https://github.com/refractionPOINT/limacharlie/wiki/webhook">here</a>.
+        <br/><br/>
+        <input type="hidden" name="oid" value="$orgInfo[ 1 ]"/>
+        <div class="mdl-textfield mdl-js-textfield" style="width: 100%;">
+          <input class="mdl-textfield__input" type="password" id="webhook_secret" name="webhook_secret" value="$orgConf[ '%s/webhook_secret' % orgInfo[ 1 ] ]"/>
+          <label class="mdl-textfield__label" for="webhook_secret">Webhook Secret</label>
+        </div>
+        <br/><br/>
+        <div class="mdl-textfield mdl-js-textfield" style="width: 100%;">
+          <input class="mdl-textfield__input" type="url" id="webhook_dest" name="webhook_dest" value="$orgConf[ '%s/webhook_dest' % orgInfo[ 1 ] ]"/>
+          <label class="mdl-textfield__label" for="webhook_dest">Webhook Destination URL</label>
+        </div>
+      </form>
+    </div>
+    <div class="mdl-card__actions mdl-card--border">
+      <center>
+        <button class="mdl-button mdl-button--colored mdl-js-button mdl-js-ripple-effect mdl-button--raised" type="submit" form="form_webhook_$orgInfo[ 1 ]" name="action" value="webhook_update" onclick="return confirm('Are you sure you want to update the webhook?');">Update Webhook</button>
       </center>
     </div>
   </div>
@@ -231,6 +260,8 @@ $if all_orgs is not None:
             </thead>
             <tbody>
               $for org in all_orgs:
+                $if str( ADMIN_OID ) == str( org[ 1 ] ):
+                  $continue
                 <tr>
                   <td class="checkbox-col">
                     <label class="mdl-checkbox mdl-js-checkbox mdl-js-ripple-effect mdl-data-table__select">

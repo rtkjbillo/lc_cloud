@@ -20,6 +20,7 @@ Mutex = Actor.importLib( '../utils/hcp_helpers', 'Mutex' )
 import urllib2
 import json
 import tempfile
+import traceback
 
 class CapabilityManager( Actor ):
     def init( self, parameters, resources ):
@@ -36,13 +37,40 @@ class CapabilityManager( Actor ):
         self.hunterTrustedIdent = parameters[ 'hunter_trusted_ident' ]
         self.loadedDetections = {}
         self.loadedPatrols = {}
+        self.storedConf = {}
         self.mutex = Mutex()
+        self.deploymentmanager = self.getActorHandle( resources[ 'deployment' ], nRetries = 3, timeout = 30 )
         self.handle( 'load', self.loadCapability )
         self.handle( 'unload', self.unloadDetection )
         self.handle( 'list', self.listDetections )
+        self.delay( 5, self.reloadStoredConfigs )
 
     def deinit( self ):
         pass
+
+    def updateStoredConfigs( self ):
+        resp = self.deploymentmanager.request( 'set_config', { 'conf' : 'global/capabilities', 
+                                                               'value' : json.dumps( self.storedConf ), 
+                                                               'by' : 'capability_manager' } )
+        return resp.isSuccess
+
+    def reloadStoredConfigs( self ):
+        self.log( "Fetching existing capabilities." )
+        resp = self.deploymentmanager.request( 'get_capabilities', {} )
+        if resp.isSuccess:
+            try:
+                conf = json.loads( resp.data[ 'capabilities' ] )
+            except:
+                conf = {}
+            self.storedConf = conf
+            for confName, data in conf.iteritems():
+                isSuccess, txt = self.doLoadCapability( data[ 'url' ], data[ 'content' ], data[ 'name' ], data[ 'args' ] )
+                if isSuccess:
+                    self.log( "Capability %s loaded from config store." % data[ 'name' ] )
+                else:
+                    self.log( "Error loading capability %s from config store: %s." % ( data[ 'name' ], txt ) )
+        else:
+            self.log( "No capabilities found." )
 
     def massageUrl( self, url ):
         if url.startswith( 'https://github.com/' ):
@@ -98,13 +126,17 @@ class CapabilityManager( Actor ):
         return ( elem, ) if type( elem ) not in ( list, tuple ) else elem
 
     def loadCapability( self, msg ):
+        url = msg.data.get( 'url', None )
+        patrolContent = msg.data.get( 'content', None )
+        userDefinedName = msg.data[ 'user_defined_name' ]
+        arguments = msg.data[ 'args' ]
+        return self.doLoadCapability( url, patrolContent, userDefinedName, arguments )
+
+    def doLoadCapability( self, url, patrolContent, userDefinedName, arguments ):
         with self.mutex:
-            url = msg.data.get( 'url', None )
             if url is not None:
                 url = self.massageUrl( url )
-            patrolContent = msg.data.get( 'content', None )
-            userDefinedName = msg.data[ 'user_defined_name' ]
-            arguments = msg.data[ 'args' ]
+            tmpStoredConf = { 'url' : url, 'content' : patrolContent, 'name' : userDefinedName, 'args' : arguments }
             arguments = json.loads( arguments ) if ( arguments is not None and 0 != len( arguments ) ) else {}
             
             if userDefinedName in self.loadedDetections or userDefinedName in self.loadedPatrols:
@@ -119,22 +151,33 @@ class CapabilityManager( Actor ):
                     url = 'file://%s' % tmpPatrol.name
                     tmpPatrol.close()
 
-            capability = urllib2.urlopen( url ).read()
-
-            summary = self.getDetectionMtdFromContent( capability )
-            if summary is not None:
-                summary[ 'src' ] = url
-                return self.loadDetection( msg, url, userDefinedName, arguments, summary )
-            else:
-                summary = self.getPatrolMtdFromContent( capability )
+            try:
+                capability = urllib2.urlopen( url ).read()
+                summary = self.getDetectionMtdFromContent( capability )
+            except:
+                return ( False, traceback.format_exc() )
+            self.storedConf[ userDefinedName ] = tmpStoredConf
+            try:
                 if summary is not None:
                     summary[ 'src' ] = url
-                    return self.loadPatrol( msg, url, userDefinedName, summary, capability )
+                    ret = self.loadDetection( url, userDefinedName, arguments, summary )
+                    self.updateStoredConfigs()
+                    return ret
+                else:
+                    summary = self.getPatrolMtdFromContent( capability )
+                    if summary is not None:
+                        summary[ 'src' ] = url
+                        ret = self.loadPatrol( url, userDefinedName, summary, capability )
+                        self.updateStoredConfigs()
+                        return ret
+            except:
+                self.storedConf.pop( userDefinedName, None )
+                raise
 
             self.log( 'could not find any capability to load in url' )
             return ( False, 'could not find any capability to load in url' )
 
-    def loadPatrol( self, msg, url, userDefinedName, summary, capability ):
+    def loadPatrol( self, url, userDefinedName, summary, capability ):
         newPatrol = Patrol( self._beach_config_path, 
                             realm = 'hcp', 
                             identifier = userDefinedName,
@@ -151,7 +194,7 @@ class CapabilityManager( Actor ):
         self.log( 'loading new patrol %s' % ( userDefinedName, ) )
         return ( True, summary )
 
-    def loadDetection( self, msg, url, userDefinedName, arguments, summary ):
+    def loadDetection( self, url, userDefinedName, arguments, summary ):
         summary[ 'name' ] = url.split( '/' )[ -1 ].lower().replace( '.py', '' )
 
         summary[ 'platform' ] = self.ensureList( summary[ 'platform' ] )
@@ -161,9 +204,11 @@ class CapabilityManager( Actor ):
         categories = []
         secretIdent = None
         trustedIdents = None
+        isDrainable = False
         if 'stateless' == summary[ 'type' ]:
             secretIdent = self.detectSecretIdent
             trustedIdents = self.detectTrustedIdent
+            isDrainable = True
             for feed in summary[ 'feeds' ]:
                 for platform in summary[ 'platform' ]:
                     categories.append( 'analytics/stateless/%s/%s/%s/%s' %  ( platform, 
@@ -194,7 +239,8 @@ class CapabilityManager( Actor ):
                                  'secretIdent' : secretIdent,
                                  'trustedIdents' : trustedIdents,
                                  'n_concurrent' : summary.get( 'n_concurrent', 5 ),
-                                 'isIsolated' : summary.get( 'isIsolated', False ) } )
+                                 'isIsolated' : summary.get( 'isIsolated', False ),
+                                 'is_drainable' : isDrainable } )
 
         self.loadedDetections[ userDefinedName ] = summary
         
@@ -215,6 +261,8 @@ class CapabilityManager( Actor ):
                 removedActors = self.loadedPatrols[ userDefinedName ][ 'instance' ].remove()
                 removed = True
                 del( self.loadedPatrols[ userDefinedName ] )
+            self.storedConf.pop( userDefinedName, None )
+            self.updateStoredConfigs()
             return ( True, { 'removed' : removed } )
 
     def listDetections( self, msg ):

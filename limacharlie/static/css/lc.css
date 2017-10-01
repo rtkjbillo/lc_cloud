@@ -22,9 +22,15 @@
 }
 .mdl-card__supporting-text {
   width: auto;
-  height: 100%;
+  height: inherit;
   overflow: scroll;
 }
+/*
+.mdl-card__actions.mdl-card--border {
+	position: absolute;
+	bottom: 0;
+}
+*/
 .checkbox-col {
 	width: 1em;
 }
@@ -35,7 +41,7 @@
 	height: 400px;
 }
 .min_height {
-	height: 400px;
+	min-height: 400px;
 }
 .why_blurb {
 
@@ -46,4 +52,7 @@
 }
 .table-scrollable table {
     width: 100%;
+}
+.canvasjs-chart-credit {
+   display: none;
 }

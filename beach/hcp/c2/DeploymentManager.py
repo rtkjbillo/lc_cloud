@@ -13,6 +13,7 @@
 # limitations under the License.
 
 from beach.actor import Actor
+from beach.beach_api import Beach
 import traceback
 import M2Crypto
 import tempfile
@@ -28,7 +29,6 @@ from zipfile import ZipFile
 from io import BytesIO
 import random
 CassDb = Actor.importLib( 'utils/hcp_databases', 'CassDb' )
-CassPool = Actor.importLib( 'utils/hcp_databases', 'CassPool' )
 rSequence = Actor.importLib( 'utils/rpcm', 'rSequence' )
 rList = Actor.importLib( 'utils/rpcm', 'rList' )
 rpcm = Actor.importLib( 'utils/rpcm', 'rpcm' )
@@ -36,47 +36,22 @@ HcpModuleId = Actor.importLib( 'utils/hcp_helpers', 'HcpModuleId' )
 HbsCollectorId = Actor.importLib( 'utils/hcp_helpers', 'HbsCollectorId' )
 SensorConfig = Actor.importLib( 'utils/SensorConfig', 'SensorConfig' )
 AgentId = Actor.importLib( 'utils/hcp_helpers', 'AgentId' )
+Signing = Actor.importLib( 'signing', 'Signing' )
 Symbols = Actor.importLib( 'Symbols', 'Symbols' )()
 
-class Signing( object ):
-    
-    def __init__( self, privateKey ):
-        self.pri_key = None
-        if not privateKey.startswith( '-----BEGIN RSA PRIVATE KEY-----' ):
-            privateKey = self.der2pem( privateKey )
-            
-        self.pri_key = M2Crypto.RSA.load_key_string( privateKey )
-    
-    
-    def sign( self, buff ):
-        sig = None
-        h = hashlib.sha256( buff ).digest()
-        
-        sig = self.pri_key.private_encrypt( h, M2Crypto.RSA.pkcs1_padding )
-        
-        return sig
-    
-    def der2pem( self, der ):
-        encoded = base64.b64encode( der )
-        encoded = [ encoded[ i : i + 64 ] for i in range( 0, len( encoded ), 64 ) ]
-        encoded = '\n'.join( encoded )
-        pem = '-----BEGIN RSA PRIVATE KEY-----\n%s\n-----END RSA PRIVATE KEY-----\n' % encoded
-        
-        return pem
+# This is the key also defined in the sensor as _HCP_DEFAULT_STATIC_STORE_KEY
+# and used with the same algorithm as obfuscationLib
+OBFUSCATION_KEY = "\xFA\x75\x01"
+STATIC_STORE_MAX_SIZE = 1024 * 50
 
 class DeploymentManager( Actor ):
     def init( self, parameters, resources ):
-        self._db = CassDb( parameters[ 'db' ], 'hcp_analytics', consistencyOne = True )
-        self.db = CassPool( self._db,
-                            rate_limit_per_sec = parameters[ 'rate_limit_per_sec' ],
-                            maxConcurrent = parameters[ 'max_concurrent' ],
-                            blockOnQueueSize = parameters[ 'block_on_queue_size' ] )
+        self.beach_api = Beach( self._beach_config_path, realm = 'hcp' )
+        self.db = CassDb( parameters[ 'db' ], 'hcp_analytics' )
 
-        self.db.start()
-
-        self.audit = self.getActorHandle( resources[ 'auditing' ] )
-        self.page = self.getActorHandle( resources[ 'paging' ] )
-        self.admin = self.getActorHandle( resources[ 'admin' ] )
+        self.audit = self.getActorHandle( resources[ 'auditing' ], timeout = 30, nRetries = 3 )
+        self.admin = self.getActorHandle( resources[ 'admin' ], timeout = 30, nRetries = 3 )
+        self.sensorDir = self.getActorHandle( resources[ 'sensordir' ], timeout = 30, nRetries = 3 )
 
         self.genDefaultsIfNotPresent()
 
@@ -91,12 +66,56 @@ class DeploymentManager( Actor ):
         self.handle( 'set_config', self.set_config )
         self.handle( 'deploy_org', self.deploy_org )
         self.handle( 'get_c2_cert', self.get_c2_cert )
+        self.handle( 'get_root_cert', self.get_root_cert )
         self.handle( 'update_profile', self.update_profile )
         self.handle( 'get_profiles', self.get_profiles )
         self.handle( 'get_supported_events', self.get_supported_events )
+        self.handle( 'get_capabilities', self.get_capabilities )
+        self.handle( 'get_quick_detects', self.get_quick_detects )
+        self.handle( 'del_sensor', self.del_sensor )
+        self.handle( 'refresh_all_installets', self.refresh_all_installets )
+        self.handle( 'set_installer_info', self.set_installer_info )
+        self.handle( 'del_installer', self.del_installer )
+
+        self.metricsUrl = resources.get( 'metrics_url', 'https://limacharlie.io/metrics/opensource' )
+        self.schedule( ( 60 * 60 ) + random.randint( 0, 60 * 60 ) , self.sendMetricsIfEnabled )
         
     def deinit( self ):
-        pass
+        self.db.shutdown()
+
+    def sendMetricsIfEnabled( self ):
+        status, conf = self.get_global_config( None )
+        if status is True and '0' != conf.get( 'global/send_metrics', '0' ):
+            # Metrics upload is enabled.
+            self.log( 'Reporting metrics to %s' % self.metricsUrl )
+            metrics = {}
+            metrics[ 'deployment_id' ] = conf.get( 'global/deployment_id', '' )
+            sensorReq = self.admin.request( 'hcp.get_agent_states', {} )
+            if sensorReq.isSuccess:
+                sensors = sensorReq.data.get( 'agents', {} )
+                metrics[ 'n_sensors' ] = len( sensors )
+            del( sensorReq )
+            dirReq = self.sensorDir.request( 'get_dir', {} )
+            if dirReq.isSuccess:
+                metrics[ 'n_online_sensors' ] = len( dirReq.data.get( 'dir', {} ) )
+            del( dirReq )
+            metrics[ 'n_nodes' ] = self.beach_api.getNodeCount()
+            # Get node health and anonymize the node IPs
+            tmpHealth = self.beach_api.getClusterHealth()
+            metrics[ 'nodes_health' ] = {}
+            nodeCount = 0
+            for nodeIp, health in tmpHealth.iteritems():
+                nodeCount += 1
+                metrics[ 'nodes_health' ][ str( nodeCount ) ] = health
+
+            # All metrics gathered, send them.
+            try:
+                req = urllib2.Request( self.metricsUrl )
+                req.add_header( 'Content-Type', 'application/json' )
+                req.add_header( 'User-Agent', 'lc_cloud' )
+                response = urllib2.urlopen( req, json.dumps( metrics ) )
+            except:
+                self.log( 'failed to send metrics: %s' % traceback.format_exc() )
 
     def generateKey( self ):
         key = {
@@ -177,7 +196,7 @@ class DeploymentManager( Actor ):
             aid.platform = AgentId.PLATFORM_IOS
         elif 'android' in binName:
             aid.platform = AgentId.PLATFORM_ANDROID
-        elif 'ubuntu' in binName:
+        elif 'ubuntu' in binName or 'centos' in binName or 'linux' in binName:
             aid.platform = AgentId.PLATFORM_LINUX
 
         return aid
@@ -219,32 +238,6 @@ class DeploymentManager( Actor ):
             zipPackage = ZipFile( BytesIO( pkgUrl.read() ) )
             packages = { name: zipPackage.read( name ) for name in zipPackage.namelist() }
         return packages
-
-    def generateOsxAppBundle( self, binName, binary, osxAppBundle ):
-        workingDir = tempfile.mkdtemp()
-        bundlePath = os.path.join( workingDir, 'bundle.tar.gz' )
-        appName = 'limacharlie.app'
-        appDir = os.path.join( workingDir, appName )
-        finalBundle = '%s.app.tar.gz' % os.path.join( workingDir, binName )
-        with open( bundlePath, 'wb' ) as f:
-            f.write( osxAppBundle )
-        
-        if 0 != os.system( 'tar xzf %s -C %s' % ( bundlePath, workingDir ) ):
-            raise Exception( 'error expanding osx app bundle on disk' )
-
-        with open( os.path.join( appDir, 'Contents', 'MacOS', 'rphcp' ), 'wb' ) as f:
-            f.write( binary )
-
-        if 0 != os.system( 'chmod +x %s' % ( os.path.join( appDir, 'Contents', 'MacOS', 'rphcp' ), ) ):
-            raise Exception( 'error setting osx app as executable' )
-
-        if 0 != os.system( 'tar zcf %s -C %s %s' % ( finalBundle, workingDir, appName ) ):
-            raise Exception( 'error tar-ing osx app bundle on disk' )
-
-        with open( finalBundle, 'rb' ) as f:
-            binary = f.read()
-
-        return binary
 
     def genDefaultsIfNotPresent( self ):
         isNeedDefaults = False
@@ -300,7 +293,7 @@ but the information tuple ( PROCESS_NAME, explorer.exe, "seen on 3000 hosts" ) I
 
 However, Object sharing to other users of the Service is done on a if-seen-by-organization basis. This means that "explorer.exe" will only be visible to a User if that User is a member of an Organization that has observed that process on one of its sensors. 
 
-Therefore, you running "some_unique_exrcutable_to_you.exe" on one of your sensors, where that executable is unique and has never been observed anywhere else, will not result in the sharing of the existence of the executable with Users not member of your Organization. 
+Therefore, you running "some_unique_executable_to_you.exe" on one of your sensors, where that executable is unique and has never been observed anywhere else, will not result in the sharing of the existence of the executable with Users not member of your Organization. 
 
 We believe this sharing policy strikes a good balance between privacy and information sharing between users of the Service allowing for a better visibility and investigative power.
             '''
@@ -342,10 +335,6 @@ We believe this sharing policy strikes a good balance between privacy and inform
             self.log( 'loading c2 cert' )
             self.db.execute( 'INSERT INTO configs ( conf, value ) VALUES ( %s, %s )', ( 'key/c2', c2Cert ) )
             self.audit.shoot( 'record', { 'oid' : self.admin_oid, 'etype' : 'conf_change', 'msg' : 'New c2 cert generated.' } )
-            
-            self.log( 'loading enrollment secret' )
-            self.db.execute( 'INSERT INTO configs ( conf, value ) VALUES ( %s, %s )', ( 'global/enrollmentsecret', secret ) )
-            self.audit.shoot( 'record', { 'oid' : self.admin_oid, 'etype' : 'conf_change', 'msg' : 'New enrollment secret generated.' } )
 
             self.log( 'loading primary domain and port' )
             self.db.execute( 'INSERT INTO configs ( conf, value ) VALUES ( %s, %s )', ( 'global/primary', primaryDomain ) )
@@ -359,21 +348,28 @@ We believe this sharing policy strikes a good balance between privacy and inform
             self.db.execute( 'INSERT INTO configs ( conf, value ) VALUES ( %s, %s )', ( 'global/secondary_port', secondaryPort ) )
             self.audit.shoot( 'record', { 'oid' : self.admin_oid, 'etype' : 'conf_change', 'msg' : 'Setting secondary port: %s.' % secondaryPort } )
 
+            self.log( 'loading metrics upload' )
+            self.db.execute( 'INSERT INTO configs ( conf, value ) VALUES ( %s, %s )', ( 'global/send_metrics', '0' ) )
+            self.audit.shoot( 'record', { 'oid' : self.admin_oid, 'etype' : 'conf_change', 'msg' : 'Setting metrics upload.' } )
+
+            self.log( 'loading deployment id' )
+            self.db.execute( 'INSERT INTO configs ( conf, value ) VALUES ( %s, %s )', ( 'global/deployment_id', str(uuid.uuid4()) ) )
+            self.audit.shoot( 'record', { 'oid' : self.admin_oid, 'etype' : 'conf_change', 'msg' : 'Setting metrics upload.' } )
+
+            self.log( 'loading modeling level' )
+            self.db.execute( 'INSERT INTO configs ( conf, value ) VALUES ( %s, %s )', ( 'global/modeling_level', 'full' ) )
+            self.audit.shoot( 'record', { 'oid' : self.admin_oid, 'etype' : 'conf_change', 'msg' : 'Setting modeling level.' } )
+
+    def obfuscate( self, buffer, key ):
+        obf = BytesIO()
+        index = 0
+        for hx in buffer:
+            obf.write( chr( ( ( ord( key[ index % len( key ) ] ) ^ ( index % 255 ) ) ^ ( STATIC_STORE_MAX_SIZE % 255 ) ) ^ ord( hx ) ) )
+            index = index + 1
+        return obf.getvalue()
+
     def setSensorConfig( self, sensor, config ):
-        # This is the key also defined in the sensor as _HCP_DEFAULT_STATIC_STORE_KEY
-        # and used with the same algorithm as obfuscationLib
-        OBFUSCATION_KEY = "\xFA\x75\x01"
-        STATIC_STORE_MAX_SIZE = 1024 * 50
-
-        def obfuscate( buffer, key ):
-            obf = BytesIO()
-            index = 0
-            for hx in buffer:
-                obf.write( chr( ( ( ord( key[ index % len( key ) ] ) ^ ( index % 255 ) ) ^ ( STATIC_STORE_MAX_SIZE % 255 ) ) ^ ord( hx ) ) )
-                index = index + 1
-            return obf.getvalue()
-
-        config = obfuscate( rpcm().serialise( config ), OBFUSCATION_KEY )
+        config = self.obfuscate( rpcm().serialise( config ), OBFUSCATION_KEY )
 
         magic = "\xFA\x57\xF0\x0D" + ( "\x00" * ( len( config ) - 4 ) )
 
@@ -385,7 +381,7 @@ We believe this sharing policy strikes a good balance between privacy and inform
         return sensor
 
 
-    def genBinariesForOrg( self, sensorPackage, oid, osxAppBundle = None ):
+    def genBinariesForOrg( self, sensorPackage, oid ):
         rootPub = None
         rootPri = None
         hbsPub = None
@@ -447,18 +443,6 @@ We believe this sharing policy strikes a good balance between privacy and inform
 
         _ = Symbols
 
-        hcpConfig = ( rSequence().addStringA( _.hcp.PRIMARY_URL, primaryDomain )
-                                 .addInt16( _.hcp.PRIMARY_PORT, primaryPort )
-                                 .addStringA( _.hcp.SECONDARY_URL, secondaryDomain )
-                                 .addInt16( _.hcp.SECONDARY_PORT, secondaryPort )
-                                 .addSequence( _.base.HCP_IDENT, rSequence().addBuffer( _.base.HCP_ORG_ID, oid.bytes )
-                                                                            .addBuffer( _.base.HCP_INSTALLER_ID, iid.bytes )
-                                                                            .addBuffer( _.base.HCP_SENSOR_ID, uuid.UUID( '00000000-0000-0000-0000-000000000000' ).bytes )
-                                                                            .addInt32( _.base.HCP_PLATFORM, 0 )
-                                                                            .addInt32( _.base.HCP_ARCHITECTURE, 0 ) )
-                                 .addBuffer( _.hcp.C2_PUBLIC_KEY, c2Cert )
-                                 .addBuffer( _.hcp.ROOT_PUBLIC_KEY, rootPub ) )
-
         hbsConfig = ( rSequence().addBuffer( _.hbs.ROOT_PUBLIC_KEY, hbsPub ) )
 
         signing = Signing( rootPri )
@@ -469,11 +453,7 @@ We believe this sharing policy strikes a good balance between privacy and inform
 
         for binName, binary in sensorPackage.iteritems():
             if binName.startswith( 'hcp_' ):
-                patched = self.setSensorConfig( binary, hcpConfig )
-                if 'osx' in binName and osxAppBundle is not None:
-                    patched = self.generateOsxAppBundle( binName, patched, osxAppBundle )
-                    binName = '%s.tar.gz' % binName
-                installersToLoad[ binName ] = patched
+                installersToLoad[ binName ] = binary
             elif binName.startswith( 'hbs_' ) and 'release' in binName:
                 patched = self.setSensorConfig( binary, hbsConfig )
                 hbsToLoad[ binName ] = ( patched, signing.sign( patched ), hashlib.sha256( patched ).hexdigest() )
@@ -545,7 +525,6 @@ We believe this sharing policy strikes a good balance between privacy and inform
             'global/secondary' : '',
             'global/primary_port' : '',
             'global/secondary_port' : '',
-            'global/enrollmentsecret' : '',
             'global/sensorpackage' : '',
             'global/paging_user' : '',
             'global/paging_from' : '',
@@ -556,13 +535,19 @@ We believe this sharing policy strikes a good balance between privacy and inform
             'global/whatsnew' : '',
             'global/outagetext' : '',
             'global/outagestate' : '1',
-            'global/policy' : ''
+            'global/policy' : '',
+            'global/send_metrics' : '0',
+            'global/deployment_id' : '',
+            'global/modeling_level' : 10,
         }
 
         info = self.db.execute( 'SELECT conf, value FROM configs WHERE conf IN %s', ( globalConf.keys(), ) )
 
         for row in info:
             globalConf[ row[ 0 ] ] = row[ 1 ]
+
+        # Make sure the configs that need to be integers are always integers
+        globalConf[ 'global/modeling_level' ] = int( globalConf[ 'global/modeling_level' ] )
 
         return ( True, globalConf )
 
@@ -571,6 +556,8 @@ We believe this sharing policy strikes a good balance between privacy and inform
         orgConf = {
             '%s/slack_token' % oid : '',
             '%s/slack_bot_token' % oid : '',
+            '%s/webhook_secret' % oid : '',
+            '%s/webhook_dest' % oid : '',
         }
 
         info = self.db.execute( 'SELECT conf, value FROM configs WHERE conf IN %s', ( orgConf.keys(), ) )
@@ -587,7 +574,7 @@ We believe this sharing policy strikes a good balance between privacy and inform
         value = req[ 'value' ]
         byUser = req[ 'by' ]
 
-        info = self.db.execute( 'UPDATE configs SET value = %s WHERE conf = %s', ( value, conf ) )
+        info = self.db.execute( 'UPDATE configs SET value = %s WHERE conf = %s', ( str( value ), conf ) )
 
         try:
             oid = uuid.UUID( conf.split( '/' )[ 0 ] )
@@ -620,7 +607,7 @@ We believe this sharing policy strikes a good balance between privacy and inform
         if 0 == len( packages ):
             return ( False, 'no binaries in package or no package configured' )
 
-        if not self.genBinariesForOrg( packages, oid, osxAppBundle = self.readRelativeFile( 'resources/osx_app_bundle.tar.gz' ) ):
+        if not self.genBinariesForOrg( packages, oid ):
             return ( False, 'error generating binaries for org' )
 
         if not isSkipProfiles:
@@ -640,6 +627,16 @@ We believe this sharing policy strikes a good balance between privacy and inform
         req = msg.data
 
         info = self.db.getOne( 'SELECT conf, value FROM configs WHERE conf = %s', ( 'key/c2', ) )
+
+        if info is not None:
+            return ( True, self.unpackKey( info[ 1 ] ) )
+
+        return ( False, 'not found' )
+
+    def get_root_cert( self, msg ):
+        req = msg.data
+
+        info = self.db.getOne( 'SELECT conf, value FROM configs WHERE conf = %s', ( 'key/root', ) )
 
         if info is not None:
             return ( True, self.unpackKey( info[ 1 ] ) )
@@ -700,3 +697,149 @@ We believe this sharing policy strikes a good balance between privacy and inform
             if attrName == 'lookups': continue
             allEvents[ attrName ] = int( attrVal )
         return ( True, allEvents )
+
+    def get_capabilities( self, msg ):
+        req = msg.data
+
+        info = self.db.getOne( 'SELECT conf, value FROM configs WHERE conf = %s', ( 'global/capabilities', ) )
+
+        if info is not None:
+            return ( True, { 'capabilities' : info[ 1 ] } )
+
+        return ( False, 'not found' )
+
+    def get_quick_detects( self, msg ):
+        req = msg.data
+
+        info = self.db.getOne( 'SELECT conf, value FROM configs WHERE conf = %s', ( 'global/quick_detects', ) )
+
+        if info is not None:
+            return ( True, { 'detects' : info[ 1 ] } )
+
+        return ( False, 'not found' )
+
+    def del_sensor( self, msg ):
+        req = msg.data
+
+        sid = AgentId( req[ 'sid' ] ).sensor_id
+
+        self.db.execute( 'DELETE FROM sensor_states WHERE sid = %s', ( sid, ) )
+
+        return ( True, )
+
+    def refresh_all_installets( self, msg ):
+        resp = self.admin.request( 'hcp.get_whitelist', {} )
+        if not resp.isSuccess:
+            return ( False, resp.error )
+
+        results = []
+        for entry in resp.data[ 'whitelist' ]:
+            entry[ 'desc' ] = entry[ 'description' ]
+            results.append( self.set_installer_info( None, optEntry = entry ) )
+
+        self.audit.shoot( 'record', { 'oid' : self.admin_oid, 
+                                      'etype' : 'whitelist_refresh', 
+                                      'msg' : 'All installation keys have been refreshed.' } )
+
+        return ( True, results )
+
+    def set_installer_info( self, msg, optEntry = None ):
+        if optEntry is not None:
+            req = optEntry
+        else:
+            req = msg.data
+
+        oid = uuid.UUID( req[ 'oid' ] )
+        iid = req.get( 'iid', None )
+        tags = req.get( 'tags', [] )
+        desc = req.get( 'desc', '' )
+
+        if iid is None:
+            # This should be a brand new installer whitelist entry.
+            iid = uuid.uuid4()
+        else:
+            # This entry should already exist.
+            resp = self.admin.request( 'hcp.get_whitelist', { 'oid' : oid, 
+                                                              'iid' : iid, } )
+            if not resp.isSuccess:
+                return ( False, resp.error )
+
+            if 0 == len( resp.data[ 'whitelist' ] ):
+                return ( False, 'unknown installer' )
+
+            iid = uuid.UUID( iid )
+
+        info = self.db.getOne( 'SELECT value FROM configs WHERE conf = %s', ( 'key/root', ) )
+        if not info or not info[ 0 ]:
+            self.log( 'failed to get root key' )
+            return ( False, 'error getting root key' )
+
+        rootKey = self.unpackKey( info[ 0 ] )
+        rootPub = rootKey[ 'pubDer' ]
+        rootPri = rootKey[ 'priDer' ]
+        del( rootKey )
+
+        info = self.db.getOne( 'SELECT value FROM configs WHERE conf = %s', ( 'global/primary', ) )
+        if not info or not info[ 0 ]:
+            self.log( 'failed to get primary domain' )
+            return ( False, 'error getting primary domain' )
+
+        primaryDomain = info[ 0 ]
+
+        info = self.db.getOne( 'SELECT value FROM configs WHERE conf = %s', ( 'global/primary_port', ) )
+        if not info or not info[ 0 ]:
+            self.log( 'failed to get primary port' )
+            return ( False, 'error getting primary port' )
+
+        primaryPort = int( info[ 0 ] )
+
+        info = self.db.getOne( 'SELECT value FROM configs WHERE conf = %s', ( 'global/secondary', ) )
+        if not info or not info[ 0 ]:
+            self.log( 'failed to get secondary domain' )
+            return ( False, 'error getting secondary domain' )
+
+        secondaryDomain = info[ 0 ]
+
+        info = self.db.getOne( 'SELECT value FROM configs WHERE conf = %s', ( 'global/secondary_port', ) )
+        if not info or not info[ 0 ]:
+            self.log( 'failed to get secondary port' )
+            return ( False, 'error getting secondary port' )
+
+        secondaryPort = int( info[ 0 ] )
+
+        _ = Symbols
+
+        bootstrap = ( rSequence().addStringA( _.hcp.PRIMARY_URL, primaryDomain )
+                                 .addInt16( _.hcp.PRIMARY_PORT, primaryPort )
+                                 .addStringA( _.hcp.SECONDARY_URL, secondaryDomain )
+                                 .addInt16( _.hcp.SECONDARY_PORT, secondaryPort )
+                                 .addSequence( _.base.HCP_IDENT, rSequence().addBuffer( _.base.HCP_ORG_ID, oid.bytes )
+                                                                            .addBuffer( _.base.HCP_INSTALLER_ID, iid.bytes )
+                                                                            .addBuffer( _.base.HCP_SENSOR_ID, uuid.UUID( '00000000-0000-0000-0000-000000000000' ).bytes )
+                                                                            .addInt32( _.base.HCP_PLATFORM, 0 )
+                                                                            .addInt32( _.base.HCP_ARCHITECTURE, 0 ) )
+                                 .addBuffer( _.hcp.ROOT_PUBLIC_KEY, rootPub ) )
+        bootstrap = base64.b64encode( rpcm().serialise( bootstrap ) )
+
+        resp = self.admin.request( 'hcp.add_whitelist', { 'oid' : oid, 
+                                                          'iid' : iid, 
+                                                          'bootstrap' : bootstrap,
+                                                          'description' : desc,
+                                                          'tags' : tags } )
+        if not resp.isSuccess:
+            return ( False, resp.error )
+
+        return ( True, { 'oid' : oid, 'iid' : iid } )
+
+    def del_installer( self, msg ):
+        req = msg.data
+
+        oid = req[ 'oid' ]
+        iid = req[ 'iid' ]
+
+        resp = self.admin.request( 'hcp.remove_whitelist', { 'oid' : oid, 'iid' : iid } )
+
+        if not resp.isSuccess:
+            return ( False, resp.error )
+
+        return ( True, )

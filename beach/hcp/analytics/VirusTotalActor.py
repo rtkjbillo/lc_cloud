@@ -21,7 +21,7 @@ CreateOnAccess = Actor.importLib( '../utils/hcp_helpers', 'CreateOnAccess' )
 
 class VirusTotalActor ( Actor ):
     def init( self, parameters, resources ):
-        self.deploymentManager = CreateOnAccess( self.getActorHandle, resources[ 'deployment' ], timeout = 30 )
+        self.deploymentManager = CreateOnAccess( self.getActorHandle, resources[ 'deployment' ], nRetries = 3, timeout = 30 )
         self.key = parameters.get( '_key', None )
         
         # Maximum number of queries per minute
@@ -39,16 +39,12 @@ class VirusTotalActor ( Actor ):
 
         self.vtMutex = Mutex()
 
-        self.Model = self.getActorHandle( resources[ 'modeling' ], timeout = 3, nRetries = 1 )
+        self.Model = self.getActorHandle( resources[ 'modeling' ], timeout = 10, nRetries = 5 )
 
         # Cache size
         self.cache_size = parameters.get( 'cache_size', 5000 )
 
         self.cache = RingCache( maxEntries = self.cache_size, isAutoAdd = False )
-
-        self.stats = [ 0, 0, 0, 0 ]
-        self.schedule( 60 * 60, self.wipeStats )
-        self.schedule( 60 * 60, self.reportStats )
 
         self.handle( 'get_report', self.getReport )
 
@@ -68,19 +64,13 @@ class VirusTotalActor ( Actor ):
 
         self.delay( 60, self.refreshCredentials )
 
-    def wipeStats( self ):
-        self.stats = [ 0, 0, 0, 0 ]
-
-    def reportStats( self ):
-        self.log( "VT Stats - Total: %s, Lvl1Cache: %s, Lvl2Cache: %s, VTAPI: %s" % tuple( self.stats ) )
-
     def getReportFromCache( self, fileHash ):
         report = False
 
         # First level of cache is in memory.
         if fileHash in self.cache:
             report = self.cache.get( fileHash )
-            self.stats[ 1 ] += 1
+            self.zInc( 'lvl_1_hit' )
 
         # Second level of cache is in the key value store.
         if report is False:
@@ -88,7 +78,7 @@ class VirusTotalActor ( Actor ):
             if resp.isSuccess:
                 try:
                     report = json.loads( resp.data[ 'v' ] )
-                    self.stats[ 2 ] += 1
+                    self.zInc( 'lvl_2_hit' )
                 except:
                     report = False
 
@@ -112,18 +102,19 @@ class VirusTotalActor ( Actor ):
         if fileHash is None: return ( False, 'missing hash' )
 
         isNoCache = msg.data.get( 'no_cache', False )
+        isCacheOnly = msg.data.get( 'cache_only', False )
 
         if not all( x in "1234567890abcdef" for x in fileHash.lower() ) and len( fileHash ) in [ 32, 40, 64 ]:
             fileHash = fileHash.encode( 'hex' )
         fileHash = fileHash.lower()
 
-        self.stats[ 0 ] += 1
+        self.zInc( 'total_q' )
 
         if not isNoCache:
             report = self.getReportFromCache( fileHash )
         else:
             report = False
-        if report is False:
+        if report is False or isCacheOnly:
             report = None
             vtReport = None
             nRetry = 3
@@ -145,7 +136,7 @@ class VirusTotalActor ( Actor ):
                 for av, r in vtReport:
                     report[ str( av ) ] = r
                 self.recordNewReport( fileHash, report )
-                self.stats[ 3 ] += 1
+                self.zInc( 'vt_q' )
 
         return ( True, { 'report' : report, 'hash' : fileHash } )
 

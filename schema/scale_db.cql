@@ -25,6 +25,21 @@ CREATE TABLE sensor_states(
 ) WITH compaction = { 'class' : 'DateTieredCompactionStrategy' } AND gc_grace_seconds = 86400;
 CREATE INDEX ON sensor_states ( oid );
 
+CREATE TABLE sensor_transfer(
+  sid uuid,
+  ts timestamp,
+  b int,
+  PRIMARY KEY( sid, ts )
+) WITH compaction = { 'class' : 'DateTieredCompactionStrategy' } AND gc_grace_seconds = 86400;
+
+CREATE TABLE sensor_ip(
+  sid uuid,
+  oid uuid,
+  ts timestamp,
+  ip varchar,
+  PRIMARY KEY( ip, oid, ts, sid )
+) WITH compaction = { 'class' : 'DateTieredCompactionStrategy' } AND gc_grace_seconds = 86400;
+
 CREATE TABLE org_sensors(
   oid uuid,
   iid uuid,
@@ -66,16 +81,11 @@ CREATE INDEX ON org_membership ( uid );
 CREATE TABLE sensor_tags(
   sid uuid,
   tag varchar,
-  uid uuid,
+  frm varchar,
   added timestamp,
   PRIMARY KEY( sid, tag )
 ) WITH compaction = { 'class' : 'SizeTieredCompactionStrategy' } AND gc_grace_seconds = 86400;
-
-CREATE TABLE tags(
-  tag varchar,
-  sid uuid,
-  PRIMARY KEY( tag, sid )
-) WITH compaction = { 'class' : 'SizeTieredCompactionStrategy' } AND gc_grace_seconds = 86400;
+CREATE CUSTOM INDEX fn_tag_contains ON sensor_tags ( tag )USING 'org.apache.cassandra.index.sasi.SASIIndex' WITH OPTIONS = { 'mode': 'CONTAINS', 'case_sensitive': 'false' };
 
 CREATE TABLE sensor_hostnames(
   hostname varchar,
@@ -107,6 +117,16 @@ CREATE TABLE hcp_installers(
   created timestamp,
   data blob,
   PRIMARY KEY( oid, iid, ihash )
+) WITH compaction = { 'class' : 'SizeTieredCompactionStrategy' } AND gc_grace_seconds = 86400;
+
+CREATE TABLE hcp_whitelist(
+  oid uuid,
+  iid uuid,
+  bootstrap varchar,
+  description varchar,
+  tags varchar,
+  created timestamp,
+  PRIMARY KEY( oid, iid )
 ) WITH compaction = { 'class' : 'SizeTieredCompactionStrategy' } AND gc_grace_seconds = 86400;
 
 CREATE TABLE hbs_profiles(
@@ -161,7 +181,10 @@ CREATE TABLE obj_org
 (
   id varchar,
   oid uuid,
-  PRIMARY KEY( id, oid )
+  ts timestamp,
+  sid uuid,
+  eid uuid,
+  PRIMARY KEY( id, oid, ts, sid )
 ) WITH compaction = { 'class' : 'SizeTieredCompactionStrategy' } AND gc_grace_seconds = 86400;
 
 CREATE TABLE loc
@@ -223,15 +246,6 @@ CREATE TABLE last_events
   type varchar,
   id uuid,
   PRIMARY KEY( sid, type )
-) WITH compaction = { 'class' : 'LeveledCompactionStrategy' } AND gc_grace_seconds = 86400;
-
-CREATE TABLE ref_loc
-(
-  id varchar,
-  plat int,
-  nloc int,
-
-  PRIMARY KEY( id, plat )
 ) WITH compaction = { 'class' : 'LeveledCompactionStrategy' } AND gc_grace_seconds = 86400;
 
 CREATE TABLE detects

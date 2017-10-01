@@ -1,5 +1,5 @@
-$def with ( sensors, orgName )
-<div class="mdl-card mdl-cell mdl-cell--4-col mdl-shadow--4dp std_height">
+$def with ( sensors, orgName, oid )
+<div class="mdl-card mdl-cell mdl-cell--10-col mdl-shadow--4dp std_height">
   <div class="mdl-card__title">
     <h4 class="mdl-card__title-text">Sensors Stats: $orgName</h4>
     <button class="mdl-button mdl-js-button mdl-js-ripple-effect help-dialog" style="position: absolute; right: 0;">
@@ -11,8 +11,8 @@ $def with ( sensors, orgName )
       <i class="material-icons">help</i>
     </button>
   </div>
-  <div class="mdl-card__supporting-text">
-    <table class="mdl-data-table mdl-js-data-table mdl-shadow--2dp" style="width: 100%;">
+  <div class="mdl-card__supporting-text" style="display: inline-flex;">
+    <table class="mdl-data-table mdl-js-data-table mdl-shadow--2dp" style="width: 33%;">
       <thead>
         <th class="mdl-data-table__cell--non-numeric">Platform</th>
         <th>Online / Total</th>
@@ -32,7 +32,59 @@ $def with ( sensors, orgName )
         </tr>
       </tbody>
     </table>
+
+    <div id="os_chart_$(hash(oid))" style="height:100%; width: 33%;"></div>
+    <script type="text/javascript">
+      var chart_os_$(hash(oid)) = new CanvasJS.Chart("os_chart_$(hash(oid))", {
+          data : [{ 
+            type: 'doughnut',
+            dataPoints: [
+                { 
+                    y: $len( [ x for x in sensors.values() if AgentId( x[ 'aid' ] ).isWindows() ] ),
+                    indexLabel: "Windows"
+                },
+                { 
+                    y: $len( [ x for x in sensors.values() if AgentId( x[ 'aid' ] ).isMacOSX() ] ),
+                    indexLabel: "MacOS"
+                },
+                { 
+                    y: $len( [ x for x in sensors.values() if AgentId( x[ 'aid' ] ).isLinux() ] ),
+                    indexLabel: "Linux"
+                }
+            ]}]
+      });
+      jQuery(function() {
+        chart_os_$(hash(oid)).render();
+      });
+    </script>
+
+    <div id="online_chart_$(hash(oid))" style="height:100%; width: 33%;"></div>
+    <script type="text/javascript">
+      var chart_online_$(hash(oid)) = new CanvasJS.Chart("online_chart_$(hash(oid))", {
+          data : [{ 
+            type: 'pie',
+            dataPoints: [
+                { 
+                    y: $len( [ x for x in sensors.values() if x[ 'realtime' ] ] ),
+                    label: "Online"
+                },
+                { 
+                    y: $len( [ x for x in sensors.values() if not x[ 'realtime' ] ] ),
+                    label: "Offline"
+                }
+            ]}]
+      });
+      jQuery(function() {
+        chart_online_$(hash(oid)).render();
+      });
+    </script>
   </div>
   <div class="mdl-card__actions mdl-card--border">
+    <form action="/sensors">
+      <button class="mdl-button mdl-button--colored mdl-js-button mdl-js-ripple-effect mdl-button--raised" style="float: left;">View Sensors</button>
+    </form>
+    <form action="/manage">
+      <button class="mdl-button mdl-button--colored mdl-js-button mdl-js-ripple-effect mdl-button--raised" style="float: right;">View Installers</button>
+    </form>
   </div>
 </div>

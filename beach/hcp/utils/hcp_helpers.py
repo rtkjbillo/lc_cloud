@@ -32,6 +32,9 @@ except:
 try:
     import gevent.lock
     import gevent.event
+    import gevent.queue
+    import gevent.pool
+    import gevent
 except:
     print( "gevent not installed, some functionality won't work" )
 
@@ -40,6 +43,8 @@ import uuid
 import hmac, base64, struct, hashlib, time, string, random
 
 class Event ( object ):
+    __slots__ = [ '_event' ]
+
     def __init__( self ):
         self._event = gevent.event.Event()
 
@@ -52,23 +57,24 @@ class Event ( object ):
     def clear( self ):
         return self._event.clear()
 
+def _isDynamicType( e ):
+    eType = type( e )
+    return issubclass( eType, dict ) or issubclass( eType, list ) or issubclass( eType, tuple )
+
+def _isListType( e ):
+    eType = type( e )
+    return issubclass( eType, list ) or issubclass( eType, tuple )
+
+def _isSeqType( e ):
+    eType = type( e )
+    return issubclass( eType, dict )
+
 def _xm_( o, path, isWildcardDepth = False ):
-    def _isDynamicType( e ):
-        eType = type( e )
-        return issubclass( eType, dict ) or issubclass( eType, list ) or issubclass( eType, tuple )
-
-    def _isListType( e ):
-        eType = type( e )
-        return issubclass( eType, list ) or issubclass( eType, tuple )
-
-    def _isSeqType( e ):
-        eType = type( e )
-        return issubclass( eType, dict )
-
     result = []
     oType = type( o )
 
-    if type( path ) is str or type( path ) is unicode:
+    pathType = type( path )
+    if pathType is str or pathType is unicode:
         tokens = [ x for x in path.split( '/' ) if x != '' ]
     else:
         tokens = path
@@ -106,7 +112,7 @@ def _xm_( o, path, isWildcardDepth = False ):
         result = []
         for elem in o:
             if _isDynamicType( elem ):
-                result += _xm_( elem, tokens )
+                result += _xm_( elem, tokens, isWildcardDepth )
 
     return result
 
@@ -474,7 +480,9 @@ class AgentId( object ):
         self.architecture = None
         self.platform = None
 
-        if type( seq ) is rSequence or type( seq ) is dict:
+        seqType = type( seq )
+
+        if issubclass( seqType, dict ):
             self.sensor_id = seq.get( 'base.HCP_SENSOR_ID', seq.get( 'sensor_id', None ) )
             self.org_id = seq.get( 'base.HCP_ORG_ID', seq.get( 'org_id', None ) )
             self.ins_id = seq.get( 'base.HCP_INSTALLER_ID', seq.get( 'ins_id', None ) )
@@ -501,7 +509,7 @@ class AgentId( object ):
             if self.platform is not None:
                 self.platform = int( self.platform )
                 
-        elif type( seq ) is str or type( seq ) is unicode or type( seq ) is uuid.UUID:
+        elif seqType is str or seqType is unicode or seqType is uuid.UUID:
             seq = str( seq )
             matches = self.re_agent_id.match( seq )
             if matches is not None:
@@ -528,7 +536,7 @@ class AgentId( object ):
                     self.architecture = int( matches[ 4 ], 16 ) if int( matches[ 4 ], 16 ) != 0 else None
             else:
                 raise Exception( 'invalid agentid: %s' % str( seq ) )
-        elif type( seq ) is list or type( seq ) is tuple:
+        elif seqType is list or seqType is tuple:
             if 1 == len( seq ):
                 self.sensor_id = seq[ 0 ]
                 if '0' == self.sensor_id or self.empty_uuid == self.sensor_id:
@@ -536,9 +544,9 @@ class AgentId( object ):
                 elif self.sensor_id is not None:
                     self.sensor_id = uuid.UUID( self.sensor_id )
             else:
-                self.org_id = str( seq[ 0 ] )
-                self.ins_id = str( seq[ 1 ] )
-                self.sensor_id = str( seq[ 2 ] )
+                self.org_id = str( seq[ 0 ] ) if seq[ 0 ] is not None else None
+                self.ins_id = str( seq[ 1 ] ) if seq[ 1 ] is not None else None
+                self.sensor_id = str( seq[ 2 ] ) if seq[ 2 ] is not None else None
                 self.platform = seq[ 3 ]
                 self.architecture = seq[ 4 ]
 
@@ -561,14 +569,14 @@ class AgentId( object ):
                     self.architecture = int( self.architecture )
                 if self.platform is not None:
                     self.platform = int( self.platform )
-        elif type( seq ) is AgentId:
+        elif seqType is AgentId:
             self.sensor_id = seq.sensor_id
             self.org_id = seq.org_id
             self.ins_id = seq.ins_id
             self.architecture = seq.architecture
             self.platform = seq.platform
         else:
-            raise Exception( 'invalid agentid: %s' % str( seq ) )
+            raise Exception( 'invalid agentid (%s): %s' % ( seqType, str( seq ) ) )
 
     def asWhere( self ):
         filt = []
@@ -767,6 +775,9 @@ class HcpOperations:
     SET_HCP_ID = 3
     SET_GLOBAL_TIME = 4
     QUIT = 5
+    UPGRADE = 6
+    SET_HCP_CONF = 7
+    DISCONNECT = 8
 
 class PooledResource( object ):
     def __init__( self, resourceFactoryFunc, maxResources = None ):
@@ -821,3 +832,43 @@ def normalAtom( atom ):
         except:
             atom = str( uuid.UUID( bytes = base64.b64decode( atom.replace( ' ', '+' ) ) ) )
     return atom
+
+class LimitedQPSBuffer( object ):
+    def __init__( self, maxQps, cbLog = None ):
+        self._maxQps = maxQps
+        self._q = gevent.queue.Queue()
+        self._log = cbLog
+        self._transmitted = 0
+        self._lastWait = time.time()
+        self._isRunning = True
+        self._threads = gevent.pool.Group()
+        self._threads.add( gevent.spawn_later( 0, self._sendLoop ) )
+        self._threads.add( gevent.spawn_later( 1, self._resetStats ) )
+
+    def _resetStats( self ):
+        if self._isRunning:
+            self._transmitted = 0
+            self._threads.add( gevent.spawn_later( 1, self._resetStats ) )
+
+    def _sendLoop( self ):
+        while self._isRunning:
+            if self._transmitted >= self._maxQps:
+                self._log( "slowing down (%s in queue)" % ( self._q.qsize(), ) )
+                gevent.sleep( 1 )
+            try:
+                cb, items = self._q.get_nowait()
+            except:
+                gevent.sleep( 1 )
+            else:
+                self._transmitted += 1
+                cb( *items )
+
+    def add( self, cb, *items ):
+        self._q.put_nowait( ( cb, items ) )
+
+    def size( self ):
+        return self._q.qsize()
+
+    def close( self ):
+        self._isRunning = False
+        self._threads.join()

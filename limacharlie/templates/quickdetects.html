@@ -1,0 +1,108 @@
+$def with ( rules, is_admin )
+$var title = 'Quick Detects'
+
+
+$if is_admin:
+    <div class="mdl-card mdl-cell mdl-cell--4-col mdl-shadow--4dp std_height">
+      <div class="mdl-card__title">
+        <h4 class="mdl-card__title-text">Add Quick Detect</h4>
+        <button class="mdl-button mdl-js-button mdl-js-ripple-effect help-dialog" style="position: absolute; right: 0;">
+          <div>
+            <p>
+              Add a quick detect and action to the live stream of data.
+            </p>
+            <p>
+              Valid rule instructions:
+            </p>
+            <p>
+              Valid action instructions:
+            </p>
+            <p>
+              The name specified will be used to uniquely identify the quick detect. Use it in the Remove panel.
+            </p>
+          </div>
+          <i class="material-icons">help</i>
+        </button>
+      </div>
+      <div class="mdl-card__supporting-text" style="position: relative;">
+        <form method="POST" id="form_add_detect">
+            <div class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label" style="width: 100%;">
+                <input class="mdl-textfield__input" type="text" id="nameToAdd" name="nameToAdd"/>
+                <label class="mdl-textfield__label" for="nameToAdd">Name</label>
+            </div>
+            <br/>
+            <div class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label" style="width: 100%;">
+                <input class="mdl-textfield__input" type="text" id="ruleToAdd" name="ruleToAdd"/>
+                <label class="mdl-textfield__label" for="ruleToAdd">Rule</label>
+            </div>
+            <br/>
+            <div class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label" style="width: 100%;">
+                <input class="mdl-textfield__input" type="text" id="actionToAdd" name="actionToAdd"/>
+                <label class="mdl-textfield__label" for="actionToAdd">Action</label>
+            </div>
+        </form>
+        <center><h5><a href="https://github.com/refractionPOINT/limacharlie/wiki/Quick-Detects" target="_blank">See Documentation For Details</a></h5></center>
+      </div>
+      <div class="mdl-card__actions mdl-card--border">
+        <center>
+            <button class="mdl-button mdl-button--colored mdl-js-button mdl-js-ripple-effect mdl-button--raised" type="submit" form="form_add_detect" name="action" value="add_detect">Add Quick Detect</button>
+        </center>
+      </div>
+    </div>
+
+    <div class="mdl-card mdl-cell mdl-cell--4-col mdl-shadow--4dp std_height">
+      <div class="mdl-card__title">
+        <h4 class="mdl-card__title-text">Remove Quick Detect</h4>
+        <button class="mdl-button mdl-js-button mdl-js-ripple-effect help-dialog" style="position: absolute; right: 0;">
+          <div>
+            <p>
+              Remove an active quick detect by name.
+            </p>
+          </div>
+          <i class="material-icons">help</i>
+        </button>
+      </div>
+      <div class="mdl-card__supporting-text" style="position: relative; ">
+        <form method="POST" id="form_del_detect">
+            <div class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label" style="width: 100%;">
+                <input class="mdl-textfield__input" type="text" id="nameToRem" name="nameToRem"/>
+                <label class="mdl-textfield__label" for="nameToRem">Name</label>
+            </div>
+        </form>
+      </div>
+      <div class="mdl-card__actions mdl-card--border">
+        <center>
+            <button class="mdl-button mdl-button--colored mdl-js-button mdl-js-ripple-effect mdl-button--raised" type="submit" form="form_del_detect" name="action" value="del_detect">Remove Quick Detect</button>
+        </center>
+      </div>
+    </div>
+
+
+<div class="mdl-card mdl-cell mdl-cell--12-col mdl-shadow--4dp">
+  <div class="mdl-card__title">
+    <h4 class="mdl-card__title-text">Quick Detect Active Rules</h4>
+  </div>
+  <div class="mdl-card__supporting-text" style="position: relative; ">
+    <table style="width: 100%;" class="mdl-data-table mdl-js-data-table mdl-shadow--2dp">
+      <thead>
+        <th class="mdl-data-table__cell--non-numeric">Rule Name</th>
+        <th class="mdl-data-table__cell--non-numeric">Matching Rule</th>
+        <th class="mdl-data-table__cell--non-numeric">Action</th>
+      </thead>
+      <tbody>
+      $for name, ruleInfo in rules.iteritems():
+        <tr>
+          <td class="mdl-data-table__cell--non-numeric">$name</td>
+          <td class="mdl-data-table__cell--non-numeric click-to-copy">
+            <pre style="text-align: left;"><code>$ruleInfo[ 'rule' ]</code></pre>
+          </td>
+          <td class="mdl-data-table__cell--non-numeric click-to-copy">
+            <pre style="text-align: left;"><code>$ruleInfo[ 'action' ]</code></pre>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="mdl-card__actions mdl-card--border">
+  </div>
+</div>

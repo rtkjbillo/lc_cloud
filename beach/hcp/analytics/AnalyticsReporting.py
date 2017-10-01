@@ -15,27 +15,19 @@
 from beach.actor import Actor
 import msgpack
 import base64
-import random
 import json
 import time_uuid
 AgentId = Actor.importLib( 'utils/hcp_helpers', 'AgentId' )
 CassDb = Actor.importLib( '../utils/hcp_databases', 'CassDb' )
-CassPool = Actor.importLib( '../utils/hcp_databases', 'CassPool' )
 CreateOnAccess = Actor.importLib( '../utils/hcp_helpers', 'CreateOnAccess' )
 
 class AnalyticsReporting( Actor ):
     def init( self, parameters, resources ):
-        self._db = CassDb( parameters[ 'db' ], 'hcp_analytics', consistencyOne = True )
-        self.db = CassPool( self._db,
-                            rate_limit_per_sec = parameters[ 'rate_limit_per_sec' ],
-                            maxConcurrent = parameters[ 'max_concurrent' ],
-                            blockOnQueueSize = parameters[ 'block_on_queue_size' ] )
+        self.db = CassDb( parameters[ 'db' ], 'hcp_analytics' )
 
         self.report_stmt_rep = self.db.prepare( 'INSERT INTO detects ( did, gen, source, dtype, events, detect, why ) VALUES ( ?, dateOf( now() ), ?, ?, ?, ?, ? ) USING TTL ?' )
-        self.report_stmt_rep.consistency_level = CassDb.CL_Ingest
 
         self.report_stmt_tl = self.db.prepare( 'INSERT INTO detect_timeline ( oid, ts, did ) VALUES ( ?, now(), ? ) USING TTL ?' )
-        self.report_stmt_tl.consistency_level = CassDb.CL_Ingest
 
         self.new_inv_stmt = self.db.prepare( 'INSERT INTO investigation ( invid, gen, closed, nature, conclusion, why, hunter ) VALUES ( ?, ?, 0, 0, 0, \'\', ? ) USING TTL ?' )
 
@@ -52,17 +44,16 @@ class AnalyticsReporting( Actor ):
 
         self.get_detect_source_stmt = self.db.prepare( 'SELECT source FROM detects WHERE did = ?' )
 
-        self.outputs = self.getActorHandleGroup( resources[ 'output' ], timeout = 30 )
+        self.outputs = self.getActorHandleGroup( resources[ 'output' ], timeout = 30, nRetries = 3 )
 
         self.default_ttl_detections = parameters.get( 'retention_investigations', 60 * 60 * 24 * 365 )
         self.org_ttls = {}
         if 'identmanager' in resources:
-            self.identmanager = self.getActorHandle( resources[ 'identmanager' ], timeout = 30 )
+            self.identmanager = self.getActorHandle( resources[ 'identmanager' ], timeout = 30, nRetries = 3 )
         else:
             self.identmanager = None
             self.log( 'using default ttls' )
 
-        self.db.start()
         self.handle( 'detect', self.detect )
         self.handle( 'new_inv', self.new_inv )
         self.handle( 'close_inv', self.close_inv )
@@ -72,16 +63,15 @@ class AnalyticsReporting( Actor ):
         self.handle( 'set_inv_nature', self.set_inv_nature )
         self.handle( 'set_inv_conclusion', self.set_inv_conclusion )
 
-        self.paging = CreateOnAccess( self.getActorHandle, resources[ 'paging' ], timeout = 30 )
+        self.paging = CreateOnAccess( self.getActorHandle, resources[ 'paging' ], timeout = 30, nRetries = 2 )
         self.pageDest = parameters.get( 'paging_dest', [] )
         if type( self.pageDest ) is str or type( self.pageDest ) is unicode:
             self.pageDest = [ self.pageDest ]
 
-        self.model = CreateOnAccess( self.getActorHandle, resources[ 'modeling' ], timeout = 30 )
+        self.model = CreateOnAccess( self.getActorHandle, resources[ 'modeling' ], timeout = 30, nRetries = 2 )
 
     def deinit( self ):
-        self.db.stop()
-        self._db.shutdown()
+        self.db.shutdown()
 
     def getOrgTtl( self, oid ):
         ttl = None
@@ -101,9 +91,15 @@ class AnalyticsReporting( Actor ):
 
     def getDetectSource( self, did ):
         source = None
-        for detect in self.db.execute( self.get_detect_source_stmt.bind( ( did, ) ) ):
-            source = detect[ 0 ]
-            break
+        nRetries = 3
+        while source is None:
+            for detect in self.db.execute( self.get_detect_source_stmt.bind( ( did, ) ) ):
+                source = detect[ 0 ]
+                break
+            if 0 == nRetries:
+                break
+            nRetries -= 1
+            self.sleep( 1 )
         return source
 
     def detect( self, msg ):

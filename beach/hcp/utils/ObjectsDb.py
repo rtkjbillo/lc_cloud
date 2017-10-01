@@ -27,10 +27,14 @@ chunks = Actor.importLib( './hcp_helpers', 'chunks' )
 tsToTime = Actor.importLib( './hcp_helpers', 'tsToTime' )
 timeToTs = Actor.importLib( './hcp_helpers', 'timeToTs' )
 normalAtom = Actor.importLib( './hcp_helpers', 'normalAtom' )
-CassDb = Actor.importLib( './hcp_databases', 'CassDb' )
-CassPool = Actor.importLib( './hcp_databases', 'CassPool' )
+try:
+    CassDb = Actor.importLib( './hcp_databases', 'CassDb' )
+except:
+    print( "cassandra not installed, some functionality won't work" )
 
 def ObjectNormalForm( objName, objType, isCaseSensitive = False ):
+    if objType is not None and type( objType ) is not int:
+        objType = ObjectTypes.forward[ objType ]
     caseSensitiveTypes = ( ObjectTypes.AUTORUNS,
                            ObjectTypes.CMD_LINE,
                            ObjectTypes.FILE_NAME,
@@ -58,6 +62,8 @@ def ObjectNormalForm( objName, objType, isCaseSensitive = False ):
     return objName
 
 def ObjectKey( objName, objType ):
+    if type( objType ) is not int:
+        objType = ObjectTypes.forward[ objType ]
     k = hashlib.sha256( '%s/%s' % ( objName, objType ) ).hexdigest()
     return k
 
@@ -176,16 +182,22 @@ def _makeUuid( val ):
 
 class HostObjects( object ):
     _db = None
+    _isDbShared = False
     _idRe = re.compile( '^[a-zA-Z0-9]{64}$' )
     _queryChunks = 200
 
     @classmethod
-    def setDatabase( cls, url, backoffConsistency = True ):
-        cls._db = CassDb( url, 'hcp_analytics', quorum = False, backoffConsistency = backoffConsistency )
+    def setDatabase( cls, urlOrInstance ):
+        if type( urlOrInstance ) in ( list, tuple, str, unicode ):
+            cls._db = CassDb( urlOrInstance, 'hcp_analytics' )
+        else:
+            cls._db = urlOrInstance
+            cls._isDbShared = True
 
     @classmethod
     def closeDatabase( cls ):
-        cls._db.shutdown()
+        if not cls._isDbShared:
+            cls._db.shutdown()
 
     @classmethod
     def onHosts( cls, hosts, types = [], within = None ):
@@ -300,10 +312,33 @@ class HostObjects( object ):
             oid = [ oid ]
         def thisGen():
             for ids in chunks( self._ids, self._queryChunks ):
+                tmpIds = Set()
                 for row in self._db.execute( 'SELECT id FROM obj_org WHERE id IN %s AND oid IN %s', ( ids, oid ) ):
-                    yield row[ 0 ]
+                    if row[ 0 ] not in tmpIds:
+                        tmpIds.add( row[ 0 ] )
+                        yield row[ 0 ]
+
 
         return type(self)( thisGen() )
+
+    def events( self, oid = None, after = None, before = None ):
+        if oid is None:
+            for row in self._db.execute( 'SELECT ts, sid, eid FROM obj_org WHERE id IN %s', ( self._ids, ) ):
+                yield ( row[ 0 ], row[ 1 ], row[ 2 ] )
+        else:
+            if type( oid ) not in ( list, tuple, Set ):
+                oid = [ oid ]
+            for ids in chunks( self._ids, self._queryChunks ):
+                timeFilt = ''
+                params = [ ids, oid ]
+                if after is not None:
+                    timeFilt += ' AND ts >= %s'
+                    params.append( int( after ) * 1000 )
+                if before is not None:
+                    timeFilt += ' AND ts <= %s'
+                    params.append( int( before ) * 1000 )
+                for row in self._db.execute( 'SELECT ts, sid, eid FROM obj_org WHERE id IN %s AND oid IN %s' + timeFilt, params ):
+                    yield ( row[ 0 ], row[ 1 ], row[ 2 ] )
 
     def info( self ):
         for ids in chunks( self._ids, self._queryChunks ):
@@ -338,11 +373,6 @@ class HostObjects( object ):
                     else:
                         if ts >= within:
                             yield ( row[ 0 ], row[ 1 ], ts )
-            if within is None and isLocalCloudOnly is not True:
-                ts = 0
-                for row in self._db.execute( 'SELECT id, plat, nloc FROM ref_loc WHERE id IN %s', ( ids, ) ):
-                    for i in range( 1, row[ 2 ] if row[ 2 ] < 100000 else 100000 ):
-                        yield ( row[ 0 ], 'ff.ff.%x.%x' % ( i, row[ 1 ] ), ts )
 
     def children( self, types = None ):
         withType = ''
@@ -401,15 +431,21 @@ class Host( object ):
 
     _be = None
     _db = None
+    _isDbShared = False
 
     @classmethod
-    def setDatabase( cls, beInstance, cassUrl, backoffConsistency = True ):
+    def setDatabase( cls, beInstance, urlOrInstance ):
         cls._be = beInstance
-        cls._db = CassDb( cassUrl, 'hcp_analytics', quorum = True, backoffConsistency = backoffConsistency )
+        if type( urlOrInstance ) in ( list, tuple, str, unicode ):
+            cls._db = CassDb( urlOrInstance, 'hcp_analytics' )
+        else:
+            cls._db = urlOrInstance
+            cls._isDbShared = True
 
     @classmethod
     def closeDatabase( cls ):
-        cls._db.shutdown()
+        if not cls._isDbShared:
+            cls._db.shutdown()
 
     @classmethod
     def getHostsMatching( cls, mask = None, hostname = None ):
@@ -439,6 +475,42 @@ class Host( object ):
         if events is not None:
             for event in events:
                 records.append( ( event[ 0 ], event[ 1 ], event[ 2 ] ) )
+
+        return records
+
+    @classmethod
+    def getHostsUsingIp( self, ip, after, before = None, inOrgs = tuple() ):
+        if type( inOrgs ) not in ( list, tuple ):
+            inOrgs = ( inOrgs, )
+        inOrgs = map( _makeUuid, inOrgs )
+
+        if before is None:
+            before = int( time.time() + ( 60 * 60 * 1 ) ) * 1000
+        if after is None:
+            after = int( time.time() - ( 60 * 60 * 24 * 30 ) ) * 1000
+        if 0 == len( inOrgs ):
+            rows = self._db.execute( 'SELECT ts, sid FROM sensor_ip WHERE ip = %s AND ts >= %s AND ts <= %s', ( ip, after, before ) )
+        else:
+            rows = self._db.execute( 'SELECT ts, sid FROM sensor_ip WHERE ip = %s AND ts >= %s AND ts <= %s AND oid IN %s', ( ip, after, before, inOrgs ) )
+
+        records = []
+        for row in rows:
+            records.append( ( row[ 0 ], row[ 1 ] ) )
+
+        return records
+
+    @classmethod
+    def getHostsWithTag( self, tag, inOrgs = tuple() ):
+        if type( inOrgs ) not in ( list, tuple ):
+            inOrgs = ( inOrgs, )
+        inOrgs = map( _makeUuid, inOrgs )
+
+        rows = self._db.execute( 'SELECT sid FROM sensor_tags WHERE tag LIKE %s', ( tag, ) )
+
+        records = []
+        for row in rows:
+            if 0 == len( inOrgs ) or Host( row[ 0 ] ).getFullAid().org_id in inOrgs:
+                records.append( row[ 0 ] )
 
         return records
 
@@ -541,6 +613,8 @@ class Host( object ):
                         event = self._db.getOne( 'SELECT event FROM events WHERE eventid = %s', ( record[ 2 ], ) )
                         if event is not None:
                             record = ( record[ 0 ], record[ 1 ], record[ 2 ], event[ 0 ] )
+                        else:
+                            record = ( record[ 0 ], record[ 1 ], record[ 2 ], None )
 
                     yield record
             else:
@@ -577,6 +651,27 @@ class Host( object ):
             events.append( { 'name' : row[ 0 ], 'id' : row[ 1 ] } )
 
         return events
+
+    def getBandwidthUsage( self, after = None ):
+        if after is None:
+            after = time.time() - ( 60 * 60 * 24 * 1 )
+        after = int( after ) * 1000
+        values = []
+        for row in self._db.execute( 'SELECT ts, b FROM sensor_transfer WHERE sid = %s AND ts >= %s', ( self.sid, after ) ):
+            values.append( ( self._db.timeToMsTs( row[ 0 ] ), row[ 1 ] ) )
+        return values
+
+    def getTags( self ):
+        tags = {}
+        for row in self._db.execute( 'SELECT sid, tag, frm, added FROM sensor_tags WHERE sid = %s', ( self.sid, ) ):
+            tags[ row[ 1 ] ] = ( row[ 0 ], row[ 1 ], row[ 2 ], row[ 3 ] )
+        return tags
+
+    def setTag( self, tag, by = '', ttl = ( 60 * 60 * 24 * 365 ) ):
+        self._db.execute( 'INSERT INTO sensor_tags ( sid, tag, frm, added ) VALUES ( %s, %s, %s, dateOf(now()) ) USING TTL %s', ( self.sid, str( tag ).lower(), by, ttl ) )
+
+    def unsetTag( self, tag ):
+        self._db.execute( 'DELETE FROM sensor_tags WHERE sid = %s AND tag = %s', ( self.sid, str( tag ).lower() ) )
 
 class FluxEvent( object ):
     @classmethod
@@ -634,14 +729,20 @@ class FluxEvent( object ):
 
 class Reporting( object ):
     _db = None
+    _isDbShared = False
 
     @classmethod
-    def setDatabase( cls, cassUrl ):
-        cls._db = CassDb( cassUrl, 'hcp_analytics', consistencyOne = True )
+    def setDatabase( cls, urlOrInstance ):
+        if type( urlOrInstance ) in ( list, tuple, str, unicode ):
+            cls._db = CassDb( urlOrInstance, 'hcp_analytics' )
+        else:
+            cls._db = urlOrInstance
+            cls._isDbShared = True
 
     @classmethod
     def closeDatabase( cls ):
-        cls._db.shutdown()
+        if not cls._isDbShared:
+            cls._db.shutdown()
 
     @classmethod
     def getDetects( cls, oid = None, before = None, after = None, limit = None, id = None ):
@@ -715,19 +816,25 @@ class Reporting( object ):
 
 class KeyValueStore( object ):
     _db = None
+    _isDbShared = False
     _keySelect = None
     _keySet = None
     _keyTouch = None
 
     @classmethod
-    def setDatabase( cls, cassUrl ):
-        cls._db = CassDb( cassUrl, 'hcp_analytics', consistencyOne = True )
+    def setDatabase( cls, urlOrInstance ):
+        if type( urlOrInstance ) in ( list, tuple, str, unicode ):
+            cls._db = CassDb( urlOrInstance, 'hcp_analytics' )
+        else:
+            cls._db = urlOrInstance
+            cls._isDbShared = True
         cls._keySet = cls._db.prepare( 'INSERT INTO keyvalue ( k, c, v, cts ) VALUES ( ?, ?, ?, dateOf(now()) ) USING TTL ?' )
         cls._keySelect = cls._db.prepare( 'SELECT v, cts FROM keyvalue WHERE k = ? AND c = ?' )
 
     @classmethod
     def closeDatabase( cls ):
-        cls._db.shutdown()
+        if not cls._isDbShared:
+            cls._db.shutdown()
 
     @classmethod
     def setKey( cls, cat, k, v, ttl = ( 60 * 60 * 24 * 30 ) ):
@@ -743,16 +850,22 @@ class KeyValueStore( object ):
 
 class Atoms ( object ):
     _db = None
+    _isDbShared = False
     _atomSelect = None
     _queryChunks = 200
 
     @classmethod
-    def setDatabase( cls, cassUrl ):
-        cls._db = CassDb( cassUrl, 'hcp_analytics', consistencyOne = True )
+    def setDatabase( cls, urlOrInstance ):
+        if type( urlOrInstance ) in ( list, tuple, str, unicode ):
+            cls._db = CassDb( urlOrInstance, 'hcp_analytics' )
+        else:
+            cls._db = urlOrInstance
+            cls._isDbShared = True
 
     @classmethod
     def closeDatabase( cls ):
-        cls._db.shutdown()
+        if not cls._isDbShared:
+            cls._db.shutdown()
 
     def __init__( self, ids ):
         self._ids = []

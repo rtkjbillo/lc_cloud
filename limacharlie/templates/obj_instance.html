@@ -1,0 +1,36 @@
+$def with ( instances, hostnames )
+$var title = 'Object Instances'
+<div class="mdl-card mdl-cell mdl-cell--8-col mdl-shadow--4dp std_height">
+  <div class="mdl-card__title">
+    <h2 class="mdl-card__title-text">Object Instances</h2>
+  </div>
+  <div class="mdl-card__supporting-text">
+    <table class="mdl-data-table mdl-js-data-table mdl-shadow--2dp" style="width:100%;">
+        <thead>
+          <th class="mdl-data-table__cell--non-numeric">Time</th>
+          <th class="mdl-data-table__cell--non-numeric">Hostname</th>
+          <th class="mdl-data-table__cell--non-numeric">SensorId</th>
+          <th class="mdl-data-table__cell--non-numeric">Link</th>
+        </thead>
+        <tbody>
+          $for instance in instances:
+            <tr>
+              <td class="mdl-data-table__cell--non-numeric">
+                $instance[ 0 ]
+              </td>
+              <td class="mdl-data-table__cell--non-numeric">
+                $hostnames.get( instance[ 1 ], '-' )
+              </td>
+              <td class="mdl-data-table__cell--non-numeric">
+                $instance[ 1 ]
+              </td>
+              <td class="mdl-data-table__cell--non-numeric">
+                <a href="/event?eid=$instance[ 2 ]">View</a>
+              </td>
+            </tr>
+        </tbody>
+      </table>
+  </div>
+  <div class="mdl-card__actions mdl-card--border">
+  </div>
+</div>

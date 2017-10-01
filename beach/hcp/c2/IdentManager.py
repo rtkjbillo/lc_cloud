@@ -13,7 +13,6 @@
 # limitations under the License.
 
 from beach.actor import Actor
-import traceback
 import hashlib
 import time
 import uuid
@@ -23,21 +22,15 @@ import string
 import struct
 import hmac
 CassDb = Actor.importLib( 'utils/hcp_databases', 'CassDb' )
-CassPool = Actor.importLib( 'utils/hcp_databases', 'CassPool' )
 
 class IdentManager( Actor ):
     def init( self, parameters, resources ):
-        self._db = CassDb( parameters[ 'db' ], 'hcp_analytics', consistencyOne = True )
-        self.db = CassPool( self._db,
-                            rate_limit_per_sec = parameters[ 'rate_limit_per_sec' ],
-                            maxConcurrent = parameters[ 'max_concurrent' ],
-                            blockOnQueueSize = parameters[ 'block_on_queue_size' ] )
+        self.db = CassDb( parameters[ 'db' ], 'hcp_analytics' )
 
-        self.db.start()
-
-        self.audit = self.getActorHandle( resources[ 'auditing' ] )
-        self.page = self.getActorHandle( resources[ 'paging' ] )
-        self.deployment = self.getActorHandle( resources[ 'deployment' ] )
+        self.audit = self.getActorHandle( resources[ 'auditing' ], timeout = 30, nRetries = 3 )
+        self.page = self.getActorHandle( resources[ 'paging' ], timeout = 30, nRetries = 3 )
+        self.deployment = self.getActorHandle( resources[ 'deployment' ], timeout = 30, nRetries = 3 )
+        self.enrollments = self.getActorHandle( resources[ 'enrollments' ], timeout = 30, nRetries = 3 )
 
         resp = self.deployment.request( 'get_global_config', {} )
         if resp.isSuccess:
@@ -60,9 +53,11 @@ class IdentManager( Actor ):
         self.handle( 'get_user_membership', self.getUserMembership )
         self.handle( 'get_user_info', self.getUserInfo )
         self.handle( 'confirm_email', self.confirmEmail )
+        self.handle( 'reset_creds', self.resetCredentials )
+        self.handle( 'set_retention', self.setRetention )
         
     def deinit( self ):
-        pass
+        self.db.shutdown()
 
     def genDefaultsIfNotPresent( self ):
         info = self.db.getOne( 'SELECT COUNT(*) FROM user_info' )
@@ -91,6 +86,9 @@ class IdentManager( Actor ):
         password = req[ 'password' ]
         totp = req[ 'totp' ]
 
+        if 0 == len( email ) or 0 == len( password ):
+            return ( True, { 'is_authenticated' : False } )
+
         isAuthenticated = False
         info = self.db.getOne( 'SELECT uid, email, salt, salted_password, is_deleted, must_change_password, confirmation_token, totp_secret FROM user_info WHERE email = %s', 
                                ( email, ) )
@@ -103,7 +101,7 @@ class IdentManager( Actor ):
         if confirmationToken is not None and confirmationToken != '':
             return ( True, { 'is_authenticated' : False, 'needs_confirmation' : True } )
 
-        if hashlib.sha256( '%s%s' % ( password, salt ) ).hexdigest() != salted_password:
+        if hashlib.sha256( '%s%s' % ( password, str( salt ) ) ).hexdigest() != salted_password:
             return ( True, { 'is_authenticated' : False } )
 
         if not must_change_password:
@@ -221,6 +219,7 @@ class IdentManager( Actor ):
                          ( oid, name, ttl_events, ttl_long_obj, ttl_short_obj, ttl_atoms, ttl_detections ) )
 
         self.audit.shoot( 'record', { 'oid' : self.admin_oid, 'etype' : 'org_create', 'msg' : 'Org %s ( %s ) created by %s.' % ( name, oid, byUser ) } )
+        self.enrollments.broadcast( 'reload' )
 
         return ( True, { 'is_created' : True, 'oid' : oid } )
 
@@ -231,6 +230,9 @@ class IdentManager( Actor ):
         oid = uuid.UUID( req[ 'oid' ] )
 
         self.db.execute( 'DELETE FROM org_info WHERE oid = %s', ( oid, ) )
+        self.db.execute( 'DELETE FROM hcp_installers WHERE oid = %s', ( oid, ) )
+        self.db.execute( 'DELETE FROM org_membership WHERE oid = %s', ( oid, ) )
+        self.db.execute( 'DELETE FROM org_sensors WHERE oid = %s', ( oid, ) )
 
         self.audit.shoot( 'record', { 'oid' : self.admin_oid, 'etype' : 'org_remove', 'msg' : 'Org %s removed by %s.' % ( oid, byUser ) } )
 
@@ -366,7 +368,7 @@ class IdentManager( Actor ):
 
         uids = req.get( 'uid', None )
         if uids is not None:
-            uids = self.asUuidList( uid )
+            uids = self.asUuidList( uids )
 
         isAllIncluded = req.get( 'include_all', False )
         isIncludeDeleted = req.get( 'include_deleted', False )
@@ -394,13 +396,63 @@ class IdentManager( Actor ):
         token = msg.data[ 'token' ]
         email = msg.data[ 'email' ].lower()
 
-        info = self.db.getOne( 'SELECT uid, confirmation_token FROM user_info WHERE email = %s', ( email, ) )
+        info = self.db.getOne( 'SELECT uid, confirmation_token, must_change_password FROM user_info WHERE email = %s', ( email, ) )
 
-        if info is None or ( info[ 1 ] != token and '' != info[ 1 ] ):
+        if info is None or not info[ 2 ]:
             return ( True, { 'confirmed' : False } )
+        elif info[ 1 ] != token and '' != info[ 1 ]:
+            return ( True, { 'confirmed' : True, 'uid' : info[ 0 ] } )
         else:
             self.db.execute( 'UPDATE user_info SET confirmation_token = \'\' WHERE email = %s', ( email, ) )
             return ( True, { 'confirmed' : True, 'uid' : info[ 0 ] } )
+
+    def resetCredentials( self, msg ):
+        req = msg.data
+
+        email = req[ 'email' ].lower()
+        password = str( uuid.uuid4() )
+        byUser = req[ 'by' ]
+        salt = hashlib.sha256( str( uuid.uuid4() ) ).hexdigest()
+        salted_password = hashlib.sha256( '%s%s' % ( password, salt ) ).hexdigest()
+        confirmationToken = str( uuid.uuid4() )
+
+        otp = TwoFactorAuth( username = email )
+        
+        info = self.db.getOne( 'SELECT uid FROM user_info WHERE email = %s', ( email, ) )
+        if info is None:
+            return ( True, { 'is_reset' : False } )
+
+        self.db.execute( "UPDATE user_info SET is_deleted = false, must_change_password = true, salt = %s, salted_password = %s, totp_secret = %s, confirmation_token = '' WHERE email = %s", 
+                         ( salt, salted_password, otp.getSecret( asOtp = False ), email, ) )
+
+        self.audit.shoot( 'record', { 'oid' : self.admin_oid, 'etype' : 'user_reset', 'msg' : 'User %s credentials reset by %s.' % ( email, byUser ) } )
+
+        return ( True, { 'is_reset' : True, 
+                         'email' : email,
+                         'password' : password } )
+
+    def setRetention( self, msg ):
+        req = msg.data
+
+        oid = uuid.UUID( req[ 'oid' ] )
+        ttl_events = int( req[ 'ttl_events' ] )
+        ttl_short_obj = int( req[ 'ttl_short_obj' ] )
+        ttl_long_obj = int( req[ 'ttl_long_obj' ] )
+        ttl_atoms = int( req[ 'ttl_atoms' ] )
+        ttl_detections = int( req[ 'ttl_detections' ] )
+        
+        info = self.db.getOne( 'SELECT oid FROM org_info WHERE oid = %s', ( oid, ) )
+        if info is None:
+            return ( True, { 'is_set' : False } )
+
+        self.db.execute( "UPDATE org_info SET ttl_events = %s, ttl_short_obj = %s, ttl_long_obj = %s, ttl_atoms = %s, ttl_detections = %s  WHERE oid = %s", 
+                         ( ttl_events, ttl_short_obj, ttl_long_obj, ttl_atoms, ttl_detections, oid, ) )
+
+        self.audit.shoot( 'record', { 'oid' : self.admin_oid, 'etype' : 'set_retention', 'msg' : 'Retention for org %s has been changed.' % ( oid, ) } )
+        self.audit.shoot( 'record', { 'oid' : oid, 'etype' : 'set_retention', 'msg' : 'Retention for org %s has been changed.' % ( oid, ) } )
+
+        return ( True, { 'is_set' : True, 
+                         'oid' : oid } )
 
 class TwoFactorAuth( object ):
     def __init__( self, username = None, secret = None ):

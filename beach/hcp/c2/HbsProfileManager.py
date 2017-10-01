@@ -13,15 +13,7 @@
 # limitations under the License.
 
 from beach.actor import Actor
-import traceback
-import hashlib
-import time
-import ipaddress
 CassDb = Actor.importLib( 'utils/hcp_databases', 'CassDb' )
-CassPool = Actor.importLib( 'utils/hcp_databases', 'CassPool' )
-rpcm = Actor.importLib( 'utils/rpcm', 'rpcm' )
-rList = Actor.importLib( 'utils/rpcm', 'rList' )
-rSequence = Actor.importLib( 'utils/rpcm', 'rSequence' )
 AgentId = Actor.importLib( 'utils/hcp_helpers', 'AgentId' )
 
 class TaskingRule( object ):
@@ -38,15 +30,9 @@ class TaskingRule( object ):
 
 class HbsProfileManager( Actor ):
     def init( self, parameters, resources ):
-        self._db = CassDb( parameters[ 'db' ], 'hcp_analytics', consistencyOne = True )
-        self.db = CassPool( self._db,
-                            rate_limit_per_sec = parameters[ 'rate_limit_per_sec' ],
-                            maxConcurrent = parameters[ 'max_concurrent' ],
-                            blockOnQueueSize = parameters[ 'block_on_queue_size' ] )
+        self.db = CassDb( parameters[ 'db' ], 'hcp_analytics' )
 
         self.loadProfiles = self.db.prepare( 'SELECT aid, cprofile, hprofile FROM hbs_profiles' )
-
-        self.db.start()
 
         self.profiles = []
 
@@ -56,7 +42,7 @@ class HbsProfileManager( Actor ):
         self.handle( 'reload', self.reloadProfiles )
 
     def deinit( self ):
-        pass
+        self.db.shutdown()
 
     def sync( self, msg ):
         changes = {}

@@ -59,14 +59,14 @@ class SlackRep( Actor ):
     def init( self, parameters, resources ):
         self.channel_allDetects = parameters.get( 'channel_all_detects', 'all_detects' )
 
-        self.audit = self.getActorHandle( resources[ 'auditing' ] )
-        self.model = self.getActorHandle( resources[ 'modeling' ], timeout = 120, nRetries = 0 )
-        self.deployment = self.getActorHandle(( resources[ 'deployment' ] ) )
-        self.identManager = self.getActorHandle( resources[ 'identmanager' ] )
-        self.sensordir = self.getActorHandle( resources[ 'sensordir' ] )
-        self.tasking = self.getActorHandle( resources[ 'autotasking' ] )
-        self.huntmanager = self.getActorHandle( resources[ 'huntsmanager' ] )
-        self.reporting = self.getActorHandle( resources[ 'reporting' ] )
+        self.audit = self.getActorHandle( resources[ 'auditing' ], timeout = 30, nRetries = 3 )
+        self.model = self.getActorHandle( resources[ 'modeling' ], timeout = 120, nRetries = 2 )
+        self.deployment = self.getActorHandle( resources[ 'deployment' ], timeout = 30, nRetries = 3 )
+        self.identManager = self.getActorHandle( resources[ 'identmanager' ], timeout = 30, nRetries = 3 )
+        self.sensordir = self.getActorHandle( resources[ 'sensordir' ], timeout = 30, nRetries = 3 )
+        self.tasking = self.getActorHandle( resources[ 'autotasking' ], timeout = 30, nRetries = 3 )
+        self.huntmanager = self.getActorHandle( resources[ 'huntsmanager' ], timeout = 30, nRetries = 3 )
+        self.reporting = self.getActorHandle( resources[ 'reporting' ], timeout = 30, nRetries = 3 )
 
         self.reps = {}
         self.uiDomain = 'http://limacharlie:8888'
@@ -164,7 +164,7 @@ class RepInstance( object ):
                         break
 
             self.actor.log( "found our id %s for %s" % ( self.botId, self.bot.server.username ) )
-            self.bot.rtm_send_message( '#general', 'Reporting in.' )
+            #self.bot.rtm_send_message( '#general', 'Reporting in.' )
 
             while not stopEvent.wait( 1.0 ):
                 for slackMessage in self.tryToRead():

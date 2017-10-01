@@ -23,13 +23,12 @@ rSequence = Actor.importLib( 'utils/rpcm', 'rSequence' )
 AgentId = Actor.importLib( 'utils/hcp_helpers', 'AgentId' )
 HbsCollectorId = Actor.importLib( 'utils/hcp_helpers', 'HbsCollectorId' )
 CassDb = Actor.importLib( 'utils/hcp_databases', 'CassDb' )
-CassPool = Actor.importLib( 'utils/hcp_databases', 'CassPool' )
 HcpOperations = Actor.importLib( 'utils/hcp_helpers', 'HcpOperations' )
 HcpModuleId = Actor.importLib( 'utils/hcp_helpers', 'HcpModuleId' )
 
 def audited( f ):
     def wrapped( self, *args, **kwargs ):
-        self.auditor.shoot( 'audit', { 'data' : args[ 0 ].data, 'cmd' : args[ 0 ].req } )
+        #self.auditor.shoot( 'record', { 'data' : args[ 0 ].data, 'cmd' : args[ 0 ].req } )
         r = f( self, *args, **kwargs )
         return r
     return wrapped
@@ -37,12 +36,7 @@ def audited( f ):
 class AdminEndpoint( Actor ):
     def init( self, parameters, resources ):
         self.symbols = self.importLib( '../Symbols', 'Symbols' )()
-        self._db = CassDb( parameters[ 'db' ], 'hcp_analytics', consistencyOne = True )
-        self.db = CassPool( self._db,
-                            rate_limit_per_sec = parameters[ 'rate_limit_per_sec' ],
-                            maxConcurrent = parameters[ 'max_concurrent' ],
-                            blockOnQueueSize = parameters[ 'block_on_queue_size' ] )
-        self.db.start()
+        self.db = CassDb( parameters[ 'db' ], 'hcp_analytics' )
         self.handle( 'ping', self.ping )
         self.handle( 'hcp.get_agent_states', self.cmd_hcp_getAgentStates )
         self.handle( 'hcp.get_taskings', self.cmd_hcp_getTaskings )
@@ -54,6 +48,9 @@ class AdminEndpoint( Actor ):
         self.handle( 'hcp.get_installers', self.cmd_hcp_getInstallers )
         self.handle( 'hcp.add_installer', self.cmd_hcp_addInstaller )
         self.handle( 'hcp.remove_installer', self.cmd_hcp_delInstaller )
+        self.handle( 'hcp.get_whitelist', self.cmd_hcp_getWhitelist )
+        self.handle( 'hcp.add_whitelist', self.cmd_hcp_addWhitelist )
+        self.handle( 'hcp.remove_whitelist', self.cmd_hcp_delWhitelist )
         self.handle( 'hbs.set_profile', self.cmd_hbs_addProfile )
         self.handle( 'hbs.get_profiles', self.cmd_hbs_getProfiles )
         self.handle( 'hbs.del_profile', self.cmd_hbs_delProfile )
@@ -68,7 +65,7 @@ class AdminEndpoint( Actor ):
         self.persistentTasks = self.getActorHandle( resources[ 'persistent_tasks' ], timeout = 5, nRetries = 3 )
 
     def deinit( self ):
-        pass
+        self.db.shutdown()
 
     def ping( self, msg ):
         return ( True, { 'pong' : time.time() } )
@@ -297,6 +294,68 @@ class AdminEndpoint( Actor ):
 
         return ( True, )
 
+    @audited
+    def cmd_hcp_getWhitelist( self, msg ):
+        whitelist = []
+        data = { 'whitelist' : whitelist }
+
+        oid = msg.data.get( 'oid', None )
+        iid = msg.data.get( 'iid', None )
+
+        filters = []
+        filterValues = []
+        if oid is not None:
+            filters.append( 'oid = %s' )
+            filterValues.append( uuid.UUID( oid ) )
+            if iid is not None:
+                filters.append( 'iid = %s' )
+                filterValues.append( uuid.UUID( iid ) )
+
+        filters = ' AND '.join( filters )
+        if 0 != len( filters ):
+            filters = ' WHERE ' + filters
+
+        for row in self.db.execute( 'SELECT oid, iid, created, bootstrap, description, tags FROM hcp_whitelist%s' % filters, filterValues ):
+            tags = ( row[ 5 ] if row[ 5 ] is not None else '' ).split( ',' )
+            whitelist.append( { 'oid' : row[ 0 ],
+                                'iid' : row[ 1 ],
+                                'bootstrap' : row[ 3 ],
+                                'created' : row[ 2 ],
+                                'description' : row[ 4 ],
+                                'tags' : tags } )
+
+        return ( True, data )
+
+    @audited
+    def cmd_hcp_addWhitelist( self, msg ):
+        oid = uuid.UUID( msg.data[ 'oid' ] )
+        iid = uuid.UUID( msg.data[ 'iid' ] )
+        bootstrap = msg.data[ 'bootstrap' ]
+        description = msg.data.get( 'description', '' )
+        tags = ','.join( msg.data.get( 'tags', [] ) )
+
+        self.db.execute( 'INSERT INTO hcp_whitelist ( oid, iid, created, bootstrap, description, tags ) VALUES ( %s, %s, dateOf( now() ), %s, %s, %s )',
+                         ( oid, iid, bootstrap, description, tags ) )
+
+        self.delay( 5, self.enrollments.broadcast, 'reload', {} )
+
+        return ( True, { 'oid' : oid, 'iid' : iid } )
+
+    @audited
+    def cmd_hcp_delWhitelist( self, msg ):
+        oid = uuid.UUID( msg.data[ 'oid' ] )
+        iid = uuid.UUID( msg.data[ 'iid' ] ) if msg.data.get( 'iid', None ) is not None else None
+
+        if iid is not None:
+            self.db.execute( 'DELETE FROM hcp_whitelist WHERE oid = %s AND iid = %s',
+                             ( oid, iid ) )
+        else:
+            self.db.execute( 'DELETE FROM hcp_whitelist WHERE oid = %s',
+                             ( oid, ) )
+
+        self.delay( 5, self.enrollments.broadcast, 'reload', {} )
+
+        return ( True, )
 
     @audited
     def cmd_hbs_getProfiles( self, msg ):

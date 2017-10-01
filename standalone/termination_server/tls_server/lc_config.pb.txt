@@ -1,0 +1,31 @@
+secretEnrollmentToken: "somethingsecretthiswaycomes"
+
+# Enroll any installer for org 1
+enrollmentRules {
+	rule {
+		oid: "00000000-0000-0000-0000-000000000001"
+		iid: "00000000-0000-0000-0000-000000000001"
+		storeFile: "store.dat"
+		storeSigFile: "store.dat.sig"
+	}
+}
+
+# Windows on any org, installer and sensor
+profileRules {
+	rule {
+		aid: "0.0.0.10000000.0"
+		profileFile: "hbs_passive_win.profile"
+	}
+	rule {
+		aid: "0.0.0.20000000.0"
+		profileFile: "hbs_passive_lin.profile"
+	}
+	rule {
+		aid: "0.0.0.30000000.0"
+		profileFile: "hbs_passive_osx.profile"
+	}
+}
+
+moduleRules {
+	
+}
