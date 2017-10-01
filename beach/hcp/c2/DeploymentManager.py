@@ -357,7 +357,7 @@ We believe this sharing policy strikes a good balance between privacy and inform
             self.audit.shoot( 'record', { 'oid' : self.admin_oid, 'etype' : 'conf_change', 'msg' : 'Setting metrics upload.' } )
 
             self.log( 'loading modeling level' )
-            self.db.execute( 'INSERT INTO configs ( conf, value ) VALUES ( %s, %s )', ( 'global/modeling_level', 'full' ) )
+            self.db.execute( 'INSERT INTO configs ( conf, value ) VALUES ( %s, %s )', ( 'global/modeling_level', '10' ) )
             self.audit.shoot( 'record', { 'oid' : self.admin_oid, 'etype' : 'conf_change', 'msg' : 'Setting modeling level.' } )
 
     def obfuscate( self, buffer, key ):
@@ -547,7 +547,11 @@ We believe this sharing policy strikes a good balance between privacy and inform
             globalConf[ row[ 0 ] ] = row[ 1 ]
 
         # Make sure the configs that need to be integers are always integers
-        globalConf[ 'global/modeling_level' ] = int( globalConf[ 'global/modeling_level' ] )
+        try:
+            globalConf[ 'global/modeling_level' ] = int( globalConf[ 'global/modeling_level' ] )
+        except:
+            self.log( "Invalid modeling_level: %s" % globalConf[ 'global/modeling_level' ] )
+            globalConf[ 'global/modeling_level' ] = 10
 
         return ( True, globalConf )
 
