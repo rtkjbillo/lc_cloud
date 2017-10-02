@@ -45,17 +45,23 @@ class SensorContext( object ):
             data[ 'inv_id' ] = inv_id
 
         self._actor.tasking.shoot( 'task', data, key = dest )
+        return True
 
     def tag( self, tag, ttl = ( 60 * 60 * 24 * 365 ) ):
-        self._actor.log( "sent for tagging: %s" % tag )
-        self._actor.tagging.shoot( 'add_tags', 
-                                   { 'tag' : tag, 
-                                     'ttl' : ttl, 
-                                     'sid' : self.aid.sensor_id, 
-                                     'by' : 'QuickDetectHost' } )
+        if not self.isTagged( tag ):
+            self._actor.log( "sent for tagging: %s" % tag )
+            self._actor.tagging.shoot( 'add_tags', 
+                                       { 'tag' : tag, 
+                                         'ttl' : ttl, 
+                                         'sid' : self.aid.sensor_id, 
+                                         'by' : 'QuickDetectHost' } )
+        return True
 
     def isTagged( self, tag ):
-        return tag in self.routing[ 'tags' ]
+        return tag.lower() in self.routing[ 'tags' ]
+
+    def inOrg( self, oid ):
+        return str( oid ) == str( self.aid.org_id )
 
 
 class QuickDetectHost( Actor ):
