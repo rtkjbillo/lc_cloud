@@ -198,7 +198,7 @@ class EventDSL( object ):
                       'srcIpIn' : lambda e, v: ipaddress.ip_address( unicode( _x_( e, 'base.SOURCE/base.IP_ADDRESS' ) ) ) in ipaddress.ip_network( unicode( v ) ),
                       'dstPort' : lambda e, v: _x_( e, 'base.DESTINATION/base.PORT' ) == v,
                       'srcPort' : lambda e, v: _x_( e, 'base.SOURCE/base.PORT' ) == v,
-                      'isOutgoing' : lambda e, v: _x_( e, 'base.IS_OUTGOING' ) is v }
+                      'isOutgoing' : lambda e, v: ( 1 == _x_( e, 'base.IS_OUTGOING' ) ) is v }
 
     def asJSON( self ):
         return _sanitizeJson( self._event )
@@ -286,4 +286,9 @@ class EventDSL( object ):
                 return False
             tmpEvent = EventDSL( subEvent )
             return tmpEvent.Event( **kwargs )
+        return False
+
+    def UserObserved( self, **kwargs ):
+        if 'notification.USER_OBSERVED' == self._eventType:
+            return self.Event( **kwargs )
         return False

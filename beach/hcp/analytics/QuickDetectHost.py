@@ -80,6 +80,7 @@ class QuickDetectHost( Actor ):
 
         self.conf = {}
         self.reloadRules( None )
+        self.schedule( 60 * 60, self.reloadRules, None )
 
         self.handle( 'add_rule', self.addRule )
         self.handle( 'del_rule', self.delRule )
@@ -107,9 +108,8 @@ class QuickDetectHost( Actor ):
         return resp.isSuccess
 
     def compileRule( self, rule ):
-        env = {}
-        env[ "locals" ]   = None
-        env[ "globals" ]  = None
+        env = { 'False' : False, 
+                'True' : True }
         env[ "__name__" ] = None
         env[ "__file__" ] = None
         env[ "__builtins__" ] = None
