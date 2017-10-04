@@ -16,6 +16,7 @@ from beach.actor import Actor
 import traceback
 import json
 import uuid
+import time
 EventDSL = Actor.importLib( '../utils/EventInterpreter', 'EventDSL' )
 AgentId = Actor.importLib( '../utils/hcp_helpers', 'AgentId' )
 
@@ -45,17 +46,23 @@ class SensorContext( object ):
             data[ 'inv_id' ] = inv_id
 
         self._actor.tasking.shoot( 'task', data, key = dest )
+        return True
 
     def tag( self, tag, ttl = ( 60 * 60 * 24 * 365 ) ):
-        self._actor.log( "sent for tagging: %s" % tag )
-        self._actor.tagging.shoot( 'add_tags', 
-                                   { 'tag' : tag, 
-                                     'ttl' : ttl, 
-                                     'sid' : self.aid.sensor_id, 
-                                     'by' : 'QuickDetectHost' } )
+        if not self.isTagged( tag ):
+            self._actor.log( "sent for tagging: %s" % tag )
+            self._actor.tagging.shoot( 'add_tags', 
+                                       { 'tag' : tag, 
+                                         'ttl' : ttl, 
+                                         'sid' : self.aid.sensor_id, 
+                                         'by' : 'QuickDetectHost' } )
+        return True
 
     def isTagged( self, tag ):
-        return tag in self.routing[ 'tags' ]
+        return tag.lower() in self.routing[ 'tags' ]
+
+    def inOrg( self, oid ):
+        return str( oid ) == str( self.aid.org_id )
 
 
 class QuickDetectHost( Actor ):
@@ -74,6 +81,7 @@ class QuickDetectHost( Actor ):
 
         self.conf = {}
         self.reloadRules( None )
+        self.schedule( 60 * 60, self.reloadRules, None )
 
         self.handle( 'add_rule', self.addRule )
         self.handle( 'del_rule', self.delRule )
@@ -101,9 +109,8 @@ class QuickDetectHost( Actor ):
         return resp.isSuccess
 
     def compileRule( self, rule ):
-        env = {}
-        env[ "locals" ]   = None
-        env[ "globals" ]  = None
+        env = { 'False' : False, 
+                'True' : True }
         env[ "__name__" ] = None
         env[ "__file__" ] = None
         env[ "__builtins__" ] = None
@@ -130,6 +137,7 @@ class QuickDetectHost( Actor ):
         name = req[ 'name' ]
         rule = req[ 'rule' ]
         action = req[ 'action' ]
+        by = req[ 'by' ]
         if name in self.rules:
             return ( False, 'rule already exists' )
 
@@ -137,7 +145,7 @@ class QuickDetectHost( Actor ):
         if compiled is None:
             return ( False, exc )
         self.rules[ name ] = compiled
-        self.conf[ name ] = { 'name' : name, 'rule' : rule, 'action' : action }
+        self.conf[ name ] = { 'name' : name, 'rule' : rule, 'action' : action, 'by' : by, 'date' : int( time.time() ) }
 
         return ( self.saveRules(), )
 
