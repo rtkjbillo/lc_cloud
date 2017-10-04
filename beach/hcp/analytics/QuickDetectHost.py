@@ -16,6 +16,7 @@ from beach.actor import Actor
 import traceback
 import json
 import uuid
+import time
 EventDSL = Actor.importLib( '../utils/EventInterpreter', 'EventDSL' )
 AgentId = Actor.importLib( '../utils/hcp_helpers', 'AgentId' )
 
@@ -136,6 +137,7 @@ class QuickDetectHost( Actor ):
         name = req[ 'name' ]
         rule = req[ 'rule' ]
         action = req[ 'action' ]
+        by = req[ 'by' ]
         if name in self.rules:
             return ( False, 'rule already exists' )
 
@@ -143,7 +145,7 @@ class QuickDetectHost( Actor ):
         if compiled is None:
             return ( False, exc )
         self.rules[ name ] = compiled
-        self.conf[ name ] = { 'name' : name, 'rule' : rule, 'action' : action }
+        self.conf[ name ] = { 'name' : name, 'rule' : rule, 'action' : action, 'by' : by, 'date' : int( time.time() ) }
 
         return ( self.saveRules(), )
 

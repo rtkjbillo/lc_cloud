@@ -1,15 +1,15 @@
 $def with ( rules, is_admin )
-$var title = 'Quick Detects'
+$var title = 'Detect Lambdas'
 
 
 $if is_admin:
     <div class="mdl-card mdl-cell mdl-cell--4-col mdl-shadow--4dp std_height">
       <div class="mdl-card__title">
-        <h4 class="mdl-card__title-text">Add Quick Detect</h4>
+        <h4 class="mdl-card__title-text">Add Lambda</h4>
         <button class="mdl-button mdl-js-button mdl-js-ripple-effect help-dialog" style="position: absolute; right: 0;">
           <div>
             <p>
-              Add a quick detect and action to the live stream of data.
+              Add a lambda to the live stream of data.
             </p>
             <p>
               Valid rule instructions:
@@ -18,7 +18,7 @@ $if is_admin:
               Valid action instructions:
             </p>
             <p>
-              The name specified will be used to uniquely identify the quick detect. Use it in the Remove panel.
+              The name specified will be used to uniquely identify the lambda. Use it in the Remove panel.
             </p>
           </div>
           <i class="material-icons">help</i>
@@ -45,18 +45,18 @@ $if is_admin:
       </div>
       <div class="mdl-card__actions mdl-card--border">
         <center>
-            <button class="mdl-button mdl-button--colored mdl-js-button mdl-js-ripple-effect mdl-button--raised" type="submit" form="form_add_detect" name="action" value="add_detect">Add Quick Detect</button>
+            <button class="mdl-button mdl-button--colored mdl-js-button mdl-js-ripple-effect mdl-button--raised" type="submit" form="form_add_detect" name="action" value="add_detect">Add Lambda</button>
         </center>
       </div>
     </div>
 
     <div class="mdl-card mdl-cell mdl-cell--4-col mdl-shadow--4dp std_height">
       <div class="mdl-card__title">
-        <h4 class="mdl-card__title-text">Remove Quick Detect</h4>
+        <h4 class="mdl-card__title-text">Remove Lambda</h4>
         <button class="mdl-button mdl-js-button mdl-js-ripple-effect help-dialog" style="position: absolute; right: 0;">
           <div>
             <p>
-              Remove an active quick detect by name.
+              Remove an active lambda by name.
             </p>
           </div>
           <i class="material-icons">help</i>
@@ -72,7 +72,7 @@ $if is_admin:
       </div>
       <div class="mdl-card__actions mdl-card--border">
         <center>
-            <button class="mdl-button mdl-button--colored mdl-js-button mdl-js-ripple-effect mdl-button--raised" type="submit" form="form_del_detect" name="action" value="del_detect">Remove Quick Detect</button>
+            <button class="mdl-button mdl-button--colored mdl-js-button mdl-js-ripple-effect mdl-button--raised" type="submit" form="form_del_detect" name="action" value="del_detect">Remove Lambda</button>
         </center>
       </div>
     </div>
@@ -80,14 +80,15 @@ $if is_admin:
 
 <div class="mdl-card mdl-cell mdl-cell--12-col mdl-shadow--4dp">
   <div class="mdl-card__title">
-    <h4 class="mdl-card__title-text">Quick Detect Active Rules</h4>
+    <h4 class="mdl-card__title-text">Active Lambdas</h4>
   </div>
   <div class="mdl-card__supporting-text" style="position: relative; ">
     <table style="width: 100%;" class="mdl-data-table mdl-js-data-table mdl-shadow--2dp">
       <thead>
-        <th class="mdl-data-table__cell--non-numeric">Rule Name</th>
-        <th class="mdl-data-table__cell--non-numeric">Matching Rule</th>
+        <th class="mdl-data-table__cell--non-numeric">Name</th>
+        <th class="mdl-data-table__cell--non-numeric">Matching</th>
         <th class="mdl-data-table__cell--non-numeric">Action</th>
+        <th class="mdl-data-table__cell--non-numeric">By</th>
       </thead>
       <tbody>
       $for name, ruleInfo in rules.iteritems():
@@ -98,6 +99,9 @@ $if is_admin:
           </td>
           <td class="mdl-data-table__cell--non-numeric click-to-copy">
             <pre style="text-align: left;"><code>$ruleInfo[ 'action' ]</code></pre>
+          </td>
+          <td class="mdl-data-table__cell--non-numeric click-to-copy">
+            $ruleInfo[ 'by' ] on $( msTsToTime( ruleInfo[ 'date' ] * 1000 ) )
           </td>
         </tr>
       </tbody>

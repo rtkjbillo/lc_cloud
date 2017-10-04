@@ -1798,7 +1798,8 @@ class QuickDetects ( AuthenticatedPage ):
         if params.nameToAdd is not None and params.ruleToAdd is not None and params.actionToAdd is not None:
             req = quickdetects.request( 'add_rule', { 'name' : params.nameToAdd, 
                                                       'rule' : params.ruleToAdd,
-                                                      'action' : params.actionToAdd } )
+                                                      'action' : params.actionToAdd,
+                                                      'by': session.email } )
             if req.isSuccess:
                 quickdetects.broadcast( 'reload_rules', {} )
                 session.notice = 'Successfully added %s' % params.nameToAdd
