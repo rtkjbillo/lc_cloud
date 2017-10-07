@@ -93,14 +93,14 @@ $if is_admin:
       <tbody>
       $for name, ruleInfo in rules.iteritems():
         <tr>
-          <td class="mdl-data-table__cell--non-numeric">$name</td>
+          <td class="mdl-data-table__cell--non-numeric click-to-copy">$name</td>
           <td class="mdl-data-table__cell--non-numeric click-to-copy">
             <pre style="text-align: left;"><code>$ruleInfo[ 'rule' ]</code></pre>
           </td>
           <td class="mdl-data-table__cell--non-numeric click-to-copy">
             <pre style="text-align: left;"><code>$ruleInfo[ 'action' ]</code></pre>
           </td>
-          <td class="mdl-data-table__cell--non-numeric click-to-copy">
+          <td class="mdl-data-table__cell--non-numeric">
             $ruleInfo[ 'by' ] on $( msTsToTime( ruleInfo[ 'date' ] * 1000 ) )
           </td>
         </tr>
