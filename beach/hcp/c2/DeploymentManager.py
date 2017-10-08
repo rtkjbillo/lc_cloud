@@ -276,7 +276,8 @@ This is a quick checklist of things you likely want to customize with your new d
     1. Alternatively, as an admin you can arbitrarily join any organization by usng the All Organization panel and click Join Organization
 1. If you head over to the [sensor configuration](/sensor_configs) page, you can customize the collectors enabled and the events automatically sent to the cloud, but sane defaults should already be set
 1. Go to the [installers and logs page](/manage)
-    1. There you will find the installers for all organizations you're a member of, download one and run it on a relevant host to get your first sensor running
+    1. There you will find the installers (they're all the same), download one and run it on a relevant host to get your first sensor running
+    1. On the same page, you will find the installation keys for each organization you're a member of, use it when launching your sensor to make sure it enrolls in the right organization
 1. You should not be able to see your sensor enrolled in the [sensors page](/sensors)
             '''
             defaultPolicy = '''### How your data is handled
@@ -359,6 +360,10 @@ We believe this sharing policy strikes a good balance between privacy and inform
             self.log( 'loading modeling level' )
             self.db.execute( 'INSERT INTO configs ( conf, value ) VALUES ( %s, %s )', ( 'global/modeling_level', '10' ) )
             self.audit.shoot( 'record', { 'oid' : self.admin_oid, 'etype' : 'conf_change', 'msg' : 'Setting modeling level.' } )
+
+            self.log( 'loading 2fa mode' )
+            self.db.execute( 'INSERT INTO configs ( conf, value ) VALUES ( %s, %s )', ( 'global/2fa_mode', 'on' ) )
+            self.audit.shoot( 'record', { 'oid' : self.admin_oid, 'etype' : 'conf_change', 'msg' : 'Setting 2fa mode.' } )
 
     def obfuscate( self, buffer, key ):
         obf = BytesIO()
@@ -539,6 +544,7 @@ We believe this sharing policy strikes a good balance between privacy and inform
             'global/send_metrics' : '0',
             'global/deployment_id' : '',
             'global/modeling_level' : 10,
+            'global/2fa_mode' : 'on',
         }
 
         info = self.db.execute( 'SELECT conf, value FROM configs WHERE conf IN %s', ( globalConf.keys(), ) )

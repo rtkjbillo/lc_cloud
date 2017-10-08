@@ -428,7 +428,19 @@ def fileDownload( f ):
 class Login:
     def GET( self ):
         params = web.input( no2fa = None )
-        return renderAlone.login( params.no2fa )
+        
+        info = deployment.request( 'get_global_config', {} )
+        if info.isSuccess:
+            mode2fa = info.data[ 'global/2fa_mode' ]
+        else:
+            raise Exception( str( info ) )
+
+        if ( params.no2fa is not None ) or ( mode2fa != 'on' ):
+            isNo2fa = True
+        else:
+            isNo2fa = False
+
+        return renderAlone.login( isNo2fa )
 
     def POST( self ):
         params = web.input( email = None, password = None, totp = None )
@@ -502,16 +514,29 @@ class ChangePassword:
 
     def GET( self ):
         totp, totpImg = self.getOtp()
-        return render.changepassword( totp, totpImg )
+        info = deployment.request( 'get_global_config', {} )
+        if info.isSuccess:
+            mode2fa = info.data[ 'global/2fa_mode' ]
+        else:
+            raise Exception( str( info ) )
+        return render.changepassword( totp, totpImg, 'on' == mode2fa )
 
     def POST( self ):
         params = web.input( password = None, totp = None )
+        totp = None
         try:
             if params.totp is not None and params.totp != '':
                 totp = int( params.totp )
         except:
             totp = None
-        if params.password is None or totp is None:
+        
+        info = deployment.request( 'get_global_config', {} )
+        if info.isSuccess:
+            mode2fa = info.data[ 'global/2fa_mode' ]
+        else:
+            raise Exception( str( info ) )
+
+        if params.password is None or ( totp is None  and 'on' == mode2fa ):
             session.notice = 'Missing password or 2nd factor.'
             redirectTo( 'changepassword' )
         if session.is_logged_in is not True: return renderAlone.error( 'Must be logged in.' )

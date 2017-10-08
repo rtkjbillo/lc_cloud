@@ -89,6 +89,15 @@ class IdentManager( Actor ):
         if 0 == len( email ) or 0 == len( password ):
             return ( True, { 'is_authenticated' : False } )
 
+        domain = 'LimaCharlie'
+        mode2fa = 'on'
+        resp = self.deployment.request( 'get_global_config', {} )
+        if resp.isSuccess:
+            domain = resp.data[ 'global/uidomain' ]
+            mode2fa = resp.data[ 'global/2fa_mode' ]
+        else:
+            raise Exception( str( resp ) )
+
         isAuthenticated = False
         info = self.db.getOne( 'SELECT uid, email, salt, salted_password, is_deleted, must_change_password, confirmation_token, totp_secret FROM user_info WHERE email = %s', 
                                ( email, ) )
@@ -104,7 +113,7 @@ class IdentManager( Actor ):
         if hashlib.sha256( '%s%s' % ( password, str( salt ) ) ).hexdigest() != salted_password:
             return ( True, { 'is_authenticated' : False } )
 
-        if not must_change_password:
+        if ( 'on' == mode2fa ) and ( not must_change_password ):
             otp = TwoFactorAuth( username = email, secret = totp_secret )
             if not otp.isAuthentic( totp ):
                 return ( True, { 'is_authenticated' : False } )
@@ -119,11 +128,7 @@ class IdentManager( Actor ):
             self.audit.shoot( 'record', { 'oid' : oid, 'etype' : 'login', 'msg' : 'User %s logged in.' % email } )
 
         loginData = { 'is_authenticated' : True, 'uid' : uid, 'email' : email, 'orgs' : orgs, 'must_change_password' : must_change_password }
-        if must_change_password:
-            domain = 'LimaCharlie'
-            resp = self.deployment.request( 'get_global_config', {} )
-            if resp.isSuccess:
-                domain = resp.data[ 'global/uidomain' ]
+        if ( 'on' == mode2fa ) and must_change_password:
             totp = TwoFactorAuth( username = email, secret = totp_secret )
             loginData[ 'otp' ] = totp.getSecret( asOtp = True, domain = domain )
         return ( True, loginData )
@@ -140,14 +145,23 @@ class IdentManager( Actor ):
         salted_password = hashlib.sha256( '%s%s' % ( password, salt ) ).hexdigest()
         confirmationToken = str( uuid.uuid4() )
 
-        otp = TwoFactorAuth( username = email )
+        resp = self.deployment.request( 'get_global_config', {} )
+        if resp.isSuccess:
+            mode2fa = resp.data[ 'global/2fa_mode' ]
+        else:
+            raise Exception( str( resp ) )
+
+        if mode2fa == 'on':
+            otp = TwoFactorAuth( username = email ).getSecret( asOtp = False )
+        else:
+            otp = ''
         
         info = self.db.getOne( 'SELECT uid, is_deleted FROM user_info WHERE email = %s', ( email, ) )
         if info is not None and info[ 1 ] is not True:
             return ( True, { 'is_created' : False } )
 
         self.db.execute( 'INSERT INTO user_info ( email, uid, salt, salted_password, totp_secret, confirmation_token, is_deleted, must_change_password ) VALUES ( %s, %s, %s, %s, %s, %s, false, true )', 
-                         ( email, uid, salt, salted_password, otp.getSecret( asOtp = False ), '' if isNoConfirm else confirmationToken ) )
+                         ( email, uid, salt, salted_password, otp, '' if isNoConfirm else confirmationToken ) )
 
         self.audit.shoot( 'record', { 'oid' : self.admin_oid, 'etype' : 'user_create', 'msg' : 'User %s created by %s.' % ( email, byUser ) } )
 
@@ -191,7 +205,13 @@ class IdentManager( Actor ):
         uid = info[ 0 ]
         totp_secret = info[ 1 ]
 
-        if totp is not None:
+        resp = self.deployment.request( 'get_global_config', {} )
+        if resp.isSuccess:
+            mode2fa = resp.data[ 'global/2fa_mode' ]
+        else:
+            raise Exception( str( resp ) )
+
+        if 'on' == mode2fa and totp is not None:
             otp = TwoFactorAuth( username = email, secret = totp_secret )
             if not otp.isAuthentic( totp ):
                 return ( True, { 'is_changed' : False } )
@@ -416,14 +436,23 @@ class IdentManager( Actor ):
         salted_password = hashlib.sha256( '%s%s' % ( password, salt ) ).hexdigest()
         confirmationToken = str( uuid.uuid4() )
 
-        otp = TwoFactorAuth( username = email )
+        resp = self.deployment.request( 'get_global_config', {} )
+        if resp.isSuccess:
+            mode2fa = resp.data[ 'global/2fa_mode' ]
+        else:
+            raise Exception( str( resp ) )
+
+        if 'on' == mode2fa:
+            otp = TwoFactorAuth( username = email ).getSecret( asOtp = False )
+        else:
+            otp = ''
         
         info = self.db.getOne( 'SELECT uid FROM user_info WHERE email = %s', ( email, ) )
         if info is None:
             return ( True, { 'is_reset' : False } )
 
         self.db.execute( "UPDATE user_info SET is_deleted = false, must_change_password = true, salt = %s, salted_password = %s, totp_secret = %s, confirmation_token = '' WHERE email = %s", 
-                         ( salt, salted_password, otp.getSecret( asOtp = False ), email, ) )
+                         ( salt, salted_password, otp, email, ) )
 
         self.audit.shoot( 'record', { 'oid' : self.admin_oid, 'etype' : 'user_reset', 'msg' : 'User %s credentials reset by %s.' % ( email, byUser ) } )
 
