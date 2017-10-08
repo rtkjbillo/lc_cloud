@@ -42,7 +42,8 @@ $def with ( no2fa )
         <div class="mdl-card__actions mdl-card--border">
           <button class="mdl-button mdl-button--colored mdl-js-button mdl-js-ripple-effect mdl-button--raised" type="submit" form="form_login">Log in</button>
         </div>
-        <i>If you are logging in with a default password, leave the 2nd Factor field blank.</i>
+        $if not no2fa:
+          <i>If you are logging in with a default password, leave the 2nd Factor field blank.</i>
         </form>
       </div>
     <!-- jQuery (necessary for Bootstrap's JavaScript plugins) -->
