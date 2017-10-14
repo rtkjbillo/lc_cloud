@@ -1365,13 +1365,47 @@ class HcpCli ( cmd.Cmd ):
         arguments = self.parse( parser, s )
         if arguments is not None:
             if arguments.atom is None:
-                raise argparse.ArgumentTypeError( 'At leasr one atom must be specified.' )
+                raise argparse.ArgumentTypeError( 'At least one atom must be specified.' )
             req = rSequence()
             atomList = rList( )
             for atom in arguments.atom:
                 atomList.addBuffer( self.tags.hbs.THIS_ATOM, atom )
             req.addList( self.tags.hbs.THIS_ATOM, atomList )
             self._executeHbsTasking( self.tags.notification.DENY_TREE_REQ,
+                                     req,
+                                     arguments )
+
+    @report_errors
+    def do_segregate_network( self, s ):
+        '''Tells the sensor to block all network access except to specified DNS.'''
+
+        parser = self.getParser( 'segregate_network', True )
+        parser.add_argument( 'domain1',
+                             type = str,
+                             help = 'first DNS to allow access to, this should be an LC backend',
+                             dest = 'domain1' )
+        parser.add_argument( 'domain2',
+                             type = str,
+                             help = 'second DNS to allow access to, this should be an LC backend',
+                             dest = 'domain2' )
+        arguments = self.parse( parser, s )
+        if arguments is not None:
+            req = rSequence()
+            req.addStringA( self.tags.hcp.PRIMARY_URL, arguments.domain1 )
+            req.addStringA( self.tags.hcp.SECONDARY_URL, arguments.domain2 )
+            self._executeHbsTasking( self.tags.notification.SEGREGATE_NETWORK,
+                                     req,
+                                     arguments )
+
+    @report_errors
+    def do_rejoin_network( self, s ):
+        '''Tells the sensor to unblock all network access.'''
+
+        parser = self.getParser( 'rejoin_network', True )
+        arguments = self.parse( parser, s )
+        if arguments is not None:
+            req = rSequence()
+            self._executeHbsTasking( self.tags.notification.REJOIN_NETWORK,
                                      req,
                                      arguments )
 

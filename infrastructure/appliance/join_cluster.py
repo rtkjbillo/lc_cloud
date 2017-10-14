@@ -66,7 +66,7 @@ if __name__ == '__main__':
                          type = str,
                          dest = 'interface',
                          required = False,
-                         default = None,
+                         default = 'eth0',
                          help = 'The network interface to use as main cluster interface.' )
 
     args = parser.parse_args()
@@ -85,20 +85,34 @@ if __name__ == '__main__':
     addresses = list( addresses )
 
     # Read the Cassandra config.
-    with open( '/etc/cassandra/cassandra.yaml', 'rb' ) as f:
-        cassConf = yaml.load( f.read() )
+    try:
+        cassandraConfigFile = '/etc/cassandra/cassandra.yaml'
+        with open( cassandraConfigFile, 'rb' ) as f:
+            cassConf = yaml.load( f.read() )
+    except:
+        # This is an alternate path for variation in distribution (Amazon EC2).
+        cassandraConfigFile = '/etc/cassandra/conf/cassandra.yaml'
+        with open( cassandraConfigFile, 'rb' ) as f:
+            cassConf = yaml.load( f.read() )
+
+    # Set cluster info.
+    cassConf[ 'cluster_name' ] = 'LC Cluster'
+    cassConf[ 'data_file_directories' ] = [ '/data/cassandra/data' ]
+    cassConf[ 'start_rpc' ] = True
+    cassConf[ 'start_native_transport' ] = True
 
     # Add the seed node.
     cassConf[ 'seed_provider' ][ 0 ][ 'parameters' ][ 0 ][ 'seeds' ] = ','.join( addresses )
 
     # If an interface was specified, set it for Cassandra.
-    if args.interface is not None:
-        cassConf[ 'listen_interface' ] = args.interface
-        cassConf[ 'rpc_interface' ] = args.interface
+    cassConf[ 'listen_interface' ] = args.interface
+    cassConf[ 'rpc_interface' ] = args.interface
+    cassConf.pop( 'listen_address', None )
+    cassConf.pop( 'rpc_address', None )
 
 
     # Write the custom config where Cassandra expects it.
-    with open( '/etc/cassandra/cassandra.yaml', 'wb' ) as f:
+    with open( cassandraConfigFile, 'wb' ) as f:
         f.write( yaml.dump( cassConf ) )
 
     # Similarly we use lc_local.yaml as a template.
@@ -108,8 +122,7 @@ if __name__ == '__main__':
     beachConf[ 'seed_nodes' ] = addresses
 
     # If an interface was specified, set it for Beach.
-    if args.interface is not None:
-        beachConf[ 'interface' ] = args.interface
+    beachConf[ 'interface' ] = args.interface
 
     # And we use lc_appliance.yaml for our config.
     with open( BEACH_CONFIG, 'wb' ) as f:
