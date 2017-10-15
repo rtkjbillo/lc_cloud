@@ -636,14 +636,6 @@ class Host( object ):
 
         return thisGen()
 
-    def lastSeen( self ):
-        last = None
-        record = self._db.getOne( 'SELECT last from recentlyActive WHERE sid = %s', ( self.sid, ) )
-        if record is not None:
-            last = int( time.mktime( record[ 0 ].timetuple() ) )
-
-        return last
-
     def lastEvents( self ):
         events = []
 

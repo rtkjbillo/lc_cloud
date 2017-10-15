@@ -34,7 +34,10 @@ class AutoTasking( Actor ):
         self.sensor_qph = parameters.get( 'sensor_qph', 50 )
         self.global_qph = parameters.get( 'global_qph', 200 )
         self.allowed_commands = Set( parameters.get( 'allowed', [] ) )
-        self.model = self.getActorHandle( resources[ 'modeling' ], timeout = 10, nRetries = 3 )
+        self.model = self.getActorHandle( resources[ 'modeling' ], timeout = 5, nRetries = 3 )
+        self.deployment = self.getActorHandle( resources[ 'deployment' ], timeout = 5, nRetries = 3 )
+        self.domains = [ None, None ]
+        self.reloadConfig()
         self.handle( 'task', self.handleTasking )
         self.sensor_stats = {}
         self.global_stats = 0
@@ -43,6 +46,14 @@ class AutoTasking( Actor ):
 
     def deinit( self ):
         self.db.shutdown()
+
+    def reloadConfig( self ):
+        resp = self.deployment.request( 'get_global_config' )
+        if resp.isSuccess:
+            self.domains = [ resp.data[ 'global/primary' ], resp.data[ 'global/secondary' ] ]
+        else:
+            self.logCritical( "couldn't retrieve global configs: %s" % resp )
+        self.delay( 60 * 10, self.reloadConfig )
 
     def getCli( self, oid ):
         key = None
@@ -62,7 +73,9 @@ class AutoTasking( Actor ):
                 cli = HcpCli( self._beach_config_path,
                               self.authToken,
                               key,
-                              self.cmdLogFile )
+                              self.cmdLogFile,
+                              callbackDomain1 = self.domains[ 0 ],
+                              callbackDomain2 = self.domains[ 1 ] )
                 self.iface_cache.add( oid, cli )
                 self.log( "Got org key for %s from storage." % oid )
         return cli

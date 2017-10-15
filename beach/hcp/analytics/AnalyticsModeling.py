@@ -64,7 +64,6 @@ class AnalyticsModeling( Actor ):
         self.stmt_events = self.ingestStatement( 'INSERT INTO events ( eventid, event, sid ) VALUES ( ?, ?, ? ) USING TTL ?' )
         self.stmt_timeline = self.ingestStatement( 'INSERT INTO timeline ( sid, ts, eventid, eventtype ) VALUES ( ?, ?, ?, ? ) USING TTL ?' )
         self.stmt_timeline_by_type = self.ingestStatement( 'INSERT INTO timeline_by_type ( sid, ts, eventid, eventtype ) VALUES ( ?, ?, ?, ? ) USING TTL ?' )
-        self.stmt_recent = self.ingestStatement( 'UPDATE recentlyActive USING TTL ? SET last = dateOf( now() ) WHERE sid = ?' )
         self.stmt_last = self.ingestStatement( 'UPDATE last_events USING TTL ? SET id = ? WHERE sid = ? AND type = ?' )
         self.stmt_investigation = self.ingestStatement( 'INSERT INTO investigation_data ( invid, ts, eid, etype ) VALUES ( ?, ?, ?, ? ) USING TTL ?' )
         self.stmt_rel_batch_parent = self.ingestStatement( 'INSERT INTO rel_man_parent ( parentkey, ctype, cid ) VALUES ( ?, ?, ? ) USING TTL ?' )
@@ -239,10 +238,6 @@ class AnalyticsModeling( Actor ):
                                                              routing[ 'event_type' ],
                                                              ttls[ 'events' ] ) ) )
         self.nWrites += 1
-
-        if 3 <= self.modelingLevel:
-            self.asyncInsert( self.stmt_recent.bind( ( ttls[ 'events' ], sid, ) ) )
-            self.nWrites += 1
 
         if 2 <= self.modelingLevel:
             self.asyncInsert( self.stmt_last.bind( ( ttls[ 'events' ],

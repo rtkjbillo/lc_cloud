@@ -232,14 +232,6 @@ CREATE TABLE rel_man_child
   PRIMARY KEY( childkey, ptype, pid )
 ) WITH compaction = { 'class' : 'LeveledCompactionStrategy' } AND gc_grace_seconds = 86400;
 
-
-CREATE TABLE recentlyActive
-(
-  sid uuid,
-  last timestamp,
-  PRIMARY KEY( sid )
-) WITH compaction = { 'class' : 'LeveledCompactionStrategy' } AND gc_grace_seconds = 86400;
-
 CREATE TABLE last_events
 (
   sid uuid,

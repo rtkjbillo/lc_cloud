@@ -90,7 +90,7 @@ class HcpCli ( cmd.Cmd ):
     #===========================================================================
     prompt = '<NEED_LOGIN> %> '
 
-    def __init__( self, beachConfig = None, token = None, hbsKey = None, logFile = None ):
+    def __init__( self, beachConfig = None, token = None, hbsKey = None, logFile = None, callbackDomain1 = None, callbackDomain2 = None ):
         self.histFile = os.path.expanduser( '~/.lc_history' )
         self.logFile = logFile
         if self.logFile is not None:
@@ -103,6 +103,8 @@ class HcpCli ( cmd.Cmd ):
         self.aid = None
         self.investigationId = None
         self.tags = Symbols()
+        self.cbDomain1 = callbackDomain1
+        self.cbDomain2 = callbackDomain2
         readline.set_completer_delims(":;'\"? \t")
         readline.set_history_length( 100 )
         try:
@@ -1380,19 +1382,23 @@ class HcpCli ( cmd.Cmd ):
         '''Tells the sensor to block all network access except to specified DNS.'''
 
         parser = self.getParser( 'segregate_network', True )
-        parser.add_argument( 'domain1',
+        parser.add_argument( 'primary',
                              type = str,
-                             help = 'first DNS to allow access to, this should be an LC backend',
-                             dest = 'domain1' )
-        parser.add_argument( 'domain2',
+                             help = 'first DNS to allow access to, defaults to LC backend primary URL',
+                             dest = 'primary',
+                             required = False,
+                             default = self.cbDomain1 )
+        parser.add_argument( 'secondary',
                              type = str,
-                             help = 'second DNS to allow access to, this should be an LC backend',
-                             dest = 'domain2' )
+                             help = 'second DNS to allow access to, defaults to LC backend secondary URL',
+                             dest = 'secondary',
+                             required = False,
+                             default = self.cbDomain2 )
         arguments = self.parse( parser, s )
         if arguments is not None:
             req = rSequence()
-            req.addStringA( self.tags.hcp.PRIMARY_URL, arguments.domain1 )
-            req.addStringA( self.tags.hcp.SECONDARY_URL, arguments.domain2 )
+            req.addStringA( self.tags.hcp.PRIMARY_URL, arguments.primaru )
+            req.addStringA( self.tags.hcp.SECONDARY_URL, arguments.secondary )
             self._executeHbsTasking( self.tags.notification.SEGREGATE_NETWORK,
                                      req,
                                      arguments )
