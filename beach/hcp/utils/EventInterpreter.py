@@ -293,3 +293,8 @@ class EventDSL( object ):
         if 'notification.USER_OBSERVED' == self._eventType:
             return self.Event( **kwargs )
         return False
+
+    def StartingUp( self, **kwargs ):
+        if 'notification.STARTING_UP' == self._eventType:
+            return self.Event( **kwargs )
+        return False
