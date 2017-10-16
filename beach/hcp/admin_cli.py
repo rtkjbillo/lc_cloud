@@ -1382,23 +1382,9 @@ class HcpCli ( cmd.Cmd ):
         '''Tells the sensor to block all network access except to specified DNS.'''
 
         parser = self.getParser( 'segregate_network', True )
-        parser.add_argument( '-p', '--primary',
-                             type = str,
-                             help = 'first DNS to allow access to, defaults to LC backend primary URL',
-                             dest = 'primary',
-                             required = False,
-                             default = self.cbDomain1 )
-        parser.add_argument( '-s', '--secondary',
-                             type = str,
-                             help = 'second DNS to allow access to, defaults to LC backend secondary URL',
-                             dest = 'secondary',
-                             required = False,
-                             default = self.cbDomain2 )
         arguments = self.parse( parser, s )
         if arguments is not None:
             req = rSequence()
-            req.addStringA( self.tags.hcp.PRIMARY_URL, arguments.primary )
-            req.addStringA( self.tags.hcp.SECONDARY_URL, arguments.secondary )
             self._executeHbsTasking( self.tags.notification.SEGREGATE_NETWORK,
                                      req,
                                      arguments )
