@@ -145,7 +145,7 @@ class StatefulActor ( Actor ):
             for machine in self._compiled_machines[ shard ]:
                 print( "%s/%s: %d" % ( shard, machine._descriptor.detectName, len( machine._history ) ) )
                 if self._machine_activity[ machine ] < time.time() - self._machine_ttl:
-                    del( self._machine_activity[ machine ] )
+                    self._machine_activity.pop( machine, None )
                     self._compiled_machines[ shard ].remove( machine )
 
     def task( self, dest, cmdsAndArgs, expiry = None, inv_id = None ):
@@ -201,7 +201,7 @@ class StatefulActor ( Actor ):
                 self._detects.setdefault( reportType,
                                           self.getActorHandle( self._detectsEndpoint % reportType, timeout = 30 ) ).broadcast( 'detect', report )
             if not isStayAlive:
-                del( self._machine_activity[ machine ] )
+                self._machine_activity.pop( machine, None )
                 currentShard.remove( machine )
             i += 1
 
