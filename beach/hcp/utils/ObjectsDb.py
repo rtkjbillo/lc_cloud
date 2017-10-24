@@ -525,8 +525,9 @@ class Host( object ):
 
     def isOnline( self ):
         isOnline = False
-        last = self.lastSeen()
-        if last is not None:
+        info = self._db.getOne( 'SELECT unixTimestampOf( ts ) FROM timeline WHERE sid = %s ORDER BY ts DESC LIMIT 1', ( self.sid, ) )
+        if info is not None:
+            last = info[ 0 ]
             if last >= time.time() - ( 60 * 1 ):
                 isOnline = True
         
@@ -635,14 +636,6 @@ class Host( object ):
                         yield record
 
         return thisGen()
-
-    def lastSeen( self ):
-        last = None
-        record = self._db.getOne( 'SELECT last from recentlyActive WHERE sid = %s', ( self.sid, ) )
-        if record is not None:
-            last = int( time.mktime( record[ 0 ].timetuple() ) )
-
-        return last
 
     def lastEvents( self ):
         events = []

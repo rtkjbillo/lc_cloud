@@ -388,7 +388,7 @@ class SensorConfig( object ):
         profile.collectors[ HbsCollectorId.EXFIL ].addExfil( _.notification.FILE_TYPE_ACCESSED )
         profile.collectors[ HbsCollectorId.EXFIL ].addExfil( _.notification.EXISTING_PROCESS )
         profile.collectors[ HbsCollectorId.EXFIL ].addExfil( _.notification.SELF_TEST_RESULT )
-        profile.collectors[ HbsCollectorId.EXFIL ].addExfil( _.notification.ONGOING_IDENTITY )
+        profile.collectors[ HbsCollectorId.EXFIL ].addExfil( _.notification.RECEIPT )
         profile.collectors[ HbsCollectorId.FILE_TYPE_TRACKER ].addExtension( 1, ".doc" )
         profile.collectors[ HbsCollectorId.FILE_TYPE_TRACKER ].addExtension( 1, ".docm" )
         profile.collectors[ HbsCollectorId.FILE_TYPE_TRACKER ].addExtension( 1, ".docx" )
@@ -483,7 +483,7 @@ class SensorConfig( object ):
         profile.collectors[ HbsCollectorId.EXFIL ].addExfil( _.notification.FILE_TYPE_ACCESSED )
         profile.collectors[ HbsCollectorId.EXFIL ].addExfil( _.notification.EXISTING_PROCESS )
         profile.collectors[ HbsCollectorId.EXFIL ].addExfil( _.notification.SELF_TEST_RESULT )
-        profile.collectors[ HbsCollectorId.EXFIL ].addExfil( _.notification.ONGOING_IDENTITY )
+        profile.collectors[ HbsCollectorId.EXFIL ].addExfil( _.notification.RECEIPT )
         profile.collectors[ HbsCollectorId.FILE_TRACKER ].disableModified()
 
         return profile
@@ -545,7 +545,7 @@ class SensorConfig( object ):
         profile.collectors[ HbsCollectorId.EXFIL ].addExfil( _.notification.FILE_TYPE_ACCESSED )
         profile.collectors[ HbsCollectorId.EXFIL ].addExfil( _.notification.EXISTING_PROCESS )
         profile.collectors[ HbsCollectorId.EXFIL ].addExfil( _.notification.SELF_TEST_RESULT )
-        profile.collectors[ HbsCollectorId.EXFIL ].addExfil( _.notification.ONGOING_IDENTITY )
+        profile.collectors[ HbsCollectorId.EXFIL ].addExfil( _.notification.RECEIPT )
         profile.collectors[ HbsCollectorId.FILE_TYPE_TRACKER ].disable()
 
         return profile

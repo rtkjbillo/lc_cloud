@@ -94,7 +94,6 @@ class ModelView( Actor ):
             info[ 'id' ] = host.getFullAid()
             info[ 'is_online' ] = host.isOnline()
             info[ 'hostname' ] = host.getHostName()
-            info[ 'lastseen' ] = host.lastSeen()
 
         return ( True, info )
 

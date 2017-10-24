@@ -34,7 +34,7 @@ class AutoTasking( Actor ):
         self.sensor_qph = parameters.get( 'sensor_qph', 50 )
         self.global_qph = parameters.get( 'global_qph', 200 )
         self.allowed_commands = Set( parameters.get( 'allowed', [] ) )
-        self.model = self.getActorHandle( resources[ 'modeling' ], timeout = 10, nRetries = 3 )
+        self.model = self.getActorHandle( resources[ 'modeling' ], timeout = 5, nRetries = 3 )
         self.handle( 'task', self.handleTasking )
         self.sensor_stats = {}
         self.global_stats = 0
@@ -62,7 +62,7 @@ class AutoTasking( Actor ):
                 cli = HcpCli( self._beach_config_path,
                               self.authToken,
                               key,
-                              self.cmdLogFile )
+                              self.cmdLogFile, )
                 self.iface_cache.add( oid, cli )
                 self.log( "Got org key for %s from storage." % oid )
         return cli
