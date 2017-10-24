@@ -214,6 +214,8 @@ class EventDSL( object ):
         if isinstance( self._event, dict ):
             e = self._event
             for k, v in kwargs.iteritems():
+                if k not in self._ops:
+                    raise Exception( 'Detection Lambda operation "%s" invalid!' % k )
                 try:
                     if not self._ops[ k ]( e, v ):
                         return False
@@ -225,6 +227,8 @@ class EventDSL( object ):
             for e in self._event:
                 isMatch = True
                 for k, v in kwargs.iteritems():
+                    if k not in self._ops:
+                        raise Exception( 'Detection Lambda operation "%s" invalid!' % k )
                     try:
                         if not self._ops[ k ]( e, v ):
                             isMatch = False

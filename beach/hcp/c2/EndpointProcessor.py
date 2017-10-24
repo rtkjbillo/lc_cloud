@@ -382,7 +382,7 @@ class EndpointProcessor( Actor ):
             frameIndex = 0
             bufferedOutput = LimitedQPSBuffer( self.sensorMaxQps, cbLog = lambda x: self.log( "%s %s" % ( aid.asString(), x ) ) )
             while True:
-                moduleId, messages, nRawBytes = c.recvFrame( timeout = 60 * 60 )
+                moduleId, messages, nRawBytes = c.recvFrame( timeout = 60 * 11 )
                 tmpBytesReceived += nRawBytes
                 if 10 == frameIndex:
                     now = time.time()
