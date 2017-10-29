@@ -302,3 +302,8 @@ class EventDSL( object ):
         if 'notification.STARTING_UP' == self._eventType:
             return self.Event( **kwargs )
         return False
+
+    def Sync( self, **kwargs ):
+        if 'notification.SYNC' == self._eventType:
+            return self.Event( **kwargs )
+        return False

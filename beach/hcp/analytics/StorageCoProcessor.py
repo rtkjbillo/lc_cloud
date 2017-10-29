@@ -19,6 +19,10 @@ import uuid
 import base64
 import msgpack
 import datetime
+import os
+import json
+import logging
+import logging.handlers
 import random
 import traceback
 from sets import Set
@@ -30,10 +34,12 @@ ObjectTypes = Actor.importLib( '../utils/ObjectsDb', 'ObjectTypes' )
 RelationName = Actor.importLib( '../utils/ObjectsDb', 'RelationName' )
 ObjectKey = Actor.importLib( '../utils/ObjectsDb', 'ObjectKey' )
 
-class AnalyticsModeling( Actor ):
-    def init( self, parameters, resources ):
+class StorageCoProcessor( object ):
+    def init( self, parameters, resources, fromActor ):
+        self._actor = fromActor
         self.modelingLevel = 10
-        self.deploymentmanager = self.getActorHandle( resources[ 'deployment' ], timeout = 30, nRetries = 3 )
+        self.loggingDir = ''
+        self.deploymentmanager = self._actor.getActorHandle( resources[ 'deployment' ], timeout = 30, nRetries = 3 )
         self.refreshConfigs()
 
         self.db = CassDb( parameters[ 'db' ], 'hcp_analytics' )
@@ -50,10 +56,10 @@ class AnalyticsModeling( Actor ):
 
         self.org_ttls = {}
         if 'identmanager' in resources:
-            self.identmanager = self.getActorHandle( resources[ 'identmanager' ], timeout = 10, nRetries = 3 )
+            self.identmanager = self._actor.getActorHandle( resources[ 'identmanager' ], timeout = 10, nRetries = 3 )
         else:
             self.identmanager = None
-            self.log( 'using default ttls' )
+            self._actor.log( 'using default ttls' )
 
         self.default_ttl_events = parameters[ 'retention_raw_events' ]
         self.default_ttl_long_obj = parameters[ 'retention_objects_primary' ]
@@ -80,49 +86,89 @@ class AnalyticsModeling( Actor ):
         self.processedCounter = 0
         self.nWrites = 0
         self.lastReport = time.time()
-        self.handle( 'analyze', self.analyze )
+        self._actor.handle( 'report_inv', self.reportDetectOrInv )
+        self._actor.handle( 'report_detect', self.reportDetectOrInv )
         self.statFrameSeconds = 600
-        self.delay( self.statFrameSeconds, self.reportStats )
-        self.schedule( 60 * 5, self.resetTtls )
+        self._actor.delay( self.statFrameSeconds, self.reportStats )
+        self._actor.schedule( 60 * 5, self.resetTtls )
+
+        return self
 
     def deinit( self ):
         self.db.shutdown()
 
-    def resetTtls( self, ):
-        self.org_ttls = {}
-
-    def logDroppedInsert( self, query, params ):
-        self.logCritical( "Dropped Insert: %s // %s" % ( query, params ) )
-
-    def asyncInsert( self, boundStatement ):
-        self.db.execute_async( boundStatement, failureCallback = self.logDroppedInsert )
+    def process( self, routing, event, mtd ):
+        if 0 < self.modelingLevel:
+            self.model( routing, event, mtd )
+            self._actor.zInc( 'n_modeled' )
+        if '' != self.loggingDir:
+            self.logToDisk( routing, event, mtd )
+            self._actor.zInc( 'n_logged' )
 
     def refreshConfigs( self ):
         resp = self.deploymentmanager.request( 'get_global_config', {} )
         if not resp.isSuccess:
-            self.logCritical( "could not get global configs: %s" % resp )
+            self._actor.logCritical( "could not get global configs: %s" % resp )
         elif 'global/modeling_level' not in resp.data:
-            self.log( "modeling level config not set, assuming full" )
+            self._actor.log( "modeling level config not set, assuming full" )
         else:
-            self.modelingLevel = resp.data[ 'global/modeling_level' ]
+            if self.modelingLevel != resp.data[ 'global/modeling_level' ]:
+                self.modelingLevel = resp.data[ 'global/modeling_level' ]
+                self._actor.zSet( 'mdeling_level', self.modelingLevel )
+                self._actor.log( "modeling level changed to: %s" % self.modelingLevel )
 
-        self.delay( 60 * 5, self.refreshConfigs )
+        if '' != resp.data[ 'global/logging_dir' ] and self.loggingDir != resp.data[ 'global/logging_dir' ]:
+            if not os.path.exists( resp.data[ 'global/logging_dir' ] ):
+                self._actor.log( 'output directory does not exist, creating it' )
+                os.makedirs( resp.data[ 'global/logging_dir' ] )
+            self._file_logger = logging.getLogger( 'limacharlie_events_file' )
+            self._file_logger.propagate = False
+            handler = logging.handlers.RotatingFileHandler( os.path.join( resp.data[ 'global/logging_dir' ], self._actor.name ), 
+                                                            maxBytes = resp.data.get( 'global/logging_dir_max_bytes', 1024 * 1024 * 5 ), 
+                                                            backupCount = resp.data.get( 'global/logging_dir_backup_count', 20 ) )
+            handler.setFormatter( logging.Formatter( "%(message)s" ) )
+            self._file_logger.setLevel( logging.INFO )
+            self._file_logger.addHandler( handler )
+
+            self._is_flat = resp.data.get( 'global/logging_dir_is_flat', False )
+            self._use_b64 = resp.data.get( 'global/logging_dir_use_b64', True )
+
+            self.loggingDir = resp.data[ 'global/logging_dir' ]
+            self._actor.zSet( 'logging_dir', self.loggingDir )
+            self._actor.log( "logging directory changed to: %s" % self.loggingDir )
+        else:
+            self.loggingDir = ''
+            self._file_logger = None
+
+        self._actor.delay( 60 * 5, self.refreshConfigs )
+
+    ###########################################################################
+    #   MODELING
+    ###########################################################################
+    def resetTtls( self, ):
+        self.org_ttls = {}
+
+    def logDroppedInsert( self, query, params ):
+        self._actor.logCritical( "Dropped Insert: %s // %s" % ( query, params ) )
+
+    def asyncInsert( self, boundStatement ):
+        self.db.execute_async( boundStatement, failureCallback = self.logDroppedInsert )
 
     def reportStats( self ):
         now = time.time()
         enPerSec = float( self.nWrites ) / ( now - self.lastReport )
         wrPerSec = float( self.db.nSuccess ) / ( now - self.lastReport )
-        self.log( "Enqueued/sec: %s, Write/sec: %s" % ( enPerSec, wrPerSec ) )
+        self._actor.log( "Enqueued/sec: %s, Write/sec: %s" % ( enPerSec, wrPerSec ) )
         self.nWrites = 0
         self.db.nSuccess = 0
         self.lastReport = now
         self.zSet( 'enqueue_per_sec', enPerSec )
         self.zSet( 'write_per_sec', wrPerSec )
-        self.zInc( 'inserts_dropped', self.db.nErrors )
+        self._actor.zInc( 'inserts_dropped', self.db.nErrors )
         if 0 != self.db.nErrors:
-            self.log( "Inserts dropped since last report: %s" % self.db.nErrors )
+            self._actor.log( "Inserts dropped since last report: %s" % self.db.nErrors )
             self.db.nErrors = 0
-        self.delay( self.statFrameSeconds, self.reportStats )
+        self._actor.delay( self.statFrameSeconds, self.reportStats )
 
     def ingestStatement( self, statement ):
         stmt = self.db.prepare( statement )
@@ -138,7 +184,7 @@ class AnalyticsModeling( Actor ):
                 if res.isSuccess and 0 != len( res.data[ 'orgs' ] ):
                     self.org_ttls[ oid ] = res.data[ 'orgs' ][ 0 ][ 2 ]
                     ttls = self.org_ttls[ oid ]
-                    self.log( 'using custom ttls for %s' % oid )
+                    self._actor.log( 'using custom ttls for %s' % oid )
         
         if ttls is None:
             ttls = { 'events' : self.default_ttl_events,
@@ -148,6 +194,12 @@ class AnalyticsModeling( Actor ):
                      'detections' : self.default_ttl_detections }
             self.org_ttls[ oid ] = ttls
         return ttls
+
+    def _sanitizeData( self, obj ):
+        if isinstance( obj, datetime.datetime ):
+            return obj.strftime( '%Y-%m-%d %H:%M:%S' )
+        else:
+            return str( obj )
 
     def _ingestObjects( self, ttls, sid, ts, objects, relations, oid, eid ):
         ts = datetime.datetime.fromtimestamp( ts )
@@ -196,13 +248,11 @@ class AnalyticsModeling( Actor ):
                         self.nWrites += 1
 
 
-    def analyze( self, msg ):
-        routing, event, mtd = msg.data
-
+    def model( self, routing, event, mtd ):
         self.processedCounter += 1
 
         if 0 == ( self.processedCounter % 1000 ):
-            self.log( 'MOD_IN %s' % self.processedCounter )
+            self._actor.log( 'MOD_IN %s' % self.processedCounter )
             if 0 == ( self.processedCounter % 5000 ):
                 self.org_ttls = {}
 
@@ -222,11 +272,12 @@ class AnalyticsModeling( Actor ):
             else:
                 ts = float( ts ) / 1000
 
-        eid = uuid.UUID( routing[ 'event_id' ] )
+        eid = routing[ 'event_id' ]
 
         if 1 < self.modelingLevel:
             self.asyncInsert( self.stmt_events.bind( ( eid,
-                                                       base64.b64encode( msgpack.packb( { 'routing' : routing, 'event' : event } ) ),
+                                                       base64.b64encode( msgpack.packb( { 'routing' : routing, 'event' : event }, 
+                                                                                        default = self._sanitizeData ) ),
                                                        sid,
                                                        ttls[ 'events' ] ) ) )
 
@@ -263,7 +314,7 @@ class AnalyticsModeling( Actor ):
                     try:
                         this_atom = uuid.UUID( bytes = str( this_atom ) )
                     except:
-                        self.log( 'invalid atom: %s / %s ( %s )' % ( this_atom, type( this_atom ), traceback.format_exc() ) )
+                        self._actor.log( 'invalid atom: %s / %s ( %s )' % ( this_atom, type( this_atom ), traceback.format_exc() ) )
                         this_atom = None
 
             if parent_atom is not None:
@@ -273,7 +324,7 @@ class AnalyticsModeling( Actor ):
                     try:
                         parent_atom = uuid.UUID( bytes = str( parent_atom ) )
                     except:
-                        self.log( 'invalid atom: %s / %s ( %s )' % ( parent_atom, type( parent_atom ), traceback.format_exc() ) )
+                        self._actor.log( 'invalid atom: %s / %s ( %s )' % ( parent_atom, type( parent_atom ), traceback.format_exc() ) )
                         parent_atom = None
 
             if this_atom is not None:
@@ -313,5 +364,80 @@ class AnalyticsModeling( Actor ):
 
             if 0 != len( new_objects ) or 0 != len( new_relations ):
                 self._ingestObjects( ttls, sid, ts, new_objects, new_relations, agent.org_id, eid )
-            #self.log( 'finished storing objects %s: %s / %s' % ( routing[ 'event_type' ], len( new_objects ), len( new_relations )) )
+            #self._actor.log( 'finished storing objects %s: %s / %s' % ( routing[ 'event_type' ], len( new_objects ), len( new_relations )) )
+        return ( True, )
+
+    ###########################################################################
+    #   LOGGING
+    ###########################################################################
+    def sanitizeJson( self, o ):
+        if isinstance( o, dict ):
+            for k, v in o.iteritems():
+                o[ k ] = self.sanitizeJson( v )
+        elif isinstance( o, ( list, tuple ) ):
+            o = [ self.sanitizeJson( x ) for x in o ]
+        elif isinstance( o, ( uuid.UUID, AgentId ) ):
+            o = str( o )
+        else:
+            try:
+                if isinstance( o, ( str, unicode ) ) and "\x00" in o: raise Exception()
+                json.dumps( o )
+            except:
+                if self._use_b64:
+                    o = base64.b64encode( o )
+                else:
+                    o = o.encode( 'hex' )
+
+        return o
+
+    def flattenRecord( self, o, newRoot = None, prefix = '' ):
+        isEntry = newRoot is None
+        if isEntry: newRoot = {}
+        if type( o ) is dict:
+            for k, v in o.iteritems():
+                if -1 != k.find( '.' ):
+                    newK = k[ k.find( '.' ) + 1 : ]
+                else:
+                    newK = k
+                if '' != prefix:
+                    newPrefix = '%s/%s' % ( prefix, newK )
+                else:
+                    newPrefix = newK
+                val = self.flattenRecord( v, newRoot, newPrefix )
+                if val is not None:
+                    newRoot[ newPrefix ] = val
+            return newRoot if isEntry else None
+        elif type( o ) is list or type( o ) is tuple:
+            i = 0
+            for v in o:
+                newPrefix = '%s_%d' % ( prefix, i )
+                val = self.flattenRecord( v, newRoot, newPrefix )
+                if val is not None:
+                    newRoot[ newPrefix ] = v
+                i += 1
+            return newRoot if isEntry else None
+        else:
+            return o
+
+    def logToDisk( self, routing, event, mtd ):
+        if self._is_flat:
+            event = self.flattenRecord( event )
+
+        record = json.dumps( self.sanitizeJson( { 'routing' : routing, 
+                                                  'event' : event } ) )
+        
+        self._file_logger.info( record )
+
+        return ( True, )
+
+    def reportDetectOrInv( self, msg ):
+        record = msg.data
+
+        if self._is_flat:
+            record = self.flattenRecord( record )
+
+        record = json.dumps( self.sanitizeJson( record ) )
+
+        self._file_logger.info( record )
+
         return ( True, )

@@ -361,6 +361,10 @@ We believe this sharing policy strikes a good balance between privacy and inform
             self.db.execute( 'INSERT INTO configs ( conf, value ) VALUES ( %s, %s )', ( 'global/modeling_level', '10' ) )
             self.audit.shoot( 'record', { 'oid' : self.admin_oid, 'etype' : 'conf_change', 'msg' : 'Setting modeling level.' } )
 
+            self.log( 'loading logging dir' )
+            self.db.execute( 'INSERT INTO configs ( conf, value ) VALUES ( %s, %s )', ( 'global/logging_dir', '/tmp/lc_out/' ) )
+            self.audit.shoot( 'record', { 'oid' : self.admin_oid, 'etype' : 'conf_change', 'msg' : 'Setting logging dir.' } )
+
             self.log( 'loading 2fa mode' )
             self.db.execute( 'INSERT INTO configs ( conf, value ) VALUES ( %s, %s )', ( 'global/2fa_mode', 'on' ) )
             self.audit.shoot( 'record', { 'oid' : self.admin_oid, 'etype' : 'conf_change', 'msg' : 'Setting 2fa mode.' } )
@@ -545,6 +549,7 @@ We believe this sharing policy strikes a good balance between privacy and inform
             'global/deployment_id' : '',
             'global/modeling_level' : 10,
             'global/2fa_mode' : 'on',
+            'global/logging_dir' : '/tmp/lc_out/',
         }
 
         info = self.db.execute( 'SELECT conf, value FROM configs WHERE conf IN %s', ( globalConf.keys(), ) )
