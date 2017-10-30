@@ -20,7 +20,6 @@ import uuid
 import time
 EventDSL = Actor.importLib( '../utils/EventInterpreter', 'EventDSL' )
 AgentId = Actor.importLib( '../utils/hcp_helpers', 'AgentId' )
-EventObjectExtractor = Actor.importLib( '../utils/EventObjectExtractor', 'EventObjectExtractor' )
 
 class SensorContext( object ):
     def __init__( self, fromActor, routing ):
@@ -91,6 +90,7 @@ class AnalyticsCoProcessor( object ):
                                              mode = 'affinity',
                                              timeout = 60,
                                              nRetries = 2 )
+        self.stateful = self._actor.getActorHandle( resources[ 'stateful' ], timeout = 60, nRetries = 3 )
 
         self.conf = {}
         self.reloadRules( None )
@@ -189,17 +189,17 @@ class AnalyticsCoProcessor( object ):
     def checkRule( self, rule, event, sensor ):
         try:
             if rule[ 'rule' ]( event, sensor ):
-                def report( name = None, content = None ):
+                def report( name = None, content = None, priority = 0 ):
                     if name is None:
                         return False
 
                     rep = { 'source' : sensor.aid, 
                             'msg_ids' : sensor.routing[ 'event_id' ], 
                             'cat' : name, 
-                            'detect' : event._event, 
+                            'detect' : content or event._event, 
                             'detect_id' : uuid.uuid4(), 
                             'summary' : 'quick detect: %s' % rule[ 'original' ],
-                            'priority' : 0 }
+                            'priority' : priority }
 
                     resp = self.reporting.request( 'detect', rep )
 
@@ -250,15 +250,15 @@ class AnalyticsCoProcessor( object ):
 
         return ( True, )
 
-    def analyze( self, routing, event ):
+    def analyze( self, routing, event, mtd ):
         if 0 == len( self.rules ):
             return True
-
-        mtd = EventObjectExtractor.extractFromEvent( event, routing[ 'aid' ] )
 
         sensor = SensorContext( self, routing )
         tmpEvent = EventDSL( event, not sensor.aid.isWindows() )
         self._actor.parallelExec( lambda rule: self.checkRule( rule, tmpEvent, sensor ), self.rules.values() )
+
+        self.stateful.shoot( 'analyze', ( routing, event, mtd ), key = routing[ 'aid' ] )
 
         self._actor.zInc( 'analyzed' )
 

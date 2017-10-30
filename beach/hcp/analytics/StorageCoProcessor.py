@@ -114,31 +114,31 @@ class StorageCoProcessor( object ):
         else:
             if self.modelingLevel != resp.data[ 'global/modeling_level' ]:
                 self.modelingLevel = resp.data[ 'global/modeling_level' ]
-                self._actor.zSet( 'mdeling_level', self.modelingLevel )
+                self._actor.zSet( 'modeling_level', self.modelingLevel )
                 self._actor.log( "modeling level changed to: %s" % self.modelingLevel )
 
         if '' != resp.data[ 'global/logging_dir' ] and self.loggingDir != resp.data[ 'global/logging_dir' ]:
             if not os.path.exists( resp.data[ 'global/logging_dir' ] ):
                 self._actor.log( 'output directory does not exist, creating it' )
                 os.makedirs( resp.data[ 'global/logging_dir' ] )
-            self._file_logger = logging.getLogger( 'limacharlie_events_file' )
-            self._file_logger.propagate = False
+            self.file_logger = logging.getLogger( 'limacharlie_events_file' )
+            self.file_logger.propagate = False
             handler = logging.handlers.RotatingFileHandler( os.path.join( resp.data[ 'global/logging_dir' ], self._actor.name ), 
                                                             maxBytes = resp.data.get( 'global/logging_dir_max_bytes', 1024 * 1024 * 5 ), 
                                                             backupCount = resp.data.get( 'global/logging_dir_backup_count', 20 ) )
             handler.setFormatter( logging.Formatter( "%(message)s" ) )
-            self._file_logger.setLevel( logging.INFO )
-            self._file_logger.addHandler( handler )
+            self.file_logger.setLevel( logging.INFO )
+            self.file_logger.addHandler( handler )
 
             self._is_flat = resp.data.get( 'global/logging_dir_is_flat', False )
-            self._use_b64 = resp.data.get( 'global/logging_dir_use_b64', True )
+            self._use_b64 = resp.data.get( 'global/logging_dir_use_b64', False )
 
             self.loggingDir = resp.data[ 'global/logging_dir' ]
             self._actor.zSet( 'logging_dir', self.loggingDir )
             self._actor.log( "logging directory changed to: %s" % self.loggingDir )
         else:
             self.loggingDir = ''
-            self._file_logger = None
+            self.file_logger = None
 
         self._actor.delay( 60 * 5, self.refreshConfigs )
 
@@ -426,18 +426,19 @@ class StorageCoProcessor( object ):
         record = json.dumps( self.sanitizeJson( { 'routing' : routing, 
                                                   'event' : event } ) )
         
-        self._file_logger.info( record )
+        self.file_logger.info( record )
 
         return ( True, )
 
     def reportDetectOrInv( self, msg ):
         record = msg.data
 
+        if '' == self.loggingDir:
+            return ( True, )
+
         if self._is_flat:
             record = self.flattenRecord( record )
 
-        record = json.dumps( self.sanitizeJson( record ) )
-
-        self._file_logger.info( record )
+        self.file_logger.info( json.dumps( self.sanitizeJson( record ) ) )
 
         return ( True, )

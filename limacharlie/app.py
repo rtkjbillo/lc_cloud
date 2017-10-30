@@ -852,6 +852,8 @@ class Sensors ( AuthenticatedPage ):
         orgNames = getOrgNames()
         orgSensors = getAllSensors()
         for oid, sensors in orgSensors.iteritems():
+            if oid == ADMIN_OID:
+                continue
             cards.append( card_sensors( orgNames[ str( oid ) ], sensors ) )
         return render.sensors( cards )
 

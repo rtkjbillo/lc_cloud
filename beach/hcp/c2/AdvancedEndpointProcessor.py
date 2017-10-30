@@ -25,6 +25,7 @@ import zlib
 import uuid
 import hashlib
 import random
+import functools
 import traceback
 import time
 import tempfile
@@ -45,12 +46,28 @@ Signing = Actor.importLib( 'signing', 'Signing' )
 Symbols = Actor.importLib( 'Symbols', 'Symbols' )()
 HcpOperations = Actor.importLib( 'utils/hcp_helpers', 'HcpOperations' )
 LimitedQPSBuffer = Actor.importLib( 'utils/hcp_helpers', 'LimitedQPSBuffer' )
+EventObjectExtractor = Actor.importLib( 'utils/EventObjectExtractor', 'EventObjectExtractor' )
 
 AnalyticsCoProcessor = Actor.importLib( 'analytics/AnalyticsCoProcessor', 'AnalyticsCoProcessor' )
 StorageCoProcessor = Actor.importLib( 'analytics/StorageCoProcessor', 'StorageCoProcessor' )
 
 class DisconnectException( Exception ):
     pass
+
+def handleExceptions( f ):
+    @functools.wraps( f )
+    def wrapped( *args, **kwargs ):
+        while True:
+            res = None
+            try:
+                res = f( *args, **kwargs )
+            except:
+                print( traceback.format_exc() )
+                args[ 0 ].logCritical( traceback.format_exc() )
+            else:
+                break
+        return res
+    return wrapped
 
 class _ClientContext( object ):
     def __init__( self, parent, socket ):
@@ -444,6 +461,7 @@ class AdvancedEndpointProcessor( Actor ):
                     self.log( 'Queue for %s finished flushing' % aid.asString() )
             self.nConnected -= 1
 
+    @handleExceptions
     def handlerHcp( self, c, messages ):
         for message in messages:
             if 'hcp.MODULES' in message:
@@ -476,6 +494,7 @@ class AdvancedEndpointProcessor( Actor ):
                 else:
                     self.log( "could not provide module sync: %s" % moduleUpdateResp.error )
 
+    @handleExceptions
     def handlerHbs( self, c, messages ):
         for message in messages:
             self.zInc( 'msg_processed' )
@@ -519,12 +538,14 @@ class AdvancedEndpointProcessor( Actor ):
             if invId is not None:
                 routing[ 'investigation_id' ] = invId
 
+            mtd = EventObjectExtractor.extractFromEvent( message, routing[ 'aid' ] )
+
             try:
-                self.storageCoProcessor.process( routing, message, { 'obj' : [], 'rel' : {} } )
+                self.storageCoProcessor.process( routing, message, mtd )
             except:
                 self.logCritical( "Failure in StorageCoProcessor: %s" % traceback.format_exc() )
             try:
-                self.analyticsCoProcessor.analyze( routing, message )
+                self.analyticsCoProcessor.analyze( routing, message, mtd )
             except:
                 self.logCritical( "Failure in AnalyticsCoProcessor: %s" % traceback.format_exc() )
 
