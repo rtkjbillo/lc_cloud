@@ -83,7 +83,6 @@ class StorageCoProcessor( object ):
         self.stmt_atoms_children = self.ingestStatement( 'INSERT INTO atoms_children ( atomid, child, eid ) VALUES ( ?, ?, ? ) USING TTL ?' )
         self.stmt_atoms_lookup = self.ingestStatement( 'INSERT INTO atoms_lookup ( atomid, eid ) VALUES ( ?, ? ) USING TTL ?' )
 
-        self.processedCounter = 0
         self.nWrites = 0
         self.lastReport = time.time()
         self._actor.handle( 'report_inv', self.reportDetectOrInv )
@@ -152,7 +151,9 @@ class StorageCoProcessor( object ):
         self._actor.logCritical( "Dropped Insert: %s // %s" % ( query, params ) )
 
     def asyncInsert( self, boundStatement ):
+        self.nActiveWrites += 1
         self.db.execute_async( boundStatement, failureCallback = self.logDroppedInsert )
+        self.nActiveWrites -= 1
 
     def reportStats( self ):
         now = time.time()
@@ -249,13 +250,6 @@ class StorageCoProcessor( object ):
 
 
     def model( self, routing, event, mtd ):
-        self.processedCounter += 1
-
-        if 0 == ( self.processedCounter % 1000 ):
-            self._actor.log( 'MOD_IN %s' % self.processedCounter )
-            if 0 == ( self.processedCounter % 5000 ):
-                self.org_ttls = {}
-
         agent = AgentId( routing[ 'aid' ] )
         sid = agent.sensor_id
         ts = _x_( event, '?/base.TIMESTAMP' )

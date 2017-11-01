@@ -239,6 +239,8 @@ class AdvancedEndpointProcessor( Actor ):
     def deinit( self ):
         if self.server is not None:
             self.server.close()
+        # We try to drain, worse case we get killed.
+        self.drain()
         self.analyticsCoProcessor.deinit()
         self.storageCoProcessor.deinit()
 
@@ -487,8 +489,11 @@ class AdvancedEndpointProcessor( Actor ):
                                                              mod[ 2 ] )
                                                  .addBuffer( Symbols.base.SIGNATURE,
                                                              mod[ 3 ] ) )
-
-                    c.sendFrame( HcpModuleId.HCP, tasks )
+                    try:
+                        c.sendFrame( HcpModuleId.HCP, tasks )
+                    except:
+                        c.close()
+                        return
                     self.log( 'load %d modules, unload %d modules' % ( len( changes[ 'load' ] ),
                                                                        len( changes[ 'unload' ] ) ) )
                 else:
@@ -498,6 +503,10 @@ class AdvancedEndpointProcessor( Actor ):
     def handlerHbs( self, c, messages ):
         for message in messages:
             self.zInc( 'msg_processed' )
+            self.zIncPerSecond( 'msg_per_sec' )
+            # We are also naughty and manually increase the Beach QPS so that the number
+            # is reflected in the Beach dashboard.
+            self._q_counter += 1
 
             # We treat sync messages slightly differently since they need to be actioned
             # more directly.
@@ -521,7 +530,11 @@ class AdvancedEndpointProcessor( Actor ):
                                                                                           profile[ 1 ].decode( 'hex' ) )
                                                                               .addList( Symbols.hbs.CONFIGURATIONS,
                                                                                         realProfile ) )
-                            c.sendFrame( HcpModuleId.HBS, ( syncProfile, ) )
+                            try:
+                                c.sendFrame( HcpModuleId.HBS, ( syncProfile, ) )
+                            except:
+                                c.close()
+                                return
                             self.log( "sync profile sent to %s" % c.getAid() )
                             
             # Transmit the message to the analytics cloud.

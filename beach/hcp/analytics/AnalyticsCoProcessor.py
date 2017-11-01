@@ -96,6 +96,11 @@ class AnalyticsCoProcessor( object ):
         self.reloadRules( None )
         self._actor.schedule( 60 * 60, self.reloadRules, None )
 
+        self.ttl = parameters.get( 'ttl', 60 * 60 * 24 )
+        self.handleCache = {}
+        self.handleTtl = {}
+        self._actor.schedule( 60, self.invCulling )
+
         self._actor.handle( 'add_rule', self.addRule )
         self._actor.handle( 'del_rule', self.delRule )
         self._actor.handle( 'get_rules', self.getRules )
@@ -122,6 +127,11 @@ class AnalyticsCoProcessor( object ):
 
         return resp.isSuccess
 
+    def massageUrl( self, url ):
+        if url.startswith( 'https://github.com/' ):
+            url = url.replace( 'https://github.com/', 'https://raw.githubusercontent.com/' ).replace( '/blob/', '/' )
+        return url
+
     def compileRule( self, rule ):
         env = { 'False' : False, 
                 'True' : True }
@@ -131,12 +141,13 @@ class AnalyticsCoProcessor( object ):
 
         try:
             if '://' in rule[ 'rule' ]:
+                url = self.massageUrl( rule[ 'rule' ] )
                 className = rule[ 'rule' ].split( '/' )[ -1 ]
                 if className.endswith( '.py' ):
                     className = className[ 0 : -3 ]
-                newClass = getattr( loadModuleFrom( rule[ 'rule' ], 'hcp' ),
+                newClass = getattr( loadModuleFrom( url, 'hcp' ),
                                     className )
-                newObj = newClass()
+                newObj = newClass( self._actor )
                 cb = newObj.analyze
                 rule = { 'name' : rule[ 'name' ], 
                          'original' : rule[ 'rule' ],
@@ -196,7 +207,7 @@ class AnalyticsCoProcessor( object ):
                     rep = { 'source' : sensor.aid, 
                             'msg_ids' : sensor.routing[ 'event_id' ], 
                             'cat' : name, 
-                            'detect' : content or event._event, 
+                            'detect' : content or event.data, 
                             'detect_id' : uuid.uuid4(), 
                             'summary' : 'quick detect: %s' % rule[ 'original' ],
                             'priority' : priority }
@@ -254,8 +265,8 @@ class AnalyticsCoProcessor( object ):
         if 0 == len( self.rules ):
             return True
 
-        sensor = SensorContext( self, routing )
-        tmpEvent = EventDSL( event, not sensor.aid.isWindows() )
+        sensor = SensorContext( self._actor, routing )
+        tmpEvent = EventDSL( event, mtd, not sensor.aid.isWindows() )
         self._actor.parallelExec( lambda rule: self.checkRule( rule, tmpEvent, sensor ), self.rules.values() )
 
         self.stateful.shoot( 'analyze', ( routing, event, mtd ), key = routing[ 'aid' ] )
@@ -263,3 +274,45 @@ class AnalyticsCoProcessor( object ):
         self._actor.zInc( 'analyzed' )
 
         return True
+
+    def invCulling( self ):
+        curTime = int( time.time() )
+        inv_ids = [ inv_id for inv_id, ts in self.handleTtl.iteritems() if ts < ( curTime - self.ttl ) ]
+        for inv_id in inv_ids:
+            self.handleCache[ inv_id ].close()
+            del( self.handleCache[ inv_id ] )
+            del( self.handleTtl[ inv_id ] )
+
+    def forwardInvestigations( self, routing, event, mtd ):
+        inv_id = routing.get( 'investigation_id', None )
+
+        if inv_id is None:
+            return
+
+        # We define the component after the // to be reserved for
+        # the actor's internal routing so we don't route on it.
+        routing_inv_id = inv_id.split( '//' )[ 0 ]
+
+        now = int( time.time() )
+
+        if routing_inv_id not in self.handleCache:
+            handle = self.getActorHandle( self.invPath % routing_inv_id, timeout = 30, nRetries = 2 )
+            self.handleCache[ routing_inv_id ] = handle
+            self.handleTtl[ routing_inv_id ] = now
+        else:
+            handle = self.handleCache[ routing_inv_id ]
+            self.handleTtl[ routing_inv_id ] = now
+
+        # Sometimes we're just too fast, so if we don't see a subscriber
+        # wait a bit to give it a chance.
+        if not handle.isAvailable():
+            self.sleep( 2 )
+            handle.forceRefresh()
+
+        self.log( 'investigation data going to: %d' % handle.getNumAvailable() )
+        # The investigation id is used as a requestType since most actors
+        # who need to be registered to investigations also need to
+        # multiplex several investigations so if we do the differentiation
+        # at that level we don't need to maintain a local registration
+        # list on every actor.
+        handle.broadcast( inv_id, ( routing, event, mtd ) )

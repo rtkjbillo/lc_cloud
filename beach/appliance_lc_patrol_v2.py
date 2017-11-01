@@ -452,30 +452,6 @@ Patrol( 'AutoTasking',
             'is_drainable' : True } )
 
 #######################################
-# AnalyticsInvestigation
-# This actor responsible for sending
-# messages to the actors interested in
-# specific investigations.
-# Parameters:
-# ttl: the number of seconds the data
-#    flow for an investigation remains
-#    open after last data seen.
-#######################################
-Patrol( 'AnalyticsInvestigation',
-        initialInstances = len( SCALE_DB ),
-        scalingFactor = 1000,
-        actorArgs = ( 'analytics/AnalyticsInvestigation',
-                      'analytics/investigation/intake/1.0' ),
-        actorKwArgs = {
-            'resources' : { 'investigations' : 'analytics/inv_id/%s' },
-            'parameters' : { 'ttl' : ( 60 * 60 * 24 ) },
-            'secretIdent' : 'analysis/01e9a19d-78e1-4c37-9a6e-37cb592e3897',
-            'trustedIdents' : [ 'intake/6058e556-a102-4e51-918e-d36d6d1823db' ],
-            'strategy' : 'repulsion',
-            'isIsolated' : True,
-            'is_drainable' : True } )
-
-#######################################
 # HuntsManager
 # This actor manages the registration
 # and configuration of the various
@@ -613,6 +589,7 @@ Patrol( 'VirusTotalActor',
                              'ttl' : ( 60 * 60 * 24 * 30 ) },
             'secretIdent' : 'vt/8299a488-7fff-4511-a311-76e6600b4a7a',
             'trustedIdents' : [ 'analysis/01e9a19d-78e1-4c37-9a6e-37cb592e3897',
+                                'advbeacon/c3c1051a-1231-487c-9d4b-1e7e46ccd586',
                                 'hunter/8e0f55c0-6593-4747-9d02-a4937fa79517' ],
             'strategy' : 'repulsion',
             'isIsolated' : True,
@@ -636,6 +613,7 @@ Patrol( 'GeoLocationActor',
             'trustedIdents' : [ 'analysis/01e9a19d-78e1-4c37-9a6e-37cb592e3897',
                                 'hunter/8e0f55c0-6593-4747-9d02-a4937fa79517',
                                 'blink/6babf560-88db-403d-a5f6-3689397e0104',
+                                'advbeacon/c3c1051a-1231-487c-9d4b-1e7e46ccd586',
                                 'lc/0bf01f7e-62bd-4cc4-9fec-4c52e82eb903' ],
             'isIsolated' : False,
             'strategy' : 'repulsion',
@@ -660,6 +638,7 @@ Patrol( 'AlexaDNS',
             'secretIdent' : 'alexadns/e1527553-815b-4dd5-8a40-708a287605b4',
             'trustedIdents' : [ 'analysis/01e9a19d-78e1-4c37-9a6e-37cb592e3897',
                                 'hunter/8e0f55c0-6593-4747-9d02-a4937fa79517',
+                                'advbeacon/c3c1051a-1231-487c-9d4b-1e7e46ccd586',
                                 'blink/6babf560-88db-403d-a5f6-3689397e0104' ],
             'isIsolated' : True,
             'strategy' : 'repulsion',
@@ -684,6 +663,7 @@ Patrol( 'MalwareDomains',
             'secretIdent' : 'malwaredomains/d7e813ef-e47d-479c-a56e-0190cad45c25',
             'trustedIdents' : [ 'analysis/01e9a19d-78e1-4c37-9a6e-37cb592e3897',
                                 'hunter/8e0f55c0-6593-4747-9d02-a4937fa79517',
+                                'advbeacon/c3c1051a-1231-487c-9d4b-1e7e46ccd586',
                                 'blink/6babf560-88db-403d-a5f6-3689397e0104' ],
             'isIsolated' : True,
             'strategy' : 'repulsion',
