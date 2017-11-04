@@ -244,6 +244,10 @@ class AdvancedEndpointProcessor( Actor ):
             self.server.close()
         # We try to drain, worse case we get killed.
         self.drain()
+        sleepCount = 30
+        while self.db.isActive() and 0 != sleepCount:
+            sleepCount -= 1
+            self.sleep( 1 )
         self.analyticsCoProcessor.deinit()
         self.storageCoProcessor.deinit()
         self.db.shutdown()

@@ -150,6 +150,8 @@ class AnalyticsCoProcessor( object ):
                 for instance in instances:
                     stateMap[ ruleName ].append( instance.saveState() )
         self._actor.log( "Saving %s rule states for client %s" % ( len( stateMap ), shard ) )
+        if 0 == len( stateMap ):
+            return
         stateMap = msgpack.packb( stateMap )
         self._actor.db.execute( self.stateful_saveStatement.bind( ( client.aid.sensor_id, stateMap, self.statefulTtl ) ) )
 

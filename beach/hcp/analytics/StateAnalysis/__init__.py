@@ -41,8 +41,14 @@ class State ( object ):
         self.transitions = transitions
 
 class StateMachineDescriptor ( object ):
-    def __init__( self, *states ):
+    def __init__( self, *states, **kwargs ):
         self.states = states
+        # Due what seems like a bug in **kwargs passing along with *args in Python
+        # (I'm sure there is a reason I can't find), we must validate the arguments
+        # from the dict with default values instead of through default-value params.
+        self._isWindows = kwargs.get( 'isForWindows', True )
+        self._isMac = kwargs.get( 'isForMac', True )
+        self._isLinux = kwargs.get( 'isForLinux', True )
         self._debugFunc = None
 
     def setDebugFunc( self, func ):
@@ -126,6 +132,16 @@ class StateMachine ( object ):
         self._descriptor = descriptor
 
     def prime( self, newEvent ):
+        aid = newEvent.routing[ 'aid' ]
+        if aid.isWindows():
+            if not self._descriptor._isWindows
+                return None
+        elif aid.isMacOSX():
+            if not self._descriptor._isMac
+                return None
+        elif aid.isLinux():
+            if not self._descriptor._isLinux
+                return None
         newMachine = None
         state = self._descriptor.states[ 0 ]
         i = 0
