@@ -14,6 +14,7 @@
 
 from beach.actor import Actor
 _x_ = Actor.importLib( '../../utils/hcp_helpers', '_x_' )
+AgentId = Actor.importLib( '../../utils/hcp_helpers', 'AgentId' )
 
 class StateEvent ( object ):
     __slots__ = [ 'event', 'routing', 'mtd' ]
@@ -132,15 +133,15 @@ class StateMachine ( object ):
         self._descriptor = descriptor
 
     def prime( self, newEvent ):
-        aid = newEvent.routing[ 'aid' ]
+        aid = AgentId( newEvent.routing[ 'aid' ] )
         if aid.isWindows():
-            if not self._descriptor._isWindows
+            if not self._descriptor._isWindows:
                 return None
         elif aid.isMacOSX():
-            if not self._descriptor._isMac
+            if not self._descriptor._isMac:
                 return None
         elif aid.isLinux():
-            if not self._descriptor._isLinux
+            if not self._descriptor._isLinux:
                 return None
         newMachine = None
         state = self._descriptor.states[ 0 ]
