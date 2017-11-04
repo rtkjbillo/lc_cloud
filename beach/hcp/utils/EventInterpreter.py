@@ -161,6 +161,8 @@ class EventInterpreter( object ):
         return _x_( self.event, '?/base.TIMESTAMP' )
 
 class EventDSL( object ):
+    __slots__ = [ 'data', 'mtd', 'dataType', '_isCaseSensitive', '_reFlags', '_ops' ]
+    
     def __init__( self, event, mtd, isCaseSensitive = False ):
         self.data = event
         self.mtd = mtd

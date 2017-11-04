@@ -337,7 +337,7 @@ class AdminEndpoint( Actor ):
         self.db.execute( 'INSERT INTO hcp_whitelist ( oid, iid, created, bootstrap, description, tags ) VALUES ( %s, %s, dateOf( now() ), %s, %s, %s )',
                          ( oid, iid, bootstrap, description, tags ) )
 
-        self.delay( 5, self.enrollments.broadcast, 'reload', {} )
+        self.delay( 10, self.enrollments.broadcast, 'reload', {} )
 
         return ( True, { 'oid' : oid, 'iid' : iid } )
 

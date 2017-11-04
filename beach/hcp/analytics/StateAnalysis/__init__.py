@@ -41,11 +41,8 @@ class State ( object ):
         self.transitions = transitions
 
 class StateMachineDescriptor ( object ):
-    def __init__( self, priority, summary, detectName, *states ):
+    def __init__( self, *states ):
         self.states = states
-        self.detectName = detectName
-        self.priority = priority
-        self.summary = summary
         self._debugFunc = None
 
     def setDebugFunc( self, func ):
@@ -54,7 +51,7 @@ class StateMachineDescriptor ( object ):
 
     def _debugLog( self, msg ):
         if self._debugFunc is None: return
-        self._debugFunc( '%s := %s' % ( self.detectName, msg ) )
+        self._debugFunc( ':= %s' % ( msg, ) )
 
     def _debugLogTransition( self, currentState, transitionIndex, transition, isSuccess ):
         if self._debugFunc is None: return
@@ -80,6 +77,17 @@ class _StateMachineContext( object ):
     def _defaultIndexes( cls ):
         return { 'atom' : {}, 'pid' : {}, 'ts' : {}, 'max_ts' : 0 }
 
+    def saveState( self ):
+        return {
+            'current_state' : self._currentState,
+            'history' : self._history,
+        }
+
+    def restoreState( self, savedState ):
+        self._currentState = savedState[ 'current_state' ]
+        for evt in savedState[ 'history' ]:
+            self.addToHistory( evt )
+
     def addToHistory( self, evt ):
         self._history.append( evt )
         self._indexes[ 'atom' ][ _x_( evt.event, '?/hbs.THIS_ATOM' ) ] = evt
@@ -90,9 +98,6 @@ class _StateMachineContext( object ):
             self._indexes[ 'max_ts' ] = thisTs
 
     def update( self, event ):
-        reportPriority = None
-        reportSummary = None
-        reportType = None
         reportContent = None
         isStayAlive = True
         state = self._descriptor.states[ self._currentState ]
@@ -103,14 +108,8 @@ class _StateMachineContext( object ):
                 if transition.isRecordOnMatch:
                     self.addToHistory( event )
                 if transition.isReportOnMatch:
-                    reportPriority = self._descriptor.priority
-                    reportSummary = self._descriptor.summary
-                    reportType = self._descriptor.detectName
                     reportContent = self._history
-                    self._descriptor._debugLog( 'Reporting ( P: %s, S: %s, T: %s, C: %s )' % ( reportPriority, 
-                                                                                               reportSummary, 
-                                                                                               reportType, 
-                                                                                               [ x.routing for x in reportContent ] ) )
+                    self._descriptor._debugLog( 'Reporting ( C: %s )' % ( [ x.routing for x in reportContent ] ) )
                 if ( 0 == transition.toState or 
                      ( transition.isKillOnEmptyHistory and 0 == len( self._history ) ) ):
                     isStayAlive = False
@@ -119,7 +118,7 @@ class _StateMachineContext( object ):
             self._descriptor._debugLogTransition( self._currentState, i, transition, False )
             i += 1
 
-        return (reportPriority, reportSummary, reportType, reportContent, isStayAlive)
+        return ( reportContent, isStayAlive )
 
 
 class StateMachine ( object ):

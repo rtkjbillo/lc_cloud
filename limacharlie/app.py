@@ -172,7 +172,7 @@ IDENT = 'lc/0bf01f7e-62bd-4cc4-9fec-4c52e82eb903'
 beach = Beach( BEACH_CONFIG_FILE, realm = 'hcp' )
 model = beach.getActorHandle( 'models', nRetries = 3, timeout = 30, ident = IDENT )
 capabilities = beach.getActorHandle( 'analytics/capabilitymanager', nRetries = 3, timeout = 300, ident = IDENT )
-quickdetects = beach.getActorHandle( 'analytics/stateless/quickdetect', nRetries = 3, timeout = 300, ident = IDENT )
+quickdetects = beach.getActorHandle( 'analytics/stateless/quickdetect', nRetries = 3, timeout = 30, ident = IDENT )
 sensordir = beach.getActorHandle( 'c2/sensordir', nRetries = 3, timeout = 30, ident = IDENT )
 identmanager = beach.getActorHandle( 'c2/identmanager', nRetries = 3, timeout = 30, ident = IDENT )
 deployment = beach.getActorHandle( 'c2/deploymentmanager', nRetries = 3, timeout = 30, ident = IDENT )

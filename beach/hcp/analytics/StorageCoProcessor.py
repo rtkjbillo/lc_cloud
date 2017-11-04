@@ -26,7 +26,6 @@ import logging.handlers
 import random
 import traceback
 from sets import Set
-CassDb = Actor.importLib( '../utils/hcp_databases', 'CassDb' )
 AgentId = Actor.importLib( '../utils/hcp_helpers', 'AgentId' )
 _x_ = Actor.importLib( '../utils/hcp_helpers', '_x_' )
 _xm_ = Actor.importLib( '../utils/hcp_helpers', '_xm_' )
@@ -41,8 +40,6 @@ class StorageCoProcessor( object ):
         self.loggingDir = ''
         self.deploymentmanager = self._actor.getActorHandle( resources[ 'deployment' ], timeout = 30, nRetries = 3 )
         self.refreshConfigs()
-
-        self.db = CassDb( parameters[ 'db' ], 'hcp_analytics' )
 
         self.ignored_objects = [ ObjectTypes.STRING,
                                  ObjectTypes.IP_ADDRESS,
@@ -94,7 +91,7 @@ class StorageCoProcessor( object ):
         return self
 
     def deinit( self ):
-        self.db.shutdown()
+        pass
 
     def process( self, routing, event, mtd ):
         if 0 < self.modelingLevel:
@@ -151,28 +148,26 @@ class StorageCoProcessor( object ):
         self._actor.logCritical( "Dropped Insert: %s // %s" % ( query, params ) )
 
     def asyncInsert( self, boundStatement ):
-        self.nActiveWrites += 1
-        self.db.execute_async( boundStatement, failureCallback = self.logDroppedInsert )
-        self.nActiveWrites -= 1
+        self._actor.db.execute_async( boundStatement, failureCallback = self.logDroppedInsert )
 
     def reportStats( self ):
         now = time.time()
         enPerSec = float( self.nWrites ) / ( now - self.lastReport )
-        wrPerSec = float( self.db.nSuccess ) / ( now - self.lastReport )
+        wrPerSec = float( self._actor.db.nSuccess ) / ( now - self.lastReport )
         self._actor.log( "Enqueued/sec: %s, Write/sec: %s" % ( enPerSec, wrPerSec ) )
         self.nWrites = 0
-        self.db.nSuccess = 0
+        self._actor.db.nSuccess = 0
         self.lastReport = now
         self.zSet( 'enqueue_per_sec', enPerSec )
         self.zSet( 'write_per_sec', wrPerSec )
-        self._actor.zInc( 'inserts_dropped', self.db.nErrors )
-        if 0 != self.db.nErrors:
-            self._actor.log( "Inserts dropped since last report: %s" % self.db.nErrors )
-            self.db.nErrors = 0
+        self._actor.zInc( 'inserts_dropped', self._actor.db.nErrors )
+        if 0 != self._actor.db.nErrors:
+            self._actor.log( "Inserts dropped since last report: %s" % self._actor.db.nErrors )
+            self._actor.db.nErrors = 0
         self._actor.delay( self.statFrameSeconds, self.reportStats )
 
     def ingestStatement( self, statement ):
-        stmt = self.db.prepare( statement )
+        stmt = self._actor.db.prepare( statement )
         return stmt
 
     def getOrgTtls( self, oid ):

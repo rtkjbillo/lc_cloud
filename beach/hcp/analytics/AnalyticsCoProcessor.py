@@ -18,10 +18,17 @@ import traceback
 import json
 import uuid
 import time
+import msgpack
+import base64
 EventDSL = Actor.importLib( '../utils/EventInterpreter', 'EventDSL' )
 AgentId = Actor.importLib( '../utils/hcp_helpers', 'AgentId' )
+StateMachine = Actor.importLib( '../analytics/StateAnalysis', 'StateMachine' )
+_StateMachineContext = Actor.importLib( '../analytics/StateAnalysis', '_StateMachineContext' )
+StateEvent = Actor.importLib( '../analytics/StateAnalysis', 'StateEvent' )
 
 class SensorContext( object ):
+    __slots__ = [ '_actor', 'aid', 'routing' ]
+
     def __init__( self, fromActor, routing ):
         self._actor = fromActor
         self.aid = AgentId( routing[ 'aid' ] )
@@ -81,6 +88,12 @@ class AnalyticsCoProcessor( object ):
         self._actor = fromActor
         self.rules = {}
 
+        self.statefulDescriptors = {}
+        self.statefulInstances = {}
+        self.stateful_loadStatement = self._actor.db.prepare( 'SELECT state_data FROM stateful_states WHERE sid = ?' )
+        self.stateful_saveStatement = self._actor.db.prepare( 'INSERT INTO stateful_states ( sid, state_data ) VALUES ( ?, ? ) USING TTL ?' )
+        self.statefulTtl = ( 60 * 60 * 24 * 30 )
+
         self.deploymentmanager = self._actor.getActorHandle( resources[ 'deployment' ], nRetries = 3, timeout = 30 )
         self.models = self._actor.getActorHandle( resources[ 'modeling' ], timeout = 30, nRetries = 3 )
         self.tagging = self._actor.getActorHandle( resources[ 'tagging' ], timeout = 30, nRetries = 3 )
@@ -96,7 +109,7 @@ class AnalyticsCoProcessor( object ):
         self.reloadRules( None )
         self._actor.schedule( 60 * 60, self.reloadRules, None )
 
-        self.ttl = parameters.get( 'ttl', 60 * 60 * 24 )
+        self.invTtl = parameters.get( 'inv_ttl', 60 * 60 * 24 )
         self.handleCache = {}
         self.handleTtl = {}
         self._actor.schedule( 60, self.invCulling )
@@ -110,6 +123,35 @@ class AnalyticsCoProcessor( object ):
 
     def deinit( self ):
         pass
+
+    def onSensorConnected( self, client ):
+        row = self._actor.db.getOne( self.stateful_loadStatement.bind( ( client.aid.sensor_id, ) ) )
+        if row is None:
+            return
+        shard = str( client.aid.sensor_id )
+        stateMap = msgpack.unpackb( row[ 0 ] )
+        self._actor.log( "Restoring %s rule states for client %s" % ( len( stateMap ), shard ) )
+        for ruleName, instances in stateMap.iteritems():
+            desc = self.statefulDescriptors.get( ruleName, None )
+            if desc is None:
+                continue
+            desc = desc._descriptor
+            self.statefulInstances.setdefault( ruleName, {} ).setdefault( shard, [] )
+            for instance in instances:
+                self.statefulInstances[ ruleName ][ shard ].append( _StateMachineContext( desc ).restoreState( instance ) )
+
+    def onSensorDisconnected( self, client ):
+        shard = str( client.aid.sensor_id )
+        stateMap = {}
+        for ruleName, instanceMap in self.statefulInstances.items():
+            instances = instanceMap.pop( shard, None )
+            if instances is not None:
+                stateMap[ ruleName ] = []
+                for instance in instances:
+                    stateMap[ ruleName ].append( instance.saveState() )
+        self._actor.log( "Saving %s rule states for client %s" % ( len( stateMap ), shard ) )
+        stateMap = msgpack.packb( stateMap )
+        self._actor.db.execute( self.stateful_saveStatement.bind( ( client.aid.sensor_id, stateMap, self.statefulTtl ) ) )
 
     def page( self, to = None, subject = None, data = None ):
         if to is None: 
@@ -148,20 +190,27 @@ class AnalyticsCoProcessor( object ):
                 newClass = getattr( loadModuleFrom( url, 'hcp' ),
                                     className )
                 newObj = newClass( self._actor )
-                cb = newObj.analyze
+                if hasattr( newObj, 'analyze' ):
+                    cb = newObj.analyze
+                elif hasattr( newObj, 'getDescriptor' ):
+                    self.statefulDescriptors[ rule[ 'name' ] ] = StateMachine( descriptor = newObj.getDescriptor() )
+                    self.statefulInstances[ rule[ 'name' ] ] = {}
+                    cb = lambda event, sensor: self.evalStateful( rule[ 'name' ], event, sensor )
+                else:
+                    raise Exception( 'unknown file format' )
                 rule = { 'name' : rule[ 'name' ], 
                          'original' : rule[ 'rule' ],
                          'rule' : cb,
-                         'action' : eval( 'lambda event, sensor, report, page: ( %s )' % ( rule[ 'action' ], ), env, env ) }
+                         'action' : eval( 'lambda event, sensor, report, page, context: ( %s )' % ( rule[ 'action' ], ), env, env ) }
             else:
                 rule = { 'name' : rule[ 'name' ], 
                          'original' : rule[ 'rule' ],
                          'rule' : eval( 'lambda event, sensor: ( %s )' % ( rule[ 'rule' ], ), env, env ),
-                         'action' : eval( 'lambda event, sensor, report, page: ( %s )' % ( rule[ 'action' ], ), env, env ) }
+                         'action' : eval( 'lambda event, sensor, report, page, context: ( %s )' % ( rule[ 'action' ], ), env, env ) }
             return ( rule, None )
         except:
             exc = traceback.format_exc()
-            self._actor.log( "Error compiling rule: %s" % exc )
+            self._actor.log( "Error compiling rule %s: %s" % ( rule.get( 'name', '-' ), exc ) )
             return ( None, exc )
 
     def saveRules( self ):
@@ -197,9 +246,38 @@ class AnalyticsCoProcessor( object ):
         self._actor.log( "Removed rule %s." % name )
         return ( self.saveRules(), )
 
+    def evalStateful( self, ruleName, event, sensor ):
+        isMatch = False
+        matchContent = None
+        
+        newEvent = StateEvent( sensor.routing, event.data, event.mtd )
+        shard = str( sensor.aid.sensor_id )
+        machines = self.statefulInstances[ ruleName ].setdefault( shard, [] )
+        
+        # First run the event through all the machines already running.
+        for machine in machines[:]:
+            reportContent, isStayAlive = machine.update( newEvent )
+            if reportContent is not None:
+                isMatch = True
+                matchContent = reportContent
+                # We don't break since we have to update all the machines.
+            if not isStayAlive:
+                machines.remove( machine )
+
+        # Now prime a new machine to see if it's a hit.
+        newMachine = self.statefulDescriptors[ ruleName ].prime( newEvent )
+        if newMachine is not None:
+            self.statefulInstances[ ruleName ][ shard ].append( newMachine )
+
+        return isMatch, matchContent
+
     def checkRule( self, rule, event, sensor ):
         try:
-            if rule[ 'rule' ]( event, sensor ):
+            result = rule[ 'rule' ]( event, sensor )
+            context = None
+            if type( result ) is tuple:
+                result, context = result
+            if result:
                 def report( name = None, content = None, priority = 0 ):
                     if name is None:
                         return False
@@ -220,7 +298,7 @@ class AnalyticsCoProcessor( object ):
                     return resp.isSuccess
                 self._actor.zInc( 'detections.%s' % rule[ 'name' ] )
                 self._actor.log( "!!! Rule %s matched." % ( rule[ 'name' ], ) )
-                rule[ 'action' ]( event, sensor, report, self.page )
+                rule[ 'action' ]( event, sensor, report, self.page, context )
         except:
             self._actor.log( "Error evaluating %s: %s" % ( rule[ 'name' ], traceback.format_exc() ) )
             self._actor.zInc( 'error.%s' % rule[ 'name' ] )
@@ -277,7 +355,7 @@ class AnalyticsCoProcessor( object ):
 
     def invCulling( self ):
         curTime = int( time.time() )
-        inv_ids = [ inv_id for inv_id, ts in self.handleTtl.iteritems() if ts < ( curTime - self.ttl ) ]
+        inv_ids = [ inv_id for inv_id, ts in self.handleTtl.iteritems() if ts < ( curTime - self.invTtl ) ]
         for inv_id in inv_ids:
             self.handleCache[ inv_id ].close()
             del( self.handleCache[ inv_id ] )

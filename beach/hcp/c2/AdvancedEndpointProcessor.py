@@ -44,6 +44,7 @@ AgentId = Actor.importLib( 'utils/hcp_helpers', 'AgentId' )
 HcpModuleId = Actor.importLib( 'utils/hcp_helpers', 'HcpModuleId' )
 Signing = Actor.importLib( 'signing', 'Signing' )
 Symbols = Actor.importLib( 'Symbols', 'Symbols' )()
+CassDb = Actor.importLib( '../utils/hcp_databases', 'CassDb' )
 HcpOperations = Actor.importLib( 'utils/hcp_helpers', 'HcpOperations' )
 LimitedQPSBuffer = Actor.importLib( 'utils/hcp_helpers', 'LimitedQPSBuffer' )
 EventObjectExtractor = Actor.importLib( 'utils/EventObjectExtractor', 'EventObjectExtractor' )
@@ -161,6 +162,8 @@ class AdvancedEndpointProcessor( Actor ):
         self.isOpen = True
         self.nConnected = 0
 
+        self.db = CassDb( parameters[ 'db' ], 'hcp_analytics' )
+
         self.handlerPortStart = parameters.get( 'handler_port_start', 10000 )
         self.handlerPortEnd = parameters.get( 'handler_port_end', 20000 )
         self.bindAddress = parameters.get( 'handler_address', '0.0.0.0' )
@@ -243,6 +246,7 @@ class AdvancedEndpointProcessor( Actor ):
         self.drain()
         self.analyticsCoProcessor.deinit()
         self.storageCoProcessor.deinit()
+        self.db.shutdown()
 
     def drain( self ):
         # Stop accepting new connections.
@@ -402,6 +406,9 @@ class AdvancedEndpointProcessor( Actor ):
                 c.tags = resp.data.get( 'tags', {} ).values()[ 0 ].keys()
                 self.log( 'Retrieved tags %s for %s' % ( c.tags, aid.asString() ) )
 
+            # Register the new connection with the analytics coprocessor.
+            self.analyticsCoProcessor.onSensorConnected( c )
+
             self.log( 'Client %s registered, beginning to receive data' % aid.asString() )
             lastTransferReport = time.time()
             frameIndex = 0
@@ -451,6 +458,7 @@ class AdvancedEndpointProcessor( Actor ):
                     del( newStateMsg )
                 self.log( 'Connection terminated: %s' % aid.asString() )
                 self.zSet( 'clients', len( self.currentClients ) )
+                self.analyticsCoProcessor.onSensorDisconnected( c )
             else:
                 self.log( 'Connection terminated: %s:%s' % address )
 

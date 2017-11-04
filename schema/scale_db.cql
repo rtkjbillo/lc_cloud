@@ -351,3 +351,11 @@ CREATE TABLE hbs_keys
   
   PRIMARY KEY( oid )
 ) WITH compaction = { 'class' : 'DateTieredCompactionStrategy' } AND gc_grace_seconds = 86400;
+
+CREATE TABLE stateful_states
+(
+  sid uuid,
+  state_data blob,
+
+  PRIMARY KEY( sid )
+) WITH compaction = { 'class' : 'DateTieredCompactionStrategy' } AND gc_grace_seconds = 86400;
