@@ -25,6 +25,9 @@ AgentId = Actor.importLib( '../utils/hcp_helpers', 'AgentId' )
 StateMachine = Actor.importLib( '../analytics/StateAnalysis', 'StateMachine' )
 _StateMachineContext = Actor.importLib( '../analytics/StateAnalysis', '_StateMachineContext' )
 StateEvent = Actor.importLib( '../analytics/StateAnalysis', 'StateEvent' )
+HostObjects = Actor.importLib( '../utils/ObjectsDb', 'HostObjects' )
+KeyValueStore = Actor.importLib( '../utils/ObjectsDb', 'KeyValueStore' )
+Atoms = Actor.importLib( '../utils/ObjectsDb', 'Atoms' )
 
 class SensorContext( object ):
     __slots__ = [ '_actor', 'aid', 'routing' ]
@@ -63,7 +66,7 @@ class SensorContext( object ):
                                        { 'tag' : tag, 
                                          'ttl' : ttl, 
                                          'sid' : self.aid.sensor_id, 
-                                         'by' : 'QuickDetectHost' } )
+                                         'by' : 'AnalyticsCoProcessor' } )
         return True
 
     def untag( self, tag, ttl = ( 60 * 60 * 24 * 365 ) ):
@@ -73,7 +76,7 @@ class SensorContext( object ):
                                        { 'tag' : tag, 
                                          'ttl' : ttl, 
                                          'sid' : self.aid.sensor_id, 
-                                         'by' : 'QuickDetectHost' } )
+                                         'by' : 'AnalyticsCoProcessor' } )
         return True
 
     def isTagged( self, tag ):
@@ -87,6 +90,10 @@ class AnalyticsCoProcessor( object ):
     def init( self, parameters, resources, fromActor ):
         self._actor = fromActor
         self.rules = {}
+
+        HostObjects.setDatabase( self._actor.db )
+        KeyValueStore.setDatabase( self._actor.db )
+        Atoms.setDatabase( self._actor.db )
 
         self.statefulDescriptors = {}
         self.statefulInstances = {}
@@ -103,7 +110,6 @@ class AnalyticsCoProcessor( object ):
                                              mode = 'affinity',
                                              timeout = 60,
                                              nRetries = 2 )
-        self.stateful = self._actor.getActorHandle( resources[ 'stateful' ], timeout = 60, nRetries = 3 )
 
         self.conf = {}
         self.reloadRules( None )
@@ -130,15 +136,21 @@ class AnalyticsCoProcessor( object ):
             return
         shard = str( client.aid.sensor_id )
         stateMap = msgpack.unpackb( row[ 0 ] )
-        self._actor.log( "Restoring %s rule states for client %s" % ( len( stateMap ), shard ) )
+        self._actor.log( "Restoring %s rule sets for client %s" % ( len( stateMap ), shard ) )
+        nDiscarded = 0
+        nLoaded = 0
         for ruleName, instances in stateMap.iteritems():
             desc = self.statefulDescriptors.get( ruleName, None )
             if desc is None:
+                nDiscarded += 1
                 continue
             desc = desc._descriptor
             self.statefulInstances.setdefault( ruleName, {} ).setdefault( shard, [] )
             for instance in instances:
                 self.statefulInstances[ ruleName ][ shard ].append( _StateMachineContext( desc ).restoreState( instance ) )
+                nLoaded += 1
+        if 0 != nLoaded or 0 != nDiscarded:
+            self._actor.log( "Loaded %s states and discarded %s." % ( nLoaded, nDiscarded ) )
 
     def onSensorDisconnected( self, client ):
         shard = str( client.aid.sensor_id )
@@ -176,7 +188,7 @@ class AnalyticsCoProcessor( object ):
             url = url.replace( 'https://github.com/', 'https://raw.githubusercontent.com/' ).replace( '/blob/', '/' )
         return url
 
-    def compileRule( self, rule ):
+    def compileRule( self, ruleRecord ):
         env = { 'False' : False, 
                 'True' : True }
         env[ "__name__" ] = None
@@ -184,9 +196,14 @@ class AnalyticsCoProcessor( object ):
         env[ "__builtins__" ] = None
 
         try:
-            if '://' in rule[ 'rule' ]:
-                url = self.massageUrl( rule[ 'rule' ] )
-                className = rule[ 'rule' ].split( '/' )[ -1 ]
+            rule = {
+                'name' : ruleRecord[ 'name' ], 
+                'original' : ruleRecord[ 'rule' ],
+            }
+
+            if '://' in ruleRecord[ 'rule' ]:
+                url = self.massageUrl( ruleRecord[ 'rule' ] )
+                className = ruleRecord[ 'rule' ].split( '/' )[ -1 ]
                 if className.endswith( '.py' ):
                     className = className[ 0 : -3 ]
                 newClass = getattr( loadModuleFrom( url, 'hcp' ),
@@ -195,30 +212,54 @@ class AnalyticsCoProcessor( object ):
                 if hasattr( newObj, 'analyze' ):
                     cb = newObj.analyze
                 elif hasattr( newObj, 'getDescriptor' ):
-                    self.statefulDescriptors[ rule[ 'name' ] ] = StateMachine( descriptor = newObj.getDescriptor() )
-                    self.statefulInstances[ rule[ 'name' ] ] = {}
-                    cb = lambda event, sensor: self.evalStateful( rule[ 'name' ], event, sensor )
+                    self.statefulDescriptors[ ruleRecord[ 'name' ] ] = StateMachine( descriptor = newObj.getDescriptor() )
+                    self.statefulInstances[ ruleRecord[ 'name' ] ] = {}
+                    cb = lambda event, sensor: self.evalStateful( ruleRecord[ 'name' ], event, sensor )
                 else:
-                    raise Exception( 'unknown file format' )
-                rule = { 'name' : rule[ 'name' ], 
-                         'original' : rule[ 'rule' ],
-                         'rule' : cb,
-                         'action' : eval( 'lambda event, sensor, report, page, context: ( %s )' % ( rule[ 'action' ], ), env, env ) }
+                    raise Exception( 'unknown file format, missing "analyze" export.' )
+                rule[ 'rule' ] = cb
             else:
-                rule = { 'name' : rule[ 'name' ], 
-                         'original' : rule[ 'rule' ],
-                         'rule' : eval( 'lambda event, sensor: ( %s )' % ( rule[ 'rule' ], ), env, env ),
-                         'action' : eval( 'lambda event, sensor, report, page, context: ( %s )' % ( rule[ 'action' ], ), env, env ) }
+                rule[ 'rule' ] = eval( 'lambda event, sensor: ( %s )' % ( ruleRecord[ 'rule' ], ), env, env )
+
+
+            if '://' in ruleRecord[ 'action' ]:
+                url = self.massageUrl( ruleRecord[ 'action' ] )
+                className = ruleRecord[ 'rule' ].split( '/' )[ -1 ]
+                if className.endswith( '.py' ):
+                    className = className[ 0 : -3 ]
+                newClass = getattr( loadModuleFrom( url, 'hcp' ),
+                                    className )
+                newObj = newClass( self._actor )
+                if hasattr( newObj, 'respond' ):
+                    cb = newObj.respond
+                else:
+                    raise Exception( 'unknown file format, missing "respond" export.' )
+                rule[ 'action' ] = cb
+            else:
+                rule[ 'action' ] = eval( 'lambda event, sensor, context, report, page: ( %s )' % ( ruleRecord[ 'action' ], ), env, env )
+
+            # Test to see if a dummy call to the match and action will result in True
+            # this should never occur and is an indicator of a bad rule that always triggers.
+            isBad = False
+            try:
+                if rule[ 'rule' ]( None, None ):
+                    isBad = True
+            except:
+                pass
+
+            if isBad:
+                raise Exception( 'matching rule invalid, always returns True' )
+
             return ( rule, None )
         except:
             exc = traceback.format_exc()
-            self._actor.log( "Error compiling rule %s: %s" % ( rule.get( 'name', '-' ), exc ) )
+            self._actor.log( "Error compiling rule %s: %s" % ( ruleRecord.get( 'name', '-' ), exc ) )
             return ( None, exc )
 
     def saveRules( self ):
         resp = self.deploymentmanager.request( 'set_config', { 'conf' : 'global/quick_detects', 
                                                                'value' : json.dumps( self.conf ), 
-                                                               'by' : 'quick_detect_host' } )
+                                                               'by' : 'AnalyticsCoProcessor' } )
         return resp.isSuccess
 
     def addRule( self, msg ):
@@ -280,7 +321,7 @@ class AnalyticsCoProcessor( object ):
             if type( result ) is tuple:
                 result, context = result
             if result:
-                def report( name = None, content = None, priority = 0 ):
+                def report( name = None, content = None, priority = 0, isPublish = True ):
                     if name is None:
                         return False
 
@@ -289,17 +330,24 @@ class AnalyticsCoProcessor( object ):
                             'cat' : name, 
                             'detect' : content or event.data, 
                             'detect_id' : uuid.uuid4(), 
-                            'summary' : 'quick detect: %s' % rule[ 'original' ],
+                            'summary' : 'detect: %s' % rule[ 'original' ],
                             'priority' : priority }
 
-                    resp = self.reporting.request( 'detect', rep )
+                    # Create a new somewhat special EventDSL that representa the detection.
+                    detection = EventDSL( { 'detection_%s' % name : content or event.data }, None, not sensor.aid.isWindows() )
+                    self._actor.delay( 0, self._actor.parallelExec, lambda rule: self.checkRule( rule, detection, sensor ), self.rules.values() )
 
-                    if not resp.isSuccess:
-                        self._actor.log( "Failed to report: %s" % str( resp ) )
+                    if isPublish:
+                        resp = self.reporting.request( 'detect', rep )
 
-                    return resp.isSuccess
+                        if not resp.isSuccess:
+                            self._actor.log( "Failed to report: %s" % str( resp ) )
+
+                        return resp.isSuccess
+                    else:
+                        return True
                 self._actor.zInc( 'detections.%s' % rule[ 'name' ] )
-                self._actor.log( "!!! Rule %s matched." % ( rule[ 'name' ], ) )
+                self._actor.log( "!!! Rule %s matched: %s." % ( rule[ 'name' ], context ) )
                 rule[ 'action' ]( event, sensor, report, self.page, context )
         except:
             self._actor.log( "Error evaluating %s: %s" % ( rule[ 'name' ], traceback.format_exc() ) )
@@ -309,7 +357,7 @@ class AnalyticsCoProcessor( object ):
         return ( True, self.conf )
 
     def reloadRules( self, msg ):
-        self._actor.log( "Fetching quick detects." )
+        self._actor.log( "Fetching detection rules." )
         resp = self.deploymentmanager.request( 'get_quick_detects', {} )
         conf = {}
         rules = {}
@@ -317,12 +365,12 @@ class AnalyticsCoProcessor( object ):
         if resp.isSuccess:
             try:
                 conf = json.loads( resp.data[ 'detects' ] )
-                self._actor.log( "Found %d quick detects." % len( conf ) )
+                self._actor.log( "Found %d detect rules." % len( conf ) )
             except:
                 errors.append( traceback.format_exc() )
                 conf = {}
         else:
-            self._actor.log( "No capabilities found." )
+            self._actor.log( "No detection rules found." )
 
         for name, ruleInfo in conf.items():
             compiled, exc  = self.compileRule( ruleInfo )
@@ -333,6 +381,12 @@ class AnalyticsCoProcessor( object ):
 
         self.rules = rules
         self.conf = conf
+
+        # Remove stateful states relating to rules that no
+        # longer exist.
+        for ruleName in self.statefulInstances.keys():
+            if ruleName not in self.rules:
+                self.statefulInstances.pop( ruleName, None )
 
         if 0 != len( errors ):
             return ( False, errors )
@@ -348,8 +402,6 @@ class AnalyticsCoProcessor( object ):
         sensor = SensorContext( self._actor, routing )
         tmpEvent = EventDSL( event, mtd, not sensor.aid.isWindows() )
         self._actor.parallelExec( lambda rule: self.checkRule( rule, tmpEvent, sensor ), self.rules.values() )
-
-        self.stateful.shoot( 'analyze', ( routing, event, mtd ), key = routing[ 'aid' ] )
 
         self._actor.zInc( 'analyzed' )
 

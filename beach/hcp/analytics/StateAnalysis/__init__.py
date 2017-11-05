@@ -24,6 +24,9 @@ class StateEvent ( object ):
         self.routing = routing
         self.mtd = mtd
 
+    def __repr__( self ):
+        return 'Routing( %s )-Event( %s )-Mtd( %s )' % ( self.routing, self.event, self.mtd )
+
 class StateTransition ( object ):
     def __init__( self,
                   toState, 

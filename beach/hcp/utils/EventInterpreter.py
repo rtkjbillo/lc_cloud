@@ -162,7 +162,7 @@ class EventInterpreter( object ):
 
 class EventDSL( object ):
     __slots__ = [ 'data', 'mtd', 'dataType', '_isCaseSensitive', '_reFlags', '_ops' ]
-    
+
     def __init__( self, event, mtd, isCaseSensitive = False ):
         self.data = event
         self.mtd = mtd
@@ -308,5 +308,12 @@ class EventDSL( object ):
 
     def Sync( self, **kwargs ):
         if 'notification.SYNC' == self.dataType:
+            return self.Event( **kwargs )
+        return False
+
+    def Detection( self, name = None, **kwargs ):
+        if self.dataType.startswith( 'detection_' ):
+            if name is not None and self.dataType != ( 'detection_%s' % name ):
+                return False
             return self.Event( **kwargs )
         return False
