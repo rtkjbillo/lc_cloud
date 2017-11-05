@@ -105,8 +105,8 @@ class BEAdmin( object ):
     def hbs_getProfiles( self, oid = [] ):
         return self._query( 'hbs.get_profiles', { 'oid' : oid } )
     
-    def hbs_addProfile( self, mask, config ):
-        return self._query( 'hbs.set_profile', { 'mask' : mask, 'module_configs' : config } )
+    def hbs_addProfile( self, mask, config, tag ):
+        return self._query( 'hbs.set_profile', { 'mask' : mask, 'module_configs' : config, 'tag' : tag } )
     
     def hbs_delProfile( self, mask ):
         return self._query( 'hbs.del_profile', { 'mask' : mask } )

@@ -131,10 +131,11 @@ CREATE TABLE hcp_whitelist(
 
 CREATE TABLE hbs_profiles(
   aid varchar,
+  tag varchar,
   cprofile blob,
   oprofile varchar,
   hprofile varchar,
-  PRIMARY KEY( aid )
+  PRIMARY KEY( aid, tag )
 ) WITH compaction = { 'class' : 'DateTieredCompactionStrategy' } AND gc_grace_seconds = 86400;
 
 CREATE TABLE hbs_queue(

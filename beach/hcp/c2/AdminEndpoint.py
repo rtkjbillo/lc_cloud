@@ -392,6 +392,7 @@ class AdminEndpoint( Actor ):
         mask = AgentId( request[ 'mask' ] ).asString()
         c = request[ 'module_configs' ]
         oc = request.get( 'original', None )
+        tag = request.get( 'tag', '' ).lower()
         isValidConfig = False
         profileError = ''
         if oc is None:
@@ -428,8 +429,8 @@ class AdminEndpoint( Actor ):
                     profileError = 'config did not evaluate as an rList: %s' % type( profile )
 
         if isValidConfig:
-            self.db.execute( 'INSERT INTO hbs_profiles ( aid, cprofile, oprofile, hprofile ) VALUES ( %s, %s, %s, %s )',
-                             ( mask, bytearray( c ), oc, configHash ) )
+            self.db.execute( 'INSERT INTO hbs_profiles ( aid, tag, cprofile, oprofile, hprofile ) VALUES ( %s, %s, %s, %s, %s )',
+                             ( mask, tag, bytearray( c ), oc, configHash ) )
             response = ( True, )
         else:
             response = ( False, profileError )

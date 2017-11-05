@@ -334,8 +334,13 @@ class AnalyticsCoProcessor( object ):
                             'priority' : priority }
 
                     # Create a new somewhat special EventDSL that representa the detection.
-                    detection = EventDSL( { 'detection_%s' % name : content or event.data }, None, not sensor.aid.isWindows() )
-                    self._actor.delay( 0, self._actor.parallelExec, lambda rule: self.checkRule( rule, detection, sensor ), self.rules.values() )
+                    detection = EventDSL( { 'detection_%s' % name : content or event.data }, 
+                                          { 'obj' : {}, 'rel' : {} }, 
+                                          not sensor.aid.isWindows() )
+                    self._actor.delay( 0, 
+                                       self._actor.parallelExec, 
+                                       lambda rule: self.checkRule( rule, detection, sensor ), 
+                                       self.rules.values() )
 
                     if isPublish:
                         resp = self.reporting.request( 'detect', rep )
@@ -348,7 +353,7 @@ class AnalyticsCoProcessor( object ):
                         return True
                 self._actor.zInc( 'detections.%s' % rule[ 'name' ] )
                 self._actor.log( "!!! Rule %s matched: %s." % ( rule[ 'name' ], context ) )
-                rule[ 'action' ]( event, sensor, report, self.page, context )
+                rule[ 'action' ]( event, sensor, context, report, self.page )
         except:
             self._actor.log( "Error evaluating %s: %s" % ( rule[ 'name' ], traceback.format_exc() ) )
             self._actor.zInc( 'error.%s' % rule[ 'name' ] )
