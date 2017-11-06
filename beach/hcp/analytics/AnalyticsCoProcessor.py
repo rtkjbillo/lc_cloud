@@ -320,6 +320,8 @@ class AnalyticsCoProcessor( object ):
             context = None
             if type( result ) is tuple:
                 result, context = result
+            else:
+                context = event.data
             if result:
                 def report( name = None, content = None, priority = 0, isPublish = True ):
                     if name is None:
