@@ -63,6 +63,8 @@ class TaggingManager( Actor ):
 
         for host in hosts:
             for tag in tags:
+                if '' == tag: continue
+                
                 host.setTag( tag, by, ttl )
 
                 endpointId = sidCache.get( host.sid, None )

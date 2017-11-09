@@ -161,6 +161,7 @@ class AnalyticsCoProcessor( object ):
                 stateMap[ ruleName ] = []
                 for instance in instances:
                     stateMap[ ruleName ].append( instance.saveState() )
+                    instance.close()
         self._actor.log( "Saving %s rule states for client %s" % ( len( stateMap ), shard ) )
         if 0 == len( stateMap ):
             return
@@ -305,6 +306,7 @@ class AnalyticsCoProcessor( object ):
                 matchContent = reportContent
                 # We don't break since we have to update all the machines.
             if not isStayAlive:
+                machine.close()
                 machines.remove( machine )
 
         # Now prime a new machine to see if it's a hit.

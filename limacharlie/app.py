@@ -83,7 +83,6 @@ urls = (
     '/export', 'Exporter',
     '/hostchanges', 'HostChanges',
     '/detects', 'Detects',
-    '/capabilities', 'Capabilities',
     '/set_conclusion', 'SetConclusion',
     '/blink', 'Blink',
     '/blink_data', 'BlinkData',
@@ -1287,49 +1286,6 @@ class Detects ( AuthenticatedPage ):
 
         return render.detects( cards )
 
-class Capabilities ( AuthenticatedPage ):
-    def doPOST( self ):
-        if session.is_admin is not True:
-            session.notice = 'Error: capabilities modifications is limited to administrators.'
-            redirectTo( 'dashboard' )
-
-        params = web.input( urlToAdd = None, nameToRem = None, nameToAdd = None, argsToAdd = None, contentToAdd = None )
-
-        cap = {}
-
-        resp = None
-        if ( ( ( params.urlToAdd is not None and params.urlToAdd != '' ) or 
-               ( params.contentToAdd is not None and params.contentToAdd != '' ) ) and ( params.nameToAdd is not None
-                                                                                         and params.nameToAdd != '' ) ):
-            req = { 'user_defined_name' : params.nameToAdd,
-                    'args' : params.argsToAdd }
-            if params.urlToAdd is not None and params.urlToAdd != '':
-                req[ 'url' ] = params.urlToAdd
-            else:
-                req[ 'content' ] = params.contentToAdd
-            resp = capabilities.request( 'load', req )
-        elif params.nameToRem is not None and params.nameToRem != '':
-            resp = capabilities.request( 'unload', { 'user_defined_name' : params.nameToRem } )
-
-        if resp is None:
-            session.notice = 'Error: missing parameters'
-        elif not resp.isSuccess:
-            session.notice = 'Error: %s' % resp
-
-        redirectTo( 'capabilities' )
-
-    def doGET( self ):
-        params = web.input()
-
-        cap = {}
-
-        capReq = capabilities.request( 'list', {} )
-        if capReq.isSuccess:
-            cap.update( capReq.data[ 'loadedDetections' ] )
-            cap.update( capReq.data[ 'loadedPatrols' ] )
-
-        return render.capabilities( capabilities = cap, is_admin = session.is_admin )
-
 class SetConclusion ( AuthenticatedPage ):
     def doGET( self ):
         params = web.input( did = None, hunter = None, nature = None, conclusion = None )
@@ -1478,7 +1434,7 @@ class Configs ( AuthenticatedAdminPage ):
                                      { 'conf' : 'global/primary', 'value' : params.primary_domain, 'by' : session.email } ).isSuccess and
                  deployment.request( 'set_config', 
                                      { 'conf' : 'global/primary_port', 'value' : params.primary_port, 'by' : session.email } ).isSuccess and
-                 deployment.request( 'refresh_all_installets', {} ) ):
+                 deployment.request( 'refresh_all_installers', {} ) ):
                 session.notice = 'Success setting primary domain.'
             else:
                 session.notice = 'Error setting primary domain.'
@@ -1487,7 +1443,7 @@ class Configs ( AuthenticatedAdminPage ):
                                      { 'conf' : 'global/secondary', 'value' : params.secondary_domain, 'by' : session.email } ).isSuccess and
                  deployment.request( 'set_config', 
                                      { 'conf' : 'global/secondary_port', 'value' : params.secondary_port, 'by' : session.email } ).isSuccess and
-                 deployment.request( 'refresh_all_installets', {} ) ):
+                 deployment.request( 'refresh_all_installers', {} ) ):
                 session.notice = 'Success setting secondary domain.'
             else:
                 session.notice = 'Error setting secondary domain.'

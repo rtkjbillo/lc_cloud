@@ -87,6 +87,11 @@ class _StateMachineContext( object ):
     def _defaultIndexes( cls ):
         return { 'atom' : {}, 'pid' : {}, 'ts' : {}, 'max_ts' : 0 }
 
+    def close( self ):
+        self._descriptor = None
+        self._history = None
+        self._indexes = None
+
     def saveState( self ):
         return {
             'current_state' : self._currentState,

@@ -80,6 +80,8 @@ class EnrollmentManager( Actor ):
             tags = [ x for x in ( row[ 3 ] if row[ 3 ] is not None else '' ).split( ',' ) if x != '' ]
             self.installers[ ( row[ 0 ], row[ 1 ] ) ] = ( row[ 2 ], tags )
 
+        self.log( "rules reloaded." )
+
     def getTokenFor( self, aid ):
         h = hmac.new( self.enrollmentKey, aid.asString(), hashlib.sha256 )
         return h.digest()

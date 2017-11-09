@@ -113,28 +113,29 @@ class StorageCoProcessor( object ):
                 self._actor.zSet( 'modeling_level', self.modelingLevel )
                 self._actor.log( "modeling level changed to: %s" % self.modelingLevel )
 
-        if '' != resp.data[ 'global/logging_dir' ] and self.loggingDir != resp.data[ 'global/logging_dir' ]:
-            if not os.path.exists( resp.data[ 'global/logging_dir' ] ):
-                self._actor.log( 'output directory does not exist, creating it' )
-                os.makedirs( resp.data[ 'global/logging_dir' ] )
-            self.file_logger = logging.getLogger( 'limacharlie_events_file' )
-            self.file_logger.propagate = False
-            handler = logging.handlers.RotatingFileHandler( os.path.join( resp.data[ 'global/logging_dir' ], self._actor.name ), 
-                                                            maxBytes = resp.data.get( 'global/logging_dir_max_bytes', 1024 * 1024 * 5 ), 
-                                                            backupCount = resp.data.get( 'global/logging_dir_backup_count', 20 ) )
-            handler.setFormatter( logging.Formatter( "%(message)s" ) )
-            self.file_logger.setLevel( logging.INFO )
-            self.file_logger.addHandler( handler )
+        if self.loggingDir != resp.data[ 'global/logging_dir' ]:
+            if '' == resp.data[ 'global/logging_dir' ]:
+                self.loggingDir = ''
+                self.file_logger = None
+            else:
+                if not os.path.exists( resp.data[ 'global/logging_dir' ] ):
+                    self._actor.log( 'output directory does not exist, creating it' )
+                    os.makedirs( resp.data[ 'global/logging_dir' ] )
+                self.file_logger = logging.getLogger( 'limacharlie_events_file' )
+                self.file_logger.propagate = False
+                handler = logging.handlers.RotatingFileHandler( os.path.join( resp.data[ 'global/logging_dir' ], self._actor.name ), 
+                                                                maxBytes = resp.data.get( 'global/logging_dir_max_bytes', 1024 * 1024 * 5 ), 
+                                                                backupCount = resp.data.get( 'global/logging_dir_backup_count', 20 ) )
+                handler.setFormatter( logging.Formatter( "%(message)s" ) )
+                self.file_logger.setLevel( logging.INFO )
+                self.file_logger.addHandler( handler )
 
-            self._is_flat = resp.data.get( 'global/logging_dir_is_flat', False )
-            self._use_b64 = resp.data.get( 'global/logging_dir_use_b64', False )
+                self._is_flat = resp.data.get( 'global/logging_dir_is_flat', False )
+                self._use_b64 = resp.data.get( 'global/logging_dir_use_b64', False )
 
-            self.loggingDir = resp.data[ 'global/logging_dir' ]
-            self._actor.zSet( 'logging_dir', self.loggingDir )
-            self._actor.log( "logging directory changed to: %s" % self.loggingDir )
-        else:
-            self.loggingDir = ''
-            self.file_logger = None
+                self._actor.log( "logging directory changed from %s to %s" % ( self.loggingDir, resp.data[ 'global/logging_dir' ] ) )
+                self.loggingDir = resp.data[ 'global/logging_dir' ]
+                self._actor.zSet( 'logging_dir', self.loggingDir )
 
         self._actor.delay( 60 * 5, self.refreshConfigs )
 
@@ -158,8 +159,8 @@ class StorageCoProcessor( object ):
         self.nWrites = 0
         self._actor.db.nSuccess = 0
         self.lastReport = now
-        self.zSet( 'enqueue_per_sec', enPerSec )
-        self.zSet( 'write_per_sec', wrPerSec )
+        self._actor.zSet( 'enqueue_per_sec', enPerSec )
+        self._actor.zSet( 'write_per_sec', wrPerSec )
         self._actor.zInc( 'inserts_dropped', self._actor.db.nErrors )
         if 0 != self._actor.db.nErrors:
             self._actor.log( "Inserts dropped since last report: %s" % self._actor.db.nErrors )

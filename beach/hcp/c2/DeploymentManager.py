@@ -73,7 +73,7 @@ class DeploymentManager( Actor ):
         self.handle( 'get_capabilities', self.get_capabilities )
         self.handle( 'get_quick_detects', self.get_quick_detects )
         self.handle( 'del_sensor', self.del_sensor )
-        self.handle( 'refresh_all_installets', self.refresh_all_installets )
+        self.handle( 'refresh_all_installers', self.refresh_all_installers )
         self.handle( 'set_installer_info', self.set_installer_info )
         self.handle( 'del_installer', self.del_installer )
 
@@ -742,7 +742,7 @@ We believe this sharing policy strikes a good balance between privacy and inform
 
         return ( True, )
 
-    def refresh_all_installets( self, msg ):
+    def refresh_all_installers( self, msg ):
         resp = self.admin.request( 'hcp.get_whitelist', {} )
         if not resp.isSuccess:
             return ( False, resp.error )
