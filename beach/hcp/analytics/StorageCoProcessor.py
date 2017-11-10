@@ -39,7 +39,7 @@ class StorageCoProcessor( object ):
         self.modelingLevel = 10
         self.loggingDir = ''
         self.deploymentmanager = self._actor.getActorHandle( resources[ 'deployment' ], timeout = 30, nRetries = 3 )
-        self.refreshConfigs()
+        self._actor.schedule( 60 * 5, self.refreshConfigs )
 
         self.ignored_objects = [ ObjectTypes.STRING,
                                  ObjectTypes.IP_ADDRESS,
@@ -84,8 +84,7 @@ class StorageCoProcessor( object ):
         self.lastReport = time.time()
         self._actor.handle( 'report_inv', self.reportDetectOrInv )
         self._actor.handle( 'report_detect', self.reportDetectOrInv )
-        self.statFrameSeconds = 600
-        self._actor.delay( self.statFrameSeconds, self.reportStats )
+        self._actor.schedule( 600, self.reportStats )
         self._actor.schedule( 60 * 5, self.resetTtls )
 
         return self
@@ -137,8 +136,6 @@ class StorageCoProcessor( object ):
                 self.loggingDir = resp.data[ 'global/logging_dir' ]
                 self._actor.zSet( 'logging_dir', self.loggingDir )
 
-        self._actor.delay( 60 * 5, self.refreshConfigs )
-
     ###########################################################################
     #   MODELING
     ###########################################################################
@@ -165,7 +162,7 @@ class StorageCoProcessor( object ):
         if 0 != self._actor.db.nErrors:
             self._actor.log( "Inserts dropped since last report: %s" % self._actor.db.nErrors )
             self._actor.db.nErrors = 0
-        self._actor.delay( self.statFrameSeconds, self.reportStats )
+        
 
     def ingestStatement( self, statement ):
         stmt = self._actor.db.prepare( statement )
@@ -176,7 +173,7 @@ class StorageCoProcessor( object ):
         
         if self.identmanager is not None:
             ttls = self.org_ttls.get( oid, None )
-            if ttls is None:
+        if ttls is None:
                 res = self.identmanager.request( 'get_org_info', { 'oid' : oid } )
                 if res.isSuccess and 0 != len( res.data[ 'orgs' ] ):
                     self.org_ttls[ oid ] = res.data[ 'orgs' ][ 0 ][ 2 ]

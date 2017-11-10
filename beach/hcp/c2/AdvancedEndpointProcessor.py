@@ -620,3 +620,23 @@ class AdvancedEndpointProcessor( Actor ):
                     pass
             return ( True, )
         return ( False, 'sensor not online' )
+
+# Uncomment below to perform memory performance analysis.
+# from guppy import hpy 
+# h = hpy()
+# cnt = 1
+# def printProfile():
+#     global cnt
+#     global h
+#     if cnt == 1:
+#         h.setrelheap()
+
+#     with open( '/tmp/heap___%s' % os.getpid(), 'a' ) as f:
+#         tmpheap = h.heap()
+#         f.write( str( tmpheap ) )
+#         f.write( "\n" )
+#         f.write( str( tmpheap.byrcs ) )
+#         f.write( "\n\n" )
+#     gevent.spawn_later( 60 * 30, printProfile )
+#     cnt += 1
+# gevent.spawn_later( 60 * 30, printProfile )

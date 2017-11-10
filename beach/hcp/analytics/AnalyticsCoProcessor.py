@@ -112,7 +112,6 @@ class AnalyticsCoProcessor( object ):
                                              nRetries = 2 )
 
         self.conf = {}
-        self.reloadRules( None )
         self._actor.schedule( 60 * 60, self.reloadRules, None )
 
         self.invTtl = parameters.get( 'inv_ttl', 60 * 60 * 24 )
