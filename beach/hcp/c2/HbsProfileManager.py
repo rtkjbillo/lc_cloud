@@ -22,10 +22,10 @@ class TaskingRule( object ):
         self._aid = AgentId( aid )
         self._compiledProfile = compiledProfile
         self._h = h
-        self._tag = tag or ''
+        self._tag = tag.strip() or ''
 
     def isMatch( self, aid ):
-        if AgentId( aid ).inSubnet( self._aid ):
+        if aid.inSubnet( self._aid ):
             return True
         return False
 
@@ -53,7 +53,7 @@ class HbsProfileManager( Actor ):
 
     def sync( self, msg ):
         changes = {}
-        aid = msg.data[ 'aid' ]
+        aid = AgentId( msg.data[ 'aid' ] )
         tags = msg.data[ 'tags' ]
         currentProfileHash = msg.data[ 'hprofile' ].encode( 'hex' )
 
@@ -70,8 +70,9 @@ class HbsProfileManager( Actor ):
                 elif tag in tags:
                     match = rule.getInfo()
                     break
-        
-        if match is not None and match[ 1 ] != currentProfileHash:
+        if match is None:
+            self.log( "no profile found for %s" % aid )
+        elif match[ 1 ] != currentProfileHash:
             changes[ 'profile' ] = match
 
         return ( True, { 'changes' : changes } )
@@ -79,7 +80,7 @@ class HbsProfileManager( Actor ):
     def reloadProfiles( self, msg = None ):
         newProfiles = []
         for row in self.db.execute( self.loadProfiles.bind( tuple() ) ):
-            newProfiles.append( TaskingRule( self, row[ 0 ], row[ 1 ], row[ 2 ], row[ 3 ] ) )
+            newProfiles.append( TaskingRule( self, row[ 0 ], str( row[ 1 ] ), row[ 2 ], row[ 3 ] ) )
 
         self.profiles = newProfiles
 
