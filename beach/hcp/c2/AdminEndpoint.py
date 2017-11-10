@@ -420,7 +420,7 @@ class AdminEndpoint( Actor ):
     def cmd_hbs_addProfile( self, msg ):
         request = msg.data
         mask = AgentId( request[ 'mask' ] ).asString()
-        compliance = request[ 'module_configs' ]
+        c = request[ 'module_configs' ]
         oc = request.get( 'original', None )
         tag = request.get( 'tag', '' ).lower()
         isValidConfig = False
