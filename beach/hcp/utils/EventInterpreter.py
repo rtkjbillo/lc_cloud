@@ -161,12 +161,15 @@ class EventInterpreter( object ):
         return _x_( self.event, '?/base.TIMESTAMP' )
 
 class EventDSL( object ):
-    def __init__( self, event, isCaseSensitive = False ):
-        self._event = event
+    __slots__ = [ 'data', 'mtd', 'dataType', '_isCaseSensitive', '_reFlags', '_ops' ]
+
+    def __init__( self, event, mtd, isCaseSensitive = False ):
+        self.data = event
+        self.mtd = mtd
         try:
-            self._eventType = event.keys()[ 0 ]
+            self.dataType = event.keys()[ 0 ]
         except:
-            self._eventType = None
+            self.dataType = None
         self._isCaseSensitive = isCaseSensitive
         self._reFlags = 0 if isCaseSensitive else re.IGNORECASE
         self._ops = { 'path' : lambda e, v: _x_( e, '?/base.FILE_PATH' ) == v,
@@ -202,7 +205,7 @@ class EventDSL( object ):
                       'isOutgoing' : lambda e, v: ( 1 == _x_( e, 'base.IS_OUTGOING' ) ) is v }
 
     def asJSON( self ):
-        return _sanitizeJson( self._event )
+        return _sanitizeJson( self.data )
 
     def atom( self ):
         return normalAtom( _x_( self.event, '?/hbs.THIS_ATOM' ) )
@@ -211,8 +214,8 @@ class EventDSL( object ):
         return normalAtom( _x_( self.event, '?/hbs.PARENT_ATOM' ) )
 
     def Event( self, **kwargs ):
-        if isinstance( self._event, dict ):
-            e = self._event
+        if isinstance( self.data, dict ):
+            e = self.data
             for k, v in kwargs.iteritems():
                 if k not in self._ops:
                     raise Exception( 'Detection Lambda operation "%s" invalid!' % k )
@@ -223,8 +226,8 @@ class EventDSL( object ):
                     print( traceback.format_exc() )
                     return False
             return True
-        elif isinstance( self._event, list ):
-            for e in self._event:
+        elif isinstance( self.data, list ):
+            for e in self.data:
                 isMatch = True
                 for k, v in kwargs.iteritems():
                     if k not in self._ops:
@@ -242,63 +245,75 @@ class EventDSL( object ):
             return False
 
     def Process( self, **kwargs ):
-        if self._eventType in ( 'notification.EXISTING_PROCESS', 
+        if self.dataType in ( 'notification.EXISTING_PROCESS', 
                                 'notification.NEW_PROCESS' ):
             return self.Event( **kwargs )
-        elif self._eventType in ( 'notification.NETWORK_SUMMARY', ):
-            subEvent = _x_( self._event, '?/base.PROCESS' )
+        elif self.dataType in ( 'notification.NETWORK_SUMMARY', ):
+            subEvent = _x_( self.data, '?/base.PROCESS' )
             if subEvent is None:
                 return False
-            tmpEvent = EventDSL( { "_" : subEvent } )
+            tmpEvent = EventDSL( { "_" : subEvent }, self.mtd )
             return tmpEvent.Event( **kwargs )
         return False
 
     def ParentProcess( self, **kwargs ):
-        if self._eventType in ( 'notification.EXISTING_PROCESS', 
+        if self.dataType in ( 'notification.EXISTING_PROCESS', 
                                 'notification.NEW_PROCESS' ):
-            subEvent = self._event.get( 'base.PARENT', None )
+            subEvent = self.data.get( 'base.PARENT', None )
             if subEvent is None:
                 return False
-            tmpEvent = EventDSL( { "_" : subEvent } )
+            tmpEvent = EventDSL( { "_" : subEvent }, self.mtd )
             return tmpEvent.Event( **kwargs )
-        elif self._eventType in ( 'notification.NETWORK_SUMMARY', ):
-            subEvent = _x_( self._event, '?/base.PROCESS/base.PARENT' )
+        elif self.dataType in ( 'notification.NETWORK_SUMMARY', ):
+            subEvent = _x_( self.data, '?/base.PROCESS/base.PARENT' )
             if subEvent is None:
                 return False
-            tmpEvent = EventDSL( { "_" : subEvent } )
+            tmpEvent = EventDSL( { "_" : subEvent }, self.mtd )
         return False
 
     def Dns( self, **kwargs ):
-        if 'notification.DNS_REQUEST' == self._eventType:
+        if 'notification.DNS_REQUEST' == self.dataType:
             return self.Event( **kwargs )
         return False
 
     def Hash( self, **kwargs ):
-        if self._eventType in ( 'notification.CODE_IDENTITY', 
+        if self.dataType in ( 'notification.CODE_IDENTITY', 
                                 'notification.ONGOING_IDENTITY' ):
             return self.Event( **kwargs )
         return False
 
     def NetworkSummary( self, **kwargs ):
-        if 'notification.NETWORK_SUMMARY' == self._eventType:
+        if 'notification.NETWORK_SUMMARY' == self.dataType:
             return self.Event( **kwargs )
         return False
 
     def Connections( self, **kwargs ):
-        if self._eventType in ( 'notification.NETWORK_SUMMARY', ):
-            subEvent = _xm_( self._event, '?/base.PROCESS/base.NETWORK_ACTIVITY' )
+        if self.dataType in ( 'notification.NETWORK_SUMMARY', ):
+            subEvent = _xm_( self.data, '?/base.PROCESS/base.NETWORK_ACTIVITY' )
             if subEvent is None:
                 return False
-            tmpEvent = EventDSL( subEvent )
+            tmpEvent = EventDSL( subEvent, self.mtd )
             return tmpEvent.Event( **kwargs )
         return False
 
     def UserObserved( self, **kwargs ):
-        if 'notification.USER_OBSERVED' == self._eventType:
+        if 'notification.USER_OBSERVED' == self.dataType:
             return self.Event( **kwargs )
         return False
 
     def StartingUp( self, **kwargs ):
-        if 'notification.STARTING_UP' == self._eventType:
+        if 'notification.STARTING_UP' == self.dataType:
+            return self.Event( **kwargs )
+        return False
+
+    def Sync( self, **kwargs ):
+        if 'notification.SYNC' == self.dataType:
+            return self.Event( **kwargs )
+        return False
+
+    def Detection( self, name = None, **kwargs ):
+        if self.dataType.startswith( 'detection_' ):
+            if name is not None and self.dataType != ( 'detection_%s' % name ):
+                return False
             return self.Event( **kwargs )
         return False

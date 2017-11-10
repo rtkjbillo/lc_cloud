@@ -333,7 +333,7 @@ if __name__ == '__main__':
     if 0 == os.system( 'unzip %s -d %s > /dev/null' % ( os.path.join( tmpSensorDir, 'sensor_pack.zip' ), tmpSensorDir ) ):
         printSuccess( "Sensor pack uncompressed." )
     else:
-        printFailure( "Failed to uncompress sensor pack." )
+        printFailure( "Failed to uncompress sensor pack: %s." % traceback.format_exc() )
 
     currentDir = os.getcwd()
     os.chdir( tmpSensorDir )

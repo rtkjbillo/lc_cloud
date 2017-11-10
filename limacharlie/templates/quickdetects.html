@@ -1,28 +1,11 @@
 $def with ( rules, is_admin )
-$var title = 'Detect Lambdas'
+$var title = 'Detection & Response'
 
 
 $if is_admin:
     <div class="mdl-card mdl-cell mdl-cell--4-col mdl-shadow--4dp std_height">
       <div class="mdl-card__title">
-        <h4 class="mdl-card__title-text">Add Lambda</h4>
-        <button class="mdl-button mdl-js-button mdl-js-ripple-effect help-dialog" style="position: absolute; right: 0;">
-          <div>
-            <p>
-              Add a lambda to the live stream of data.
-            </p>
-            <p>
-              Valid rule instructions:
-            </p>
-            <p>
-              Valid action instructions:
-            </p>
-            <p>
-              The name specified will be used to uniquely identify the lambda. Use it in the Remove panel.
-            </p>
-          </div>
-          <i class="material-icons">help</i>
-        </button>
+        <h4 class="mdl-card__title-text">Add Rule</h4>
       </div>
       <div class="mdl-card__supporting-text" style="position: relative;">
         <form method="POST" id="form_add_detect">
@@ -33,7 +16,7 @@ $if is_admin:
             <br/>
             <div class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label" style="width: 100%;">
                 <input class="mdl-textfield__input" type="text" id="ruleToAdd" name="ruleToAdd"/>
-                <label class="mdl-textfield__label" for="ruleToAdd">Rule</label>
+                <label class="mdl-textfield__label" for="ruleToAdd">Matching</label>
             </div>
             <br/>
             <div class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label" style="width: 100%;">
@@ -52,15 +35,7 @@ $if is_admin:
 
     <div class="mdl-card mdl-cell mdl-cell--4-col mdl-shadow--4dp std_height">
       <div class="mdl-card__title">
-        <h4 class="mdl-card__title-text">Remove Lambda</h4>
-        <button class="mdl-button mdl-js-button mdl-js-ripple-effect help-dialog" style="position: absolute; right: 0;">
-          <div>
-            <p>
-              Remove an active lambda by name.
-            </p>
-          </div>
-          <i class="material-icons">help</i>
-        </button>
+        <h4 class="mdl-card__title-text">Remove Rule</h4>
       </div>
       <div class="mdl-card__supporting-text" style="position: relative; ">
         <form method="POST" id="form_del_detect">
@@ -80,7 +55,7 @@ $if is_admin:
 
 <div class="mdl-card mdl-cell mdl-cell--12-col mdl-shadow--4dp">
   <div class="mdl-card__title">
-    <h4 class="mdl-card__title-text">Active Lambdas</h4>
+    <h4 class="mdl-card__title-text">Active Rule</h4>
   </div>
   <div class="mdl-card__supporting-text" style="position: relative; ">
     <table style="width: 100%;" class="mdl-data-table mdl-js-data-table mdl-shadow--2dp">

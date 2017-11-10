@@ -39,6 +39,7 @@ class CassDb( object ):
         self.dbname = dbname
         self.nSuccess = 0
         self.nErrors = 0
+        self.nActive = 0
         self.consistency = ConsistencyLevel.ONE if consistency is None else consistency
         self.cluster = Cluster( url, 
                                 control_connection_timeout = 30.0, 
@@ -51,11 +52,13 @@ class CassDb( object ):
         self.shutdown()
 
     def _logError( self, exception, failureCallback, query, params ):
+        self.nActive -= 1
         self.nErrors += 1
         if failureCallback is not None:
             failureCallback( query, params )
 
     def _logSuccess( self, rows ):
+        self.nActive -= 1
         self.nSuccess += 1
 
     def execute( self, query, params = tuple() ):
@@ -103,6 +106,7 @@ class CassDb( object ):
                 p = ValueSequence( p )
             realParams.append( p )
 
+        self.nActive += 1
         future = self.cur.execute_async( query, realParams )
         future.add_callbacks( callback = self._logSuccess, 
                               errback = self._logError,
@@ -122,3 +126,6 @@ class CassDb( object ):
 
     def timeToMsTs( self, t ):
         return ( t - epoch ).total_seconds() * 1000.0
+
+    def isActive( self ):
+        return 0 == self.nActive

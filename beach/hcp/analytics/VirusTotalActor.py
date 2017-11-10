@@ -29,7 +29,7 @@ class VirusTotalActor ( Actor ):
         self.ttl = parameters.get( 'ttl', ( 60 * 60 * 24 * 7 ) )
 
         if self.key is None:
-            self.refreshCredentials()
+            self.schedule( 60, self.refreshCredentials )
             self.log( 'got virustotal key from deployment manager' )
         else:
             self.log( 'got virustotal key from parameters' )
@@ -61,8 +61,6 @@ class VirusTotalActor ( Actor ):
             elif oldKey != self.key:
                 self.log( 'new credentials' )
                 self.vt = virustotal.VirusTotal( self.key, limit_per_min = self.qpm )
-
-        self.delay( 60, self.refreshCredentials )
 
     def getReportFromCache( self, fileHash ):
         report = False

@@ -142,19 +142,19 @@ class EventObjectExtractor:
     @classmethod
     def _addObj( cls, root, objects, o, oType ):
         if type( o ) is not int:
-            if o is None or 0 == len( o ) or 10240 < len( o ):
+            if o is None or 0 == len( o ) or 102400 < len( o ):
                 raise InvalidObjectException()
         objects[ 'obj' ].setdefault( oType, Set() ).add( o )
 
     @classmethod
     def _addRel( cls, root, objects, parent, parentType, child, childType ):
         if type( parent ) is not int:
-            if parent is None or 10240 < len( parent ):
+            if parent is None or 102400 < len( parent ):
                 raise InvalidObjectException()
             elif 0 == len( parent ):
                 return
         if type( child ) is not int:
-            if child is None or 10240 < len( parent ):
+            if child is None or 102400 < len( parent ):
                 raise InvalidObjectException()
             elif 0 == len( child ):
                 return

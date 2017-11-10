@@ -692,6 +692,12 @@ class HcpCli ( cmd.Cmd ):
                              required = True,
                              help = 'path to the file containing the config',
                              dest = 'config' )
+        parser.add_argument( '-t', '--tag',
+                             type = str,
+                             required = False,
+                             default = '',
+                             help = 'tag required by the sensor for this profile to apply',
+                             dest = 'tag' )
         arguments = self.parse( parser, s )
 
         if arguments is not None:

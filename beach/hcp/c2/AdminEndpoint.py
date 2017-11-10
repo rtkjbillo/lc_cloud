@@ -37,6 +37,11 @@ class AdminEndpoint( Actor ):
     def init( self, parameters, resources ):
         self.symbols = self.importLib( '../Symbols', 'Symbols' )()
         self.db = CassDb( parameters[ 'db' ], 'hcp_analytics' )
+
+        self.moduleUpdatePending = False
+        self.enrollmentUpdatePending = False
+        self.profileUpdatePending = False
+
         self.handle( 'ping', self.ping )
         self.handle( 'hcp.get_agent_states', self.cmd_hcp_getAgentStates )
         self.handle( 'hcp.get_taskings', self.cmd_hcp_getTaskings )
@@ -69,6 +74,31 @@ class AdminEndpoint( Actor ):
 
     def ping( self, msg ):
         return ( True, { 'pong' : time.time() } )
+
+    def scheduleModuleUpdate( self, inSeconds ):
+        self.moduleUpdatePending = True
+        self.delay( inSeconds, self._applyPendingUpdates )
+
+    def scheduleEnrollmentUpdate( self, inSeconds ):
+        self.enrollmentUpdatePending = True
+        self.delay( inSeconds, self._applyPendingUpdates )
+
+    def scheduleProfileUpdate( self, inSeconds ):
+        self.profileUpdatePending = True
+        self.delay( inSeconds, self._applyPendingUpdates )
+
+    # This is used to buffer pending updates whe multiple
+    # one are done in a row.
+    def _applyPendingUpdates( self ):
+        if self.moduleUpdatePending:
+            self.moduleUpdatePending = False
+            self.moduleTasking.broadcast( 'reload' )
+        if self.enrollmentUpdatePending:
+            self.enrollmentUpdatePending = False
+            self.enrollments.broadcast( 'reload' )
+        if self.profileUpdatePending:
+            self.profileUpdatePending = False
+            self.hbsProfiles.broadcast( 'reload' )
 
     @audited
     def cmd_hcp_getAgentStates( self, msg ):
@@ -143,7 +173,7 @@ class AdminEndpoint( Actor ):
         self.db.execute( 'INSERT INTO hcp_module_tasking ( aid, mid, mhash ) VALUES ( %s, %s, %s )',
                          ( mask.asString(), moduleid, h ) )
 
-        self.delay( 5, self.moduleTasking.broadcast, 'reload', {} )
+        self.scheduleModuleUpdate( 30 )
 
         return ( True, )
 
@@ -177,7 +207,7 @@ class AdminEndpoint( Actor ):
                     self.db.execute( 'DELETE FROM hcp_modules WHERE mid = %s AND mhash = %s', ( mid, mhash ) )
 
 
-        self.delay( 5, self.moduleTasking.broadcast, 'reload', {} )
+        self.scheduleModuleUpdate( 30 )
         
         return ( True, )
 
@@ -270,7 +300,7 @@ class AdminEndpoint( Actor ):
         self.db.execute( 'INSERT INTO hcp_installers ( oid, iid, ihash, description, data, created ) VALUES ( %s, %s, %s, %s, %s, dateOf( now() ) )',
                          ( oid, iid, installerHash, description, bytearray( installer ) ) )
 
-        self.delay( 5, self.enrollments.broadcast, 'reload', {} )
+        self.scheduleEnrollmentUpdate( 30 )
 
         return ( True, { 'oid' : oid, 'iid' : iid, 'description' : description, 'hash' : installerHash } )
 
@@ -290,7 +320,7 @@ class AdminEndpoint( Actor ):
             self.db.execute( 'DELETE FROM hcp_installers WHERE oid = %s',
                              ( oid, ) )
 
-        self.delay( 5, self.enrollments.broadcast, 'reload', {} )
+        self.scheduleEnrollmentUpdate( 30 )
 
         return ( True, )
 
@@ -337,7 +367,7 @@ class AdminEndpoint( Actor ):
         self.db.execute( 'INSERT INTO hcp_whitelist ( oid, iid, created, bootstrap, description, tags ) VALUES ( %s, %s, dateOf( now() ), %s, %s, %s )',
                          ( oid, iid, bootstrap, description, tags ) )
 
-        self.delay( 5, self.enrollments.broadcast, 'reload', {} )
+        self.scheduleEnrollmentUpdate( 30 )
 
         return ( True, { 'oid' : oid, 'iid' : iid } )
 
@@ -353,7 +383,7 @@ class AdminEndpoint( Actor ):
             self.db.execute( 'DELETE FROM hcp_whitelist WHERE oid = %s',
                              ( oid, ) )
 
-        self.delay( 5, self.enrollments.broadcast, 'reload', {} )
+        self.scheduleEnrollmentUpdate( 30 )
 
         return ( True, )
 
@@ -392,6 +422,7 @@ class AdminEndpoint( Actor ):
         mask = AgentId( request[ 'mask' ] ).asString()
         c = request[ 'module_configs' ]
         oc = request.get( 'original', None )
+        tag = request.get( 'tag', '' ).lower()
         isValidConfig = False
         profileError = ''
         if oc is None:
@@ -428,13 +459,13 @@ class AdminEndpoint( Actor ):
                     profileError = 'config did not evaluate as an rList: %s' % type( profile )
 
         if isValidConfig:
-            self.db.execute( 'INSERT INTO hbs_profiles ( aid, cprofile, oprofile, hprofile ) VALUES ( %s, %s, %s, %s )',
-                             ( mask, bytearray( c ), oc, configHash ) )
+            self.db.execute( 'INSERT INTO hbs_profiles ( aid, tag, cprofile, oprofile, hprofile ) VALUES ( %s, %s, %s, %s, %s )',
+                             ( mask, tag, bytearray( c ), oc, configHash ) )
             response = ( True, )
         else:
             response = ( False, profileError )
 
-        self.delay( 5, self.hbsProfiles.broadcast, 'reload', {} )
+        self.scheduleProfileUpdate( 30 )
 
         return response
 
@@ -446,7 +477,7 @@ class AdminEndpoint( Actor ):
         self.db.execute( 'DELETE FROM hbs_profiles WHERE aid = %s',
                          ( mask, ) )
 
-        self.delay( 5, self.hbsProfiles.broadcast, 'reload', {} )
+        self.scheduleProfileUpdate( 30 )
 
         return ( True, )
 

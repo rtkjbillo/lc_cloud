@@ -58,6 +58,16 @@ class SensorContext( object ):
                                          'by' : 'QuickDetectHost' } )
         return True
 
+    def untag( self, tag, ttl = ( 60 * 60 * 24 * 365 ) ):
+        if not self.isTagged( tag ):
+            self._actor.log( "sent for untagging: %s" % tag )
+            self._actor.tagging.shoot( 'del_tags', 
+                                       { 'tag' : tag, 
+                                         'ttl' : ttl, 
+                                         'sid' : self.aid.sensor_id, 
+                                         'by' : 'QuickDetectHost' } )
+        return True
+
     def isTagged( self, tag ):
         return tag.lower() in self.routing[ 'tags' ]
 

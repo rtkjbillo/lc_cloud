@@ -28,6 +28,7 @@ import re
 import dateutil.parser
 AgentId = Actor.importLib( 'utils/hcp_helpers', 'AgentId' )
 _x_ = Actor.importLib( 'utils/hcp_helpers', '_x_' )
+normalAtom = Actor.importLib( 'utils/hcp_helpers', 'normalAtom' )
 InvestigationNature = Actor.importLib( 'utils/hcp_helpers', 'InvestigationNature' )
 InvestigationConclusion = Actor.importLib( 'utils/hcp_helpers', 'InvestigationConclusion' )
 ObjectTypes = Actor.importLib( 'utils/ObjectsDb', 'ObjectTypes' )
@@ -402,7 +403,7 @@ class RepInstance( object ):
                                                                             "pretext" : "Result from *%s* on *%s*" % ( str( ctx.cmd[ 2 : ] ), AgentId( dest ).sensor_id ),
                                                                             "fallback" : "received task response",
                                                                             "mrkdwn_in" : [ "text", "pretext" ],
-                                                                            "fields" : [ { "link" : "%s/explore?atid=%s" % ( self.actor.uiDomain, uuid.UUID( bytes = atom ) ) } ] } ] )
+                                                                            "fields" : [ { "link" : "%s/explore?atid=%s" % ( self.actor.uiDomain, normalAtom( atom ) ) } ] } ] )
                         except IndexError:
                             time.sleep( 1 )
                 elif taskFuture.wasReceived:
@@ -536,7 +537,7 @@ class RepInstance( object ):
                 if ( type(o) is str or type(o) is unicode ) and "\x00" in o: raise Exception()
                 json.dumps( o )
             except:
-                o = base64.b64encode( o )
+                o = o.encode( 'hex' )
 
         return o
 
@@ -624,7 +625,7 @@ class RepInstance( object ):
         message.append( 'Summary: %s.' % detect[ 'summary' ] )
         message.append( 'Link to sensor: %s' % ' '.join( [ ( '%s/sensor?sid=%s' % ( self.actor.uiDomain, x.sensor_id ) ) for x in sources ] ) )
         if atom is not None:
-            message.append( 'Link to event: %s/explore?atid=%s' % ( self.actor.uiDomain, uuid.UUID( bytes = atom ) ) )
+            message.append( 'Link to event: %s/explore?atid=%s' % ( self.actor.uiDomain, normalAtom( atom ) ) )
         detectAttachment = { "text" : self.prettyJson( detect[ 'detect' ] ), 
                              "fallback" : "Detection Data",
                              "mrkdwn_in": [ "text", "pretext" ] }

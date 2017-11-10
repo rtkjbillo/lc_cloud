@@ -17,22 +17,29 @@ CassDb = Actor.importLib( 'utils/hcp_databases', 'CassDb' )
 AgentId = Actor.importLib( 'utils/hcp_helpers', 'AgentId' )
 
 class TaskingRule( object ):
-    def __init__( self, parent, aid, compiledProfile, h ):
+    def __init__( self, parent, aid, tag, compiledProfile, h ):
         self._parent = parent
         self._aid = AgentId( aid )
         self._compiledProfile = compiledProfile
         self._h = h
+        self._tag = tag or ''
 
     def isMatch( self, aid ):
-        if not AgentId( aid ).inSubnet( self._aid ):
-            return False
+        if AgentId( aid ).inSubnet( self._aid ):
+            return True
+        return False
+
+    def getInfo( self ):
         return ( self._compiledProfile, self._h )
+
+    def getTag( self ):
+        return self._tag
 
 class HbsProfileManager( Actor ):
     def init( self, parameters, resources ):
         self.db = CassDb( parameters[ 'db' ], 'hcp_analytics' )
 
-        self.loadProfiles = self.db.prepare( 'SELECT aid, cprofile, hprofile FROM hbs_profiles' )
+        self.loadProfiles = self.db.prepare( 'SELECT aid, tag, cprofile, hprofile FROM hbs_profiles' )
 
         self.profiles = []
 
@@ -47,21 +54,32 @@ class HbsProfileManager( Actor ):
     def sync( self, msg ):
         changes = {}
         aid = msg.data[ 'aid' ]
+        tags = msg.data[ 'tags' ]
         currentProfileHash = msg.data[ 'hprofile' ].encode( 'hex' )
 
+        # The algorithm here is that we return the first profile to match.
+        # However, if a match has a tag match as well, it takes priority and
+        # we return that first tag-match instead (more precise match).
+        match = None
         for rule in self.profiles:
-            match = rule.isMatch( aid )
-            if match is not False:
-                if match[ 1 ] != currentProfileHash:
-                    changes[ 'profile' ] = match
-                break
+            if rule.isMatch( aid ):
+                tag = rule.getTag()
+                if '' == tag:
+                    if match is None:
+                        match = rule.getInfo()
+                elif tag in tags:
+                    match = rule.getInfo()
+                    break
+        
+        if match is not None and match[ 1 ] != currentProfileHash:
+            changes[ 'profile' ] = match
 
         return ( True, { 'changes' : changes } )
 
     def reloadProfiles( self, msg = None ):
         newProfiles = []
         for row in self.db.execute( self.loadProfiles.bind( tuple() ) ):
-            newProfiles.append( TaskingRule( self, row[ 0 ], row[ 1 ], row[ 2 ] ) )
+            newProfiles.append( TaskingRule( self, row[ 0 ], row[ 1 ], row[ 2 ], row[ 3 ] ) )
 
         self.profiles = newProfiles
 

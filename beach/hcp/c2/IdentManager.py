@@ -239,7 +239,6 @@ class IdentManager( Actor ):
                          ( oid, name, ttl_events, ttl_long_obj, ttl_short_obj, ttl_atoms, ttl_detections ) )
 
         self.audit.shoot( 'record', { 'oid' : self.admin_oid, 'etype' : 'org_create', 'msg' : 'Org %s ( %s ) created by %s.' % ( name, oid, byUser ) } )
-        self.enrollments.broadcast( 'reload' )
 
         return ( True, { 'is_created' : True, 'oid' : oid } )
 
