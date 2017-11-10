@@ -17,12 +17,14 @@ import sys
 import yaml
 import multiprocessing
 
-CPU_CORES = multiprocessing.cpu_count()
-
 REPO_ROOT = os.path.join( os.path.dirname( os.path.abspath( __file__ ) ), '..', '..' )
 
 with open( os.path.join( REPO_ROOT, '..', 'lc_appliance_cluster.yaml' ), 'rb' ) as f:
     SCALE_DB = yaml.load( f.read() )[ 'seeds' ]
+
+NUM_NODES = len( SCALE_DB )
+CPU_CORES = multiprocessing.cpu_count()
+REDUNDANCY = 2
 
 #######################################
 # DeploymentManager
@@ -42,7 +44,7 @@ with open( os.path.join( REPO_ROOT, '..', 'lc_appliance_cluster.yaml' ), 'rb' ) 
 #    n number of items awaiting ingestion.
 #######################################
 Patrol( 'DeploymentManager',
-        initialInstances = len( SCALE_DB ),
+        initialInstances = REDUNDANCY,
         scalingFactor = 5000,
         actorArgs = ( 'c2/DeploymentManager',
                       [ 'c2/deploymentmanager/1.0' ] ),
@@ -80,7 +82,7 @@ Patrol( 'DeploymentManager',
 # Parameters:
 #######################################
 Patrol( 'SensorDirectory',
-        initialInstances = len( SCALE_DB ),
+        initialInstances = REDUNDANCY,
         scalingFactor = 10000,
         actorArgs = ( 'c2/SensorDirectory',
                       [ 'c2/sensordir/1.0' ] ),
@@ -114,7 +116,7 @@ Patrol( 'SensorDirectory',
 #    n number of items awaiting ingestion.
 #######################################
 Patrol( 'TaggingManager',
-        initialInstances = len( SCALE_DB ),
+        initialInstances = REDUNDANCY,
         scalingFactor = 5000,
         actorArgs = ( 'c2/TaggingManager',
                       [ 'c2/taggingmanager/1.0' ] ),
@@ -148,7 +150,7 @@ Patrol( 'TaggingManager',
 #    n number of items awaiting ingestion.
 #######################################
 Patrol( 'StateUpdater',
-        initialInstances = len( SCALE_DB ),
+        initialInstances = REDUNDANCY,
         scalingFactor = 1000,
         actorArgs = ( 'c2/StateUpdater',
                       [ 'c2/stateupdater/1.0',
@@ -178,7 +180,7 @@ Patrol( 'StateUpdater',
 #    n number of items awaiting ingestion.
 #######################################
 Patrol( 'AuditManager',
-        initialInstances = len( SCALE_DB ),
+        initialInstances = REDUNDANCY,
         scalingFactor = 1000,
         actorArgs = ( 'c2/AuditManager',
                       'c2/audit/1.0' ),
@@ -213,7 +215,7 @@ Patrol( 'AuditManager',
 #    to verify enrolled sensor identities.
 #######################################
 Patrol( 'EnrollmentManager',
-        initialInstances = len( SCALE_DB ),
+        initialInstances = REDUNDANCY,
         scalingFactor = 1000,
         actorArgs = ( 'c2/EnrollmentManager',
                       'c2/enrollments/1.0' ),
@@ -238,7 +240,7 @@ Patrol( 'EnrollmentManager',
 # Parameters:
 #######################################
 Patrol( 'TaskingProxy',
-        initialInstances = len( SCALE_DB ),
+        initialInstances = REDUNDANCY,
         scalingFactor = 1000,
         actorArgs = ( 'c2/TaskingProxy',
                       [ 'c2/taskingproxy/1.0' ] ),
@@ -270,7 +272,7 @@ Patrol( 'TaskingProxy',
 #    n number of items awaiting ingestion.
 #######################################
 Patrol( 'ModuleManager',
-        initialInstances = len( SCALE_DB ),
+        initialInstances = REDUNDANCY,
         scalingFactor = 1000,
         actorArgs = ( 'c2/ModuleManager',
                       [ 'c2/modulemanager/1.0' ] ),
@@ -301,7 +303,7 @@ Patrol( 'ModuleManager',
 #    n number of items awaiting ingestion.
 #######################################
 Patrol( 'AdminEndpoint',
-        initialInstances = len( SCALE_DB ),
+        initialInstances = REDUNDANCY,
         scalingFactor = 5000,
         actorArgs = ( 'c2/AdminEndpoint',
                       'c2/admin/1.0' ),
@@ -337,7 +339,7 @@ Patrol( 'AdminEndpoint',
 #    n number of items awaiting ingestion.
 #######################################
 Patrol( 'HbsProfileManager',
-        initialInstances = len( SCALE_DB ),
+        initialInstances = REDUNDANCY,
         scalingFactor = 1000,
         actorArgs = ( 'c2/HbsProfileManager',
                       [ 'c2/hbsprofilemanager/1.0' ] ),
@@ -367,7 +369,7 @@ Patrol( 'HbsProfileManager',
 #    n number of items awaiting ingestion.
 #######################################
 Patrol( 'IdentManager',
-        initialInstances = len( SCALE_DB ),
+        initialInstances = REDUNDANCY,
         scalingFactor = 5000,
         actorArgs = ( 'c2/IdentManager',
                       [ 'c2/identmanager/1.0' ] ),
@@ -408,7 +410,7 @@ Patrol( 'IdentManager',
 #    that can be tasked.
 #######################################
 Patrol( 'AutoTasking',
-        initialInstances = len( SCALE_DB ),
+        initialInstances = REDUNDANCY,
         scalingFactor = 10000,
         actorArgs = ( 'analytics/AutoTasking',
                       'analytics/autotasking/1.0' ),
@@ -459,7 +461,7 @@ Patrol( 'AutoTasking',
 # Parameters:
 #######################################
 Patrol( 'HuntsManager',
-        initialInstances = len( SCALE_DB ),
+        initialInstances = REDUNDANCY,
         scalingFactor = 10000,
         actorArgs = ( 'analytics/HuntsManager',
                       'analytics/huntsmanager/1.0' ),
@@ -491,7 +493,7 @@ Patrol( 'HuntsManager',
 #    n number of items awaiting ingestion.
 #######################################
 Patrol( 'AnalyticsModelView',
-        initialInstances = len( SCALE_DB ),
+        initialInstances = REDUNDANCY,
         scalingFactor = 1000,
         actorArgs = ( 'analytics/ModelView',
                       'models/1.0' ),
@@ -524,7 +526,7 @@ Patrol( 'AnalyticsModelView',
 # smtp_port: port of the smtp server.
 #######################################
 Patrol( 'PagingActor',
-        initialInstances = len( SCALE_DB ),
+        initialInstances = REDUNDANCY,
         scalingFactor = 10000,
         actorArgs = ( 'PagingActor',
                       'paging/1.0' ),
@@ -549,7 +551,7 @@ Patrol( 'PagingActor',
 # Parameters:
 #######################################
 Patrol( 'DataExporter',
-        initialInstances = len( SCALE_DB ),
+        initialInstances = REDUNDANCY,
         scalingFactor = 1000,
         actorArgs = ( 'analytics/DataExporter',
                       [ 'analytics/dataexporter/1.0' ] ),
@@ -578,14 +580,14 @@ Patrol( 'DataExporter',
 # valid.
 #######################################
 Patrol( 'VirusTotalActor',
-        initialInstances = len( SCALE_DB ),
+        initialInstances = REDUNDANCY,
         scalingFactor = 2000,
         actorArgs = ( 'analytics/VirusTotalActor',
                       'analytics/virustotal/1.0' ),
         actorKwArgs = {
             'resources' : { 'modeling' : 'models',
                             'deployment' : 'c2/deploymentmanager' },
-            'parameters' : { 'qpm' : ( 4 / len( SCALE_DB ) ),
+            'parameters' : { 'qpm' : ( 4 / REDUNDANCY ),
                              'ttl' : ( 60 * 60 * 24 * 30 ) },
             'secretIdent' : 'vt/8299a488-7fff-4511-a311-76e6600b4a7a',
             'trustedIdents' : [ 'analysis/01e9a19d-78e1-4c37-9a6e-37cb592e3897',
@@ -602,7 +604,7 @@ Patrol( 'VirusTotalActor',
 #
 #######################################
 Patrol( 'GeoLocationActor',
-        initialInstances = len( SCALE_DB ),
+        initialInstances = REDUNDANCY,
         scalingFactor = 10000,
         actorArgs = ( 'analytics/GeoLocationActor',
                       'analytics/geolocation/1.0' ),
@@ -628,7 +630,7 @@ Patrol( 'GeoLocationActor',
 #
 #######################################
 Patrol( 'AlexaDNS',
-        initialInstances = len( SCALE_DB ),
+        initialInstances = REDUNDANCY,
         scalingFactor = 10000,
         actorArgs = ( 'analytics/AlexaDNS',
                       'analytics/alexadns/1.0' ),
@@ -653,7 +655,7 @@ Patrol( 'AlexaDNS',
 #
 #######################################
 Patrol( 'MalwareDomains',
-        initialInstances = len( SCALE_DB ),
+        initialInstances = REDUNDANCY,
         scalingFactor = 10000,
         actorArgs = ( 'analytics/MalwareDomains',
                       'analytics/malwaredomains/1.0' ),
@@ -688,7 +690,7 @@ Patrol( 'MalwareDomains',
 # paging_dest: email addresses to page.
 #######################################
 Patrol( 'AnalyticsReporting',
-        initialInstances = len( SCALE_DB ),
+        initialInstances = REDUNDANCY,
         scalingFactor = 10000,
         actorArgs = ( 'analytics/AnalyticsReporting',
                       'analytics/reporting/1.0' ),
@@ -725,7 +727,7 @@ Patrol( 'AnalyticsReporting',
 #    n number of items awaiting ingestion.
 #######################################
 Patrol( 'BlinkModel',
-        initialInstances = len( SCALE_DB ),
+        initialInstances = REDUNDANCY,
         scalingFactor = 1000,
         actorArgs = ( 'analytics/BlinkModel',
                       'analytics/blinkmodel/1.0' ),
@@ -753,7 +755,7 @@ Patrol( 'BlinkModel',
 #    to listen on, overrides handler_address.
 #######################################
 Patrol( 'AdvancedEndpointProcessor',
-        initialInstances = len( SCALE_DB ) * CPU_CORES,
+        initialInstances = NUM_NODES * CPU_CORES,
         scalingFactor = 1000,
         actorArgs = ( 'c2/AdvancedEndpointProcessor',
                       [ 'c2/endpoint/1.0',
@@ -831,7 +833,7 @@ Patrol( 'SlackRep',
 # Parameters:.
 #######################################
 Patrol( 'WebHookOutput',
-        initialInstances = len( SCALE_DB ),
+        initialInstances = REDUNDANCY,
         scalingFactor = 10000,
         actorArgs = ( 'analytics/WebHookOutput',
                       [ 'analytics/webhookoutput/1.0',
