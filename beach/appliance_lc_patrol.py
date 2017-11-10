@@ -15,11 +15,16 @@
 import os
 import sys
 import yaml
+import multiprocessing
 
 REPO_ROOT = os.path.join( os.path.dirname( os.path.abspath( __file__ ) ), '..', '..' )
 
 with open( os.path.join( REPO_ROOT, '..', 'lc_appliance_cluster.yaml' ), 'rb' ) as f:
     SCALE_DB = yaml.load( f.read() )[ 'seeds' ]
+
+NUM_NODES = len( SCALE_DB )
+CPU_CORES = multiprocessing.cpu_count()
+REDUNDANCY = 2
 
 #######################################
 # DeploymentManager
@@ -39,7 +44,7 @@ with open( os.path.join( REPO_ROOT, '..', 'lc_appliance_cluster.yaml' ), 'rb' ) 
 #    n number of items awaiting ingestion.
 #######################################
 Patrol( 'DeploymentManager',
-        initialInstances = len( SCALE_DB ),
+        initialInstances = REDUNDANCY,
         scalingFactor = 5000,
         actorArgs = ( 'c2/DeploymentManager',
                       [ 'c2/deploymentmanager/1.0' ] ),
@@ -53,7 +58,7 @@ Patrol( 'DeploymentManager',
             'trustedIdents' : [ 'lc/0bf01f7e-62bd-4cc4-9fec-4c52e82eb903',
                                 'vt/8299a488-7fff-4511-a311-76e6600b4a7a',
                                 'paging/31d29b6a-d455-4df7-a196-aec3104f105d',
-                                'beacon/09ba97ab-5557-4030-9db0-1dbe7f2b9cfd',
+                                'advbeacon/c3c1051a-1231-487c-9d4b-1e7e46ccd586',
                                 'identmanager/f5c3a323-50e5-412a-b711-0e30d8284aa1',
                                 'slackrep/20546efe-0f84-46f2-b9ca-f17bf5997075',
                                 'hunter/8e0f55c0-6593-4747-9d02-a4937fa79517',
@@ -61,6 +66,7 @@ Patrol( 'DeploymentManager',
                                 'capabilitymanager/4fe13a22-0ca1-4e1f-aa33-20f045db2fb6',
                                 'enrollment/a3bebbb0-00e2-4345-990b-4c36a40b475e',
                                 'intake/6058e556-a102-4e51-918e-d36d6d1823db',
+                                'storage/af33b936-30cc-4285-a5d1-7c6fb453c1b9',
                                 'analysis/038528f5-5135-4ca8-b79f-d6b8ffc53bf5',
                                 'analysis/01e9a19d-78e1-4c37-9a6e-37cb592e3897',
                                 'autotasking/a6cd8d9a-a90c-42ec-bd60-0519b6fb1f64' ],
@@ -76,7 +82,7 @@ Patrol( 'DeploymentManager',
 # Parameters:
 #######################################
 Patrol( 'SensorDirectory',
-        initialInstances = len( SCALE_DB ),
+        initialInstances = REDUNDANCY,
         scalingFactor = 10000,
         actorArgs = ( 'c2/SensorDirectory',
                       [ 'c2/sensordir/1.0' ] ),
@@ -84,7 +90,7 @@ Patrol( 'SensorDirectory',
             'resources' : {},
             'parameters' : {},
             'secretIdent' : 'sensordir/3babff24-400b-4233-bcac-18f538a88fe1',
-            'trustedIdents' : [ 'beacon/09ba97ab-5557-4030-9db0-1dbe7f2b9cfd',
+            'trustedIdents' : [ 'advbeacon/c3c1051a-1231-487c-9d4b-1e7e46ccd586',
                                 'taskingproxy/794729aa-1ef5-4930-b377-48dda7b759a5',
                                 'slackrep/20546efe-0f84-46f2-b9ca-f17bf5997075',
                                 'lc/0bf01f7e-62bd-4cc4-9fec-4c52e82eb903',
@@ -110,7 +116,7 @@ Patrol( 'SensorDirectory',
 #    n number of items awaiting ingestion.
 #######################################
 Patrol( 'TaggingManager',
-        initialInstances = len( SCALE_DB ),
+        initialInstances = REDUNDANCY,
         scalingFactor = 5000,
         actorArgs = ( 'c2/TaggingManager',
                       [ 'c2/taggingmanager/1.0' ] ),
@@ -120,7 +126,7 @@ Patrol( 'TaggingManager',
             'parameters' : { 'db' : SCALE_DB },
             'secretIdent' : 'taggingmanagager/693bfd35-80ca-42e1-b0c6-44ef5b27fb59',
             'trustedIdents' : [ 'lc/0bf01f7e-62bd-4cc4-9fec-4c52e82eb903',
-                                'beacon/09ba97ab-5557-4030-9db0-1dbe7f2b9cfd',
+                                'advbeacon/c3c1051a-1231-487c-9d4b-1e7e46ccd586',
                                 'analysis/01e9a19d-78e1-4c37-9a6e-37cb592e3897',
                                 'enrollment/a3bebbb0-00e2-4345-990b-4c36a40b475e' ],
             'isIsolated' : True,
@@ -144,7 +150,7 @@ Patrol( 'TaggingManager',
 #    n number of items awaiting ingestion.
 #######################################
 Patrol( 'StateUpdater',
-        initialInstances = len( SCALE_DB ),
+        initialInstances = REDUNDANCY,
         scalingFactor = 1000,
         actorArgs = ( 'c2/StateUpdater',
                       [ 'c2/stateupdater/1.0',
@@ -153,7 +159,7 @@ Patrol( 'StateUpdater',
             'resources' : {},
             'parameters' : { 'db' : SCALE_DB },
             'secretIdent' : 'stateupdater/d3c521c6-d5c6-4726-9b0c-84d0ac356409',
-            'trustedIdents' : [ 'beacon/09ba97ab-5557-4030-9db0-1dbe7f2b9cfd' ],
+            'trustedIdents' : [ 'advbeacon/c3c1051a-1231-487c-9d4b-1e7e46ccd586' ],
             'isIsolated' : True,
             'strategy' : 'repulsion',
             'is_drainable' : True } )
@@ -174,7 +180,7 @@ Patrol( 'StateUpdater',
 #    n number of items awaiting ingestion.
 #######################################
 Patrol( 'AuditManager',
-        initialInstances = len( SCALE_DB ),
+        initialInstances = REDUNDANCY,
         scalingFactor = 1000,
         actorArgs = ( 'c2/AuditManager',
                       'c2/audit/1.0' ),
@@ -209,7 +215,7 @@ Patrol( 'AuditManager',
 #    to verify enrolled sensor identities.
 #######################################
 Patrol( 'EnrollmentManager',
-        initialInstances = len( SCALE_DB ),
+        initialInstances = REDUNDANCY,
         scalingFactor = 1000,
         actorArgs = ( 'c2/EnrollmentManager',
                       'c2/enrollments/1.0' ),
@@ -219,7 +225,7 @@ Patrol( 'EnrollmentManager',
             'parameters' : { 'db' : SCALE_DB,
                              'enrollment_token' : '595f06f1-49cf-48fe-8410-8706dc469116' },
             'secretIdent' : 'enrollment/a3bebbb0-00e2-4345-990b-4c36a40b475e',
-            'trustedIdents' : [ 'beacon/09ba97ab-5557-4030-9db0-1dbe7f2b9cfd',
+            'trustedIdents' : [ 'advbeacon/c3c1051a-1231-487c-9d4b-1e7e46ccd586',
                                 'admin/dde768a4-8f27-4839-9e26-354066c8540e',
                                 'identmanager/f5c3a323-50e5-412a-b711-0e30d8284aa1' ],
             'isIsolated' : True,
@@ -234,7 +240,7 @@ Patrol( 'EnrollmentManager',
 # Parameters:
 #######################################
 Patrol( 'TaskingProxy',
-        initialInstances = len( SCALE_DB ),
+        initialInstances = REDUNDANCY,
         scalingFactor = 1000,
         actorArgs = ( 'c2/TaskingProxy',
                       [ 'c2/taskingproxy/1.0' ] ),
@@ -266,7 +272,7 @@ Patrol( 'TaskingProxy',
 #    n number of items awaiting ingestion.
 #######################################
 Patrol( 'ModuleManager',
-        initialInstances = len( SCALE_DB ),
+        initialInstances = REDUNDANCY,
         scalingFactor = 1000,
         actorArgs = ( 'c2/ModuleManager',
                       [ 'c2/modulemanager/1.0' ] ),
@@ -274,7 +280,7 @@ Patrol( 'ModuleManager',
             'resources' : {},
             'parameters' : { 'db' : SCALE_DB },
             'secretIdent' : 'modulemanager/1ecf1cd3-044d-434d-9134-b9b2c976ccad',
-            'trustedIdents' : [ 'beacon/09ba97ab-5557-4030-9db0-1dbe7f2b9cfd',
+            'trustedIdents' : [ 'advbeacon/c3c1051a-1231-487c-9d4b-1e7e46ccd586',
                                 'admin/dde768a4-8f27-4839-9e26-354066c8540e' ],
             'isIsolated' : True,
             'strategy' : 'repulsion',
@@ -297,7 +303,7 @@ Patrol( 'ModuleManager',
 #    n number of items awaiting ingestion.
 #######################################
 Patrol( 'AdminEndpoint',
-        initialInstances = len( SCALE_DB ),
+        initialInstances = REDUNDANCY,
         scalingFactor = 5000,
         actorArgs = ( 'c2/AdminEndpoint',
                       'c2/admin/1.0' ),
@@ -333,7 +339,7 @@ Patrol( 'AdminEndpoint',
 #    n number of items awaiting ingestion.
 #######################################
 Patrol( 'HbsProfileManager',
-        initialInstances = len( SCALE_DB ),
+        initialInstances = REDUNDANCY,
         scalingFactor = 1000,
         actorArgs = ( 'c2/HbsProfileManager',
                       [ 'c2/hbsprofilemanager/1.0' ] ),
@@ -341,7 +347,7 @@ Patrol( 'HbsProfileManager',
             'resources' : {},
             'parameters' : { 'db' : SCALE_DB },
             'secretIdent' : 'hbsprofilemanager/8326405a-0698-4a91-9b30-d4ef9e4b9926',
-            'trustedIdents' : [ 'beacon/09ba97ab-5557-4030-9db0-1dbe7f2b9cfd',
+            'trustedIdents' : [ 'advbeacon/c3c1051a-1231-487c-9d4b-1e7e46ccd586',
                                 'admin/dde768a4-8f27-4839-9e26-354066c8540e' ],
             'isIsolated' : True,
             'strategy' : 'repulsion',
@@ -363,7 +369,7 @@ Patrol( 'HbsProfileManager',
 #    n number of items awaiting ingestion.
 #######################################
 Patrol( 'IdentManager',
-        initialInstances = len( SCALE_DB ),
+        initialInstances = REDUNDANCY,
         scalingFactor = 5000,
         actorArgs = ( 'c2/IdentManager',
                       [ 'c2/identmanager/1.0' ] ),
@@ -377,6 +383,8 @@ Patrol( 'IdentManager',
             'trustedIdents' : [ 'lc/0bf01f7e-62bd-4cc4-9fec-4c52e82eb903',
                                 'analysis/038528f5-5135-4ca8-b79f-d6b8ffc53bf5',
                                 'reporting/9ddcc95e-274b-4a49-a003-c952d12049b8',
+                                'storage/af33b936-30cc-4285-a5d1-7c6fb453c1b9',
+                                'advbeacon/c3c1051a-1231-487c-9d4b-1e7e46ccd586',
                                 'slackrep/20546efe-0f84-46f2-b9ca-f17bf5997075',
                                 'webhookoutput/4738d18b-4c0c-412c-89e4-b6ecb00904a1' ],
             'isIsolated' : True,
@@ -402,7 +410,7 @@ Patrol( 'IdentManager',
 #    that can be tasked.
 #######################################
 Patrol( 'AutoTasking',
-        initialInstances = len( SCALE_DB ),
+        initialInstances = REDUNDANCY,
         scalingFactor = 10000,
         actorArgs = ( 'analytics/AutoTasking',
                       'analytics/autotasking/1.0' ),
@@ -438,61 +446,11 @@ Patrol( 'AutoTasking',
                              'log_file' : './admin_cli.log' },
             'secretIdent' : 'autotasking/a6cd8d9a-a90c-42ec-bd60-0519b6fb1f64',
             'trustedIdents' : [ 'analysis/01e9a19d-78e1-4c37-9a6e-37cb592e3897',
+                                'advbeacon/c3c1051a-1231-487c-9d4b-1e7e46ccd586',
                                 'hunter/8e0f55c0-6593-4747-9d02-a4937fa79517',
                                 'slackrep/20546efe-0f84-46f2-b9ca-f17bf5997075' ],
             'isIsolated' : True,
             'strategy' : 'repulsion',
-            'is_drainable' : True } )
-
-#######################################
-# AnalyticsIntake
-# This actor receives the messages from
-# the beacons and does initial parsing
-# of components that will be of
-# interest to all analytics and then
-# forwards it on to other components.
-#######################################
-Patrol( 'AnalyticsIntake',
-        initialInstances = len( SCALE_DB ),
-        scalingFactor = 500,
-        actorArgs = ( 'analytics/AnalyticsIntake',
-                      'analytics/intake/1.0' ),
-        actorKwArgs = {
-            'resources' : { 'deployment' : 'c2/deploymentmanager',
-                            'stateless' : 'analytics/stateless/intake',
-                            'stateful' : 'analytics/stateful/intake',
-                            'modeling' : 'analytics/modeling/intake',
-                            'investigation' : 'analytics/investigation/intake',
-                            'relation_builder' : 'analytics/async/relbuilder' },
-            'parameters' : {},
-            'secretIdent' : 'intake/6058e556-a102-4e51-918e-d36d6d1823db',
-            'trustedIdents' : [ 'beacon/09ba97ab-5557-4030-9db0-1dbe7f2b9cfd' ],
-            'strategy' : 'repulsion',
-            'isIsolated' : True,
-            'is_drainable' : True } )
-
-#######################################
-# AnalyticsInvestigation
-# This actor responsible for sending
-# messages to the actors interested in
-# specific investigations.
-# Parameters:
-# ttl: the number of seconds the data
-#    flow for an investigation remains
-#    open after last data seen.
-#######################################
-Patrol( 'AnalyticsInvestigation',
-        initialInstances = len( SCALE_DB ),
-        scalingFactor = 1000,
-        actorArgs = ( 'analytics/AnalyticsInvestigation',
-                      'analytics/investigation/intake/1.0' ),
-        actorKwArgs = {
-            'resources' : { 'investigations' : 'analytics/inv_id/%s' },
-            'parameters' : { 'ttl' : ( 60 * 60 * 24 ) },
-            'secretIdent' : 'analysis/01e9a19d-78e1-4c37-9a6e-37cb592e3897',
-            'trustedIdents' : [ 'intake/6058e556-a102-4e51-918e-d36d6d1823db' ],
-            'strategy' : 'repulsion',
-            'isIsolated' : True,
             'is_drainable' : True } )
 
 #######################################
@@ -503,7 +461,7 @@ Patrol( 'AnalyticsInvestigation',
 # Parameters:
 #######################################
 Patrol( 'HuntsManager',
-        initialInstances = len( SCALE_DB ),
+        initialInstances = REDUNDANCY,
         scalingFactor = 10000,
         actorArgs = ( 'analytics/HuntsManager',
                       'analytics/huntsmanager/1.0' ),
@@ -515,44 +473,6 @@ Patrol( 'HuntsManager',
                                 'slackrep/20546efe-0f84-46f2-b9ca-f17bf5997075' ],
             'strategy' : 'repulsion',
             'isIsolated' : True,
-            'is_drainable' : True } )
-
-#######################################
-# AnalyticsModeling
-# This actor is responsible to model
-# and record the information extracted
-# from the messages in all the different
-# pre-pivoted databases.
-# Parameters:
-# db: the Cassandra seed nodes to
-#    connect to for storage.
-# rate_limit_per_sec: number of db ops
-#    per second, limiting to avoid
-#    db overload since C* is bad at that.
-# max_concurrent: number of concurrent
-#    db queries.
-# block_on_queue_size: stop queuing after
-#    n number of items awaiting ingestion.
-#######################################
-Patrol( 'AnalyticsModeling',
-        initialInstances = len( SCALE_DB ),
-        scalingFactor = 100,
-        actorArgs = ( 'analytics/AnalyticsModeling',
-                      [ 'analytics/modeling/intake/1.0',
-                        'analytics/modeling/inv/1.0' ] ),
-        actorKwArgs = {
-            'resources' : { 'deployment' : 'c2/deploymentmanager',
-                            'identmanager' : 'c2/identmanager' },
-            'parameters' : { 'db' : SCALE_DB,
-                             'retention_raw_events' : ( 60 * 60 * 24 * 14 ),
-                             'retention_investigations' : ( 60 * 60 * 24 * 30 ),
-                             'retention_objects_primary' : ( 60 * 60 * 24 * 365 ),
-                             'retention_objects_secondary' : ( 60 * 60 * 24 * 30 * 6 ),
-                             'retention_explorer' : ( 60 * 60 * 24 * 30 ) },
-            'secretIdent' : 'analysis/038528f5-5135-4ca8-b79f-d6b8ffc53bf5',
-            'trustedIdents' : [ 'intake/6058e556-a102-4e51-918e-d36d6d1823db' ],
-            'isIsolated' : True,
-            'strategy' : 'repulsion',
             'is_drainable' : True } )
 
 #######################################
@@ -573,7 +493,7 @@ Patrol( 'AnalyticsModeling',
 #    n number of items awaiting ingestion.
 #######################################
 Patrol( 'AnalyticsModelView',
-        initialInstances = len( SCALE_DB ),
+        initialInstances = REDUNDANCY,
         scalingFactor = 1000,
         actorArgs = ( 'analytics/ModelView',
                       'models/1.0' ),
@@ -587,6 +507,7 @@ Patrol( 'AnalyticsModelView',
                                 'dataexporter/dbf240e5-e8df-46ac-8b5e-356a291fdd40',
                                 'reporting/9ddcc95e-274b-4a49-a003-c952d12049b8',
                                 'slackrep/20546efe-0f84-46f2-b9ca-f17bf5997075',
+                                'advbeacon/c3c1051a-1231-487c-9d4b-1e7e46ccd586',
                                 'analysis/01e9a19d-78e1-4c37-9a6e-37cb592e3897',
                                 'autotasking/a6cd8d9a-a90c-42ec-bd60-0519b6fb1f64' ],
             'isIsolated' : True,
@@ -605,7 +526,7 @@ Patrol( 'AnalyticsModelView',
 # smtp_port: port of the smtp server.
 #######################################
 Patrol( 'PagingActor',
-        initialInstances = len( SCALE_DB ),
+        initialInstances = REDUNDANCY,
         scalingFactor = 10000,
         actorArgs = ( 'PagingActor',
                       'paging/1.0' ),
@@ -616,6 +537,7 @@ Patrol( 'PagingActor',
             'trustedIdents' : [ 'reporting/9ddcc95e-274b-4a49-a003-c952d12049b8',
                                 'lc/0bf01f7e-62bd-4cc4-9fec-4c52e82eb903',
                                 'identmanager/f5c3a323-50e5-412a-b711-0e30d8284aa1',
+                                'advbeacon/c3c1051a-1231-487c-9d4b-1e7e46ccd586',
                                 'analysis/01e9a19d-78e1-4c37-9a6e-37cb592e3897' ],
             'strategy' : 'repulsion',
             'isIsolated' : True,
@@ -629,7 +551,7 @@ Patrol( 'PagingActor',
 # Parameters:
 #######################################
 Patrol( 'DataExporter',
-        initialInstances = len( SCALE_DB ),
+        initialInstances = REDUNDANCY,
         scalingFactor = 1000,
         actorArgs = ( 'analytics/DataExporter',
                       [ 'analytics/dataexporter/1.0' ] ),
@@ -658,17 +580,18 @@ Patrol( 'DataExporter',
 # valid.
 #######################################
 Patrol( 'VirusTotalActor',
-        initialInstances = len( SCALE_DB ),
+        initialInstances = REDUNDANCY,
         scalingFactor = 2000,
         actorArgs = ( 'analytics/VirusTotalActor',
                       'analytics/virustotal/1.0' ),
         actorKwArgs = {
             'resources' : { 'modeling' : 'models',
                             'deployment' : 'c2/deploymentmanager' },
-            'parameters' : { 'qpm' : ( 4 / len( SCALE_DB ) ),
+            'parameters' : { 'qpm' : ( 4 / REDUNDANCY ),
                              'ttl' : ( 60 * 60 * 24 * 30 ) },
             'secretIdent' : 'vt/8299a488-7fff-4511-a311-76e6600b4a7a',
             'trustedIdents' : [ 'analysis/01e9a19d-78e1-4c37-9a6e-37cb592e3897',
+                                'advbeacon/c3c1051a-1231-487c-9d4b-1e7e46ccd586',
                                 'hunter/8e0f55c0-6593-4747-9d02-a4937fa79517' ],
             'strategy' : 'repulsion',
             'isIsolated' : True,
@@ -681,7 +604,7 @@ Patrol( 'VirusTotalActor',
 #
 #######################################
 Patrol( 'GeoLocationActor',
-        initialInstances = len( SCALE_DB ),
+        initialInstances = REDUNDANCY,
         scalingFactor = 10000,
         actorArgs = ( 'analytics/GeoLocationActor',
                       'analytics/geolocation/1.0' ),
@@ -692,6 +615,7 @@ Patrol( 'GeoLocationActor',
             'trustedIdents' : [ 'analysis/01e9a19d-78e1-4c37-9a6e-37cb592e3897',
                                 'hunter/8e0f55c0-6593-4747-9d02-a4937fa79517',
                                 'blink/6babf560-88db-403d-a5f6-3689397e0104',
+                                'advbeacon/c3c1051a-1231-487c-9d4b-1e7e46ccd586',
                                 'lc/0bf01f7e-62bd-4cc4-9fec-4c52e82eb903' ],
             'isIsolated' : False,
             'strategy' : 'repulsion',
@@ -706,7 +630,7 @@ Patrol( 'GeoLocationActor',
 #
 #######################################
 Patrol( 'AlexaDNS',
-        initialInstances = len( SCALE_DB ),
+        initialInstances = REDUNDANCY,
         scalingFactor = 10000,
         actorArgs = ( 'analytics/AlexaDNS',
                       'analytics/alexadns/1.0' ),
@@ -716,6 +640,7 @@ Patrol( 'AlexaDNS',
             'secretIdent' : 'alexadns/e1527553-815b-4dd5-8a40-708a287605b4',
             'trustedIdents' : [ 'analysis/01e9a19d-78e1-4c37-9a6e-37cb592e3897',
                                 'hunter/8e0f55c0-6593-4747-9d02-a4937fa79517',
+                                'advbeacon/c3c1051a-1231-487c-9d4b-1e7e46ccd586',
                                 'blink/6babf560-88db-403d-a5f6-3689397e0104' ],
             'isIsolated' : True,
             'strategy' : 'repulsion',
@@ -730,7 +655,7 @@ Patrol( 'AlexaDNS',
 #
 #######################################
 Patrol( 'MalwareDomains',
-        initialInstances = len( SCALE_DB ),
+        initialInstances = REDUNDANCY,
         scalingFactor = 10000,
         actorArgs = ( 'analytics/MalwareDomains',
                       'analytics/malwaredomains/1.0' ),
@@ -740,52 +665,11 @@ Patrol( 'MalwareDomains',
             'secretIdent' : 'malwaredomains/d7e813ef-e47d-479c-a56e-0190cad45c25',
             'trustedIdents' : [ 'analysis/01e9a19d-78e1-4c37-9a6e-37cb592e3897',
                                 'hunter/8e0f55c0-6593-4747-9d02-a4937fa79517',
+                                'advbeacon/c3c1051a-1231-487c-9d4b-1e7e46ccd586',
                                 'blink/6babf560-88db-403d-a5f6-3689397e0104' ],
             'isIsolated' : True,
             'strategy' : 'repulsion',
             'is_drainable' : True } )
-
-#######################################
-# AnalyticsStateless
-# This actor responsible for sending
-# messages of the right type to the
-# right stateless detection actors.
-#######################################
-Patrol( 'AnalyticsStateless',
-        initialInstances = len( SCALE_DB ),
-        scalingFactor = 2000,
-        actorArgs = ( 'analytics/AnalyticsStateless',
-                      'analytics/stateless/intake/1.0' ),
-        actorKwArgs = {
-            'resources' : { 'all' : 'analytics/stateless/all/',
-                            'output' : 'analytics/output/events/',
-                            'specific' : 'analytics/stateless/%s/%s/' },
-            'parameters' : {},
-            'secretIdent' : 'analysis/01e9a19d-78e1-4c37-9a6e-37cb592e3897',
-            'trustedIdents' : [ 'intake/6058e556-a102-4e51-918e-d36d6d1823db' ],
-            'is_drainable' : True,
-            'strategy' : 'repulsion',
-            'isIsolated' : True } )
-
-#######################################
-# AnalyticsStateful
-# This actor responsible for sending
-# messages of the right type to the
-# right stateful detection actors.
-#######################################
-Patrol( 'AnalyticsStateful',
-        initialInstances = len( SCALE_DB ),
-        scalingFactor = 500,
-        actorArgs = ( 'analytics/AnalyticsStateful',
-                      'analytics/stateful/intake/1.0' ),
-        actorKwArgs = {
-            'resources' : { 'modules' : 'analytics/stateful/modules/%s/' },
-            'parameters' : {},
-            'secretIdent' : 'analysis/01e9a19d-78e1-4c37-9a6e-37cb592e3897',
-            'trustedIdents' : [ 'intake/6058e556-a102-4e51-918e-d36d6d1823db' ],
-            'is_drainable' : True,
-            'strategy' : 'repulsion',
-            'isIsolated' : True } )
 
 #######################################
 # AnalyticsReporting
@@ -806,7 +690,7 @@ Patrol( 'AnalyticsStateful',
 # paging_dest: email addresses to page.
 #######################################
 Patrol( 'AnalyticsReporting',
-        initialInstances = len( SCALE_DB ),
+        initialInstances = REDUNDANCY,
         scalingFactor = 10000,
         actorArgs = ( 'analytics/AnalyticsReporting',
                       'analytics/reporting/1.0' ),
@@ -821,34 +705,11 @@ Patrol( 'AnalyticsReporting',
             'secretIdent' : 'reporting/9ddcc95e-274b-4a49-a003-c952d12049b8',
             'trustedIdents' : [ 'analysis/01e9a19d-78e1-4c37-9a6e-37cb592e3897',
                                 'hunter/8e0f55c0-6593-4747-9d02-a4937fa79517',
+                                'advbeacon/c3c1051a-1231-487c-9d4b-1e7e46ccd586',
                                 'lc/0bf01f7e-62bd-4cc4-9fec-4c52e82eb903' ],
             'isIsolated' : True,
             'strategy' : 'repulsion',
             'is_drainable' : True } )
-
-#######################################
-# CapabilityManager
-# This actor manages backend capabilities
-# loaded as stateless, stateful or hunters.
-# Parameters:
-#######################################
-Patrol( 'CapabilityManager',
-        initialInstances = 1,
-        maxInstances = 1,
-        scalingFactor = 10000,
-        actorArgs = ( 'analytics/CapabilityManager',
-                      'analytics/capabilitymanager/1.0' ),
-        actorKwArgs = {
-            'resources' : { 'deployment' : 'c2/deploymentmanager' },
-            'parameters' : { 'scale' : 50,
-                             'detect_secret_ident' : 'analysis/01e9a19d-78e1-4c37-9a6e-37cb592e3897',
-                             'hunter_secret_ident' : 'hunter/8e0f55c0-6593-4747-9d02-a4937fa79517',
-                             'detect_trusted_ident' : 'analysis/01e9a19d-78e1-4c37-9a6e-37cb592e3897',
-                             'hunter_trusted_ident' : 'analysis/01e9a19d-78e1-4c37-9a6e-37cb592e3897' },
-            'secretIdent' : 'capabilitymanager/4fe13a22-0ca1-4e1f-aa33-20f045db2fb6',
-            'trustedIdents' : [ 'hunter/8e0f55c0-6593-4747-9d02-a4937fa79517',
-                                'lc/0bf01f7e-62bd-4cc4-9fec-4c52e82eb903' ],
-            'isIsolated' : True } )
 
 #######################################
 # BlinkModel
@@ -866,7 +727,7 @@ Patrol( 'CapabilityManager',
 #    n number of items awaiting ingestion.
 #######################################
 Patrol( 'BlinkModel',
-        initialInstances = len( SCALE_DB ),
+        initialInstances = REDUNDANCY,
         scalingFactor = 1000,
         actorArgs = ( 'analytics/BlinkModel',
                       'analytics/blinkmodel/1.0' ),
@@ -880,7 +741,7 @@ Patrol( 'BlinkModel',
             'is_drainable' : True } )
 
 #######################################
-# EndpointProcessor
+# AdvancedEndpointProcessor
 # This actor will process incoming
 # connections from the sensors.
 # Parameters:
@@ -893,11 +754,13 @@ Patrol( 'BlinkModel',
 # handler_interface: the network interface
 #    to listen on, overrides handler_address.
 #######################################
-Patrol( 'EndpointProcessor',
-        initialInstances = len( SCALE_DB ),
+Patrol( 'AdvancedEndpointProcessor',
+        initialInstances = NUM_NODES * CPU_CORES,
         scalingFactor = 1000,
-        actorArgs = ( 'c2/EndpointProcessor',
-                      'c2/endpoint/1.0' ),
+        actorArgs = ( 'c2/AdvancedEndpointProcessor',
+                      [ 'c2/endpoint/1.0',
+                        'analytics/stateless/quickdetect/1.0',
+                        'analytics/output/detects/storage' ] ),
         actorKwArgs = {
             'resources' : { 'analytics' : 'analytics/intake',
                             'enrollments' : 'c2/enrollments',
@@ -905,14 +768,30 @@ Patrol( 'EndpointProcessor',
                             'sensordir' : 'c2/sensordir/',
                             'module_tasking' : 'c2/modulemanager',
                             'hbs_profiles' : 'c2/hbsprofilemanager',
+                            'identmanager' : 'c2/identmanager',
                             'deployment' : 'c2/deploymentmanager',
-                            'tagging' : 'c2/taggingmanager' },
+                            'storage' : 'analytics/storage/',
+                            'tagging' : 'c2/taggingmanager',
+                            'modeling' : 'models',
+                            'paging' : 'paging',
+                            'autotasking' : 'analytics/autotasking',
+                            'reporting' : 'analytics/reporting',
+                            'stateful' : 'analytics/stateful' },
             'parameters' : { 'handler_interface' : 'eth0',
-                             'sensor_max_qps' : 30 },
-            'secretIdent' : 'beacon/09ba97ab-5557-4030-9db0-1dbe7f2b9cfd',
+                             'sensor_max_qps' : 30,
+                             'db' : SCALE_DB,
+                             'retention_raw_events' : ( 60 * 60 * 24 * 14 ),
+                             'retention_investigations' : ( 60 * 60 * 24 * 30 ),
+                             'retention_objects_primary' : ( 60 * 60 * 24 * 365 ),
+                             'retention_objects_secondary' : ( 60 * 60 * 24 * 30 * 6 ),
+                             'retention_explorer' : ( 60 * 60 * 24 * 30 ) },
+            'secretIdent' : 'advbeacon/c3c1051a-1231-487c-9d4b-1e7e46ccd586',
             'trustedIdents' : [ 'taskingproxy/794729aa-1ef5-4930-b377-48dda7b759a5',
-                                'endpointproxy/8e7a890b-8016-4396-b012-aec73d055dd6' ],
-            'isIsolated' : False,
+                                'endpointproxy/8e7a890b-8016-4396-b012-aec73d055dd6',
+                                'lc/0bf01f7e-62bd-4cc4-9fec-4c52e82eb903',
+                                'reporting/9ddcc95e-274b-4a49-a003-c952d12049b8',
+                                'analysis/01e9a19d-78e1-4c37-9a6e-37cb592e3897' ],
+            'isIsolated' : True,
             'strategy' : 'repulsion',
             'is_drainable' : True } )
 
@@ -946,30 +825,6 @@ Patrol( 'SlackRep',
             'isIsolated' : True } )
 
 #######################################
-# FileEventsOutput
-# This actor receives Detecs from the
-# stateless and stateful detection
-# actors and reports them to a log file.
-# Parameters:.
-#######################################
-Patrol( 'FileEventsOutput',
-        initialInstances = len( SCALE_DB ),
-        scalingFactor = 10000,
-        actorArgs = ( 'analytics/FileEventsOutput',
-                      [ 'analytics/fileeventsoutput/1.0',
-                        'analytics/output/detects/fileevent',
-                        'analytics/output/events/fileevent' ] ),
-        actorKwArgs = {
-            'resources' : {},
-            'parameters' : {},
-            'secretIdent' : 'fileeventsoutput/9a6e2317-db95-4a93-b815-b3c1aaecf527',
-            'trustedIdents' : [ 'reporting/9ddcc95e-274b-4a49-a003-c952d12049b8',
-                                'analysis/01e9a19d-78e1-4c37-9a6e-37cb592e3897' ],
-            'isIsolated' : True,
-            'strategy' : 'repulsion',
-            'is_drainable' : True } )
-
-#######################################
 # WebHookOutput
 # This actor receives Detecs from the
 # stateless and stateful detection
@@ -978,7 +833,7 @@ Patrol( 'FileEventsOutput',
 # Parameters:.
 #######################################
 Patrol( 'WebHookOutput',
-        initialInstances = len( SCALE_DB ),
+        initialInstances = REDUNDANCY,
         scalingFactor = 10000,
         actorArgs = ( 'analytics/WebHookOutput',
                       [ 'analytics/webhookoutput/1.0',
@@ -993,29 +848,3 @@ Patrol( 'WebHookOutput',
             'strategy' : 'repulsion',
             'isIsolated' : True,
             'is_drainable' : True } )
-
-#######################################
-# QuickDetectHost
-# This actor responsible for hosting and
-# managing all the quick detections.
-#######################################
-Patrol( 'QuickDetectHost',
-        initialInstances = len( SCALE_DB ),
-        scalingFactor = 2000,
-        actorArgs = ( 'analytics/QuickDetectHost',
-                      [ 'analytics/stateless/quickdetect/1.0',
-                        'analytics/stateless/all/quickhost' ] ),
-        actorKwArgs = {
-            'resources' : { 'deployment' : 'c2/deploymentmanager',
-                            'tagging' : 'c2/taggingmanager',
-                            'modeling' : 'models',
-                            'paging' : 'paging',
-                            'autotasking' : 'analytics/autotasking',
-                            'reporting' : 'analytics/reporting' },
-            'parameters' : {},
-            'secretIdent' : 'analysis/01e9a19d-78e1-4c37-9a6e-37cb592e3897',
-            'trustedIdents' : [ 'analysis/01e9a19d-78e1-4c37-9a6e-37cb592e3897',
-                                'lc/0bf01f7e-62bd-4cc4-9fec-4c52e82eb903' ],
-            'isIsolated' : True,
-            'is_drainable' : True,
-            'strategy' : 'repulsion' } )
