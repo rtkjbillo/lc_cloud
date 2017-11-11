@@ -338,7 +338,7 @@ class AnalyticsCoProcessor( object ):
 
                     # Create a new somewhat special EventDSL that representa the detection.
                     detection = EventDSL( { 'detection_%s' % name : content or event.data }, 
-                                          { 'obj' : {}, 'rel' : {} }, 
+                                          event.mtd, 
                                           not sensor.aid.isWindows() )
                     self._actor.delay( 0, 
                                        self._actor.parallelExec, 

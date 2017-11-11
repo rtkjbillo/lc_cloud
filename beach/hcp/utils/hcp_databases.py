@@ -46,7 +46,7 @@ class CassDb( object ):
                                 reconnection_policy = ConstantReconnectionPolicy( 15.0, max_attempts = None ),
                                 default_retry_policy = ConstantSpeculativeExecutionPolicy( 30, 10 ) )
         self.cur = self.cluster.connect( dbname )
-        self.cur.default_timeout = 30.0
+        self.cur.default_timeout = 60.0
 
     def __del__( self ):
         self.shutdown()
