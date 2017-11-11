@@ -81,7 +81,7 @@ if __name__ == '__main__':
 
     # Always add ourselves to this list.
     addresses = Set( args.address )
-    addresses.add( getLocalIp() )
+    addresses.add( localIp )
     addresses = list( addresses )
 
     # Read the Cassandra config.

@@ -19,7 +19,7 @@ if os.geteuid() != 0:
     print( 'Please run me as root.' )
     sys.exit(-1)
 
-root = os.path.join( os.path.abspath( os.path.dirname( __file__ ) ), '..', '..' )
+root = os.path.join( os.path.abspath( os.path.dirname( __file__ ) ), '..', '..', '..' )
 originalDir = os.getcwd()
 os.chdir( root )
 

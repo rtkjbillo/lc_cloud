@@ -19,6 +19,7 @@ import argparse
 import yaml
 import socket
 import time
+import netifaces
 
 ORIGINAL_DIR = os.getcwd()
 ROOT_DIR = os.path.join( os.path.abspath( os.path.dirname( os.path.realpath( __file__ ) ) ), '..', '..', '..' )
@@ -32,6 +33,14 @@ def getLocalIp():
     s.close()
     return ip
 
+def getIpv4ForIface( iface ):
+    ip = None
+    try:
+        ip = netifaces.ifaddresses( iface )[ netifaces.AF_INET ][ 0 ][ 'addr' ]
+    except:
+        pass
+    return ip
+
 if __name__ == '__main__':
     if 0 == os.geteuid():
         print( "This script should not run as root." )
@@ -39,12 +48,26 @@ if __name__ == '__main__':
 
     parser = argparse.ArgumentParser( description = 'Start the LC appliance as a normal node.' )
 
+    parser.add_argument( '-i', '--interface',
+                         type = str,
+                         dest = 'interface',
+                         required = False,
+                         default = 'eth0',
+                         help = 'The network interface to use as main cluster interface.' )
+
     args = parser.parse_args()
+
+    localIp = getLocalIp()
+    if args.interface is not None:
+        localIp = getIpv4ForIface( args.interface )
+        if localIp is None:
+            print( "! Failed to find network interface." )
+            sys.exit( 1 )
 
     # Make sure Cassandra is running.
     waits = 0
     while True:
-        if 0 == os.system( 'cqlsh %s -e "desc keyspaces" > /dev/null 2>&1' % getLocalIp() ):
+        if 0 == os.system( 'cqlsh %s -e "desc keyspaces" > /dev/null 2>&1' % localIp ):
             print( "Cassandra is running." )
             break
         if 300 < waits:
