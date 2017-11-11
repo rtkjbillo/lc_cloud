@@ -19,7 +19,7 @@ if os.geteuid() != 0:
     print( 'Please run me as root.' )
     sys.exit(-1)
 
-root = os.path.join( os.path.abspath( os.path.dirname( __file__ ) ), '..', '..' )
+root = os.path.join( os.path.abspath( os.path.dirname( __file__ ) ), '..', '..', '..' )
 originalDir = os.getcwd()
 os.chdir( root )
 
@@ -110,8 +110,8 @@ printStep( 'Installing Yara.',
     os.system( 'ldconfig' ) )
 
 printStep( 'Create symlink to appliance scripts.',
-           os.system( 'ln -s /home/server/cloud/infrastructure/appliance/*.py /home/server/' ),
-           os.system( 'ln -s /home/server/cloud/beach/hcp/utils /home/server/cloud/limacharlie/' ) )
+           os.system( 'ln -s %s/infrastructure/appliance/*.py %s/../' % ( root, root ) ),
+           os.system( 'ln -s %s/beach/hcp/utils %s/limacharlie/' % ( root, root ) ) )
 
 printStep( 'Preparing Cassandra for new cluster.',
            os.system( 'service cassandra stop || true' ),
