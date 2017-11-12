@@ -57,7 +57,7 @@ printStep( 'Install developer tools.',
            os.system( 'yum groupinstall "Development Tools" -y' ) )
 
 printStep( 'Install pip packages.',
-           os.system( 'pip install prefixtree beach time_uuid cassandra-driver virustotal ipaddress tld pyqrcode pypng termcolor slacker slackclient python-dateutil pyOpenSSL pexpect' ) )
+           os.system( 'pip install prefixtree beach time_uuid cassandra-driver virustotal ipaddress tld pyqrcode pypng termcolor slacker slackclient python-dateutil pyOpenSSL pexpect boto3' ) )
 
 printStep( 'Installing Cassandra.',
            os.system( 'echo "[cassandra]" > /etc/yum.repos.d/cassandra.repo' ),

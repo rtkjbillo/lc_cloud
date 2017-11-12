@@ -51,7 +51,7 @@ printStep( 'Install native packages.',
            os.system( 'apt-get install unzip default-jre-headless openssl python-pip htop python-m2crypto python-pexpect autoconf libtool git flex byacc bison -y' ) )
 
 printStep( 'Install pip packages.',
-           os.system( 'pip install markdown time_uuid cassandra-driver virustotal ipaddress tld pyqrcode pypng termcolor slacker slackclient python-dateutil pyOpenSSL pexpect' ) )
+           os.system( 'pip install markdown time_uuid cassandra-driver virustotal ipaddress tld pyqrcode pypng termcolor slacker slackclient python-dateutil pyOpenSSL pexpect boto3' ) )
 
 print( 'Download prefixtree (expected to fail).' )
 os.system( 'pip download prefixtree' )
