@@ -362,8 +362,20 @@ We believe this sharing policy strikes a good balance between privacy and inform
             self.audit.shoot( 'record', { 'oid' : self.admin_oid, 'etype' : 'conf_change', 'msg' : 'Setting modeling level.' } )
 
             self.log( 'loading logging dir' )
-            self.db.execute( 'INSERT INTO configs ( conf, value ) VALUES ( %s, %s )', ( 'global/logging_dir', '/tmp/lc_out/' ) )
+            self.db.execute( 'INSERT INTO configs ( conf, value ) VALUES ( %s, %s )', ( 'global/logging_dir', '' ) )
             self.audit.shoot( 'record', { 'oid' : self.admin_oid, 'etype' : 'conf_change', 'msg' : 'Setting logging dir.' } )
+
+            self.log( 'loading s3 bucket' )
+            self.db.execute( 'INSERT INTO configs ( conf, value ) VALUES ( %s, %s )', ( 'global/s3_bucket', '' ) )
+            self.audit.shoot( 'record', { 'oid' : self.admin_oid, 'etype' : 'conf_change', 'msg' : 'Setting s3 bucket.' } )
+
+            self.log( 'loading aws key id' )
+            self.db.execute( 'INSERT INTO configs ( conf, value ) VALUES ( %s, %s )', ( 'global/aws_key_id', '' ) )
+            self.audit.shoot( 'record', { 'oid' : self.admin_oid, 'etype' : 'conf_change', 'msg' : 'Setting aws key id.' } )
+
+            self.log( 'loading aws secret key id' )
+            self.db.execute( 'INSERT INTO configs ( conf, value ) VALUES ( %s, %s )', ( 'global/aws_secret_key_id', '' ) )
+            self.audit.shoot( 'record', { 'oid' : self.admin_oid, 'etype' : 'conf_change', 'msg' : 'Setting aws secret key id.' } )
 
             self.log( 'loading 2fa mode' )
             self.db.execute( 'INSERT INTO configs ( conf, value ) VALUES ( %s, %s )', ( 'global/2fa_mode', 'on' ) )
@@ -549,7 +561,10 @@ We believe this sharing policy strikes a good balance between privacy and inform
             'global/deployment_id' : '',
             'global/modeling_level' : 10,
             'global/2fa_mode' : 'on',
-            'global/logging_dir' : '/tmp/lc_out/',
+            'global/logging_dir' : '',
+            'global/s3_bucket' : '',
+            'global/aws_key_id' : '',
+            'global/aws_secret_key_id' : '',
         }
 
         info = self.db.execute( 'SELECT conf, value FROM configs WHERE conf IN %s', ( globalConf.keys(), ) )

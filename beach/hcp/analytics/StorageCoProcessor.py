@@ -26,9 +26,12 @@ import logging.handlers
 import random
 import traceback
 from sets import Set
+import boto3
+import tempfile
 AgentId = Actor.importLib( '../utils/hcp_helpers', 'AgentId' )
 _x_ = Actor.importLib( '../utils/hcp_helpers', '_x_' )
 _xm_ = Actor.importLib( '../utils/hcp_helpers', '_xm_' )
+Mutex = Actor.importLib( '../utils/hcp_helpers', 'Mutex' )
 ObjectTypes = Actor.importLib( '../utils/ObjectsDb', 'ObjectTypes' )
 RelationName = Actor.importLib( '../utils/ObjectsDb', 'RelationName' )
 ObjectKey = Actor.importLib( '../utils/ObjectsDb', 'ObjectKey' )
@@ -37,7 +40,17 @@ class StorageCoProcessor( object ):
     def init( self, parameters, resources, fromActor ):
         self._actor = fromActor
         self.modelingLevel = 10
+        self._use_b64 = False
+        self._is_flat = False
         self.loggingDir = ''
+        self.file_logger = None
+        self.s3Bucket = ''
+        self.awsKeyId = ''
+        self.awsSecretKeyId = ''
+        self.s3 = None
+        self.s3TmpHandle = None
+        self.s3Mutex = Mutex()
+        self._actor.schedule( 60 * 1, self.s3Sync )
         self.deploymentmanager = self._actor.getActorHandle( resources[ 'deployment' ], timeout = 30, nRetries = 3 )
         self._actor.schedule( 60 * 5, self.refreshConfigs )
 
@@ -99,6 +112,9 @@ class StorageCoProcessor( object ):
         if '' != self.loggingDir:
             self.logToDisk( routing, event, mtd )
             self._actor.zInc( 'n_logged' )
+        if '' != self.s3Bucket:
+            self.logToS3( routing, event, mtd )
+            self._actor.zInc( 'n_uploaded_s3' )
 
     def refreshConfigs( self ):
         resp = self.deploymentmanager.request( 'get_global_config', {} )
@@ -135,6 +151,29 @@ class StorageCoProcessor( object ):
                 self._actor.log( "logging directory changed from %s to %s" % ( self.loggingDir, resp.data[ 'global/logging_dir' ] ) )
                 self.loggingDir = resp.data[ 'global/logging_dir' ]
                 self._actor.zSet( 'logging_dir', self.loggingDir )
+
+        if ( ( self.s3Bucket != resp.data[ 'global/s3_bucket' ] ) or 
+             ( self.awsKeyId != resp.data[ 'global/aws_key_id' ] ) or 
+             ( self.awsSecretKeyId != resp.data[ 'global/aws_secret_key_id' ] ) ):
+            if '' == resp.data[ 'global/s3_bucket' ]:
+                self.s3Bucket = ''
+                self.s3 = None
+            else:
+                self.awsKeyId = resp.data[ 'global/aws_key_id' ]
+                self.awsSecretKeyId = resp.data[ 'global/aws_secret_key_id' ]
+
+                self.s3 = boto3.client('s3', 
+                                       aws_secret_access_key = self.awsSecretKeyId, 
+                                       aws_access_key_id = self.awsKeyId)
+
+                if self.s3TmpHandle is None:
+                    with self.s3Mutex:
+                        toSend = self.s3TmpHandle
+                        self.s3TmpHandle = tempfile.NamedTemporaryFile( mode = 'w+b' )
+
+                self._actor.log( "s3 bucket changed from %s to %s" % ( self.s3Bucket, resp.data[ 'global/s3_bucket' ] ) )
+                self.s3Bucket = resp.data[ 'global/s3_bucket' ]
+                self._actor.zSet( 's3_bucket', self.s3Bucket )
 
     ###########################################################################
     #   MODELING
@@ -429,3 +468,32 @@ class StorageCoProcessor( object ):
         self.file_logger.info( json.dumps( self.sanitizeJson( record ) ) )
 
         return ( True, )
+
+    def logToS3( self, routing, event, mtd ):
+        record = json.dumps( self.sanitizeJson( { 'routing' : routing, 
+                                                  'event' : event } ) )
+        
+        with self.s3Mutex:
+            self.s3TmpHandle.write( record )
+            self.s3TmpHandle.write( "\n" )
+
+        return ( True, )
+
+    def s3Sync( self ):
+        if self.s3TmpHandle is None:
+            return
+
+        with self.s3Mutex:
+            toSend = self.s3TmpHandle
+            self.s3TmpHandle = tempfile.NamedTemporaryFile( mode = 'w+b' )
+
+        self._actor.delay( 0, self._s3SendBatch, toSend )
+
+    def _s3SendBatch( self, h ):
+        try:
+            h.flush()
+            h.seek( 0 )
+            if 0 != os.path.getsize( h.name ):
+                self.s3.upload_fileobj( h, self.s3Bucket, str( uuid.uuid4() ) )
+        finally:
+            h.close()
