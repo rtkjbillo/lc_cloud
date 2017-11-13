@@ -67,7 +67,6 @@ class SlackRep( Actor ):
         self.sensordir = self.getActorHandle( resources[ 'sensordir' ], timeout = 30, nRetries = 3 )
         self.tasking = self.getActorHandle( resources[ 'autotasking' ], timeout = 30, nRetries = 3 )
         self.huntmanager = self.getActorHandle( resources[ 'huntsmanager' ], timeout = 30, nRetries = 3 )
-        self.reporting = self.getActorHandle( resources[ 'reporting' ], timeout = 30, nRetries = 3 )
 
         self.reps = {}
         self.uiDomain = 'http://limacharlie:8888'

@@ -93,9 +93,10 @@ class StorageCoProcessor( object ):
         self.stmt_atoms_children = self.ingestStatement( 'INSERT INTO atoms_children ( atomid, child, eid ) VALUES ( ?, ?, ? ) USING TTL ?' )
         self.stmt_atoms_lookup = self.ingestStatement( 'INSERT INTO atoms_lookup ( atomid, eid ) VALUES ( ?, ? ) USING TTL ?' )
 
+        self.stmt_detect_report = self.ingestStatement( 'INSERT INTO detects ( did, gen, source, dtype, events, detect, why ) VALUES ( ?, dateOf( now() ), ?, ?, ?, ?, ? ) USING TTL ?' )
+
         self.nWrites = 0
         self.lastReport = time.time()
-        self._actor.handle( 'report_inv', self.reportDetectOrInv )
         self._actor.handle( 'report_detect', self.reportDetectOrInv )
         self._actor.schedule( 600, self.reportStats )
         self._actor.schedule( 60 * 5, self.resetTtls )
@@ -459,13 +460,25 @@ class StorageCoProcessor( object ):
     def reportDetectOrInv( self, msg ):
         record = msg.data
 
-        if '' == self.loggingDir:
-            return ( True, )
+        if '' != self.loggingDir:
+            if self._is_flat:
+                record = self.flattenRecord( record )
 
-        if self._is_flat:
-            record = self.flattenRecord( record )
-
-        self.file_logger.info( json.dumps( self.sanitizeJson( record ) ) )
+            self.file_logger.info( json.dumps( self.sanitizeJson( record ) ) )
+        if '' != self.s3Bucket:
+            record = json.dumps( self.sanitizeJson( record ) )
+            
+            with self.s3Mutex:
+                self.s3TmpHandle.write( record )
+                self.s3TmpHandle.write( "\n" )
+        if 0 < self.modelingLevel:
+            self.asyncInsert( self.stmt_detect_report.bind( ( record[ 'detect_id' ].upper(), 
+                                                              record[ 'source' ],
+                                                              record[ 'cat' ],
+                                                              ' / '.join( record[ 'msg_ids' ],
+                                                              base64.b64encode( msgpack.packb( msg.data[ 'detect' ] ) ),
+                                                              record[  'summary' ],
+                                                              self.getOrgTtls( AgentId( record[ 'source' ] ).org_id ) ) ) ) )
 
         return ( True, )
 

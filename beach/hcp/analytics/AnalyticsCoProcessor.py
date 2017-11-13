@@ -104,7 +104,7 @@ class AnalyticsCoProcessor( object ):
         self.deploymentmanager = self._actor.getActorHandle( resources[ 'deployment' ], nRetries = 3, timeout = 30 )
         self.models = self._actor.getActorHandle( resources[ 'modeling' ], timeout = 30, nRetries = 3 )
         self.tagging = self._actor.getActorHandle( resources[ 'tagging' ], timeout = 30, nRetries = 3 )
-        self.reporting = self._actor.getActorHandle( resources[ 'reporting' ], timeout = 30, nRetries = 3 )
+        self.reporting = self._actor.getActorHandleGroup( resources[ 'reporting' ], timeout = 30, nRetries = 3 )
         self.paging = self._actor.getActorHandle( resources[ 'paging' ], timeout = 60, nRetries = 3 )
         self.tasking = self._actor.getActorHandle( resources[ 'autotasking' ], 
                                              mode = 'affinity',
@@ -346,14 +346,9 @@ class AnalyticsCoProcessor( object ):
                                        self.rules.values() )
 
                     if isPublish:
-                        resp = self.reporting.request( 'detect', rep )
-
-                        if not resp.isSuccess:
-                            self._actor.log( "Failed to report: %s" % str( resp ) )
-
-                        return resp.isSuccess
-                    else:
-                        return True
+                        self.reporting.shoot( 'report_detect', rep )
+                    
+                    return True
                 self._actor.zInc( 'detections.%s' % rule[ 'name' ] )
                 self._actor.log( "!!! Rule %s matched: %s." % ( rule[ 'name' ], context ) )
                 rule[ 'action' ]( event, sensor, context, report, self.page )

@@ -672,46 +672,6 @@ Patrol( 'MalwareDomains',
             'is_drainable' : True } )
 
 #######################################
-# AnalyticsReporting
-# This actor receives Detecs from the
-# stateless and stateful detection
-# actors and ingest them into the
-# reporting pipeline.
-# Parameters:
-# db: the Cassandra seed nodes to
-#    connect to for storage.
-# rate_limit_per_sec: number of db ops
-#    per second, limiting to avoid
-#    db overload since C* is bad at that.
-# max_concurrent: number of concurrent
-#    db queries.
-# block_on_queue_size: stop queuing after
-#    n number of items awaiting ingestion.
-# paging_dest: email addresses to page.
-#######################################
-Patrol( 'AnalyticsReporting',
-        initialInstances = REDUNDANCY,
-        scalingFactor = 10000,
-        actorArgs = ( 'analytics/AnalyticsReporting',
-                      'analytics/reporting/1.0' ),
-        actorKwArgs = {
-            'resources' : { 'output' : 'analytics/output/detects',
-                            'paging' : 'paging',
-                            'identmanager' : 'c2/identmanager',
-                            'modeling' : 'models' },
-            'parameters' : { 'db' : SCALE_DB,
-                             'paging_dest' : [],
-                             'retention_investigations' : 60 * 60 * 24 * 7 },
-            'secretIdent' : 'reporting/9ddcc95e-274b-4a49-a003-c952d12049b8',
-            'trustedIdents' : [ 'analysis/01e9a19d-78e1-4c37-9a6e-37cb592e3897',
-                                'hunter/8e0f55c0-6593-4747-9d02-a4937fa79517',
-                                'advbeacon/c3c1051a-1231-487c-9d4b-1e7e46ccd586',
-                                'lc/0bf01f7e-62bd-4cc4-9fec-4c52e82eb903' ],
-            'isIsolated' : True,
-            'strategy' : 'repulsion',
-            'is_drainable' : True } )
-
-#######################################
 # BlinkModel
 # This actor is responsible for managing
 # enrollment requests from sensors.
@@ -775,7 +735,7 @@ Patrol( 'AdvancedEndpointProcessor',
                             'modeling' : 'models',
                             'paging' : 'paging',
                             'autotasking' : 'analytics/autotasking',
-                            'reporting' : 'analytics/reporting',
+                            'reporting' : 'analytics/output/detects',
                             'stateful' : 'analytics/stateful' },
             'parameters' : { 'handler_interface' : 'eth0',
                              'sensor_max_qps' : 30,
@@ -816,12 +776,12 @@ Patrol( 'SlackRep',
                             'sensordir' : 'c2/sensordir/',
                             'identmanager' : 'c2/identmanager',
                             'autotasking' : 'analytics/autotasking',
-                            'huntsmanager' : 'analytics/huntsmanager',
-                            'reporting' : 'analytics/reporting' },
+                            'huntsmanager' : 'analytics/huntsmanager' },
             'parameters' : {},
             'secretIdent' : 'slackrep/20546efe-0f84-46f2-b9ca-f17bf5997075',
             'trustedIdents' : [ 'reporting/9ddcc95e-274b-4a49-a003-c952d12049b8',
-                                'analysis/01e9a19d-78e1-4c37-9a6e-37cb592e3897' ],
+                                'analysis/01e9a19d-78e1-4c37-9a6e-37cb592e3897',
+                                'advbeacon/c3c1051a-1231-487c-9d4b-1e7e46ccd586' ],
             'isIsolated' : True } )
 
 #######################################
@@ -844,7 +804,8 @@ Patrol( 'WebHookOutput',
             'parameters' : {},
             'secretIdent' : 'webhookoutput/4738d18b-4c0c-412c-89e4-b6ecb00904a1',
             'trustedIdents' : [ 'reporting/9ddcc95e-274b-4a49-a003-c952d12049b8',
-                                'analysis/01e9a19d-78e1-4c37-9a6e-37cb592e3897' ],
+                                'analysis/01e9a19d-78e1-4c37-9a6e-37cb592e3897',
+                                'advbeacon/c3c1051a-1231-487c-9d4b-1e7e46ccd586' ],
             'strategy' : 'repulsion',
             'isIsolated' : True,
             'is_drainable' : True } )

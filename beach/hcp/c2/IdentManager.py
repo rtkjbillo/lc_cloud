@@ -38,7 +38,8 @@ class IdentManager( Actor ):
         else:
             raise Exception( 'could not get admin oid' )
 
-        self.genDefaultsIfNotPresent()
+        if parameters.get( 'is_no_default', False ):
+            self.genDefaultsIfNotPresent()
 
         self.handle( 'authenticate', self.authenticate )
         self.handle( 'create_user', self.createUser )
