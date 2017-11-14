@@ -184,6 +184,7 @@ class StorageCoProcessor( object ):
 
     def logDroppedInsert( self, query, params ):
         self._actor.logCritical( "Dropped Insert: %s // %s" % ( query, params ) )
+        self._actor.delay( 60, self._actor.db.execute_async, query, failureCallback = self.logDroppedInsert )
 
     def asyncInsert( self, boundStatement ):
         self._actor.db.execute_async( boundStatement, failureCallback = self.logDroppedInsert )
