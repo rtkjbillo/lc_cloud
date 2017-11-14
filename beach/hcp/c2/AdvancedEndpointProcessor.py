@@ -572,11 +572,11 @@ class AdvancedEndpointProcessor( Actor ):
             mtd = EventObjectExtractor.extractFromEvent( message, routing[ 'aid' ] )
 
             try:
-                self.storageCoProcessor.process( routing, message, mtd )
+                self.delay( 0, self.storageCoProcessor.process, routing, message, mtd )
             except:
                 self.logCritical( "Failure in StorageCoProcessor: %s" % traceback.format_exc() )
             try:
-                self.analyticsCoProcessor.analyze( routing, message, mtd )
+                self.delay( 0, self.analyticsCoProcessor.analyze, routing, message, mtd )
             except:
                 self.logCritical( "Failure in AnalyticsCoProcessor: %s" % traceback.format_exc() )
 
