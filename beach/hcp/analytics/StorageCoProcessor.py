@@ -140,14 +140,14 @@ class StorageCoProcessor( object ):
                 self.file_logger = logging.getLogger( 'limacharlie_events_file' )
                 self.file_logger.propagate = False
                 handler = logging.handlers.RotatingFileHandler( os.path.join( resp.data[ 'global/logging_dir' ], self._actor.name ), 
-                                                                maxBytes = resp.data.get( 'global/logging_dir_max_bytes', 1024 * 1024 * 5 ), 
-                                                                backupCount = resp.data.get( 'global/logging_dir_backup_count', 20 ) )
+                                                                maxBytes = resp.data.get( 'global/logging_dir/max_bytes', 1024 * 1024 * 5 ), 
+                                                                backupCount = resp.data.get( 'global/logging_dir/backup_count', 20 ) )
                 handler.setFormatter( logging.Formatter( "%(message)s" ) )
                 self.file_logger.setLevel( logging.INFO )
                 self.file_logger.addHandler( handler )
 
-                self._is_flat = resp.data.get( 'global/logging_dir_is_flat', False )
-                self._use_b64 = resp.data.get( 'global/logging_dir_use_b64', False )
+                self._is_flat = resp.data.get( 'global/logging_dir/is_flat', False )
+                self._use_b64 = resp.data.get( 'global/logging_dir/use_b64', False )
 
                 self._actor.log( "logging directory changed from %s to %s" % ( self.loggingDir, resp.data[ 'global/logging_dir' ] ) )
                 self.loggingDir = resp.data[ 'global/logging_dir' ]

@@ -138,9 +138,9 @@ class AnalyticsCoProcessor( object ):
         self.reporting = self._actor.getActorHandleGroup( resources[ 'reporting' ], timeout = 30, nRetries = 3 )
         self.paging = self._actor.getActorHandle( resources[ 'paging' ], timeout = 60, nRetries = 3 )
         self.tasking = self._actor.getActorHandle( resources[ 'autotasking' ], 
-                                             mode = 'affinity',
-                                             timeout = 60,
-                                             nRetries = 2 )
+                                                   mode = 'affinity',
+                                                   timeout = 60,
+                                                   nRetries = 2 )
 
         self.conf = {}
         self._actor.schedule( 60 * 60, self.reloadRules, None )
