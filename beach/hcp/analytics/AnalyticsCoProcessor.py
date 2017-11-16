@@ -20,6 +20,7 @@ import uuid
 import time
 import msgpack
 import base64
+from contextlib import contextmanager
 EventDSL = Actor.importLib( '../utils/EventInterpreter', 'EventDSL' )
 AgentId = Actor.importLib( '../utils/hcp_helpers', 'AgentId' )
 StateMachine = Actor.importLib( '../analytics/StateAnalysis', 'StateMachine' )
@@ -29,11 +30,29 @@ HostObjects = Actor.importLib( '../utils/ObjectsDb', 'HostObjects' )
 KeyValueStore = Actor.importLib( '../utils/ObjectsDb', 'KeyValueStore' )
 Atoms = Actor.importLib( '../utils/ObjectsDb', 'Atoms' )
 
-class SensorContext( object ):
-    __slots__ = [ '_actor', 'aid', 'routing' ]
+class _TaskResp ( object ):
+    def __init__( self ):
+        self._inv = inv
+        self.wasReceived = False
+        self.responses = []
+        self._event = Event()
+    
+    def _add( self, newData ):
+        if 'hbs.CLOUD_NOTIFICATION' == newData.keys()[ 0 ]:
+            self.wasReceived = True
+        else:
+            self.responses.append( newData )
+            self._event.set()
+    
+    def wait( self, timeout ):
+        return self._event.wait( timeout )
 
-    def __init__( self, fromActor, routing ):
+class SensorContext( object ):
+    __slots__ = [ '_actor', '_coprocessor', 'aid', 'routing' ]
+
+    def __init__( self, fromActor, coProcessor, routing ):
         self._actor = fromActor
+        self._coprocessor = coProcessor
         self.aid = AgentId( routing[ 'aid' ] )
         self.routing = routing
 
@@ -58,6 +77,17 @@ class SensorContext( object ):
 
         self._actor.tasking.shoot( 'task', data, key = dest )
         return True
+
+    @contextmanager
+    def taskResponse( self, cmdAndArgs, expiry = None ):
+        inv_id = str( uuid.uuid4() )
+        t = _TaskResp()
+        try:
+            self._coprocessor.investigationData[ inv_id ] = t
+            self.task( self, cmdAndArgs, expiry = expiry, inv_id = inv_id )
+            yield t
+        finally:
+            self._coprocessor.investigationData.pop( inv_id, None )
 
     def tag( self, tag, ttl = ( 60 * 60 * 24 * 365 ) ):
         if not self.isTagged( tag ):
@@ -90,6 +120,7 @@ class AnalyticsCoProcessor( object ):
     def init( self, parameters, resources, fromActor ):
         self._actor = fromActor
         self.rules = {}
+        self.investigationData = {}
 
         HostObjects.setDatabase( self._actor.db )
         KeyValueStore.setDatabase( self._actor.db )
@@ -104,12 +135,12 @@ class AnalyticsCoProcessor( object ):
         self.deploymentmanager = self._actor.getActorHandle( resources[ 'deployment' ], nRetries = 3, timeout = 30 )
         self.models = self._actor.getActorHandle( resources[ 'modeling' ], timeout = 30, nRetries = 3 )
         self.tagging = self._actor.getActorHandle( resources[ 'tagging' ], timeout = 30, nRetries = 3 )
-        self.reporting = self._actor.getActorHandle( resources[ 'reporting' ], timeout = 30, nRetries = 3 )
+        self.reporting = self._actor.getActorHandleGroup( resources[ 'reporting' ], timeout = 30, nRetries = 3 )
         self.paging = self._actor.getActorHandle( resources[ 'paging' ], timeout = 60, nRetries = 3 )
         self.tasking = self._actor.getActorHandle( resources[ 'autotasking' ], 
-                                             mode = 'affinity',
-                                             timeout = 60,
-                                             nRetries = 2 )
+                                                   mode = 'affinity',
+                                                   timeout = 60,
+                                                   nRetries = 2 )
 
         self.conf = {}
         self._actor.schedule( 60 * 60, self.reloadRules, None )
@@ -338,7 +369,7 @@ class AnalyticsCoProcessor( object ):
 
                     # Create a new somewhat special EventDSL that representa the detection.
                     detection = EventDSL( { 'detection_%s' % name : content or event.data }, 
-                                          { 'obj' : {}, 'rel' : {} }, 
+                                          event.mtd, 
                                           not sensor.aid.isWindows() )
                     self._actor.delay( 0, 
                                        self._actor.parallelExec, 
@@ -346,14 +377,9 @@ class AnalyticsCoProcessor( object ):
                                        self.rules.values() )
 
                     if isPublish:
-                        resp = self.reporting.request( 'detect', rep )
-
-                        if not resp.isSuccess:
-                            self._actor.log( "Failed to report: %s" % str( resp ) )
-
-                        return resp.isSuccess
-                    else:
-                        return True
+                        self.reporting.shoot( 'report_detect', rep )
+                    
+                    return True
                 self._actor.zInc( 'detections.%s' % rule[ 'name' ] )
                 self._actor.log( "!!! Rule %s matched: %s." % ( rule[ 'name' ], context ) )
                 rule[ 'action' ]( event, sensor, context, report, self.page )
@@ -404,10 +430,12 @@ class AnalyticsCoProcessor( object ):
         return ( True, )
 
     def analyze( self, routing, event, mtd ):
+        self._actor.delay( 0, self.forwardInvestigations, routing, event, mtd )
+
         if 0 == len( self.rules ):
             return True
 
-        sensor = SensorContext( self._actor, routing )
+        sensor = SensorContext( self._actor, self, routing )
         tmpEvent = EventDSL( event, mtd, not sensor.aid.isWindows() )
         self._actor.parallelExec( lambda rule: self.checkRule( rule, tmpEvent, sensor ), self.rules.values() )
 
@@ -428,6 +456,11 @@ class AnalyticsCoProcessor( object ):
 
         if inv_id is None:
             return
+
+        # Forward to local rules waiting for it.
+        t = self.investigationData.get( inv_id, None )
+        if t is not None:
+            t._add( EventDSL( event, mtd, not AgentId( routing[ 'aid' ] ).isWindows() ) )
 
         # We define the component after the // to be reserved for
         # the actor's internal routing so we don't route on it.

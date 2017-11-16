@@ -38,7 +38,8 @@ class IdentManager( Actor ):
         else:
             raise Exception( 'could not get admin oid' )
 
-        self.genDefaultsIfNotPresent()
+        if parameters.get( 'is_no_default', False ):
+            self.genDefaultsIfNotPresent()
 
         self.handle( 'authenticate', self.authenticate )
         self.handle( 'create_user', self.createUser )
@@ -140,7 +141,7 @@ class IdentManager( Actor ):
         password = req[ 'password' ]
         byUser = req[ 'by' ]
         isNoConfirm = req.get( 'no_confirm', False )
-        uid = uuid.uuid4()
+        uid = uuid.UUID( str( req.get( 'existing_uid', uuid.uuid4() ) ) )
         salt = hashlib.sha256( str( uuid.uuid4() ) ).hexdigest()
         salted_password = hashlib.sha256( '%s%s' % ( password, salt ) ).hexdigest()
         confirmationToken = str( uuid.uuid4() )

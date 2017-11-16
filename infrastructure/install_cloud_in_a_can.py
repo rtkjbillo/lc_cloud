@@ -89,7 +89,7 @@ printStep( 'Initializing Cassandra schema.',
                                                'scale_db.cql' ), ) ) )
 
 printStep( 'Installing pip packages for various analytics components.',
-    os.system( 'pip install time_uuid cassandra-driver virustotal' ),
+    os.system( 'pip install time_uuid cassandra-driver virustotal boto3' ),
     os.system( 'pip install ipaddress tld pyqrcode pypng termcolor' ),
     os.system( 'pip install slacker slackclient python-dateutil pyOpenSSL' ) )
 

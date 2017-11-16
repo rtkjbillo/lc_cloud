@@ -95,6 +95,7 @@ class _ClientContext( object ):
         self.int_ip = None
         self.ext_ip = None
         self.tags = []
+        self.n_frames_received = 0
 
     def setAid( self, aid ):
         self.aid = aid
@@ -140,6 +141,7 @@ class _ClientContext( object ):
         if (1024 * 1024 * 50) < frameSize:
             raise Exception( "frame size too large: %s" % frameSize )
         frame = self.recvData( frameSize, timeout = timeout )
+        self.n_frames_received += 1
         frame = zlib.decompress( frame )
         moduleId = struct.unpack( 'B', frame[ : 1 ] )[ 0 ]
         frame = frame[ 1 : ]
@@ -236,6 +238,8 @@ class AdvancedEndpointProcessor( Actor ):
         self.analyticsCoProcessor = AnalyticsCoProcessor().init( parameters, resources, self )
         self.storageCoProcessor = StorageCoProcessor().init( parameters, resources, self )
 
+        self.schedule( 30, self.updateClientStats )
+
         self.startServer()
 
     def deinit( self ):
@@ -269,6 +273,9 @@ class AdvancedEndpointProcessor( Actor ):
         while 0 != self.nConnected:
             self.log( "still %d clients connected" % self.nConnected )
             self.sleep( 5 )
+
+    def updateClientStats( self ):
+        self.zSet( 'client_frames', { k : v.n_frames_received for k, v in self.currentClients.iteritems() } )
 
     def startServer( self ):
         if self.server is not None:
@@ -565,11 +572,11 @@ class AdvancedEndpointProcessor( Actor ):
             mtd = EventObjectExtractor.extractFromEvent( message, routing[ 'aid' ] )
 
             try:
-                self.storageCoProcessor.process( routing, message, mtd )
+                self.delay( 0, self.storageCoProcessor.process, routing, message, mtd )
             except:
                 self.logCritical( "Failure in StorageCoProcessor: %s" % traceback.format_exc() )
             try:
-                self.analyticsCoProcessor.analyze( routing, message, mtd )
+                self.delay( 0, self.analyticsCoProcessor.analyze, routing, message, mtd )
             except:
                 self.logCritical( "Failure in AnalyticsCoProcessor: %s" % traceback.format_exc() )
 

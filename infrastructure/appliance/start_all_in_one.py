@@ -19,11 +19,20 @@ import argparse
 import yaml
 import socket
 import time
+import netifaces
 
 ORIGINAL_DIR = os.getcwd()
 ROOT_DIR = os.path.join( os.path.abspath( os.path.dirname( os.path.realpath( __file__ ) ) ), '..', '..', '..' )
 os.chdir( ROOT_DIR )
 BEACH_CONFIG = os.path.join( ROOT_DIR, 'cloud', 'beach', 'lc_appliance.yaml' )
+
+def getIpv4ForIface( iface ):
+    ip = None
+    try:
+        ip = netifaces.ifaddresses( iface )[ netifaces.AF_INET ][ 0 ][ 'addr' ]
+    except:
+        pass
+    return ip
 
 if __name__ == '__main__':
     if 0 == os.geteuid():
@@ -32,11 +41,18 @@ if __name__ == '__main__':
 
     parser = argparse.ArgumentParser( description = 'Start the LC appliance as an all in one cluster.' )
 
+    parser.add_argument( '-i', '--interface',
+                         type = str,
+                         dest = 'interface',
+                         required = False,
+                         default = 'eth0',
+                         help = 'The network interface to use as main cluster interface.' )
+
     args = parser.parse_args()
 
     ret = 0
 
-    if 0 != os.system( './cloud/infrastructure/appliance/start_node.py' ):
+    if 0 != os.system( './cloud/infrastructure/appliance/start_node.py --interface %s' % ( args.interface, ) ):
     	print( "! Failed to start node." )
     	sys.exit(1)
     if 0 != os.system( './cloud/infrastructure/appliance/start_ui.py' ):
