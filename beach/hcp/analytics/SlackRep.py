@@ -66,7 +66,6 @@ class SlackRep( Actor ):
         self.identManager = self.getActorHandle( resources[ 'identmanager' ], timeout = 30, nRetries = 3 )
         self.sensordir = self.getActorHandle( resources[ 'sensordir' ], timeout = 30, nRetries = 3 )
         self.tasking = self.getActorHandle( resources[ 'autotasking' ], timeout = 30, nRetries = 3 )
-        self.huntmanager = self.getActorHandle( resources[ 'huntsmanager' ], timeout = 30, nRetries = 3 )
 
         self.reps = {}
         self.uiDomain = 'http://limacharlie:8888'
@@ -140,9 +139,6 @@ class RepInstance( object ):
         self.invId = str( uuid.uuid4() )
         self.taskId = 0
         self.slackLinkRE = re.compile( r'<.+://.+\|(.+)>' )
-        resp = self.actor.huntmanager.request( 'reg_inv', { 'uid' : self.actor.name, 'name' : self.invId } )
-        if not resp.isSuccess:
-            raise Exception( 'failed to register investigation id for tasking: %s' % resp )
 
         self.history = { 'last_cmd' : [] }
 
