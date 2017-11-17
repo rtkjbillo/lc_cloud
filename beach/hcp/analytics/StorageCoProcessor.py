@@ -94,6 +94,7 @@ class StorageCoProcessor( object ):
         self.stmt_atoms_lookup = self.ingestStatement( 'INSERT INTO atoms_lookup ( atomid, eid ) VALUES ( ?, ? ) USING TTL ?' )
 
         self.stmt_detect_report = self.ingestStatement( 'INSERT INTO detects ( did, gen, source, dtype, events, detect, why ) VALUES ( ?, dateOf( now() ), ?, ?, ?, ?, ? ) USING TTL ?' )
+        self.stmt_detect_report_tl = self.ingestStatement( 'INSERT INTO detect_timeline ( oid, ts, did ) VALUES ( ?, now(), ? ) USING TTL ?' )
 
         self.nWrites = 0
         self.lastReport = time.time()
@@ -473,13 +474,18 @@ class StorageCoProcessor( object ):
                 self.s3TmpHandle.write( record )
                 self.s3TmpHandle.write( "\n" )
         if 0 < self.modelingLevel:
-            self.asyncInsert( self.stmt_detect_report.bind( ( record[ 'detect_id' ].upper(), 
+            detectId = record[ 'detect_id' ].upper()
+            source = AgentId( record[ 'source' ] )
+            self.asyncInsert( self.stmt_detect_report.bind( ( detectId, 
                                                               record[ 'source' ],
                                                               record[ 'cat' ],
-                                                              ' / '.join( record[ 'msg_ids' ],
+                                                              ' / '.join( record[ 'msg_ids' ] ),
                                                               base64.b64encode( msgpack.packb( msg.data[ 'detect' ] ) ),
                                                               record[  'summary' ],
-                                                              self.getOrgTtls( AgentId( record[ 'source' ] ).org_id ) ) ) ) )
+                                                              self.getOrgTtls( source.org_id )[ 'detections' ] )  ) )
+            self.asyncInsert( self.stmt_detect_report_tl.bind( ( source.org_id, 
+                                                                 detectId, 
+                                                                 self.getOrgTtls( source.org_id )[ 'detections' ] ) ) )
 
         return ( True, )
 
