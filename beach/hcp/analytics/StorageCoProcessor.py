@@ -76,6 +76,7 @@ class StorageCoProcessor( object ):
         self.default_ttl_short_obj = parameters[ 'retention_objects_secondary' ]
         self.default_ttl_atoms = parameters[ 'retention_explorer' ]
         self.default_ttl_detections = parameters[ 'retention_investigations' ]
+        self.ttlMutex = Mutex()
 
         self.stmt_events = self.ingestStatement( 'INSERT INTO events ( eventid, event, sid ) VALUES ( ?, ?, ? ) USING TTL ?' )
         self.stmt_timeline = self.ingestStatement( 'INSERT INTO timeline ( sid, ts, eventid, eventtype ) VALUES ( ?, ?, ?, ? ) USING TTL ?' )
@@ -216,11 +217,14 @@ class StorageCoProcessor( object ):
         if self.identmanager is not None:
             ttls = self.org_ttls.get( oid, None )
         if ttls is None:
-                res = self.identmanager.request( 'get_org_info', { 'oid' : oid } )
-                if res.isSuccess and 0 != len( res.data[ 'orgs' ] ):
-                    self.org_ttls[ oid ] = res.data[ 'orgs' ][ 0 ][ 2 ]
-                    ttls = self.org_ttls[ oid ]
-                    self._actor.log( 'using custom ttls for %s' % oid )
+            with self.ttlMutex:
+                ttls = self.org_ttls.get( oid, None )
+                if ttls is None:
+                    res = self.identmanager.request( 'get_org_info', { 'oid' : oid } )
+                    if res.isSuccess and 0 != len( res.data[ 'orgs' ] ):
+                        self.org_ttls[ oid ] = res.data[ 'orgs' ][ 0 ][ 2 ]
+                        ttls = self.org_ttls[ oid ]
+                        self._actor.log( 'using custom ttls for %s' % oid )
         
         if ttls is None:
             ttls = { 'events' : self.default_ttl_events,
