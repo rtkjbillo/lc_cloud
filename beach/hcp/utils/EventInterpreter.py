@@ -208,10 +208,10 @@ class EventDSL( object ):
         return _sanitizeJson( self.data )
 
     def atom( self ):
-        return normalAtom( _x_( self.event, '?/hbs.THIS_ATOM' ) )
+        return normalAtom( _x_( self.data, '?/hbs.THIS_ATOM' ) )
 
     def parentAtom( self ):
-        return normalAtom( _x_( self.event, '?/hbs.PARENT_ATOM' ) )
+        return normalAtom( _x_( self.data, '?/hbs.PARENT_ATOM' ) )
 
     def Event( self, **kwargs ):
         if isinstance( self.data, dict ):
