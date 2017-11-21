@@ -48,11 +48,11 @@ class _TaskResp ( object ):
         return self._event.wait( timeout )
 
 class SensorContext( object ):
-    __slots__ = [ '_actor', '_coprocessor', 'aid', 'routing' ]
+    __slots__ = [ '_actor', '_coProcessor', 'aid', 'routing' ]
 
     def __init__( self, fromActor, coProcessor, routing ):
         self._actor = fromActor
-        self._coprocessor = coProcessor
+        self._coProcessor = coProcessor
         self.aid = AgentId( routing[ 'aid' ] )
         self.routing = routing
 
@@ -75,7 +75,7 @@ class SensorContext( object ):
         if inv_id is not None:
             data[ 'inv_id' ] = inv_id
 
-        self.coProcessor.tasking.shoot( 'task', data, key = dest )
+        self._coProcessor.tasking.shoot( 'task', data, key = dest )
         return True
 
     @contextmanager
@@ -83,16 +83,16 @@ class SensorContext( object ):
         inv_id = str( uuid.uuid4() )
         t = _TaskResp()
         try:
-            self._coprocessor.investigationData[ inv_id ] = t
+            self._coProcessor.investigationData[ inv_id ] = t
             self.task( self, cmdAndArgs, expiry = expiry, inv_id = inv_id )
             yield t
         finally:
-            self._coprocessor.investigationData.pop( inv_id, None )
+            self._coProcessor.investigationData.pop( inv_id, None )
 
     def tag( self, tag, ttl = ( 60 * 60 * 24 * 365 ) ):
         if not self.isTagged( tag ):
             self._actor.log( "sent for tagging: %s" % tag )
-            self._coprocessor.tagging.shoot( 'add_tags', 
+            self._coProcessor.tagging.shoot( 'add_tags', 
                                              { 'tag' : tag, 
                                                'ttl' : ttl, 
                                                'sid' : self.aid.sensor_id, 
@@ -102,7 +102,7 @@ class SensorContext( object ):
     def untag( self, tag, ttl = ( 60 * 60 * 24 * 365 ) ):
         if not self.isTagged( tag ):
             self._actor.log( "sent for untagging: %s" % tag )
-            self._coprocessor.tagging.shoot( 'del_tags', 
+            self._coProcessor.tagging.shoot( 'del_tags', 
                                              { 'tag' : tag, 
                                                'ttl' : ttl, 
                                                'sid' : self.aid.sensor_id, 
