@@ -75,7 +75,7 @@ class SensorContext( object ):
         if inv_id is not None:
             data[ 'inv_id' ] = inv_id
 
-        self._actor.tasking.shoot( 'task', data, key = dest )
+        self.coProcessor.tasking.shoot( 'task', data, key = dest )
         return True
 
     @contextmanager
@@ -92,21 +92,21 @@ class SensorContext( object ):
     def tag( self, tag, ttl = ( 60 * 60 * 24 * 365 ) ):
         if not self.isTagged( tag ):
             self._actor.log( "sent for tagging: %s" % tag )
-            self._actor.tagging.shoot( 'add_tags', 
-                                       { 'tag' : tag, 
-                                         'ttl' : ttl, 
-                                         'sid' : self.aid.sensor_id, 
-                                         'by' : 'AnalyticsCoProcessor' } )
+            self._coprocessor.tagging.shoot( 'add_tags', 
+                                             { 'tag' : tag, 
+                                               'ttl' : ttl, 
+                                               'sid' : self.aid.sensor_id, 
+                                               'by' : 'AnalyticsCoProcessor' } )
         return True
 
     def untag( self, tag, ttl = ( 60 * 60 * 24 * 365 ) ):
         if not self.isTagged( tag ):
             self._actor.log( "sent for untagging: %s" % tag )
-            self._actor.tagging.shoot( 'del_tags', 
-                                       { 'tag' : tag, 
-                                         'ttl' : ttl, 
-                                         'sid' : self.aid.sensor_id, 
-                                         'by' : 'AnalyticsCoProcessor' } )
+            self._coprocessor.tagging.shoot( 'del_tags', 
+                                             { 'tag' : tag, 
+                                               'ttl' : ttl, 
+                                               'sid' : self.aid.sensor_id, 
+                                               'by' : 'AnalyticsCoProcessor' } )
         return True
 
     def isTagged( self, tag ):
